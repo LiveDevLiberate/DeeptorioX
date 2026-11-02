@@ -5,14 +5,21 @@ import os from "node:os";
 import path from "node:path";
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "autorio-runs-test-"));
-const fake = path.join(temp, "factorio.mjs");
-fs.writeFileSync(fake, `#!${process.execPath}\nimport fs from 'node:fs';\nconst a=process.argv.slice(2);\nif(a.includes('--version')) console.log('Version: 2.0.77 (test full game)');\nelse if(a.includes('--create')) fs.writeFileSync(a[a.indexOf('--create')+1], 'fixed baseline');\n`);
-fs.chmodSync(fake, 0o755);
-const fakeCodex = path.join(temp, "codex.mjs");
-fs.writeFileSync(fakeCodex, `#!${process.execPath}\nconst a=process.argv.slice(2);\nif(a.includes('--version'))console.log('codex test');\nelse if(a[0]==='login')console.log('logged in');\nelse if(process.env.AUTORIO_TEST_NO_FINAL) { const fs=await import('node:fs'); const path=await import('node:path'); const dir=path.join(process.env.CODEX_HOME,'sessions',new Date().toISOString().slice(0,10).replaceAll('-','/')); fs.mkdirSync(dir,{recursive:true}); fs.writeFileSync(path.join(dir,'rollout-interrupted-session.jsonl'),JSON.stringify({type:'event_msg',payload:{type:'token_count',info:{total_token_usage:{input_tokens:25,cached_input_tokens:10,output_tokens:3,total_tokens:28}}}})+'\\n'); console.log(JSON.stringify({type:'thread.started',thread_id:'interrupted-session'})); setInterval(()=>{},1000); }\nelse { console.log(JSON.stringify({type:'thread.started',thread_id:'test-session'})); console.log(JSON.stringify({type:'item.completed',item:{id:'message',type:'agent_message',text:'I claim success'}})); console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:20,output_tokens:5}})); }\n`);
-fs.chmodSync(fakeCodex, 0o755);
-const quotaCodex=path.join(temp,"quota-codex.mjs");
-fs.writeFileSync(quotaCodex, `#!${process.execPath}
+// Windows cannot execute shebang scripts directly; wrap them in a .cmd shim.
+const toExecutable = (script, name) => {
+  if (process.platform !== "win32") { fs.chmodSync(script, 0o755); return script; }
+  const launcher = path.join(temp, `${name}.cmd`);
+  fs.writeFileSync(launcher, `@echo off\r\n"${process.execPath}" "${script}" %*\r\n`);
+  return launcher;
+};
+const fakeScript = path.join(temp, "factorio.mjs");
+fs.writeFileSync(fakeScript, `#!${process.execPath}\nimport fs from 'node:fs';\nconst a=process.argv.slice(2);\nif(a.includes('--version')) console.log('Version: 2.0.77 (test full game)');\nelse if(a.includes('--create')) fs.writeFileSync(a[a.indexOf('--create')+1], 'fixed baseline');\n`);
+const fake = toExecutable(fakeScript, "factorio");
+const fakeCodexScript = path.join(temp, "codex.mjs");
+fs.writeFileSync(fakeCodexScript, `#!${process.execPath}\nconst a=process.argv.slice(2);\nif(a.includes('--version'))console.log('codex test');\nelse if(a[0]==='login')console.log('logged in');\nelse if(process.env.AUTORIO_TEST_NO_FINAL) { const fs=await import('node:fs'); const path=await import('node:path'); const dir=path.join(process.env.CODEX_HOME,'sessions',new Date().toISOString().slice(0,10).replaceAll('-','/')); fs.mkdirSync(dir,{recursive:true}); fs.writeFileSync(path.join(dir,'rollout-interrupted-session.jsonl'),JSON.stringify({type:'event_msg',payload:{type:'token_count',info:{total_token_usage:{input_tokens:25,cached_input_tokens:10,output_tokens:3,total_tokens:28}}}})+'\\n'); console.log(JSON.stringify({type:'thread.started',thread_id:'interrupted-session'})); setInterval(()=>{},1000); }\nelse { console.log(JSON.stringify({type:'thread.started',thread_id:'test-session'})); console.log(JSON.stringify({type:'item.completed',item:{id:'message',type:'agent_message',text:'I claim success'}})); console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:20,output_tokens:5}})); }\n`);
+const fakeCodex = toExecutable(fakeCodexScript, "codex");
+const quotaCodexScript=path.join(temp,"quota-codex.mjs");
+fs.writeFileSync(quotaCodexScript, `#!${process.execPath}
 import fs from 'node:fs';import path from 'node:path';
 const a=process.argv.slice(2);
 if(a.includes('--version'))console.log('codex quota test');
@@ -31,7 +38,7 @@ else {
  }
 }
 `);
-fs.chmodSync(quotaCodex,0o755);
+const quotaCodex=toExecutable(quotaCodexScript,"quota-codex");
 process.env.AUTORIO_DATA_DIR = temp;
 process.env.FACTORIO_BIN = fake;
 process.env.CODEX_BIN = fakeCodex;

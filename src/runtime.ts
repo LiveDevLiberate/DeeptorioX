@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
-import { spawn, execFile } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createHash, randomBytes } from "node:crypto";
+import { defaultFactorioBin, defaultFactorioData, execExecutable, personalFactorioConfig, requireSteamRunning, spawnExecutable } from "./platform.js";
 
 export const ROOT = process.cwd();
 const envPath = path.join(ROOT, ".env");
@@ -18,9 +18,8 @@ if (fs.existsSync(envPath)) {
 
 export const PORT = Number(process.env.AUTORIO_PORT || 3000);
 export const DATA_DIR = path.resolve(process.env.AUTORIO_DATA_DIR || path.join(ROOT, ".autorio"));
-export const FACTORIO_BIN = process.env.FACTORIO_BIN || path.join(os.homedir(),
-  "Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio");
-export const FACTORIO_DATA = process.env.FACTORIO_DATA || path.resolve(path.dirname(FACTORIO_BIN), "../data");
+export const FACTORIO_BIN = process.env.FACTORIO_BIN || defaultFactorioBin();
+export const FACTORIO_DATA = process.env.FACTORIO_DATA || defaultFactorioData(FACTORIO_BIN);
 export const SAVES_DIR = path.join(DATA_DIR, "saves");
 export const MANAGER_PROFILE = path.join(DATA_DIR, "manager");
 export const RCON_HOST = "127.0.0.1";
@@ -39,7 +38,7 @@ export function controlModHash() {
 }
 export async function prepareProfile(dir: string) {
   // Inherit only interface scaling; keep personal paths and credentials isolated.
-  const personalConfig = path.join(os.homedir(), "Library/Application Support/Factorio/config/config.ini");
+  const personalConfig = personalFactorioConfig();
   let interfaceScale: string[] = [];
   try {
     let section = "";
@@ -85,18 +84,35 @@ export function profileArgs(dir: string) {
 }
 
 export async function factorioVersion() {
-  if (process.platform !== "darwin") throw new Error("Autorio requires macOS.");
-  const { stdout } = await execFileAsync(FACTORIO_BIN, ["--version"], { timeout: 10_000 });
-  if (/demo/i.test(stdout)) throw new Error("FACTORIO_BIN points to the demo; select the full game.");
-  return stdout.trim();
+  if (!["darwin", "win32", "linux"].includes(process.platform)) throw new Error(`Autorio is not supported on ${process.platform}.`);
+  if (!fs.existsSync(FACTORIO_BIN)) {
+    throw new Error(`Factorio executable not found at ${FACTORIO_BIN}. Set FACTORIO_BIN in .env to the full game executable.`);
+  }
+  let reported = "";
+  let reportedError: unknown;
+  try {
+    reported = (await execExecutable(FACTORIO_BIN, ["--version"], { timeout: 20_000 })).stdout.trim();
+  } catch (error) { reportedError = error; }
+  if (/demo/i.test(reported)) throw new Error("FACTORIO_BIN points to the demo; select the full game.");
+  if (reported) return reported;
+  // The Windows Steam build is a GUI-subsystem executable and may not write
+  // --version to a redirected stdout pipe. Its base mod metadata is authoritative.
+  const dataVersion = readDataVersion();
+  if (dataVersion) return `Version: ${dataVersion} (${process.platform}, data)`;
+  if (reportedError) throw reportedError;
+  throw new Error("Factorio did not report a version. Run the game once from Steam, then retry.");
+}
+
+function readDataVersion(): string | undefined {
+  try {
+    const info = JSON.parse(fs.readFileSync(path.join(FACTORIO_DATA, "base", "info.json"), "utf8"));
+    if (typeof info?.version === "string" && /^\d+\.\d+\.\d+/.test(info.version)) return info.version;
+  } catch { /* fall through */ }
+  return undefined;
 }
 
 export async function requireSteam() {
-  if (!FACTORIO_BIN.includes("/Steam/")) return;
-  const { stdout } = await execFileAsync("/bin/ps", ["-axo", "comm="], { timeout: 5000 });
-  if (!stdout.split("\n").some(line => line.trim().endsWith("/steam_osx"))) {
-    throw new Error("Open Steam and sign in before starting a graphical Factorio run.");
-  }
+  await requireSteamRunning(FACTORIO_BIN);
 }
 
 /** Map creation is an offline operation; the full game supports it without graphics. */
@@ -106,7 +122,7 @@ export async function createMap(save: string, profile: string, settings: object,
   const settingsPath = path.join(profile, "map-gen-settings.json");
   await fs.promises.writeFile(settingsPath, JSON.stringify(settings, null, 2));
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(FACTORIO_BIN, [...profileArgs(profile), "--create", save,
+    const child = spawnExecutable(FACTORIO_BIN, [...profileArgs(profile), "--create", save,
       "--map-gen-settings", settingsPath], { env: factorioEnv, signal });
     let tail = "";
     const log = fs.createWriteStream(path.join(profile, "create.log"));

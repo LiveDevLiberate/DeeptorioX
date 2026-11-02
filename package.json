@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "run": "node dist/run-cli.js",
-    "test": "npm run build && node --test tests/*.test.mjs && python3 -m unittest discover -s tests -v"
+    "doctor": "npm run build && node scripts/doctor.mjs",
+    "test": "npm run build && node --test tests/*.test.mjs && node scripts/run-python-tests.mjs"
   },
   "dependencies": {},
   "devDependencies": {

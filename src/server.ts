@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
+import type { ChildProcess } from "node:child_process";
 import {obsStatus} from "./obs.js";
-import { spawn, execFileSync } from "child_process";
 import fsSync from "fs";
 import { promises as fs } from "fs";
 import path from "path";
@@ -10,11 +10,12 @@ import { randomUUID } from "crypto";
 import {
   ROOT, PORT, DATA_DIR, FACTORIO_BIN, SAVES_DIR, MANAGER_PROFILE,
   RCON_HOST, RCON_PORT, RCON_PASSWORD, factorioEnv, prepareProfile,
-  profileArgs, createMap, factorioVersion, requireSteam, execFileAsync,
+  profileArgs, createMap, factorioVersion, requireSteam,
 } from "./runtime.js";
 import {NativeController} from "./native-control.js";
 import { launchRocket, ROCKET_STATE_LUA } from "./rocket.js";
 import { RunManager } from "./runs.js";
+import { IS_WINDOWS, isProcessExecutable, isProcessRunning, killProcessTree, sampleProcessUsage, spawnExecutable } from "./platform.js";
 
 fsSync.mkdirSync(DATA_DIR, { recursive: true });
 const PID_FILE = path.join(DATA_DIR, "factorio.pid");
@@ -119,13 +120,14 @@ function normalizePrototypeData(data: any) {
   return data;
 }
 
-function readPidFile(): number | null {
+async function readPidFile(): Promise<number | null> {
   try {
     const text = fsSync.readFileSync(PID_FILE, "utf8").trim();
     const pid = Number(text);
     if (!Number.isInteger(pid) || pid <= 0) return null;
-    const command = execFileSync("/bin/ps", ["-p", String(pid), "-o", "command="], { encoding: "utf8", timeout: 2000 });
-    return command.includes(FACTORIO_BIN) && command.includes(`--config ${DATA_DIR}/`) ? pid : null;
+    if (!isProcessRunning(pid)) return null;
+    // The pid file can survive a crash; only adopt a process running this game.
+    return await isProcessExecutable(pid, FACTORIO_BIN) ? pid : null;
   } catch {
     return null;
   }
@@ -196,7 +198,7 @@ type RconState = {
 };
 
 type ServerState = {
-  proc: ReturnType<typeof spawn> | null;
+  proc: ChildProcess | null;
   procPid: number | null;
   save: string | null;
   startedAt: number | null;
@@ -243,7 +245,7 @@ function getRunningPid(): number | null {
   return null;
 }
 
-const existingPid = readPidFile();
+const existingPid = await readPidFile();
 if (existingPid && isPidRunning(existingPid)) {
   state.procPid = existingPid;
 } else if (existingPid) {
@@ -1236,11 +1238,7 @@ function pushLog(stream: "stdout" | "stderr", chunk: Buffer) {
 async function sampleUsage() {
   const pid = getRunningPid();
   if (!pid) { state.usage = { cpuPercent: null, rssBytes: null }; return; }
-  try {
-    const { stdout } = await execFileAsync("/bin/ps", ["-p", String(pid), "-o", "%cpu=,rss="], { timeout: 2000 });
-    const [cpu, rss] = stdout.trim().split(/\s+/).map(Number);
-    state.usage = { cpuPercent: Number.isFinite(cpu) ? cpu : null, rssBytes: Number.isFinite(rss) ? rss * 1024 : null };
-  } catch { state.usage = { cpuPercent: null, rssBytes: null }; }
+  state.usage = await sampleProcessUsage(pid);
 }
 
 function encodeRconPacket(id: number, type: number, body: string): Buffer {
@@ -1598,7 +1596,7 @@ async function startGame(savePath: string, profile: string, logFile?: string) {
       "--bind", "127.0.0.1:0", "--rcon-bind", `127.0.0.1:${RCON_PORT}`,
       "--rcon-password", RCON_PASSWORD, "--window-size", process.env.FACTORIO_WINDOW_SIZE || "1000x760"];
     if (process.env.FACTORIO_DISABLE_AUDIO === "1") args.push("--disable-audio");
-    const proc = spawn(FACTORIO_BIN, args, { cwd: ROOT, env: factorioEnv, stdio: ["ignore", "pipe", "pipe"] });
+    const proc = spawnExecutable(FACTORIO_BIN, args, { cwd: ROOT, env: factorioEnv, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     state.proc = proc; state.procPid = proc.pid ?? null;
     state.save = path.basename(savePath); state.startedAt = Date.now(); state.lastExit = null;
     activeSavePath = savePath; activeProfile = profile;
@@ -1622,12 +1620,19 @@ async function stopGame() {
   const pid = getRunningPid();
   if (!pid) return;
   if(state.rcon.connected)await nativeController.stop().catch(()=>{});
-  process.kill(pid, "SIGTERM");
-  const until = Date.now() + 10_000;
-  while (getRunningPid() && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 100));
-  if (getRunningPid()) {
-    process.kill(pid, "SIGKILL");
-    await new Promise(resolve => setTimeout(resolve, 200));
+  if (IS_WINDOWS) {
+    // Factorio only writes save state through RCON here, so the tree can be terminated.
+    killProcessTree(pid, true);
+    const until = Date.now() + 10_000;
+    while (getRunningPid() && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 100));
+  } else {
+    process.kill(pid, "SIGTERM");
+    const until = Date.now() + 10_000;
+    while (getRunningPid() && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 100));
+    if (getRunningPid()) {
+      process.kill(pid, "SIGKILL");
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
   }
   if (state.procPid === pid && !isPidRunning(pid)) { state.procPid = null; clearPidFile(); }
 }

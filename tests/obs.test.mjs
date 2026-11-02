@@ -43,7 +43,8 @@ test('OBS records only the two run windows at 5 fps, mutes audio, and restores t
   assert.equal(state.fps,5);assert.equal(state.profile,OBS_PROFILE);assert.equal(state.active,true);
   const captures=state.calls.filter(([type])=>type==='SetInputSettings');
   assert.deepEqual(captures.map(([,data])=>data.inputSettings.window),[11,22]);
-  assert.ok(captures.every(([,data])=>data.inputSettings.type===1));
+  if(process.platform==="win32")assert.ok(captures.every(([,data])=>data.inputSettings.window));
+  else assert.ok(captures.every(([,data])=>data.inputSettings.type===1));
   assert.equal(state.mutes['Mic/Aux'],true);
   assert.ok(state.calls.findIndex(([type])=>type==='SetVideoSettings')<state.calls.findIndex(([type])=>type==='StartRecord'));
   const output=await recorder.stop();assert.equal(output,path.join(dir,'video','capture.mov'));

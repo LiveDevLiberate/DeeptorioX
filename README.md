@@ -1,28 +1,63 @@
 # autorio
 
-A macOS scaffold for running visible Factorio games, launching Codex agents through
-an importable Python library, and recording comparable playthroughs. The full game
-hosts a private local multiplayer session, providing both the player character and
-RCON in one graphical process. No second computer or dedicated-server installation
-is required. OBS can automatically capture run timelapses (see below).
+A macOS and Windows scaffold for running visible Factorio games, launching Codex
+agents through an importable Python library, and recording comparable playthroughs.
+The full game hosts a private local multiplayer session, providing both the player
+character and RCON in one graphical process. No second computer or dedicated-server
+installation is required. OBS can automatically capture run timelapses (see below).
 
 ## First run
 
-Requirements: macOS, the full Factorio game (tested with Steam 2.0.77 on Apple
-Silicon), Node.js 22+, Python 3, and a logged-in Codex CLI. Open Steam and sign in
-before launching a game. The demo is not supported.
+Requirements: the full Factorio game (tested with Steam 2.0.77), Node.js 22+,
+Python 3, and a logged-in Codex CLI. Open Steam and sign in before launching a
+game. The demo is not supported.
 
 ```bash
 npm ci
 npm run build
-./autorio start smoke
+./autorio start smoke        # macOS/Linux
+autorio.cmd start smoke      # Windows (PowerShell or cmd.exe)
 ```
 
-`./autorio` finds Node on PATH, in standard Homebrew locations, or in the bundled
-Codex runtime on this machine. It rebuilds changed TypeScript automatically. You
-can also use `npm run run -- start smoke` after building. The manager starts
-automatically and remains available after the run. `./autorio shutdown` stops an
-active run and closes the manager; use it before restarting with changed code.
+`./autorio` (or `autorio.cmd` on Windows) finds Node on PATH, in standard
+install locations, or in the bundled Codex runtime on this machine. On Windows,
+`autorio.cmd` delegates to `autorio.ps1`, so no execution-policy change is needed.
+It rebuilds changed TypeScript automatically. You can also use
+`npm run run -- start smoke` after building. The manager starts automatically and
+remains available after the run. `./autorio shutdown` stops an active run and
+closes the manager; use it before restarting with changed code.
+
+### Windows notes
+
+- Run commands from PowerShell or `cmd.exe` as `autorio.cmd start smoke`
+  (`.\autorio.cmd` also works in PowerShell). `npm run` and `python factorio.py`
+  work unchanged. Run `npm run doctor` to check Factorio, Codex, Python, the
+  recording browser, and optional video prerequisites.
+- Install the Codex CLI for Windows (for example `npm install -g @openai/codex`)
+  and run `codex login` once; runs reuse that login. `CODEX_BIN` can point at a
+  different `codex.exe`/`codex.cmd`. Keep the CLI current: runs rely on its
+  `workspace-write` sandbox and `codex exec --json` events.
+- The Steam, GOG, and standalone install locations under
+  `C:\Program Files (x86)\Steam\steamapps\common\Factorio\bin\x64\factorio.exe`
+  (and additional Steam library folders) are detected automatically. If your
+  install is elsewhere, set `FACTORIO_BIN` in `.env`.
+- The recording view opens in a Chromium app-mode window (Edge or Chrome) titled
+  **Agent transcript**, isolated by its own browser profile. It closes two seconds
+  after the run ends. Set `AUTORIO_BROWSER` to use a different Edge/Chrome build.
+- `--terminal` opens a separate `cmd.exe` window running the same viewer; it
+  closes when the run ends.
+- Processes are stopped with `taskkill /T`, so Factorio and any Codex child
+  processes do not survive a stopped run.
+- Windows Firewall can block loopback; allow Node.js/`factorio.exe` on private
+  networks if RCON or the dashboard cannot connect.
+- Automatic OBS timelapses work through OBS WebSocket with `window_capture`
+  sources. Conversion to the 6× MP4 uses FFmpeg instead of AVFoundation:
+  install it (`winget install Gyan.FFmpeg`) or set `FFMPEG_BIN`/`FFPROBE_BIN`.
+  Without FFmpeg, `--video` runs fail at conversion; leave video off otherwise.
+- Tests: `npm test` builds the TypeScript, runs the lifecycle tests (fake
+  processes use `.cmd` shims on Windows), and discovers Python 3 through `py -3`
+  or `python`. Python examples below use `python3`; on Windows use `python`.
+
 
 The smoke benchmark asks Codex to craft one gear. It verifies the entire launch,
 Python action, production recording, final-save, and shutdown path. For a real
@@ -53,8 +88,9 @@ failed commands are marked in the summary. Words come from Codex's structured
 are added. Reasoning summaries appear only when emitted by the selected model.
 It follows new output unless you scroll up. The standalone recording window
 automatically closes two seconds after completion, failure, stop, timeout, or interruption.
-The manager opens a dedicated macOS window containing the web recording view,
-with no browser tabs or address bar. Both dashboard and CLI launches use it.
+The manager opens a dedicated window containing the web recording view (a native
+window on macOS, an Edge/Chrome app window on Windows), with no browser tabs or
+address bar. Both dashboard and CLI launches use it.
 Closing it manually does not stop the run. You can reopen saved output using
 the dashboard’s Recording view link, which stays open in the browser.
 `--detach` prints the URL without opening a window; `--watch` follows operator logs here.
@@ -64,7 +100,7 @@ Exact structured output is saved in `agent.events.jsonl`; separate
 keep their original display. Closing the view does not stop the benchmark.
 Use `./autorio stop RUN_ID` to stop it.
 
-Use `--terminal` (or `AUTORIO_TERMINAL=1`) for the optional macOS Terminal viewer.
+Use `--terminal` (or `AUTORIO_TERMINAL=1`) for the optional terminal viewer.
 This CLI-only mode uses native human output,
 saved verbatim in `codex.log`. That viewer runs directly without an
 interactive shell and closes two seconds after the run ends. Default Terminal
@@ -77,7 +113,8 @@ objective is independently observed, its time limit expires, the operator stops
 it, or the agent/game/telemetry fails. An agent's success claim or zero exit code
 alone does not count as completion. Runs do not automatically resume after a
 manager restart; unfinished records become `interrupted`. Stop any surviving game
-with `python3 factorio.py server-stop` before starting a replacement run.
+with `python3 factorio.py server-stop` (or `python factorio.py server-stop` on
+Windows) before starting a replacement run.
 
 Open [the runs dashboard](http://127.0.0.1:3000/) to launch runs and monitor the
 current run's progress. Click a run in the history to open its Run Details page:
@@ -143,8 +180,8 @@ Optional `.env` settings (process environment takes precedence):
 
 | Setting | Default / purpose |
 | --- | --- |
-| `FACTORIO_BIN` | Steam's `factorio.app/Contents/MacOS/factorio` under `~/Library/Application Support/Steam/steamapps/common/Factorio/` |
-| `FACTORIO_DATA` | The app's `Contents/data` directory, derived from the executable |
+| `FACTORIO_BIN` | macOS: Steam's `factorio.app/Contents/MacOS/factorio`. Windows: `...\steamapps\common\Factorio\bin\x64\factorio.exe` (Steam, GOG, or standalone, auto-detected). |
+| `FACTORIO_DATA` | The install's `data` directory, derived from the executable (`Contents/data` on macOS, `<install>\data` on Windows). |
 | `AUTORIO_DATA_DIR` | `.autorio` in this repository |
 | `AUTORIO_PORT` | `3000`; HTTP is bound to localhost |
 | `RCON_PORT` | `27015`; RCON is bound to localhost |
@@ -152,16 +189,20 @@ Optional `.env` settings (process environment takes precedence):
 | `FACTORIO_WINDOW_SIZE` | `1000x760` |
 | `FACTORIO_DISABLE_AUDIO` | Set to `1` for silent runs |
 | `AUTORIO_STARTUP_SECONDS` | `180`; maximum graphical readiness wait |
-| `AUTORIO_TERMINAL` | Set to `1` to use the optional Terminal viewer instead of web recording view |
+| `AUTORIO_TERMINAL` | Set to `1` to use the optional terminal viewer instead of web recording view |
+| `AUTORIO_BROWSER` | Windows/macOS: optional path to the Edge/Chrome executable used for the recording window |
 | `CODEX_BIN` | `codex` on PATH, or this machine's bundled Codex CLI |
+| `FFMPEG_BIN` / `FFPROBE_BIN` | Windows: FFmpeg tools used for 5 fps → 30 fps timelapse conversion; found on PATH by default |
+| `OBS_BIN` | Windows: optional path to `obs64.exe` if OBS is not in its default install directory |
 | `FACTORIO_API_BASE` | Python/CLI connection override; normally `http://127.0.0.1:3000` |
-| `NODE_BIN` | Optional Node path for `./autorio` |
+| `NODE_BIN` | Optional Node path for `./autorio` / `autorio.cmd` |
 
 The installation directory and personal saves/configuration are not modified.
 Graphical startup may take tens of seconds. A first-launch Steam/login dialog or
 incompatible save/mod version can prevent readiness; inspect `factorio.log` and
-the game window. Keep the manager in normal macOS execution context: a restricted
-host sandbox can prevent Steam, graphics, process inspection, or loopback access.
+the game window. Keep the manager in a normal desktop execution context: a restricted
+host sandbox or Windows service session can prevent Steam, graphics, process
+inspection, or loopback access.
 
 The game bridge is a cooperative evaluation interface, not a security boundary
 against a hostile agent. The manager retains raw RCON and management tools for
@@ -363,8 +404,8 @@ summary show a combined label such as `gpt-6.1-sol (high)`.
 
 OBS Studio 28+ includes WebSocket control; no OBS CLI or MCP plugin is required.
 Enable **Tools → WebSocket Server Settings → Enable WebSocket server**, keep
-**Enable Authentication** on, and allow OBS macOS Screen Recording access when
-prompted. The manager reads the existing password from OBS's local configuration
+**Enable Authentication** on, and allow OBS screen-capture permission when prompted
+(macOS Screen Recording; Windows graphics capture needs no extra permission). The manager reads the existing password from OBS's local configuration
 without exposing it to the agent. `OBS_WEBSOCKET_URL` (localhost only) and
 `OBS_WEBSOCKET_PASSWORD` can override connection settings.
 
@@ -390,9 +431,10 @@ states are restored afterwards. The runner refuses to take over an active OBS
 recording, stream, virtual camera, or replay buffer.
 
 Recording starts before agent timing, stops before the game closes, and is saved
-under `.autorio/runs/<id>/video/`. The original MOV remains available. macOS
-AVFoundation converts every captured frame into a silent **30 fps H.264 MP4**, so
-playback is **6×** faster. No FFmpeg install is needed. Conversion runs in the
+under `.autorio/runs/<id>/video/`. The original capture remains available. macOS
+AVFoundation (or FFmpeg on Windows) converts every captured frame into a silent
+**30 fps H.264 MP4**, so playback is **6×** faster. Windows requires FFmpeg on PATH
+or `FFMPEG_BIN`; macOS needs no extra install. Conversion runs in the
 background after the benchmark, and its status/playback/download appear on Run
 Details. `video/timelapse.json` records verified frame count, FPS, and duration.
 Do not minimize either captured window while recording.

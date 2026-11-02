@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { spawn, ChildProcess } from "node:child_process";
+import { ChildProcess } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { StringDecoder } from "node:string_decoder";
 import { performance } from "node:perf_hooks";
@@ -13,6 +13,7 @@ import { sessionUsage } from "./token-usage.js";
 import {ObsRunRecorder,obsEnabled,ensureObsRunning,connectObs} from "./obs.js";
 import {renderTimelapse,verifyTimelapseMetadata} from "./timelapse.js";
 import { openRunRecording } from "./recording-window.js";
+import { IS_MACOS, IS_WINDOWS, codexExecutable, execExecutable, killProcessTree, spawnExecutable } from "./platform.js";
 
 export type RunState = "preparing" | "launching" | "running" | "saving" | "completed" | "failed" | "stopped" | "timed_out" | "interrupted" | "paused";
 type Video = NonNullable<Run["video"]>;
@@ -308,7 +309,8 @@ export class RunManager {
       let windowId:number|undefined;
       if(!this.hooks.startVideo) {
         const viewer=JSON.parse(fs.readFileSync(path.join(dir,"recording-window.json"),"utf8"));
-        if(Number.isInteger(viewer.window_id) && viewer.window_id>0)windowId=viewer.window_id;
+        // macOS OBS selects a screen_capture window by its native window number.
+        if(IS_MACOS && Number.isInteger(viewer.window_id) && viewer.window_id>0)windowId=viewer.window_id;
       }
       this.videoRecorder=await (this.hooks.startVideo?this.hooks.startVideo(this.videoDir(run)):ObsRunRecorder.start(this.videoDir(run),undefined,run.id,windowId));
       run.video!.state="recording";this.persist(run);
@@ -336,16 +338,13 @@ export class RunManager {
   }
 
   private codexBin() {
-    if (process.env.CODEX_BIN) return process.env.CODEX_BIN;
-    const bundled = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex";
-    const installed = (process.env.PATH || "").split(path.delimiter).some(p => fs.existsSync(path.join(p, "codex")));
-    return installed ? "codex" : fs.existsSync(bundled) ? bundled : "codex";
+    return codexExecutable();
   }
   private async checkCodex(run: Run) {
-    const { stdout } = await execFileAsync(this.codexBin(), ["--version"], { timeout: 10_000 });
+    const { stdout } = await execExecutable(this.codexBin(), ["--version"], { timeout: 10_000 });
     run.versions!.codex = stdout.trim();
     // Fail before starting the clock if authentication is missing.
-    await execFileAsync(this.codexBin(), ["login", "status"], { timeout: 10_000 });
+    await execExecutable(this.codexBin(), ["login", "status"], { timeout: 10_000 });
   }
   private launchCodex(run: Run, workspace: string, resuming=false) {
     const usageBeforeTurn=resuming?{...run.usage}:{};
@@ -362,7 +361,11 @@ export class RunManager {
     const env: NodeJS.ProcessEnv = { ...process.env, FACTORIO_API_BASE: `http://127.0.0.1:${PORT}` };
     delete env.RCON_PASSWORD;
     delete env.OBS_WEBSOCKET_PASSWORD;
-    const child = spawn(this.codexBin(), args, { cwd: workspace, env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawnExecutable(this.codexBin(), args, {
+      cwd: workspace, env, stdio: ["ignore", "pipe", "pipe"],
+      // POSIX uses a process group for cleanup; Windows uses taskkill /T instead.
+      detached: !IS_WINDOWS, windowsHide: true,
+    });
     this.agent = child;
     fs.mkdirSync(this.segmentDir(run),{recursive:true});
     fs.writeFileSync(path.join(this.segmentDir(run),"agent-launch.json"),JSON.stringify({executable:this.codexBin(),args},null,2));
@@ -496,11 +499,13 @@ export class RunManager {
       if(state==="paused" && this.hooks.running())await this.hooks.command("/sc game.tick_paused=true; rcon.print('paused')").catch(error=>run.warnings.push(`Pause game: ${errorText(error)}`));
       if (this.agent?.pid) {
         const child = this.agent;
-        try { process.kill(-child.pid!, "SIGTERM"); } catch { /* already exited */ }
+        const pid = child.pid!;
+        killProcessTree(pid, false);
         if (child.exitCode === null && child.signalCode === null) {
           await Promise.race([new Promise(resolve => child.once("close", resolve)), sleep(3000)]);
         }
-        try { process.kill(-child.pid!, "SIGKILL"); } catch { /* group already exited */ }
+        // Windows tree kill is already recursive; POSIX still needs the group signal.
+        if (child.exitCode === null && child.signalCode === null) killProcessTree(pid, true);
       }
       this.captureUsage(run);
       this.agent = undefined;

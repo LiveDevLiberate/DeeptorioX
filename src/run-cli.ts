@@ -23,7 +23,7 @@ async function ensureManager() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const log = fs.openSync(path.join(DATA_DIR, "manager.log"), "a");
   const child = spawn(process.execPath, [fileURLToPath(new URL("./server.js", import.meta.url))], {
-    detached: true, stdio: ["ignore", log, log],
+    detached: true, stdio: ["ignore", log, log], windowsHide: true,
     env: { ...process.env, PATH: `${path.dirname(process.execPath)}${path.delimiter}${process.env.PATH || ""}` },
   });
   child.unref(); fs.closeSync(log);
@@ -63,7 +63,9 @@ async function watch(id: string) {
 async function main() {
   if(command==="obs-status"){console.log(JSON.stringify(await obsStatus(),null,2));return;}
   if (["help", "--help", "-h"].includes(command)) {
-    console.log(`Autorio runs (macOS)\n\n  ./autorio start [smoke|automation|rocket] [--model NAME] [--thinking LEVEL] [--seconds N] [--manual] [--detach] [--terminal] [--watch] [--video|--no-video]\n  ./autorio benchmarks\n  ./autorio list\n  ./autorio show RUN_ID\n  ./autorio watch RUN_ID\n  ./autorio stop RUN_ID\n  ./autorio resume RUN_ID\n  ./autorio compare RUN_ID RUN_ID [...]\n  ./autorio obs-status\n  ./autorio shutdown\n\nStart opens graphical Factorio and runs Codex. Steam must be running and signed in.\nA standalone recording window opens for the run and closes two seconds after it ends.\nUse --terminal for the optional macOS Terminal viewer; --watch follows operator logs here. Ctrl-C while watching stops and saves the run.\n--thinking selects reasoning effort (default low; supported levels depend on model).\n--manual starts the game and telemetry without Codex for integration/debugging.\nshutdown stops any run and closes the manager. Equivalent npm entry: npm run run -- COMMAND`);
+    const cli = process.platform === "win32" ? "autorio.cmd" : "./autorio";
+    const osName = process.platform === "win32" ? "Windows" : process.platform === "darwin" ? "macOS" : "Linux";
+    console.log(`Autorio runs (${osName})\n\n  ${cli} start [smoke|automation|rocket] [--model NAME] [--thinking LEVEL] [--seconds N] [--manual] [--detach] [--terminal] [--watch] [--video|--no-video]\n  ${cli} benchmarks\n  ${cli} list\n  ${cli} show RUN_ID\n  ${cli} watch RUN_ID\n  ${cli} stop RUN_ID\n  ${cli} resume RUN_ID\n  ${cli} compare RUN_ID RUN_ID [...]\n  ${cli} obs-status\n  ${cli} shutdown\n\nStart opens graphical Factorio and runs Codex. Steam must be running and signed in.\nA standalone recording window opens for the run and closes two seconds after it ends.\nUse --terminal for the optional terminal viewer; --watch follows operator logs here. Ctrl-C while watching stops and saves the run.\n--thinking selects reasoning effort (default low; supported levels depend on model).\n--manual starts the game and telemetry without Codex for integration/debugging.\nshutdown stops any run and closes the manager. Equivalent npm entry: npm run run -- COMMAND`);
     return;
   }
   if (command === "shutdown") { await api("/api/manager/stop", {}); console.log("Manager shutdown requested; any active run will be stopped and saved."); return; }

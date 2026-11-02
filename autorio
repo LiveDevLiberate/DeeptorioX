@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""macOS entry point: find Node, build if needed, and invoke the run CLI."""
+"""POSIX entry point (macOS/Linux): find Node, build if needed, invoke the run CLI."""
 import os
 from pathlib import Path
 import shutil

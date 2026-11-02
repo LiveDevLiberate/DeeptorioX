@@ -16,7 +16,7 @@ if (process.stdout.isTTY) {
 process.on("exit", () => {
   fs.writeFileSync(viewerState, JSON.stringify({ pid: process.pid, exited_at: new Date().toISOString() }));
 });
-for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(signal, () => process.exit(0));
+for (const signal of (process.platform === "win32" ? ["SIGINT", "SIGTERM"] : ["SIGINT", "SIGTERM", "SIGHUP"]) as NodeJS.Signals[]) process.on(signal, () => process.exit(0));
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const terminal = new Set(["completed", "failed", "stopped", "timed_out", "interrupted", "paused"]);
