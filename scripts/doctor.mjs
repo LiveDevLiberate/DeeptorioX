@@ -23,6 +23,11 @@ await check("Codex CLI", async () => {
   return `${stdout.trim()} · ${codexExecutable()}`;
 });
 await check("Codex login", async () => {
+  if (process.env.AUTORIO_CODEX_PROVIDER) {
+    const envKey = process.env.AUTORIO_CODEX_ENV_KEY || "OPENCODE_API_KEY";
+    if (!process.env[envKey]) throw new Error(`${envKey} is not set for provider ${process.env.AUTORIO_CODEX_PROVIDER}`);
+    return `custom provider ${process.env.AUTORIO_CODEX_PROVIDER} (${envKey} set)`;
+  }
   await execExecutable(codexExecutable(), ["login", "status"], { timeout: 20_000 });
   return "signed in";
 });

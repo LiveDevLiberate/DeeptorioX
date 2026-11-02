@@ -53,6 +53,27 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const sha256 = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 const errorText = (e: unknown) => e instanceof Error ? e.message : String(e);
 
+/** Extra Codex overrides for an OpenAI-compatible provider (for example OpenCode Go → DeepSeek). */
+function codexProviderArgs(): string[] {
+  const provider = process.env.AUTORIO_CODEX_PROVIDER?.trim();
+  if (!provider) return [];
+  const baseUrl = process.env.AUTORIO_CODEX_BASE_URL?.trim();
+  if (!baseUrl) throw new Error("AUTORIO_CODEX_PROVIDER requires AUTORIO_CODEX_BASE_URL");
+  const envKey = process.env.AUTORIO_CODEX_ENV_KEY?.trim() || "OPENCODE_API_KEY";
+  const wireApi = process.env.AUTORIO_CODEX_WIRE_API?.trim() || "responses";
+  const quote = (value: string) => JSON.stringify(value);
+  return [
+    "-c", `model_provider=${quote(provider)}`,
+    "-c", `model_providers.${provider}.name=${quote(provider)}`,
+    "-c", `model_providers.${provider}.base_url=${quote(baseUrl)}`,
+    "-c", `model_providers.${provider}.env_key=${quote(envKey)}`,
+    "-c", `model_providers.${provider}.wire_api=${quote(wireApi)}`,
+    ...(process.env.AUTORIO_CODEX_CONTEXT_WINDOW
+      ? ["-c", `model_context_window=${Number(process.env.AUTORIO_CODEX_CONTEXT_WINDOW)}`]
+      : []),
+  ];
+}
+
 export class RunManager {
   readonly benchmarks = loadBenchmarks(ROOT);
   readonly root = path.join(DATA_DIR, "runs");
@@ -343,6 +364,13 @@ export class RunManager {
   private async checkCodex(run: Run) {
     const { stdout } = await execExecutable(this.codexBin(), ["--version"], { timeout: 10_000 });
     run.versions!.codex = stdout.trim();
+    if (process.env.AUTORIO_CODEX_PROVIDER?.trim()) {
+      // Custom providers use an environment API key, not the Codex login session.
+      const envKey = process.env.AUTORIO_CODEX_ENV_KEY?.trim() || "OPENCODE_API_KEY";
+      if (!process.env[envKey]) throw new Error(`Set ${envKey} for the configured Codex provider`);
+      codexProviderArgs();
+      return;
+    }
     // Fail before starting the clock if authentication is missing.
     await execExecutable(this.codexBin(), ["login", "status"], { timeout: 10_000 });
   }
@@ -350,11 +378,13 @@ export class RunManager {
     const usageBeforeTurn=resuming?{...run.usage}:{};
     run.output_format = run.terminal ? "native" : "events";
     this.persist(run);
-    const args = ["exec", ...(run.terminal ? ["--color", "always"] : ["--json"]), "--ignore-user-config", "--sandbox", "workspace-write",
+    const args = ["exec", ...(run.terminal ? ["--color", "always"] : ["--json"]), "--ignore-user-config",
+      "--sandbox", process.env.AUTORIO_CODEX_SANDBOX?.trim() || "workspace-write",
       "-c", "sandbox_workspace_write.network_access=true", "--skip-git-repo-check", "-C", workspace,
       "--output-last-message", path.join(workspace, "REPORT.md")];
     if (run.model) args.push("--model", run.model);
     if (run.reasoning_effort) args.push("-c", `model_reasoning_effort=${JSON.stringify(run.reasoning_effort)}`);
+    args.push(...codexProviderArgs());
     if(resuming && run.session_id)args.push("resume",run.session_id);
     args.push((resuming?"Continue the same benchmark from its saved game. Read RESUME.md and re-observe the player/world before acting. ":"")+"Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
       "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.");

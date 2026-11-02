@@ -400,6 +400,33 @@ an unsupported combination is reported by Codex. Run metadata saves the separate
 `model` and `reasoning_effort` fields, while the dashboard, comparisons, CLI, and
 summary show a combined label such as `gpt-6.1-sol (high)`.
 
+### Using another model provider
+
+Runs normally use the signed-in Codex account. To point Codex at an
+OpenAI-compatible provider, set these in `.env` (or the process environment):
+
+```ini
+AUTORIO_CODEX_PROVIDER=opencode-go
+AUTORIO_CODEX_BASE_URL=https://opencode.ai/inference/go/openai/v1
+AUTORIO_CODEX_ENV_KEY=OPENCODE_API_KEY
+OPENCODE_API_KEY=...
+# Optional
+AUTORIO_CODEX_WIRE_API=responses
+AUTORIO_CODEX_CONTEXT_WINDOW=1000000
+AUTORIO_CODEX_SANDBOX=workspace-write
+```
+
+The provider table is passed to `codex exec` as `-c` overrides, so personal Codex
+configuration is still ignored. The Codex login check is skipped because the key
+comes from the environment. Example with OpenCode Go's DeepSeek model:
+
+```bash
+./autorio start smoke --model deepseek-v4.1-flash --thinking low
+```
+
+`AUTORIO_CODEX_SANDBOX` defaults to `workspace-write`; on Windows, if Codex
+rejects that sandbox, set it to `danger-full-access` for a local test.
+
 ## Automatic OBS timelapses
 
 OBS Studio 28+ includes WebSocket control; no OBS CLI or MCP plugin is required.
