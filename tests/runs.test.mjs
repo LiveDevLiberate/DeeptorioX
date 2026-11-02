@@ -115,7 +115,7 @@ test("operator stop and wall-clock limit produce distinct terminal states", asyn
 
 test("a successful agent exit does not count as game success", async () => {
   const { manager } = setup();
-  const run = manager.start({ benchmark: "smoke", model: "test-model", reasoning_effort: "high" });
+  const run = manager.start({ benchmark: "smoke", model: "test-model", reasoning_effort: "high", agent: "codex" });
   assert.equal(run.model_label, "test-model (high)");
   assert.match(run.id, /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_P[DS]T-[a-f0-9]{8}$/);
   await waitFor(() => manager.get(run.id).state === "failed");
@@ -143,7 +143,7 @@ test("a successful agent exit does not count as game success", async () => {
 
 test("stop during preparation cannot start an agent or leave a live run", async () => {
   const { manager } = setup();
-  const run = manager.start({ benchmark: "smoke", recording: false });
+  const run = manager.start({ benchmark: "smoke", recording: false, agent: "codex" });
   assert.equal(run.recording, false);
   await manager.stop();
   assert.equal(manager.get(run.id).state, "stopped");
@@ -166,7 +166,7 @@ test("stopping an agent retains session token counters without a final turn even
   process.env.AUTORIO_TEST_NO_FINAL = "1";
   const {manager}=setup();
   try {
-    const run=manager.start({benchmark:"smoke"});
+    const run=manager.start({benchmark:"smoke",agent:"codex"});
     await waitFor(()=>manager.get(run.id).session_id === "interrupted-session");
     await manager.stop();
     const result=manager.get(run.id);
@@ -181,7 +181,7 @@ test("stopping an agent retains session token counters without a final turn even
 test("video stops before game shutdown and rendering completes after scoring", async () => {
   let stoppedVideo=false;
   const env=setup({startVideo:async dir=>({stop:async()=>{assert.equal(env.stopped(),0);stoppedVideo=true;return path.join(dir,"video","capture.mov");}}),renderVideo:async()=>{assert.equal(stoppedVideo,true);assert.equal(env.stopped(),1);return {fps:30,frames:30,duration_seconds:1};}});
-  const run=env.manager.start({benchmark:"smoke",capture_video:true});
+  const run=env.manager.start({benchmark:"smoke",capture_video:true,agent:"codex"});
   await waitFor(()=>env.manager.get(run.id).state==="running");
   env.produce();
   await waitFor(()=>env.manager.get(run.id).video?.state==="ready");
@@ -198,7 +198,7 @@ test("quota errors checkpoint immediately, survive manager restart, and resume t
  env.hooks.start=async(save,...args)=>{loads.push(save);await new Promise(r=>setTimeout(r,250));await start(save,...args);};
  env.hooks.command=async lua=>{commands.push(lua);return command(lua);};
  try {
-  const run=manager.start({benchmark:"smoke",capture_video:true,max_seconds:30});
+  const run=manager.start({benchmark:"smoke",capture_video:true,max_seconds:30,agent:"codex"});
   await waitFor(()=>manager.get(run.id).state==="paused");
   await waitFor(()=>manager.get(run.id).video?.state==="ready");
   const paused=manager.get(run.id),folder=path.join(temp,"runs",run.id);
@@ -252,7 +252,7 @@ test("repeated quota exhaustion preserves each checkpoint and a failed save cann
  const previous=process.env.CODEX_BIN;process.env.CODEX_BIN=quotaCodex;process.env.AUTORIO_TEST_REPEAT_QUOTA="1";
  const env=setup();const manager=env.manager;
  try {
-  const run=manager.start({benchmark:"smoke",max_seconds:30});
+  const run=manager.start({benchmark:"smoke",max_seconds:30,agent:"codex"});
   await waitFor(()=>manager.get(run.id).state==="paused");
   const checkpoint=manager.get(run.id).checkpoint;
   fs.appendFileSync(path.join(temp,"runs",run.id,checkpoint.file),"changed");

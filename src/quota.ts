@@ -1,4 +1,4 @@
-/** Only classify Codex error events, never arbitrary tool output or agent prose. */
+/** Only classify agent error events, never arbitrary tool output or agent prose. */
 export function quotaError(event: any): string | undefined {
   if (!event || !["error", "turn.failed"].includes(event.type)) return;
   const error = event.error || event;

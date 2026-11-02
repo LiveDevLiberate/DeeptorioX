@@ -30,7 +30,7 @@ async function refresh() {
     $("resume").textContent=run.video?.state==="rendering"?"Finishing recording…":"Resume run";
     $("segmentsPanel").hidden=!run.segments?.length;
     $("checkpoint").textContent=run.checkpoint?`Saved game: ${run.checkpoint.file} · ${new Date(run.checkpoint.saved_at).toLocaleString("en-US",{timeZone:"America/Los_Angeles",timeZoneName:"short"})}`:"No checkpoint saved yet.";
-    $("resumeNote").textContent=run.state==="paused"?"Waiting for you to resume after your Codex quota resets. Waiting and game loading are excluded from play time. The same game, agent session, and workspace will continue.":"Play time and measurements continue across segments; waiting time is excluded.";
+    $("resumeNote").textContent=run.state==="paused"?"Waiting for you to resume after your agent quota resets. Waiting and game loading are excluded from play time. The same game, agent session, and workspace will continue.":"Play time and measurements continue across segments; waiting time is excluded.";
     $("segments").replaceChildren(...(run.segments || []).map(segment=>{
       const row=text("p",`Segment ${segment.index} · ${segment.state} · ${(segment.start_seconds || 0).toFixed(1)}–${(segment.end_seconds ?? run.elapsed_seconds).toFixed(1)}s active play`);
       if(segment.video?.state==="ready") {const link=text("a","Download 6× video");link.href=`/api/runs/${encodeURIComponent(id)}/video?segment=${segment.index}`;link.download=`${id}-segment-${segment.index}-6x.mp4`;row.append(" · ",link);}

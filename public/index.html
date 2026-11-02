@@ -13,7 +13,7 @@
     <section id="controls" aria-label="Launch a run">
       <form id="launchForm">
         <label>Benchmark<select id="benchmark" required></select></label>
-        <label>Model<select id="model" required><option value="gpt-6.1-sol:low" data-model="gpt-6.1-sol" data-thinking="low" selected>GPT-6.1 Sol · Low thinking</option><option value="gpt-6.1-sol:medium" data-model="gpt-6.1-sol" data-thinking="medium">GPT-6.1 Sol · Medium thinking</option></select></label>
+        <label>Model<select id="model" required><option value="opencode-go/deepseek-v4.1-flash" data-model="opencode-go/deepseek-v4.1-flash" selected>DeepSeek V4.1 Flash · OpenCode</option><option value="opencode-go/deepseek-v4-pro" data-model="opencode-go/deepseek-v4-pro">DeepSeek V4 Pro · OpenCode</option></select></label>
         <label>Time limit (seconds)<input id="seconds" type="number" min="1" max="86400" required></label>
         <label class="check"><input id="captureVideo" type="checkbox"> Record 6× timelapse with OBS</label>
         <button id="launch" type="submit">Start run</button>

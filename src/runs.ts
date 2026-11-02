@@ -14,6 +14,7 @@ import {ObsRunRecorder,obsEnabled,ensureObsRunning,connectObs} from "./obs.js";
 import {renderTimelapse,verifyTimelapseMetadata} from "./timelapse.js";
 import { openRunRecording } from "./recording-window.js";
 import { IS_MACOS, IS_WINDOWS, codexExecutable, execExecutable, killProcessTree, spawnExecutable } from "./platform.js";
+import { opencodeModel, opencodeTransport, opencodeVersionCommand, shellQuote, toWslPath, wslBinCommand, wslDistro } from "./opencode.js";
 
 export type RunState = "preparing" | "launching" | "running" | "saving" | "completed" | "failed" | "stopped" | "timed_out" | "interrupted" | "paused";
 type Video = NonNullable<Run["video"]>;
@@ -21,7 +22,7 @@ type Segment = {index:number; state:RunState; started_at?:string; ended_at?:stri
 type Run = {
   id: string; name?: string; reasoning_effort?: ReasoningLevel; benchmark: Benchmark; state: RunState; created_at: string;
   started_at?: string; ended_at?: string; reason?: string; model?: string;
-  agent: "codex" | "manual"; max_seconds: number; elapsed_seconds: number;
+  agent: "codex" | "opencode" | "manual"; max_seconds: number; elapsed_seconds: number;
   segments?:Segment[];
   checkpoint?:{file:string;sha256:string;saved_at:string;segment:number};
   quota?:{message:string;detected_at:string};
@@ -33,7 +34,7 @@ type Run = {
   baseline_tick?: number; latest?: Snapshot; baseline?: Snapshot;
   milestones: Record<string, { wall_seconds: number; game_ticks: number; observed_at: string; initial?: boolean }>;
   agent_exit?: { code: number | null; signal: string | null };
-  session_id?: string; usage?: Record<string, number>; usage_status?: "final" | "last_reported" | "unavailable"; usage_source?: "session_log" | "turn.completed"; versions?: Record<string, string>;
+  session_id?: string; usage?: Record<string, number>; usage_status?: "final" | "last_reported" | "unavailable"; usage_source?: "session_log" | "turn.completed" | "opencode"; versions?: Record<string, string>;
   hashes?: Record<string, string>; warnings: string[];
   actions: { submitted: number; completed: number; failed: number; cancelled: number; partial_failures: number };
 };
@@ -80,6 +81,7 @@ export class RunManager {
   private runs = new Map<string, Run>();
   private active?: Run;
   private agent?: ChildProcess;
+  private opencodeRemote?: { distro: string; pidFile: string; pid?: number };
   private abort?: AbortController;
   private monitor?: NodeJS.Timeout;
   private watchdog?: NodeJS.Timeout;
@@ -179,7 +181,8 @@ export class RunManager {
     if (this.active || this.hooks.running()) throw new Error("Stop the active game/run before starting another run.");
     const benchmark = this.benchmarks.find(b => b.id === (options.benchmark || "smoke"));
     if (!benchmark) throw new Error("Unknown benchmark");
-    if (options.agent && !["manual", "codex"].includes(options.agent)) throw new Error("agent must be codex or manual");
+    const agent = options.agent || "opencode";
+    if (!["manual", "codex", "opencode"].includes(agent)) throw new Error("agent must be opencode, codex or manual");
     const max = options.max_seconds ?? benchmark.max_seconds;
     if (!Number.isFinite(max) || max < 1 || max > 86400) throw new Error("max_seconds must be between 1 and 86400");
     if (options.model !== undefined && (typeof options.model !== "string" || !options.model.trim())) throw new Error("Invalid model");
@@ -192,18 +195,20 @@ export class RunManager {
     const timestamp = pacificTimestamp(created);
     const run: Run = {
       id: `${timestamp.replaceAll(":", "-").replaceAll(" ", "_")}-${randomUUID().slice(0, 8)}`,
-      name: `${timestamp} · ${benchmark.id}`, reasoning_effort: options.agent === "manual" ? undefined : effort as ReasoningLevel,
-      benchmark: { ...benchmark, milestones: trackedMilestones(benchmark) }, state: "preparing", created_at: created.toISOString(), model: options.model,
-      agent: options.agent === "manual" ? "manual" : "codex", max_seconds: max,
-      terminal: options.agent !== "manual" && (options.terminal ?? process.env.AUTORIO_TERMINAL === "1"),
+      name: `${timestamp} · ${benchmark.id}`,
+      reasoning_effort: agent === "codex" ? effort as ReasoningLevel : undefined,
+      benchmark: { ...benchmark, milestones: trackedMilestones(benchmark) }, state: "preparing", created_at: created.toISOString(),
+      model: agent === "opencode" ? opencodeModel(options.model) : options.model,
+      agent: agent as Run["agent"], max_seconds: max,
+      terminal: agent !== "manual" && (options.terminal ?? process.env.AUTORIO_TERMINAL === "1"),
       elapsed_seconds: 0, milestones: {}, warnings: [],
       actions: { submitted: 0, completed: 0, failed: 0, cancelled: 0, partial_failures: 0 },
     };
-    run.capture_video=run.agent==="codex" && (options.capture_video ?? obsEnabled());
+    run.capture_video=run.agent!=="manual" && (options.capture_video ?? obsEnabled());
     if(run.capture_video && run.terminal)throw new Error("OBS capture requires the web recording window; use --no-terminal or --no-video");
     if(run.capture_video)run.video={state:"pending",capture_fps:5,playback_fps:30,speed:6};
-    run.recording = run.agent === "codex" && !run.terminal && (run.capture_video || (options.recording ?? true));
-    run.output_format = run.terminal ? "native" : "events";
+    run.recording = run.agent !== "manual" && !run.terminal && (run.capture_video || (options.recording ?? true));
+    run.output_format = run.agent === "opencode" ? "events" : run.terminal ? "native" : "events";
     fs.mkdirSync(this.dir(run), { recursive: true });
     this.active = run; this.runs.set(run.id, run); this.persist(run);
     this.beginSegment(run);
@@ -314,7 +319,7 @@ export class RunManager {
       fs.writeFileSync(path.join(workspace,"RESUME.md"),`Continue the same benchmark from its saved game. Active play time so far: ${run.elapsed_seconds.toFixed(2)} seconds. Waiting and loading time are excluded.\n\nMilestones: ${JSON.stringify(run.milestones)}\n\nCurrent game snapshot: ${JSON.stringify(loaded)}\n`);
     }
     await this.hooks.command("/sc if remote.interfaces['autorio-control'] then remote.call('autorio-control','reset') end; rcon.print('controls_reset')");
-    if (run.agent === "codex") await this.checkCodex(run);
+    if (run.agent !== "manual") await this.checkAgent(run);
     this.checkCancelled();
     if (run.terminal || run.recording) {
       try {
@@ -348,6 +353,7 @@ export class RunManager {
     run.state = "running"; this.segment(run).state="running"; this.persist(run); this.event(run, `Run started (${run.agent}); objective: ${run.benchmark.title}`);
     this.watchdog = setTimeout(() => { void this.finish("timed_out", "Wall-clock time limit reached"); }, Math.max(1,run.max_seconds-run.elapsed_seconds) * 1000);
     if (run.agent === "codex") this.launchCodex(run, workspace, resuming);
+    else if (run.agent === "opencode") this.launchOpenCode(run, workspace, resuming);
     this.monitor = setInterval(() => {
       void this.sample().catch(error => {
         this.telemetryErrors++;
@@ -374,12 +380,172 @@ export class RunManager {
     // Fail before starting the clock if authentication is missing.
     await execExecutable(this.codexBin(), ["login", "status"], { timeout: 10_000 });
   }
+  private async checkAgent(run: Run) {
+    if (run.agent === "codex") return this.checkCodex(run);
+    const { bin, args } = opencodeVersionCommand();
+    const { stdout } = await execExecutable(bin, args, { timeout: 15_000 });
+    run.versions!.opencode = stdout.trim();
+  }
+
+  /** OpenCode reports structured JSONL; translate it to the transcript schema the UI already renders. */
+  private launchOpenCode(run: Run, workspace: string, resuming=false) {
+    const model = opencodeModel(run.model);
+    run.model = model;
+    const usage: Record<string, number> = resuming && run.usage ? { ...run.usage } : {};
+    run.output_format = "events";
+    this.persist(run);
+    const prompt = (resuming ? "Continue the same benchmark from its saved game. Read RESUME.md and re-observe the player/world before acting. " : "")
+      + "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. "
+      + "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
+    const command = ["run", "--format", "json", "--model", model, "--auto",
+      ...(resuming && run.session_id ? ["--session", run.session_id] : []), prompt];
+    const transport = opencodeTransport();
+    let executable: string;
+    let args: string[];
+    let pidFile: string | undefined;
+    if (transport === "wsl") {
+      pidFile = path.join(workspace, "agent.pid");
+      const script = path.join(workspace, "agent-launch.sh");
+      const commandLine = [wslBinCommand(), ...command.map(shellQuote)].join(" ");
+      fs.writeFileSync(script, ["#!/bin/sh",
+        `cd ${shellQuote(toWslPath(workspace))}`,
+        `echo $$ > ${shellQuote(toWslPath(pidFile))}`,
+        `exec ${commandLine}`, ""].join("\n"), { mode: 0o700 });
+      executable = "wsl.exe";
+      args = ["-d", wslDistro(), "-e", "sh", toWslPath(script)];
+      this.opencodeRemote = { distro: wslDistro(), pidFile };
+    } else {
+      executable = process.env.OPENCODE_BIN?.trim() || "opencode";
+      args = command;
+      this.opencodeRemote = undefined;
+    }
+    const env: NodeJS.ProcessEnv = { ...process.env, FACTORIO_API_BASE: `http://127.0.0.1:${PORT}` };
+    delete env.RCON_PASSWORD;
+    delete env.OBS_WEBSOCKET_PASSWORD;
+    // OpenCode reads its own stored credentials; inherited API keys can be stale.
+    delete env.OPENCODE_API_KEY;
+    const child = spawnExecutable(executable, args, {
+      cwd: workspace, env, stdio: ["ignore", "pipe", "pipe"],
+      detached: !IS_WINDOWS, windowsHide: true,
+    });
+    this.agent = child;
+    if (this.opencodeRemote) {
+      const remote = this.opencodeRemote;
+      const until = Date.now() + 10_000;
+      const readPid = () => {
+        try {
+          const pid = Number(fs.readFileSync(remote.pidFile, "utf8").trim());
+          if (Number.isInteger(pid) && pid > 0) { remote.pid = pid; return; }
+        } catch { /* WSL shell is still starting */ }
+        if (Date.now() < until) setTimeout(readPid, 100);
+      };
+      readPid();
+    }
+    fs.mkdirSync(this.segmentDir(run),{recursive:true});
+    const launch = { executable, args, transport, model };
+    fs.writeFileSync(path.join(this.segmentDir(run),"agent-launch.json"),JSON.stringify(launch,null,2));
+    fs.writeFileSync(path.join(this.dir(run), "agent-launch.json"), JSON.stringify({ ...launch, api_base: env.FACTORIO_API_BASE }, null, 2));
+    let eventBuffer = "", stderrTail = "", sequence = 0;
+    const decoder = new StringDecoder("utf8");
+    const emit = (event: any) => fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), JSON.stringify(event) + "\n");
+    const plain = (text: string) => fs.appendFileSync(path.join(this.dir(run), "codex.log"), text + "\n");
+    const limited=(message:string)=>{if(run.state!=="running" || this.ending)return;run.quota={message,detected_at:new Date().toISOString()};void this.finish("paused",`OpenCode quota exhausted: ${message}`);};
+    const handle = (event: any) => {
+      if (!event || typeof event !== "object") return;
+      if (event.sessionID && event.sessionID !== run.session_id) {
+        run.session_id = event.sessionID; this.segment(run).session_id = event.sessionID;
+        emit({ type: "thread.started", thread_id: event.sessionID });
+      }
+      if (event.type === "text" && event.part?.text) {
+        const part = event.part;
+        emit({ type: "item.completed", item: { id: part.id || `opencode-text-${++sequence}`, type: "agent_message", text: part.text } });
+        this.event(run, part.text); plain(part.text);
+        return;
+      }
+      if (event.type === "reasoning" && event.part?.text) {
+        emit({ type: "item.completed", item: { id: event.part.id || `opencode-reasoning-${++sequence}`, type: "reasoning", text: event.part.text } });
+        return;
+      }
+      if (event.type === "tool_use") {
+        const part = event.part || {}, state = part.state || {}, input = state.input || {};
+        const detail = input.filePath || input.path || input.pattern;
+        const command = input.command || (detail ? `${part.tool || "tool"} ${detail}` : part.tool || "tool");
+        const output = state.output || "";
+        const exit = state.metadata?.metadata?.exit ?? state.metadata?.exit;
+        const completed = state.status === "completed";
+        const failed = state.status === "error" || state.status === "failed";
+        emit({ type: completed ? "item.completed" : "item.started", item: {
+          id: part.id || `opencode-tool-${++sequence}`, type: "command_execution", command,
+          status: completed ? "completed" : failed ? "failed" : "in_progress",
+          exit_code: typeof exit === "number" ? exit : null, aggregated_output: output,
+        }});
+        this.event(run, `${command} (${state.status || "running"})\n${output}`);
+        plain(`$ ${command}`);
+        if (output) plain(output);
+        return;
+      }
+      if (event.type === "step_finish" && event.part?.tokens) {
+        const tokens = event.part.tokens;
+        usage.input_tokens = (usage.input_tokens || 0) + (tokens.input || 0);
+        usage.output_tokens = (usage.output_tokens || 0) + (tokens.output || 0);
+        usage.reasoning_output_tokens = (usage.reasoning_output_tokens || 0) + (tokens.reasoning || 0);
+        // OpenCode reports cache reads cumulatively; never add them across steps.
+        usage.cached_input_tokens = Math.max(usage.cached_input_tokens || 0, tokens.cache?.read || 0);
+        usage.total_tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
+        run.usage = { ...usage }; run.usage_status = "final"; run.usage_source = "opencode";
+        return;
+      }
+      if (event.type === "error") {
+        const message = event.error?.data?.message || event.error?.message || event.message || "OpenCode error";
+        emit({ type: "error", message });
+        const quota = quotaError({ type: "error", message, error: { message } });
+        if (quota) limited(quota);
+      }
+    };
+    const capture = (stream: "stdout" | "stderr", chunk: Buffer) => {
+      fs.appendFileSync(path.join(this.dir(run), `agent.${stream}.log`), chunk);
+      if (stream === "stdout") {
+        eventBuffer += decoder.write(chunk);
+        let newline: number;
+        while ((newline = eventBuffer.indexOf("\n")) >= 0) {
+          const line = eventBuffer.slice(0, newline); eventBuffer = eventBuffer.slice(newline + 1);
+          if (!line.trim()) continue;
+          try { handle(JSON.parse(line)); } catch { /* raw bytes remain available */ }
+        }
+      } else {
+        fs.appendFileSync(path.join(this.dir(run), "activity.log"), chunk);
+        stderrTail = (stderrTail + chunk.toString()).slice(-8192);
+        for (const line of stderrTail.split("\n")) {
+          const quota = quotaError({ type: "error", message: line });
+          if (quota) limited(quota);
+        }
+      }
+      this.persist(run);
+    };
+    child.stdout?.on("data", (chunk: Buffer) => capture("stdout", chunk));
+    child.stderr?.on("data", (chunk: Buffer) => capture("stderr", chunk));
+    child.once("error", error => { void this.finish("failed", `OpenCode launch failed: ${error.message}`); });
+    child.once("close", (code, signal) => {
+      run.agent_exit = { code, signal }; this.persist(run);
+      this.event(run, `OpenCode exited (${signal || code})`);
+      if (run.state === "running" && !this.ending) {
+        void (async () => {
+          // Let any already-queued crafting finish, then verify the game independently.
+          await sleep(1000);
+          if (run.state !== "running" || this.ending) return;
+          await this.sample();
+          if (!this.ending) await this.finish("failed", code === 0 ? "Agent exited before the objective was verified" : `OpenCode exited with ${signal || code}`);
+        })().catch(error => this.finish("failed", errorText(error)));
+      }
+    });
+  }
   private launchCodex(run: Run, workspace: string, resuming=false) {
     const usageBeforeTurn=resuming?{...run.usage}:{};
     run.output_format = run.terminal ? "native" : "events";
     this.persist(run);
     const args = ["exec", ...(run.terminal ? ["--color", "always"] : ["--json"]), "--ignore-user-config",
-      "--sandbox", process.env.AUTORIO_CODEX_SANDBOX?.trim() || "workspace-write",
+      // Codex's Windows sandbox rejects every spawned command, so Windows needs full access.
+      "--sandbox", process.env.AUTORIO_CODEX_SANDBOX?.trim() || (IS_WINDOWS ? "danger-full-access" : "workspace-write"),
       "-c", "sandbox_workspace_write.network_access=true", "--skip-git-repo-check", "-C", workspace,
       "--output-last-message", path.join(workspace, "REPORT.md")];
     if (run.model) args.push("--model", run.model);
@@ -530,13 +696,21 @@ export class RunManager {
       if (this.agent?.pid) {
         const child = this.agent;
         const pid = child.pid!;
+        const remote = this.opencodeRemote;
+        if (remote?.pid) {
+          await execExecutable("wsl.exe", ["-d", remote.distro, "-e", "kill", "-TERM", String(remote.pid)], { timeout: 5_000 }).catch(() => {});
+        }
         killProcessTree(pid, false);
         if (child.exitCode === null && child.signalCode === null) {
           await Promise.race([new Promise(resolve => child.once("close", resolve)), sleep(3000)]);
         }
         // Windows tree kill is already recursive; POSIX still needs the group signal.
         if (child.exitCode === null && child.signalCode === null) killProcessTree(pid, true);
+        if (remote?.pid) {
+          await execExecutable("wsl.exe", ["-d", remote.distro, "-e", "kill", "-KILL", String(remote.pid)], { timeout: 5_000 }).catch(() => {});
+        }
       }
+      this.opencodeRemote = undefined;
       this.captureUsage(run);
       this.agent = undefined;
       await this.hooks.cancelJobs();

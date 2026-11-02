@@ -1,16 +1,18 @@
 # autorio
 
-A macOS and Windows scaffold for running visible Factorio games, launching Codex
-agents through an importable Python library, and recording comparable playthroughs.
+A macOS and Windows scaffold for running visible Factorio games, launching
+OpenCode (or Codex) agents through an importable Python library, and recording
+comparable playthroughs.
 The full game hosts a private local multiplayer session, providing both the player
 character and RCON in one graphical process. No second computer or dedicated-server
 installation is required. OBS can automatically capture run timelapses (see below).
 
 ## First run
 
-Requirements: the full Factorio game (tested with Steam 2.0.77), Node.js 22+,
-Python 3, and a logged-in Codex CLI. Open Steam and sign in before launching a
-game. The demo is not supported.
+Requirements: the full Factorio game (tested with Steam 2.0.77 on macOS and
+2.1.24 on Windows), Node.js 22+, Python 3, and an OpenCode v2 CLI (or a
+logged-in Codex CLI when using `--agent codex`). Open Steam and sign in before
+launching a game. The demo is not supported.
 
 ```bash
 npm ci
@@ -31,12 +33,16 @@ closes the manager; use it before restarting with changed code.
 
 - Run commands from PowerShell or `cmd.exe` as `autorio.cmd start smoke`
   (`.\autorio.cmd` also works in PowerShell). `npm run` and `python factorio.py`
-  work unchanged. Run `npm run doctor` to check Factorio, Codex, Python, the
-  recording browser, and optional video prerequisites.
-- Install the Codex CLI for Windows (for example `npm install -g @openai/codex`)
-  and run `codex login` once; runs reuse that login. `CODEX_BIN` can point at a
-  different `codex.exe`/`codex.cmd`. Keep the CLI current: runs rely on its
-  `workspace-write` sandbox and `codex exec --json` events.
+  work unchanged. Run `npm run doctor` to check Factorio, the agent CLI, Python,
+  the recording browser, and optional video prerequisites.
+- Runs use OpenCode by default. On native Windows install OpenCode v2 (for
+  example `scoop install opencode`) and make sure `opencode` is on PATH. If
+  OpenCode lives in WSL, as recommended by its Windows docs, autorio calls it
+  through `wsl.exe`; set `AUTORIO_WSL_DISTRO` and `AUTORIO_WSL_OPENCODE` if your
+  distro or binary path differs. The default model is
+  `opencode-go/deepseek-v4.1-flash`.
+- `--agent codex` opts into Codex instead; install the Codex CLI, run
+  `codex login` once, and set `CODEX_BIN` if it is not on PATH.
 - The Steam, GOG, and standalone install locations under
   `C:\Program Files (x86)\Steam\steamapps\common\Factorio\bin\x64\factorio.exe`
   (and additional Steam library folders) are detected automatically. If your
@@ -46,8 +52,13 @@ closes the manager; use it before restarting with changed code.
   after the run ends. Set `AUTORIO_BROWSER` to use a different Edge/Chrome build.
 - `--terminal` opens a separate `cmd.exe` window running the same viewer; it
   closes when the run ends.
-- Processes are stopped with `taskkill /T`, so Factorio and any Codex child
-  processes do not survive a stopped run.
+- Processes are stopped with `taskkill /T`, and a WSL OpenCode agent is also
+  terminated inside its distro, so neither Factorio nor the agent survives a
+  stopped run.
+- Codex's Windows sandbox blocks all command execution; with `--agent codex`,
+  use `AUTORIO_CODEX_SANDBOX=workspace-write` plus
+  `windows.sandbox="unelevated"`, or `danger-full-access`. OpenCode runs with its
+  own `--auto` permission mode.
 - Windows Firewall can block loopback; allow Node.js/`factorio.exe` on private
   networks if RCON or the dashboard cannot connect.
 - Automatic OBS timelapses work through OBS WebSocket with `window_capture`
@@ -59,7 +70,7 @@ closes the manager; use it before restarting with changed code.
   or `python`. Python examples below use `python3`; on Windows use `python`.
 
 
-The smoke benchmark asks Codex to craft one gear. It verifies the entire launch,
+The smoke benchmark asks the agent to craft one gear. It verifies the entire launch,
 Python action, production recording, final-save, and shutdown path. For a real
 factory task or the full game:
 
@@ -74,18 +85,22 @@ factory task or the full game:
 ./autorio shutdown
 ```
 
-Use an explicit model for comparisons. With no `--model`, Codex uses its default;
-the runner ignores personal Codex configuration to reduce variation. It uses
-`codex exec`, a workspace-write sandbox with network access so Python can
-reach localhost, and existing CLI authentication. `CODEX_BIN` selects another
-installed CLI. No approval/sandbox bypass flag is used.
+Use an explicit model for comparisons. With no `--model`, OpenCode uses
+`AUTORIO_OPENCODE_MODEL` (default `opencode-go/deepseek-v4.1-flash`). The runner
+launches `opencode run --format json --model PROVIDER/MODEL --auto` in the run
+workspace and translates its JSON events into the same transcript used by the
+dashboard. Set `OPENCODE_BIN` to choose a native CLI; on Windows without a
+native CLI, `AUTORIO_WSL_DISTRO`/`AUTORIO_WSL_OPENCODE` select the WSL CLI.
+With `--agent codex`, the runner instead uses `codex exec` with
+`--ignore-user-config` and the configured sandbox.
 
-Codex runs open the web recording view by default. It displays agent messages and
+Agent runs open the web recording view by default. It displays agent messages and
 available reasoning summaries, with consecutive commands grouped into collapsed
 “Ran N commands” rows. Expand a row to inspect commands and their full output;
-failed commands are marked in the summary. Words come from Codex's structured
-`codex exec --json` events. No dashboard panels, setup messages, or shell prompt
-are added. Reasoning summaries appear only when emitted by the selected model.
+failed commands are marked in the summary. Words come from structured agent
+events (`opencode run --format json`, or Codex's `codex exec --json`). No
+dashboard panels, setup messages, or shell prompt are added. Reasoning summaries
+appear only when emitted by the selected model.
 It follows new output unless you scroll up. The standalone recording window
 automatically closes two seconds after completion, failure, stop, timeout, or interruption.
 The manager opens a dedicated window containing the web recording view (a native
@@ -157,8 +172,8 @@ Everything generated is ignored by Git under `.autorio/`:
     final.zip                 # final checkpoint, when saving succeeds
     telemetry.jsonl           # ticks, production/consumption, rates, research, rockets
     jobs.jsonl                # submitted/completed actions and partial failures
-    activity.log              # readable runner + Codex activity
-    codex.log                 # verbatim native Codex output
+    activity.log              # readable runner + agent activity
+    codex.log                 # agent transcript (native Codex or OpenCode text)
     agent.stdout.log
     agent.stderr.log
     agent-launch.json         # exact arguments used
@@ -191,7 +206,11 @@ Optional `.env` settings (process environment takes precedence):
 | `AUTORIO_STARTUP_SECONDS` | `180`; maximum graphical readiness wait |
 | `AUTORIO_TERMINAL` | Set to `1` to use the optional terminal viewer instead of web recording view |
 | `AUTORIO_BROWSER` | Windows/macOS: optional path to the Edge/Chrome executable used for the recording window |
-| `CODEX_BIN` | `codex` on PATH, or this machine's bundled Codex CLI |
+| `AUTORIO_OPENCODE_MODEL` | Default OpenCode model, `opencode-go/deepseek-v4.1-flash` |
+| `OPENCODE_BIN` | Optional native OpenCode executable; otherwise `opencode` on PATH |
+| `AUTORIO_WSL_DISTRO` | Windows fallback distro for OpenCode, default `Ubuntu-24.04` |
+| `AUTORIO_WSL_OPENCODE` | Windows fallback WSL binary, default `$HOME/.opencode/bin/opencode` |
+| `CODEX_BIN` | Optional Codex CLI for `--agent codex` |
 | `FFMPEG_BIN` / `FFPROBE_BIN` | Windows: FFmpeg tools used for 5 fps → 30 fps timelapse conversion; found on PATH by default |
 | `OBS_BIN` | Windows: optional path to `obs64.exe` if OBS is not in its default install directory |
 | `FACTORIO_API_BASE` | Python/CLI connection override; normally `http://127.0.0.1:3000` |
@@ -353,15 +372,13 @@ with `POST /api/agent/jobs/:id/cancel`.
 
 ## Token accounting and science research
 
-Runs capture input, cached-input, and output token counts. Completed Codex turns
-supply final usage; when the runner stops Codex early, it recovers the latest
-cumulative token counters from that run's local Codex session log. These are
-labelled `last_reported`, not final: an interrupted request may not have reported
-usage yet. Missing counts stay unavailable rather than becoming zero. The reader
-only opens logs matching the run's session ID under `CODEX_HOME` (default
-`~/.codex`); this is a CLI log-format fallback and may need updates with Codex
-versions. Counts appear in `run.json`, `SUMMARY.md`, and the dashboard. Existing
-runs with a session ID are backfilled when the manager starts if their logs exist.
+Runs capture input, cached-input, and output token counts. OpenCode reports
+tokens in its `step_finish` events, so counts are final when the agent completes.
+With Codex, completed turns supply final usage; when the runner stops Codex
+early, it recovers the latest cumulative counters from that run's local session
+log. Those are labelled `last_reported`, not final: an interrupted request may
+not have reported usage yet. Missing counts stay unavailable rather than
+becoming zero. Counts appear in `run.json`, `SUMMARY.md`, and the dashboard.
 
 Every new run tracks research completion for automation, logistic, military,
 chemical, production, utility, and space science packs, independent of producing
@@ -387,22 +404,34 @@ Run names and directory IDs use Pacific local time (`America/Los_Angeles`), with
 `2026-10-16 13:02:39 PDT · smoke`; IDs use filesystem-safe separators and a short
 random suffix. Internal timestamps remain UTC and sorting uses those timestamps.
 
-The dashboard model dropdown offers GPT-6.1 Sol with Low thinking (default) or
-Medium thinking. For other model/effort combinations, use the CLI:
+The dashboard model dropdown offers DeepSeek V4.1 Flash (default) and DeepSeek
+V4 Pro through OpenCode. For another model, use the CLI with an OpenCode
+`provider/model` id:
 
 ```bash
-./autorio start rocket --model gpt-6.1-sol --thinking high
+./autorio start rocket --model opencode-go/deepseek-v4.1-flash
 ```
 
-Thinking defaults to `low` and is passed explicitly to Codex as
-`model_reasoning_effort`. Supported levels depend on the selected model/client;
-an unsupported combination is reported by Codex. Run metadata saves the separate
-`model` and `reasoning_effort` fields, while the dashboard, comparisons, CLI, and
-summary show a combined label such as `gpt-6.1-sol (high)`.
+`--thinking` applies to Codex runs and is passed as `model_reasoning_effort`;
+OpenCode takes reasoning settings from its model/provider configuration. Run
+metadata saves `model` (and `reasoning_effort` for Codex), while the dashboard,
+comparisons, CLI, and summary show a combined label.
 
-### Using another model provider
+### OpenCode models and transports
 
-Runs normally use the signed-in Codex account. To point Codex at an
+OpenCode selects a model as `provider/model`; a bare name such as
+`deepseek-v4.1-flash` is treated as `opencode-go/deepseek-v4.1-flash`. Set
+`AUTORIO_OPENCODE_MODEL` to change the default. On Windows, autorio uses a
+native `opencode` when it is on PATH; otherwise it runs the CLI inside WSL using
+`AUTORIO_WSL_DISTRO` and `AUTORIO_WSL_OPENCODE`.
+
+```bash
+./autorio start smoke --model opencode-go/deepseek-v4-pro
+```
+
+### Codex as an optional agent
+
+`--agent codex` uses Codex instead of OpenCode. To point Codex at an
 OpenAI-compatible provider, set these in `.env` (or the process environment):
 
 ```ini
@@ -421,11 +450,12 @@ configuration is still ignored. The Codex login check is skipped because the key
 comes from the environment. Example with OpenCode Go's DeepSeek model:
 
 ```bash
-./autorio start smoke --model deepseek-v4.1-flash --thinking low
+./autorio start smoke --agent codex --model deepseek-v4.1-flash --thinking low
 ```
 
-`AUTORIO_CODEX_SANDBOX` defaults to `workspace-write`; on Windows, if Codex
-rejects that sandbox, set it to `danger-full-access` for a local test.
+`AUTORIO_CODEX_SANDBOX` defaults to `workspace-write`, except on Windows where
+Codex's sandbox currently rejects every agent command; there it defaults to
+`danger-full-access`. Set the variable explicitly to override either default.
 
 ## Automatic OBS timelapses
 
@@ -445,12 +475,12 @@ Use the dashboard's **Record 6× timelapse with OBS** checkbox, or:
 
 `AUTORIO_OBS=1` enables recording by default; `--no-video` disables it for one run.
 The local `.autorio/obs-settings.json` can also contain `{"enabled": true}`. Manual
-(non-agent) tests do not record. Video capture opens the Codex log window even
+(non-agent) tests do not record. Video capture opens the agent transcript window even
 with `--detach`, since that window is needed as a recording source. The optional
 Terminal viewer requires `--no-video`.
 
 The runner uses its own **Autorio Timelapse** profile and **Autorio Runs** scene.
-It selects exactly one Factorio window and the current run's Codex log window
+It selects exactly one Factorio window and the current run's agent transcript window
 by its native window ID (the visible title is simply **Agent transcript**), then composes them at 1920×1080: game left two-thirds, log right
 third. This does not move windows or capture the desktop. Capture runs at **5 fps**
 and all audio inputs are muted for recording; previous profile, scene, and mute
@@ -474,7 +504,7 @@ stopped automatically.
 
 ## Quota pauses and continuing a run
 
-When Codex reports an exhausted account usage quota, the runner immediately
+When the agent reports an exhausted account usage quota, the runner immediately
 freezes the game, stops the agent, cancels pending actions, saves a checkpoint,
 and stops Factorio and the current OBS recording. The run becomes **paused**.
 Temporary request throttling/network errors and text printed by agent tools do

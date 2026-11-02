@@ -6,5 +6,7 @@ export function pacificTimestamp(date: Date) {
   return `${value("year")}-${value("month")}-${value("day")} ${value("hour")}:${value("minute")}:${value("second")} ${value("timeZoneName")}`;
 }
 export function modelLabel(run: {agent:string; model?:string; reasoning_effort?:string}) {
-  return run.agent === "manual" ? "Manual" : `${run.model || "Codex default"} (${run.reasoning_effort || "default"})`;
+  if (run.agent === "manual") return "Manual";
+  const model = run.model || (run.agent === "opencode" ? "OpenCode default" : "Codex default");
+  return run.reasoning_effort ? `${model} (${run.reasoning_effort})` : model;
 }

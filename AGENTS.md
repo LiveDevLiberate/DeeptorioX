@@ -2,8 +2,9 @@
 
 ## Project summary
 - Node/TypeScript service (macOS and Windows) that launches the full graphical Factorio game as a local multiplayer host, exposes a JSON gameplay API, and manages benchmark runs.
-- Agents use the importable Python client (`factorio.py`). `./autorio` (or `autorio.cmd` on Windows) launches and monitors Codex runs.
+- Agents use the importable Python client (`factorio.py`). `./autorio` (or `autorio.cmd` on Windows) launches and monitors OpenCode runs (Codex remains available with `--agent codex`).
 - `src/platform.ts`: cross-platform executable/process/path helpers (PATHEXT, `.cmd` shims, `taskkill`, Steam detection, browser discovery).
+- `src/opencode.ts`: OpenCode executable/model resolution, native-vs-WSL transport, WSL paths and shell quoting; `src/runs.ts` translates OpenCode JSON events into the transcript schema.
 
 ## Key paths
 - `src/server.ts`: HTTP API + Factorio process management + RCON bridge.
@@ -43,8 +44,9 @@
 - `FACTORIO_BIN`, `FACTORIO_DATA`: full game executable and data directory (platform defaults; override in `.env`).
 - `AUTORIO_DATA_DIR` defaults to `.autorio`; `AUTORIO_PORT` defaults to 3000.
 - RCON is localhost only; `RCON_PORT` defaults to 27015; password is generated/stored if omitted.
-- Codex runs open the web recording view in a standalone window (WKWebView on macOS, Edge/Chrome app mode on Windows) by default; `--terminal` or `AUTORIO_TERMINAL=1` opts into the Terminal viewer. `--detach` skips opening the browser; `--watch` follows operator logs.
-- `CODEX_BIN` selects the CLI. Runs use `codex exec`, workspace-write sandbox, and network access for Python/localhost.
+- Agent runs open the web recording view in a standalone window (WKWebView on macOS, Edge/Chrome app mode on Windows) by default; `--terminal` or `AUTORIO_TERMINAL=1` opts into the Terminal viewer. `--detach` skips opening the browser; `--watch` follows operator logs.
+- OpenCode is the default agent (`opencode run --format json --model provider/model --auto`); `AUTORIO_OPENCODE_MODEL`, `OPENCODE_BIN`, `AUTORIO_WSL_DISTRO`, and `AUTORIO_WSL_OPENCODE` configure it. On Windows without a native CLI, runs are launched through `wsl.exe`.
+- `--agent codex` switches to Codex (`codex exec`); `CODEX_BIN` and `AUTORIO_CODEX_*` configure that path.
 - `FACTORIO_API_BASE` overrides the Python client API address.
 - Steam must be running and signed in for graphical Steam builds.
 

@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import { FACTORIO_BIN, FACTORIO_DATA, factorioVersion } from "../dist/runtime.js";
 import { IS_WINDOWS, codexExecutable, execExecutable, findBrowser, findOnPath } from "../dist/platform.js";
+import { nativeOpenCodeBin, opencodeModel, opencodeTransport, opencodeVersionCommand, wslDistro } from "../dist/opencode.js";
 
 const rows = [];
 async function check(name, fn, optional = false) {
@@ -18,11 +19,18 @@ await check("Factorio data", async () => {
   if (!fs.existsSync(FACTORIO_DATA)) throw new Error(`not found: ${FACTORIO_DATA} (set FACTORIO_DATA in .env)`);
   return FACTORIO_DATA;
 });
-await check("Codex CLI", async () => {
+await check("OpenCode CLI", async () => {
+  const { bin, args } = opencodeVersionCommand();
+  const { stdout } = await execExecutable(bin, args, { timeout: 20_000 });
+  const where = opencodeTransport() === "wsl" ? `WSL ${wslDistro()}` : nativeOpenCodeBin() || "opencode";
+  return `${stdout.trim()} · ${where}`;
+});
+await check("OpenCode model", async () => opencodeModel(process.env.AUTORIO_OPENCODE_MODEL));
+await check("Codex CLI (optional)", async () => {
   const { stdout } = await execExecutable(codexExecutable(), ["--version"], { timeout: 20_000 });
   return `${stdout.trim()} · ${codexExecutable()}`;
-});
-await check("Codex login", async () => {
+}, true);
+await check("Codex login (optional)", async () => {
   if (process.env.AUTORIO_CODEX_PROVIDER) {
     const envKey = process.env.AUTORIO_CODEX_ENV_KEY || "OPENCODE_API_KEY";
     if (!process.env[envKey]) throw new Error(`${envKey} is not set for provider ${process.env.AUTORIO_CODEX_PROVIDER}`);
@@ -30,7 +38,7 @@ await check("Codex login", async () => {
   }
   await execExecutable(codexExecutable(), ["login", "status"], { timeout: 20_000 });
   return "signed in";
-});
+}, true);
 await check("Python 3", async () => {
   const candidates = IS_WINDOWS ? [["py", ["-3"]], ["python", []], ["python3", []]] : [["python3", []], ["python", []]];
   for (const [command, prefix] of candidates) {
