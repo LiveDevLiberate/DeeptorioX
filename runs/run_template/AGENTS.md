@@ -38,6 +38,11 @@ Prioritize useful in-game progress and the critical path to the objective. Use e
   axis). Chests are buffers, not transport.
 - Never sleep for production; use `wait_for_item`, `wait_for_research`,
   `wait_for_factory`, or `wait_until` so work resumes the moment a condition is met.
+- Use `observe-layout` for a compact ASCII map of the current base (rows are
+  north-to-south, one character per tile/step). `rows` is a composite layer
+  (actor > built > natural > resource > terrain); `built_rows` and
+  `resource_rows` preserve entities hidden underneath, and `overlaps` lists
+  cells with more than one layer. Use it to plan belt lines and spot gaps.
 - Use `observe-factory` to check power, fuel, and blocked-building status counts
   before committing to more machines; fix `no_fuel`, `no_power`, and
   `waiting_for_space_in_destination` before expanding.

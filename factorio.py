@@ -52,6 +52,7 @@ Commands:
   observe-entity --target x,y [--target ...] [--targets-json <json>]
   observe-resources --window-x <n> --window-y <n> --radius <n>
   observe-factory --center-x <n> --center-y <n> --radius <n>
+  observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>
   observe-entity-prototype --name <entity-name>
   observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]
   act-build --entity name,anchor-x,anchor-y,dir [--entity ...]
@@ -101,6 +102,7 @@ COMMAND_USAGE = {
     "observe-entity": "observe-entity: Inspect entity status, fuel, fluids, recipe, inventory.\nUsage: factorio.py observe-entity --target x,y [--target ...]\n   or: factorio.py observe-entity --targets-json <json>\n",
     "observe-resources": "observe-resources: Scan for resource patches in a radius.\nUsage: factorio.py observe-resources --window-x <n> --window-y <n> --radius <n>\n",
     "observe-factory": "observe-factory: Summarize power, fuel, and entity status counts in a window.\nUsage: factorio.py observe-factory --center-x <n> --center-y <n> --radius <n>\n",
+    "observe-layout": "observe-layout: Render a region as an ASCII map (belts, inserters, machines, terrain).\nUsage: factorio.py observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>\n",
     "observe-entity-prototype": "observe-entity-prototype: Look up entity dimensions, fluid connections, energy info.\nUsage: factorio.py observe-entity-prototype --name <entity-name>\n",
     "observe-placement": "observe-placement: Analyze buildability without consuming an item.\nUsage: factorio.py observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]\n",
     "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...]\n   or: factorio.py act-build --entities-json <json>\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding.\n",
@@ -386,6 +388,15 @@ class FactorioClient:
         if y is not None:
             window["y"] = y
         return self.request("POST", "/api/agent/observe/factory", {"window": window})
+
+    def observe_layout(self, *, x: float | None = None, y: float | None = None,
+                       radius: float = 35, step: int = 1) -> Any:
+        window: dict[str, Any] = {"radius": radius, "step": step}
+        if x is not None:
+            window["x"] = x
+        if y is not None:
+            window["y"] = y
+        return self.request("POST", "/api/agent/observe/layout", {"window": window})
 
     def observe_entity_prototype(self, name: str) -> Any:
         return self.request("POST", "/api/agent/observe/entity-prototype", {"name": name})
@@ -679,6 +690,13 @@ def run(argv: list[str]) -> int:
                 window["y"] = parse_number(flag("center-y"))
             response = request("POST", "/api/agent/observe/factory", {"window": window})
             return output(data_value(response))
+        if cmd == "observe-layout":
+            window = {"radius": parse_number(flag("radius"), 35), "step": parse_number(flag("step"), 1)}
+            if parse_number(flag("center-x")) is not None:
+                window["x"] = parse_number(flag("center-x"))
+            if parse_number(flag("center-y")) is not None:
+                window["y"] = parse_number(flag("center-y"))
+            return output(data_value(request("POST", "/api/agent/observe/layout", {"window": window})))
         if cmd == "observe-entity-prototype":
             name = flag("name")
             if not name:

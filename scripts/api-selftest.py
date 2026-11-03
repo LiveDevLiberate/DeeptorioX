@@ -52,6 +52,7 @@ def main() -> int:
     check("observe-map", lambda: map_detail(px, py))
     check("observe-resources", lambda: resources_detail(px, py))
     check("observe-factory", lambda: factory_detail(px, py))
+    check("observe-layout", lambda: layout_detail(px, py))
     check("observe-entity-prototype", lambda: prototype_detail())
     check("observe-placement", lambda: placement_detail(px, py))
     check("observe-entity", lambda: entity_detail(px, py))
@@ -112,6 +113,18 @@ def factory_detail(x: float, y: float) -> str:
     expect(isinstance(data.get("alerts"), list), "factory alerts is not an array")
     expect(isinstance(data.get("problems"), dict), "factory problems is not an object")
     return f"{len(data['counts'])} entity types, {len(data['alerts'])} alert(s)"
+
+
+def layout_detail(x: float, y: float) -> str:
+    data = data_value(client.observe_layout(x=x, y=y, radius=35, step=1))
+    expect(isinstance(data.get("rows"), list) and data["rows"], "layout rows are empty")
+    expect(isinstance(data.get("legend"), dict), "layout legend is not an object")
+    expect(all(isinstance(row, str) for row in data["rows"]), "layout rows must be strings")
+    expect(len(data.get("built_rows", [])) == len(data["rows"]), "built_rows length mismatch")
+    expect(len(data.get("resource_rows", [])) == len(data["rows"]), "resource_rows length mismatch")
+    expect(isinstance(data.get("overlaps"), list), "layout overlaps is not an array")
+    return (f"{len(data['rows'])} rows x {len(data['rows'][0])} cols, "
+            f"{len(data.get('entities', []))} entities, {len(data.get('overlaps', []))} overlaps")
 
 
 def prototype_detail() -> str:

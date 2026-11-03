@@ -88,6 +88,17 @@ function normalizeResearchData(data: any) {
   return data;
 }
 
+function normalizeLayoutData(data: any) {
+  if (!data || typeof data !== "object") return data;
+  data.rows = arrayOrEmpty(data.rows);
+  data.built_rows = arrayOrEmpty(data.built_rows);
+  data.resource_rows = arrayOrEmpty(data.resource_rows);
+  data.entities = arrayOrEmpty(data.entities);
+  data.overlaps = arrayOrEmpty(data.overlaps);
+  data.legend = data.legend && typeof data.legend === "object" ? data.legend : {};
+  return data;
+}
+
 function normalizeFactoryData(data: any) {
   if (!data || typeof data !== "object") return data;
   data.counts = data.counts && typeof data.counts === "object" ? data.counts : {};
@@ -1200,6 +1211,37 @@ function agentFactoryCommand(params: { x?: number; y?: number; radius: number })
     "if type(power)=='table' and type(power.satisfaction)=='number' and power.satisfaction<0.95 then table.insert(alerts,string.format('power satisfaction %.0f%%',power.satisfaction*100)) end",
     "if coal==0 then table.insert(alerts,'no coal in fuel slots in this area') end",
     "rcon.print(helpers.table_to_json{window={x=x,y=y,radius=radius},counts=counts,problems=problems,totals=totals,fuel={coal_in_fuel_slots=coal,entities_without_fuel=without_fuel,entities_low_fuel=low_fuel},power=power,alerts=alerts})",
+  ].join(" ");
+}
+
+function agentLayoutCommand(params: { x?: number; y?: number; radius: number; step: number }): string {
+  const x = params.x === undefined ? "nil" : String(params.x);
+  const y = params.y === undefined ? "nil" : String(params.y);
+  return [
+    "/sc",
+    "local s=game.surfaces[1]",
+    "local player=game.players[1]",
+    `local x=${x} local y=${y} local radius=${params.radius} local step=${params.step}`,
+    "if not player then rcon.print(helpers.table_to_json{rows={},built_rows={},resource_rows={},legend={},entities={},overlaps={},error='no_player'}) return end",
+    "if x==nil then x=player.position.x end if y==nil then y=player.position.y end",
+    "local min_x=math.floor(x-radius) local min_y=math.floor(y-radius) local max_x=math.floor(x+radius) local max_y=math.floor(y+radius)",
+    "local width=math.floor((max_x-min_x)/step)+1 local height=math.floor((max_y-min_y)/step)+1",
+    "local function new_grid() local g={} for row=1,height do g[row]={} for col=1,width do g[row][col]=' ' end end return g end",
+    "local terrain=new_grid() local resource=new_grid() local natural=new_grid() local built=new_grid() local actors=new_grid()",
+    "local function cell(px,py) local col=math.floor((math.floor(px)-min_x)/step)+1 local row=math.floor((math.floor(py)-min_y)/step)+1 if col<1 or col>width or row<1 or row>height then return nil end return row,col end",
+    "local function fill(grid,e,ch) local bb=e.bounding_box if not bb or not bb.left_top or not bb.right_bottom then local row,col=cell(e.position.x,e.position.y) if row then grid[row][col]=ch end return end local left=math.floor(bb.left_top.x+0.001) local top=math.floor(bb.left_top.y+0.001) local right=math.floor(bb.right_bottom.x-0.001) local bottom=math.floor(bb.right_bottom.y-0.001) for ty=top,bottom do for tx=left,right do local row,col=cell(tx+0.5,ty+0.5) if row then grid[row][col]=ch end end end end",
+    "for row=1,height do local ty=min_y+(row-1)*step for col=1,width do local tx=min_x+(col-1)*step local tile=s.get_tile(tx,ty) local name=tile and tile.valid and tile.name or '' local ch='.' if name:find('water',1,true) then ch='~' elseif name:find('cliff',1,true) then ch='#' elseif name:find('path',1,true) or name:find('concrete',1,true) then ch='=' end terrain[row][col]=ch end end",
+    "local function resource_symbol(n) if n=='iron-ore' then return 'o' elseif n=='copper-ore' then return 'c' elseif n=='coal' then return 'k' elseif n=='stone' then return 's' elseif n=='uranium-ore' then return 'u' elseif n=='crude-oil' then return 'p' end return '*' end",
+    "for _,e in pairs(s.find_entities_filtered{area={{min_x,min_y},{max_x+1,max_y+1}},type='resource'}) do fill(resource,e,resource_symbol(e.name)) end",
+    "local entities={}",
+    "local function status_name(e) local ok,v=pcall(function() return e.status end) if not ok or not v then return nil end for k,n in pairs(defines.entity_status) do if n==v then return k end end return tostring(v) end",
+    "local function symbol(e) local n=e.name if n:find('inserter',1,true) then return 'i' end if n=='transport-belt' then local d=e.direction if d==0 then return '^' elseif d==4 then return '>' elseif d==8 then return 'v' elseif d==12 then return '<' end return 'b' end if n:find('underground-belt',1,true) then return 'U' end if n:find('splitter',1,true) then return 'S' end if n:find('mining-drill',1,true) then return 'D' end if n:find('furnace',1,true) then return 'F' end if n:find('assembling-machine',1,true) then return 'A' end if n=='lab' then return 'L' end if n=='boiler' then return 'B' end if n=='steam-engine' or n=='generator' then return 'E' end if n:find('pump',1,true) then return 'W' end if n:find('electric-pole',1,true) then return 'P' end if n:find('chest',1,true) then return 'C' end if n=='radar' then return 'R' end if n=='rocket-silo' then return 'Z' end if e.type=='tree' then return 'T' end if e.type=='simple-entity' and n:find('rock',1,true) then return 'O' end if e.type=='fish' then return 'f' end if e.type=='character' then return '@' end return '?' end",
+    "for _,e in pairs(s.find_entities_filtered{area={{min_x,min_y},{max_x+1,max_y+1}}}) do if e.valid and e.type~='resource' and e.type~='item-entity' and e.type~='corpse' then local ch=symbol(e) if e.type=='tree' or e.type=='simple-entity' or e.type=='fish' then fill(natural,e,ch) elseif e.type=='character' then fill(actors,e,ch) else fill(built,e,ch) if #entities<250 then table.insert(entities,{name=e.name,x=e.position.x,y=e.position.y,direction=e.direction,status=status_name(e)}) end end end end",
+    "local row,col=cell(player.position.x,player.position.y) if row then actors[row][col]='@' end",
+    "local rows={} local built_rows={} local resource_rows={} local overlaps={} local overlaps_truncated=false",
+    "for row=1,height do local chars={} local br={} local rr={} for col=1,width do local a=actors[row][col] local b=built[row][col] local n=natural[row][col] local r=resource[row][col] local t=terrain[row][col] chars[col]=a~=' ' and a or (b~=' ' and b or (n~=' ' and n or (r~=' ' and r or t))) br[col]=b~=' ' and b or ' ' rr[col]=r~=' ' and r or ' ' local layers={} if a~=' ' then table.insert(layers,'actor:'..a) end if b~=' ' then table.insert(layers,'built:'..b) end if n~=' ' then table.insert(layers,'natural:'..n) end if r~=' ' then table.insert(layers,'resource:'..r) end if t~=' ' and t~='.' then table.insert(layers,'terrain:'..t) end if #layers>1 then if #overlaps<200 then table.insert(overlaps,{x=min_x+(col-1)*step,y=min_y+(row-1)*step,layers=layers}) else overlaps_truncated=true end end end table.insert(rows,table.concat(chars)) table.insert(built_rows,table.concat(br)) table.insert(resource_rows,table.concat(rr)) end",
+    "local legend={['.']='ground',['~']='water',['#']='cliff',['=']='path',['o']='iron ore',['c']='copper ore',['k']='coal',['s']='stone',['u']='uranium',['p']='oil',['*']='other resource',['T']='tree',['O']='rock',['f']='fish',['@']='player',['i']='inserter',['>']='belt east',['<']='belt west',['^']='belt north',['v']='belt south',['U']='underground belt',['S']='splitter',['D']='mining drill',['F']='furnace',['A']='assembling machine',['L']='lab',['B']='boiler',['E']='steam engine',['W']='pump',['P']='electric pole',['C']='chest',['R']='radar',['Z']='rocket silo'}",
+    "rcon.print(helpers.table_to_json{origin={x=min_x,y=min_y},step=step,width=width,height=height,rows=rows,built_rows=built_rows,resource_rows=resource_rows,legend=legend,entities=entities,overlaps=overlaps,overlaps_truncated=overlaps_truncated})",
   ].join(" ");
 }
 
@@ -2513,6 +2555,33 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
         "RCON extract returned invalid JSON",
       );
       return json(res, 200, { ok: true, data: { ...data, movement: movement.movement } });
+    } catch (err: any) {
+      return json(res, 500, { error: err?.message || "RCON command failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/agent/observe/layout") {
+    let body: any = null;
+    try {
+      body = await readJson(req);
+    } catch (err: any) {
+      return json(res, 400, { error: err?.message || "Invalid JSON" });
+    }
+    if (!rconConfigured()) {
+      return json(res, 409, { error: "RCON not configured" });
+    }
+    if (!state.rcon.connected) {
+      return json(res, 409, { error: "RCON not connected" });
+    }
+    const window = body?.window || {};
+    const x = Number.isFinite(Number(window.x)) ? Number(window.x) : undefined;
+    const y = Number.isFinite(Number(window.y)) ? Number(window.y) : undefined;
+    const radius = clampInt(window.radius, 35, 1, 80);
+    const step = clampInt(window.step, 1, 1, 8);
+    try {
+      const response = await rconCommand(agentLayoutCommand({ x, y, radius, step }));
+      const data = normalizeLayoutData(parseRconJson<any>(response, "RCON layout observation returned invalid JSON"));
+      return json(res, 200, { ok: true, data });
     } catch (err: any) {
       return json(res, 500, { error: err?.message || "RCON command failed" });
     }
