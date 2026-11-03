@@ -138,6 +138,27 @@ Select multiple history rows to compare runs on a separate page. Recording view
 remains a compact, separate display. Old `/runs.html` bookmarks redirect to the
 appropriate page. Position the game and recording window for OBS yourself.
 
+## Checking game state while a run is active
+
+The manager exposes the same read-only gameplay API the agent uses. Observations
+are safe while a run is active, so there is no need to wait for the agent:
+
+```bash
+cd autorio
+export FACTORIO_API_BASE=http://127.0.0.1:3000
+python3 scripts/game-status.py        # run state, player, inventory, research, nearby buildings
+python3 factorio.py observe-player
+python3 factorio.py observe-research
+python3 factorio.py observe-world --window-x 0 --window-y 0 --radius 45 --include entities
+python3 factorio.py observe-resources --window-x 0 --window-y 0 --radius 60
+python3 factorio.py observe-entity --target 10,12
+curl -s http://127.0.0.1:3000/api/runs
+```
+
+On Windows the manager is reached through WSL's mirrored `127.0.0.1`. The
+dashboard at `http://127.0.0.1:3000/` shows milestones, production graphs and
+live activity.
+
 ## Benchmarks and results
 
 `benchmarks/*.json` defines tasks, map generation settings and seed, explicit
