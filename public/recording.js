@@ -90,8 +90,19 @@ function renderStatus(run) {
   const markdown = run.state_md || "";
   const current = (markdown.match(/^Current:\s*(.+)$/m) || [])[1] || "";
   const done = (markdown.match(/^Done when:\s*(.+)$/m) || [])[1] || "";
-  statusCurrent.textContent = current ? `▶ ${current}` : strings.pending;
-  statusDone.textContent = done ? `${strings.done}: ${done}` : "";
+  const research = run.latest?.current_research
+    ? `research ${run.latest.current_research} ${Math.round((run.latest.research_progress || 0) * 100)}%`
+    : "";
+  const planStale = run.state_updated_at ? Date.now() - Date.parse(run.state_updated_at) > 10 * 60 * 1000 : false;
+  if (planStale) {
+    statusCurrent.textContent = `⚠ ${strings.plan} stale${research ? ` · ${research}` : ""}`;
+    statusDone.textContent = "";
+    statusHeader?.classList.add("stale-plan");
+  } else {
+    statusCurrent.textContent = current ? `▶ ${current}` : (research || strings.pending);
+    statusDone.textContent = done ? `${strings.done}: ${done}` : "";
+    statusHeader?.classList.remove("stale-plan");
+  }
   const scores = parseScores(markdown);
   statusScores.replaceChildren(...SUBTASKS.map(key => {
     const row = element("div", "", "score");

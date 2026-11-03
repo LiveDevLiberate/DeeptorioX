@@ -64,6 +64,8 @@ export type Snapshot = {
   fluids_produced: Record<string, number>;
   fluids_consumed: Record<string, number>;
   research: Record<string, boolean>;
+  current_research?: string | null;
+  research_progress?: number | null;
   rockets: number;
 };
 
@@ -76,9 +78,10 @@ export function reached(m: Milestone, sample: Snapshot, baseline: Snapshot): boo
 export const TELEMETRY_COMMAND = "/sc local p=game.players[1]; if not p then rcon.print('{}') return end; " +
   "local f=p.force; local s=p.surface; local i=f.get_item_production_statistics(s); local l=f.get_fluid_production_statistics(s); " +
   "local research={} for name,t in pairs(f.technologies) do if t.researched then research[name]=true end end; " +
+  "local current=nil local progress=nil if f.current_research then current=f.current_research.name progress=f.research_progress end; " +
   "rcon.print(helpers.table_to_json({tick=game.tick,speed=game.speed,paused=game.tick_paused,player=p.name," +
   "character=p.character~=nil and p.connected,production=i.input_counts,consumption=i.output_counts," +
-  "fluids_produced=l.input_counts,fluids_consumed=l.output_counts,research=research,rockets=f.rockets_launched}))";
+  "fluids_produced=l.input_counts,fluids_consumed=l.output_counts,research=research,current_research=current,research_progress=progress,rockets=f.rockets_launched}))";
 
 export function parseSnapshot(raw: string): Snapshot {
   const sample = JSON.parse(raw);

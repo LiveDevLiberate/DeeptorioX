@@ -191,7 +191,16 @@ export class RunManager {
     const run = this.active;
     if (!run) return undefined;
     const state = this.stateFile(run);
-    return { run_id: run.id, state_md: state?.text, updated_at: state?.updated_at };
+    const updated = state?.updated_at ? Date.parse(state.updated_at) : 0;
+    const age = updated ? Math.max(0, (Date.now() - updated) / 1000) : null;
+    return {
+      run_id: run.id, state_md: state?.text, updated_at: state?.updated_at,
+      stale: age === null || age > 600,
+      age_seconds: age === null ? null : Math.round(age),
+      research: run.latest?.current_research ?? null,
+      research_progress: run.latest?.research_progress ?? null,
+      remaining_seconds: Math.max(0, run.max_seconds - this.elapsed()),
+    };
   }
   private view(run: Run) {
     const state = this.stateFile(run);

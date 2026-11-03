@@ -37,6 +37,9 @@ body.recording main { display:none; }
 .score.active .score-fill { background:#8fe0b3; }
 .score-value { width:15px; text-align:right; color:#8fa09d; font-size:9px; }
 #agentStatus.collapsed .status-scores, #agentStatus.collapsed .status-done { display:none; }
+#agentStatus.stale-plan .status-current { color:#e7d38f; }
+#agentStatus.stale-plan .score-fill { background:#6f6a4a; }
+#agentStatus.stale-plan .score.active .score-fill { background:#e7d38f; }
 @media (min-width: 421px) {
   .status-scores { grid-template-columns:repeat(6,minmax(0,1fr)); }
   .status-done { display:block; }
