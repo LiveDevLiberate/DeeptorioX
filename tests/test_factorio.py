@@ -104,6 +104,16 @@ class ClientTests(unittest.TestCase):
         self.assertFalse(factorio.action_job_ok({"status": "completed", "results": ["lua error"]}))
         self.assertFalse(factorio.action_job_ok({"status": "completed", "results": [{"ok": False}]}))
 
+    def test_belt_line_entities_sets_directions(self):
+        east = factorio.belt_line_entities({"x": 0, "y": 0}, {"x": 4, "y": 0})
+        self.assertEqual(len(east), 5)
+        self.assertTrue(all(entity["direction"] == 4 for entity in east))
+        north = factorio.belt_line_entities({"x": 0, "y": 5}, {"x": 0, "y": 2})
+        self.assertEqual([(entity["x"], entity["y"]) for entity in north], [(0, 5), (0, 4), (0, 3), (0, 2)])
+        self.assertTrue(all(entity["direction"] == 0 for entity in north))
+        with self.assertRaises(ValueError):
+            factorio.belt_line_entities({"x": 0, "y": 0}, {"x": 2, "y": 2})
+
 
 if __name__ == "__main__":
     unittest.main()

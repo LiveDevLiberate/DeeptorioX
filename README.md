@@ -373,7 +373,9 @@ persistent per-tick input hook; placement uses the real player cursor/build API.
 
 ## Coordinates
 
-Build coordinates are explicit top-left tile anchors. For example:
+Build coordinates are explicit top-left tile anchors. `act-build-belt --from x,y
+--to x,y` lays a straight belt run with automatic directions, and
+`build_belt_line()` does the same from Python. For example:
 
 ```bash
 python3 factorio.py act-build --entity boiler,-14,-50,4

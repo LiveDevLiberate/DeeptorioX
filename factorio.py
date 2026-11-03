@@ -32,6 +32,7 @@ __all__ = [
     "parse_entities",
     "parse_targets",
     "submit_action_job",
+    "belt_line_entities",
 ]
 
 
@@ -53,6 +54,7 @@ Commands:
   observe-entity-prototype --name <entity-name>
   observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]
   act-build --entity name,anchor-x,anchor-y,dir [--entity ...]
+  act-build-belt --from x,y --to x,y [--name transport-belt]
   act-mine --target x,y [--target ...] [--resource [name]] [--targets-json <json>]
   act-rotate --target x,y [--target ...] [--targets-json <json>]
   act-move --target x,y [--target ...] [--targets-json <json>]
@@ -248,6 +250,29 @@ def http_request(base: str, method: str, path: str, body: Any = None) -> Any:
         return raw
 
 
+def belt_line_entities(start: dict[str, Any], end: dict[str, Any],
+                       name: str = "transport-belt") -> list[dict[str, Any]]:
+    """Straight belt run from start to end, with every tile facing the flow."""
+    x1, y1 = int(round(float(start["x"]))), int(round(float(start["y"])))
+    x2, y2 = int(round(float(end["x"]))), int(round(float(end["y"])))
+    dx = (x2 > x1) - (x2 < x1)
+    dy = (y2 > y1) - (y2 < y1)
+    if dx and dy:
+        raise ValueError("belt_line_entities only supports straight horizontal or vertical lines")
+    direction = 4 if dx > 0 else 12 if dx < 0 else 8 if dy > 0 else 0
+    if dx == 0 and dy == 0:
+        return [{"name": name, "x": x1, "y": y1, "direction": direction}]
+    entities = []
+    x, y = x1, y1
+    while True:
+        entities.append({"name": name, "x": x, "y": y, "direction": direction})
+        if x == x2 and y == y2:
+            break
+        x += dx
+        y += dy
+    return entities
+
+
 class FactorioClient:
     """Synchronous Python client for the Factorio manager API.
 
@@ -325,6 +350,10 @@ class FactorioClient:
         return self.request("POST", "/api/agent/observe/resources", {
             "window": {"x": x, "y": y, "radius": radius},
         })
+
+    def build_belt_line(self, start: dict[str, Any], end: dict[str, Any],
+                        *, name: str = "transport-belt", **options: Any) -> Any:
+        return self.build(belt_line_entities(start, end, name), **options)
 
     def observe_factory(self, *, x: float | None = None, y: float | None = None,
                         radius: float = 120) -> Any:
@@ -592,6 +621,13 @@ def run(argv: list[str]) -> int:
         if cmd == "act-build":
             entities = json.loads(flag("entities-json")) if flag("entities-json") else parse_entities(flags.get("entity", []))
             job = submit("build", {"entities": entities})
+        elif cmd == "act-build-belt":
+            start_value, end_value = flag("from"), flag("to")
+            if not start_value or not end_value:
+                raise ValueError("Missing --from or --to")
+            start = parse_targets([start_value], False)[0]
+            end = parse_targets([end_value], False)[0]
+            job = submit("build", {"entities": belt_line_entities(start, end, flag("name") or "transport-belt")})
         elif cmd in ("act-mine", "act-rotate", "act-move", "act-set-recipe", "act-launch-rocket"):
             require_recipe = cmd == "act-set-recipe"
             targets = json.loads(flag("targets-json")) if flag("targets-json") else parse_targets(flags.get("target", []), require_recipe)

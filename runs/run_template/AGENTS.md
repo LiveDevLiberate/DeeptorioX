@@ -32,6 +32,9 @@ Prioritize useful in-game progress and the critical path to the objective. Use e
 - Prefer importing `FactorioClient` in a Python script for multi-step plans.
 - Treat action results as authoritative. Check `action_job_ok()` and inspect
   individual results because a completed batch may contain partial failures.
+- For any flow that would need repeated insert/extract (coal, ore, plates, science),
+  build belts with `build_belt_line()` / `act-build-belt` and connect machines with
+  inserters. Chests are buffers, not transport.
 - Use `observe-factory` to check power, fuel, and blocked-building status counts
   before committing to more machines; fix `no_fuel`, `no_power`, and
   `waiting_for_space_in_destination` before expanding.
