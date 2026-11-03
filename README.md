@@ -1,17 +1,41 @@
 # autorio
 
 A macOS and Windows scaffold for running visible Factorio games, launching
-OpenCode (or Codex) agents through an importable Python library, and recording
-comparable playthroughs.
+OpenCode, Codex or DeepSeek Harness (DSH) agents through an importable Python
+library, and recording comparable playthroughs.
 The full game hosts a private local multiplayer session, providing both the player
 character and RCON in one graphical process. No second computer or dedicated-server
 installation is required. OBS can automatically capture run timelapses (see below).
 
+## Contents
+
+- [First run](#first-run)
+- [Checking game state while a run is active](#checking-game-state-while-a-run-is-active)
+- [Narrating agent thoughts (TTS)](#narrating-agent-thoughts-tts)
+- [Benchmarks and results](#benchmarks-and-results)
+- [Configuration](#configuration)
+- [Parallel evaluation cluster](#parallel-evaluation-cluster)
+- [Development and APIs](#development-and-apis)
+- [Vanilla-compatible evaluation controls](#vanilla-compatible-evaluation-controls)
+- [Coordinates](#coordinates)
+- [Action jobs](#action-jobs)
+- [MCP server](#mcp-server)
+- [Visual observation (game-window screenshot)](#visual-observation-game-window-screenshot)
+- [Gym-style environment and trajectory database](#gym-style-environment-and-trajectory-database)
+- [Planning and observation](#planning-and-observation)
+- [Token accounting and science research](#token-accounting-and-science-research)
+- [Run names and thinking levels](#run-names-and-thinking-levels)
+- [Automatic OBS timelapses](#automatic-obs-timelapses)
+- [Pausing to change code or mods](#pausing-to-change-code-or-mods)
+- [Context limit and session restart](#context-limit-and-session-restart)
+- [Quota pauses and continuing a run](#quota-pauses-and-continuing-a-run)
+
 ## First run
 
 Requirements: the full Factorio game (tested with Steam 2.0.77 on macOS and
-2.1.24 on Windows), Node.js 22+, Python 3, and an OpenCode v2 CLI (or a
-logged-in Codex CLI when using `--agent codex`). Open Steam and sign in before
+2.1.24 on Windows), Node.js 20+, Python 3, and an OpenCode v2 CLI (or a
+logged-in Codex CLI when using `--agent codex`, or a local DeepSeek Harness
+install when using `--agent dsh`). Open Steam and sign in before
 launching a game. The demo is not supported.
 
 ```bash
@@ -254,6 +278,7 @@ Optional `.env` settings (process environment takes precedence):
 | `FACTORIO_DATA` | The install's `data` directory, derived from the executable (`Contents/data` on macOS, `<install>\data` on Windows). |
 | `AUTORIO_DATA_DIR` | `.autorio` in this repository |
 | `AUTORIO_PORT` | `3000`; HTTP is bound to localhost |
+| `AUTORIO_LOG_LEVEL` | `info`; structured log level (`debug`, `info`, `warn`, `error`) |
 | `RCON_PORT` | `27015`; RCON is bound to localhost |
 | `AUTORIO_GAME_PORT` | `34197`; Factorio multiplayer host port, set per cluster instance |
 | `RCON_PASSWORD` | Generated and retained in `.autorio/rcon-password` if omitted |
@@ -375,6 +400,11 @@ Run endpoints:
 - `GET /api/runs`, `GET /api/runs/:id`
 - `GET /api/runs/:id/log?offset=0` (byte cursor)
 - `POST /api/runs/:id/stop`
+
+Manager health and logs:
+
+- `GET /api/health` — liveness/state probe: HTTP `200` when every probe succeeds, `503` when one fails (`status: "degraded"`, failed probe names in `problems`). An idle manager with no game running is healthy.
+- Structured logs: `<data-dir>/manager.log` is JSONL (`level`, `ts`, `msg` plus redacted context); each record is also mirrored as a human line on stderr (cluster instances capture it in `manager.err.log`). `AUTORIO_LOG_LEVEL` selects `debug|info|warn|error` (default `info`), and HTTP requests are logged with method, path, status and duration (health polls excluded).
 
 The JSON gameplay API remains schema version 2. Python is the supported agent
 interface, available as both a library and command-line program. Import without

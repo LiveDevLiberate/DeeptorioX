@@ -1,0 +1,259 @@
+# autorio architecture
+
+Maps the internals for contributors at the `15465ed` development batch (`package.json` `0.1.0`),
+including the repository tooling added on top of it. `README.md` is the user manual, `AGENTS.md` the
+agent-facing summary, and `CONTRIBUTING.md` the development guide. If code and this document
+disagree, the code wins; please send a correction.
+
+## 1. What the system is
+
+autorio is a Node/TypeScript manager that launches the full graphical Factorio game as a local
+multiplayer host, exposes player/world state and actions as a JSON HTTP API, and drives an LLM agent
+(OpenCode by default; Codex or the DeepSeek Harness headless profile optionally) through a benchmark
+run while recording telemetry, an agent transcript, optional OBS video, and independently verified
+results.
+
+Constraints that shape the code:
+
+- The game must be the real graphical client, not a dedicated server: native
+  character walking/mining and the visible window are part of the evaluation.
+- Everything runs on one machine and only on the loopback interface; the API is a
+  **cooperative evaluation interface**, not a security boundary against a hostile
+  agent (README "Configuration").
+- Optional integrations (OBS, screenshot capture, video conversion) stay optional
+  and fail cleanly; tests never need Factorio, Steam, OBS, or an agent CLI.
+
+## 2. Process and network topology
+
+```text
+ operator / CLI / browser / MCP client           external evaluation code
+        │                  │                      │
+        │ HTTP             │ stdio + JSON-RPC     │ HTTP (factorio.py)
+        │                  ▼                      │
+        │          node dist/mcp-server.js ──HTTP─┤
+        ▼                                         ▼
+ ┌──────────────────────────────────────────────────────────┐
+ │ manager: node dist/server.js (or tsx src/server.ts)      │
+ │  src/server.ts   HTTP API, static UI, game lifecycle     │
+ │  src/runs.ts     RunManager: agents, telemetry, scoring  │
+ │  action job queue: serialized gameplay mutations         │
+ └──────┬────────────────────────────┬──────────────────────┘
+        │ RCON over TCP              │ spawn + pipes
+        │ 127.0.0.1:27015            │ cwd = run workspace
+        ▼                            ▼
+ ┌────────────────────────────┐   agent CLI (opencode / codex / dsh)
+ │ graphical Factorio process │        │ runs `python factorio.py ...`
+ │  --host <save> multiplayer │        ▼
+ │  RCON server + player      │   manager HTTP API (127.0.0.1:3000)
+ │  autorio-control mod       │
+ └────────────────────────────┘
+        │ optional OBS WebSocket client (localhost) + window capture
+        ▼
+ OBS Studio ── 5 fps frames ──> timelapse conversion (AVFoundation / FFmpeg)
+```
+
+| Component | Default address | Notes |
+| --- | --- | --- |
+| Manager HTTP + static UI | `127.0.0.1:3000` (`AUTORIO_PORT`) | `server.listen(PORT, "127.0.0.1")`; serves `public/`; lock `.autorio/manager.pid` |
+| RCON | `127.0.0.1:27015` (`RCON_PORT`) | Password generated into `.autorio/rcon-password` (0600) unless `RCON_PASSWORD` is set |
+| Factorio multiplayer host | UDP `34197` (`AUTORIO_GAME_PORT`) | In the isolated profile's `config.ini`; the game bind and RCON are loopback-only |
+| Agent | child process | Injected `FACTORIO_API_BASE`/`PYTHONPATH`; RCON/OBS secrets removed from its env |
+| MCP server | `node dist/mcp-server.js` | Separate stdio process; proxies to the manager at `AUTORIO_API_BASE` |
+| OBS WebSocket | `ws://127.0.0.1:4455` (OBS default) | Optional; manager is an OBS v5 WebSocket client only |
+| Cluster instances | `3000..`, `27099..`, `34197..` | `scripts/cluster.mjs` spawns one isolated manager per instance |
+
+One manager owns at most one game/run; parallel evaluation uses several managers with isolated ports
+and `AUTORIO_DATA_DIR` (README "Parallel evaluation cluster").
+
+## 3. Module map
+
+| Layer | File(s) | Responsibility |
+| --- | --- | --- |
+| Transport | `src/server.ts` | HTTP server (API + static files), Factorio lifecycle, RCON bridge, action job queue, native-control plumbing, `RunManager` wiring. The main monolith; pure Lua command builders are extracted to `src/command-builders.ts`. |
+| Transport | `src/command-builders.ts` | Pure `/sc` Lua builders for builds, clearing, destinations, observations, crafting/research and map queries; unit-tested without a manager or game. |
+| Operate | `src/logger.ts`, `src/health.ts` | Zero-dependency structured logger (JSONL `manager.log` + stderr mirror, secret redaction, child context) and the `GET /api/health` payload/status-code builder. |
+| Transport | `src/run-cli.ts`, `autorio`, `autorio.cmd`, `autorio.ps1` | Operator CLI and Node-finding/rebuild launchers (`start/list/show/watch/stop/pause/resume/compare`). |
+| Transport | `src/mcp-server.ts` | Dependency-free MCP stdio server: 25 tools (observations, action jobs, job status/cancel, runs/benchmarks/server status). |
+| Transport | `src/run-terminal.ts`, `src/terminal-view.ts`, `src/recording-window.ts`, `native/recording-window.swift` | Optional terminal viewer and standalone recording window (WKWebView on macOS, Edge/Chrome app window on Windows); closes 2 s after a terminal run state. |
+| Runs | `src/runs.ts` | `RunManager`: state machine, workspace prep, baseline cache, agent launch and event translation, token/context accounting, telemetry and scoring, recording hooks, save/checkpoint/resume. |
+| Runs | `src/benchmarks.ts` | Loads/validates `benchmarks/*.json`; RCON telemetry command; `Snapshot` parsing and milestone `reached()` checks. |
+| Runs | `src/run-labels.ts`, `src/token-usage.ts`, `src/quota.ts` | Pacific-local labels; Codex token fallback (`last_reported`); quota detection that pauses a run. |
+| Game | `src/runtime.ts` | Paths, ports, config, isolated game profile (mod, `config.ini`, `server-settings.json`), map creation, version/Steam checks, mod hash. |
+| Game | `src/platform.ts` | Cross-platform process/executable helpers: PATHEXT/`.cmd` shims, `spawnExecutable`/`execExecutable`, `taskkill` trees, Steam/browser discovery, usage sampling. |
+| Game | `src/native-control.ts`, `factorio-mod/autorio-control/{info.json,control.lua}` | Native-action `/sc` command builder/poller; Factorio 2.1 mod for per-tick pathfinding walking, mining, sidestep avoidance, tree/rock clearing, cancellation, 5 s lease. |
+| Game | `src/rocket.ts` | Finds and launches rocket silos through RCON. |
+| Agents | `src/opencode.ts` | OpenCode model normalization (`provider/model#variant`), native-vs-WSL transport, WSL paths/quoting. |
+| Agents | `src/dsh.ts` | DSH profile/CLI/credential resolution, per-run model patch, `play.cmd`/`play.ps1`/`play.sh` wrappers, headless NDJSON translator. |
+| Observe | `src/vision.ts`, `scripts/capture-window.ps1` | Windows-only screenshot observation; `POST /api/agent/observe/visual` returns validated PNG base64. |
+| Record | `src/obs-client.ts`, `src/obs.ts` | Localhost OBS v5 control, run-owned profile/scene, two-window composition, safe restore (`ObsRunRecorder`). |
+| Record | `src/timelapse.ts`, `native/timelapse.swift`, `scripts/narrate.ps1` | 5 fps → silent 30 fps H.264 MP4 (6×) via AVFoundation/FFmpeg with metadata verification; Windows TTS narration. |
+| Interfaces | `factorio.py` | Importable Python client + CLI: `FactorioClient`, action/job helpers, `wait_for_*`, belt/loader builders, `argparse` surface. |
+| Interfaces | `autorio_types.py`, `autorio_gym.py`, `autorio_trajectory.py` | Typed observation dataclasses; dependency-free Gym-style `FactorioEnv`; SQLite (WAL) episode/step store. |
+| Interfaces | `public/` | Operator UI: `index`+`runs.js` (launch/history), `run`+`run.js` (details), `compare`, `recording`+`recording.js` (transcript/status bar), renderers, `production-chart.js`, `runs.css`. |
+| Interfaces | `scripts/cluster.mjs`, `scripts/cluster-lib.mjs` | Cluster supervisor and side-effect-free helpers for instance planning, env, metadata, run requests. |
+| Tooling | `scripts/api-selftest.py`, `scripts/game-status.py`, `scripts/doctor.mjs` | Read-only live API self-test, live game helper, environment doctor. |
+| Tooling | `tests/`, `scripts/check-repo.mjs`, `scripts/package.mjs`, `.github/workflows/ci.yml` | Node/Python suites (no real game needed), repo hygiene gate, reproducible packaging, CI matrix. |
+
+## 4. Manager ↔ game bridge
+
+**RCON.** One TCP connection to the game (`rconCommand()`, 3 s default timeout). Gameplay code is
+`/sc` Lua printing JSON via `helpers.table_to_json`, parsed back with `JSON.parse`; it serves
+telemetry, observations, native control, maps, and `/save`. RCON is loopback-only; its password is
+removed from agent environments.
+
+**Native control mod.** `src/native-control.ts` generates `remote.call('autorio-control', ...)`:
+`start`, then `poll` (100 ms), `stop`, with cancellation/timeouts; lease expiry is the fallback if
+the manager disconnects. Each action carries a random token. The mod's `on_tick` walks the real
+character through Factorio's pathfinder, mines with real mining times, sidesteps when stuck, mines a
+blocking tree/rock, and clears build footprints. The lease is refreshed by every `poll`; on save
+load the mod resets and never replays saved requests. JSON is embedded as Lua long-bracket strings.
+
+**Action jobs.** State-changing requests are queued: `{action, payload}` to `POST /api/agent/jobs`,
+poll `GET /api/agent/jobs/:id`. Direct `POST /api/agent/act/*` is rejected unless it carries an
+internal per-process header (the queue dispatches over loopback `node:http`, avoiding undici's 300 s
+abort). One job runs at a time so clients can't race the player; items are split (one entity/target
+per internal request), idempotency keys are kept for an hour, and cancellation happens between
+atomic actions. Builds pre-clear reachable trees/rocks in their footprint and retry once on
+`cannot_build`.
+
+**Observations and telemetry.** Read-only endpoints
+`/api/agent/observe/{world,map,player,research,recipes,connections,layout,factory,placement,resources,entity,entity-prototype}`
+build Lua returning normalized JSON. The pure Lua builders live in `src/command-builders.ts`
+(unit-tested in `tests/command-builders.test.mjs`); routes, RCON dispatch and state stay in
+`src/server.ts`. Telemetry is one `/sc` snapshot per sample (`TELEMETRY_COMMAND`: tick, production,
+research, rockets) parsed by `benchmarks.ts`.
+
+**Health and operational logs.** `GET /api/health` returns 200 when every probe passes and 503
+`degraded` (with a `problems` list) when a probe throws; an idle manager is healthy. The structured
+logger writes JSONL to `<data-dir>/manager.log`, mirrors one human line per record to stderr, redacts
+secret-looking keys, and records HTTP requests (method, path, status, duration; health polls excluded).
+`AUTORIO_LOG_LEVEL` selects `debug|info|warn|error`.
+
+## 5. Run lifecycle and data flow
+
+States (`RunState` in `src/runs.ts`): `preparing`, `launching`, `running`, `saving`, then terminal
+`completed`/`failed`/`stopped`/`timed_out`/`interrupted` or resumable `paused`.
+
+1. **Start** — `POST /api/runs` (dashboard, CLI, cluster) calls
+   `RunManager.start()`, which allocates a run id/name and writes `run.json`.
+2. **Prepare** — `workspace/` gets a frozen `factorio.py` and the playbook from
+   `runs/run_template/AGENTS.md`, plus `TASK.md`/`benchmark.json`; versions and
+   SHA-256 hashes are recorded. The fixed-seed baseline is cached under
+   `.autorio/baselines/<hash>/baseline.zip` (keyed by Factorio version + map
+   settings + mod hash), generated once with `createMap()`, and copied per run as
+   `game.zip`. The agent CLI is version-checked before the clock starts (DSH also
+   needs an API key).
+3. **Launch** — starts the graphical game from the isolated profile, hosting the run
+   save with loopback RCON; waits for telemetry readiness
+   (`AUTORIO_STARTUP_SECONDS`, default 180 s). The first `/sc` exits the cutscene,
+   sets daylight, inserts starting items, disables intro/crashsite; a baseline
+   snapshot is recorded and native controls reset. Recording window/terminal and
+   optional OBS capture start, the game is unpaused (`game.speed = 1`), baseline
+   research milestones are marked `initial`, and the agent is spawned.
+4. **Agent** — the backend runs in the workspace with `FACTORIO_API_BASE` and
+   `PYTHONPATH`; its prompt points at `AGENTS.md`/`TASK.md` and the Python client.
+   stdout is parsed into transcript events (`agent.events.jsonl`, `codex.log`);
+   session id, token/context counters, and quota errors update `run.json`.
+5. **Telemetry and scoring** — a monitor samples every `sample_seconds`, appends
+   `telemetry.jsonl`, computes production-rate deltas, and records milestones at
+   their **first-observed** wall time/game ticks (baseline subtracted). Completion
+   is declared only when the independently observed completion milestone is
+   reached — never from the agent's claim or exit code. A watchdog enforces
+   `max_seconds`; three consecutive telemetry failures fail the run.
+6. **Finalize** — state becomes `saving`: pause the game, kill the agent process
+   tree (and WSL pid), cancel jobs/native controls, stop OBS, request `/save`, copy
+   `final.zip`, and store `segments/NNN/checkpoint.zip` with a SHA-256.
+   `SUMMARY.md` is written and the run becomes terminal; recorded video converts to
+   a 6× timelapse in the background. Pause resumability is preserved by the
+   checkpoint: `resume` reloads the same save/workspace/session and re-copies the
+   game profile.
+
+## 6. Agent backends and transcript translation
+
+Every backend is normalized into the events that `public/recording.js` and
+`public/codex-transcript.js` render: `thread.started`, `item.started`/`item.completed`
+(`agent_message`, `reasoning`, `command_execution`), `turn.completed`, and `error`.
+
+| Backend | Command | Translation and notes |
+| --- | --- | --- |
+| `opencode` (default) | `opencode run --format json --thinking --model provider/model --auto` (+ `--session` on resume) | `text` → message, `reasoning` → reasoning/thought log, `tool_use` → command execution, `step_finish.tokens` → counters, `sessionID` → session. Native binary or WSL via generated `agent-launch.sh` + `wsl.exe -d <distro>`; cached tokens tracked as a max, not summed. |
+| `codex` | `codex exec --json --ignore-user-config --sandbox ... -C <workspace> --output-last-message REPORT.md` (+ `-c` provider overrides, `resume <session>`) | Consumes Codex `item.*`/`turn.completed` events directly; `thread.started` sets the session. `AUTORIO_CODEX_*` configures an OpenAI-compatible provider; session-log token fallback is labelled `last_reported`. |
+| `dsh` | `dsh --profile headless --json`, task over stdin, `--session-id` on resume | `translateDshEvent()` maps `session`, `thinking`, `text`, `tool_call`, `tool_result`, `status.step_end` (usage), `status.turn_end` (error); unknown events are ignored. Per-run `dsh-model.patch.yml`; key from env/`.env`/`$DSH_HOME/.credentials.yaml` refs only passed to the child; Windows `play.cmd` + `play.ps1`/`play.sh` fallback; always web transcript. |
+| `manual` | none | `--manual` prepares game + telemetry for diagnostics without an agent. |
+
+Workspaces contain short-wait helpers (`bin/sleep`, `sitecustomize.py` cap sleeps at 10 s) and
+prompts require condition waits (`wait_for_*`). `AUTORIO_CONTEXT_LIMIT` stops the agent, writes
+`RESUME.md`, clears the session id, and restarts it in place without stopping the game.
+
+## 7. On-disk layout
+
+Everything generated lives under `AUTORIO_DATA_DIR` (default `.autorio/`, git-ignored):
+
+```text
+.autorio/
+  baselines/<hash>/{baseline.zip,profile/}  manager.log  manager.pid  factorio.pid
+  rcon-password  saves/  manager/  tools/  cluster/  runs/<run-id>/
+    run.json  benchmark.json  game.zip  final.zip  SUMMARY.md  recording-window.json
+    telemetry.jsonl  milestones.jsonl  jobs.jsonl  activity.log  codex.log
+    agent.{stdout,stderr}.log  agent.events.jsonl  agent-launch.json
+    thoughts.log  thoughts.txt  profile/  workspace/  segments/NNN/checkpoint.zip
+    video/{timelapse.mp4,timelapse.json}
+```
+
+There is no automatic retention/cleanup: old runs, baselines, and videos stay until removed
+manually.
+
+## 8. Extension points
+
+- **New gameplay API endpoint** — add a Lua builder and route in `src/server.ts`
+  (`json()`/`readJson()` conventions; observations are read-only `POST`). If it
+  mutates state, register it as a queued action job (`JobAction`, `actionPaths`)
+  rather than exposing it directly; then add a `factorio.py` method and CLI
+  subcommand, cover it in `scripts/api-selftest.py`, and add an MCP tool or Gym
+  action if it belongs there.
+- **New MCP tool** — add a `ToolDefinition` to `TOOLS` in `src/mcp-server.ts`
+  (`inputSchema` + `request()`, `jobRequest()` for actions). stdout stays
+  protocol-only; diagnostics go to stderr; test it in
+  `tests/mcp-server.test.mjs` against its fake HTTP server.
+- **New agent backend** — extend the `Run["agent"]` union, CLI/UI presets, add a
+  `checkAgent()` version probe and a launch method emitting the shared transcript
+  events, token/context accounting, quota handling, and resume support. Add a
+  fake-CLI lifecycle test and document it in README/AGENTS/`.env.example`.
+- **New benchmark** — normally only a `benchmarks/*.json` addition: id, title,
+  task, `max_seconds`, `sample_seconds`, map seed/settings, starting items,
+  daylight policy, and milestones with exactly one `completion` id
+  (`loadBenchmarks()` validates the shape at startup).
+- **New UI** — static files in `public/` need no build step (`Cache-Control: no-store`).
+
+## 9. Known debt and limitations
+
+- **`src/server.ts` monolith** — routes, RCON bridge, action queue and game lifecycle still
+  share one module; the pure Lua builders were extracted to `src/command-builders.ts` and the
+  next natural splits are the job queue and the HTTP route table.
+- **Operational tooling gaps** — structured logs and `/api/health` exist, but there are still no
+  metrics endpoint, log rotation or alerting; CI covers build/tests/hygiene/formatting but no live
+  Factorio integration run.
+- **`any` leakage at JSON boundaries** — ~140 explicit `: any` annotations in
+  `src/` (~130 in `server.ts`); strict mode catches internal mistakes, but
+  RCON/Lua and agent-event payloads remain dynamically typed.
+- **No authentication** — the HTTP API and RCON are loopback-only; the internal
+  job header is a random per-process UUID, not authorization. The API assumes a
+  trusted local operator/agent: run workspaces ask agents to use only the Python
+  gameplay API, but raw RCON remains available to the operator.
+- **One run at a time** — parallel evaluation needs cluster manager processes,
+  bound by memory/GPU budget (2–3 graphical instances on a normal desktop).
+- **Platform scope** — graphical play requires macOS or Windows; Linux is useful
+  for tests/CLI work only. Visual capture also needs an interactive unlocked
+  Windows desktop.
+- **Polling-based, file-backed state** — milestones are first-observed samples, not
+  engine events (Gym `GameInfo.tick` is approximate while paused); runs are
+  `run.json` + JSONL files and jobs are in-memory (one-hour retention). A manager
+  restart marks unfinished runs `interrupted`; there is no automatic resume.
+- **Docs drift** — README, `AGENTS.md`, and this file must be updated with API or
+  module changes (the repo-hygiene gate only checks that the files exist).
+
+## 10. Further reading
+
+- `README.md` (user manual), `CONTRIBUTING.md` (setup, gates, tests, style, recipes).
+- `CHANGELOG.md` (current batch); `AGENTS.md` and `runs/run_template/AGENTS.md`
+  (agent summaries and the run playbook).
