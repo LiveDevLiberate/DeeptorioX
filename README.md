@@ -105,7 +105,11 @@ It follows new output unless you scroll up. The standalone recording window
 automatically closes two seconds after completion, failure, stop, timeout, or interruption.
 The manager opens a dedicated window containing the web recording view (a native
 window on macOS, an Edge/Chrome app window on Windows), with no browser tabs or
-address bar. Both dashboard and CLI launches use it.
+address bar. Both dashboard and CLI launches use it. Its **Agent transcript** header also shows a compact live status: run state,
+current activity (Thinking/Acting/Idle), elapsed time and tokens, the current
+subtask with its done condition, and six subtask scores from `STATE.md`. Labels
+switch between English and Simplified Chinese from the run's language, and the
+header collapses for narrow windows.
 Closing it manually does not stop the run. You can reopen saved output using
 the dashboard’s Recording view link, which stays open in the browser.
 `--detach` prints the URL without opening a window; `--watch` follows operator logs here.
@@ -180,7 +184,10 @@ cd C:\Users\Roger\autorio
 .\scripts\narrate.ps1 -FromStart -DryRun -Once          # test without audio
 ```
 
-The narrated text is also written to `narration.txt` for a subtitle overlay.
+The narrated text is also written to `narration.txt` for a subtitle overlay. If
+agents write Chinese messages but reason in English, use
+`-MessagesOnly -Voice "Microsoft Huihui Desktop"` to narrate the Chinese
+messages only.
 For OBS, add a **Text** source that reads `thoughts.txt` or `narration.txt`.
 `Ctrl-C` stops narration without touching the game. Reasoning is in the model's
 own language (DeepSeek V4.1 Flash currently thinks in English); select a voice
@@ -253,6 +260,7 @@ Optional `.env` settings (process environment takes precedence):
 | `FACTORIO_DISABLE_AUDIO` | Set to `1` for silent runs |
 | `AUTORIO_STARTUP_SECONDS` | `180`; maximum graphical readiness wait |
 | `AUTORIO_TERMINAL` | Set to `1` to use the optional terminal viewer instead of web recording view |
+| `AUTORIO_AGENT_LANGUAGE` | Optional language for agent messages/reasoning summaries, e.g. `Chinese`; code and commands stay unchanged |
 | `AUTORIO_BROWSER` | Windows/macOS: optional path to the Edge/Chrome executable used for the recording window |
 | `AUTORIO_OPENCODE_MODEL` | Default OpenCode model, `opencode-go/deepseek-v4.1-flash` |
 | `OPENCODE_BIN` | Optional native OpenCode executable; otherwise `opencode` on PATH |
@@ -491,6 +499,14 @@ native `opencode` when it is on PATH; otherwise it runs the CLI inside WSL using
 ```bash
 ./autorio start smoke --model opencode-go/deepseek-v4-pro
 ```
+
+### Output language
+
+Set `AUTORIO_AGENT_LANGUAGE=Chinese` (or pass `--language Chinese`) to ask the
+agent to write its messages and reasoning summaries in that language. Code,
+commands, paths, and identifiers remain unchanged. The model may still reason in
+English; for TTS, choose a voice matching the produced text or add a translation
+step.
 
 ### Codex as an optional agent
 

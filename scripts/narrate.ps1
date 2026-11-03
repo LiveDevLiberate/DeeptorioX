@@ -16,6 +16,7 @@ param(
   [int]$MinChars = 24,
   [int]$MaxChars = 420,
   [switch]$IncludeMessages,
+  [switch]$MessagesOnly,
   [switch]$FromStart,
   [switch]$ListVoices,
   [switch]$DryRun,
@@ -38,6 +39,7 @@ if ($ListVoices) {
   exit 0
 }
 if ($Voice) { $synth.SelectVoice($Voice) }
+if ($MessagesOnly) { $IncludeMessages = $true }
 
 if (-not $RunDir) {
   if ($RunId) {
@@ -101,6 +103,7 @@ while ($true) {
           try { $event = $text | ConvertFrom-Json } catch { continue }
           if ($event.type -ne "item.completed" -or -not $event.item) { continue }
           if ($event.item.type -ne "reasoning" -and $event.item.type -ne "agent_message") { continue }
+          if ($MessagesOnly -and $event.item.type -ne "agent_message") { continue }
           $text = [string]$event.item.text
         }
         $text = Clean-Text $text

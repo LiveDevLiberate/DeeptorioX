@@ -2943,7 +2943,7 @@ async function handleStatic(req: IncomingMessage, res: ServerResponse) {
 
   try {
     const data = await fs.readFile(filePath);
-    res.writeHead(200, { "Content-Type": contentType(filePath) });
+    res.writeHead(200, { "Content-Type": contentType(filePath), "Cache-Control": "no-store" });
     res.end(data);
   } catch {
     res.writeHead(404);

@@ -21,7 +21,7 @@ type Video = NonNullable<Run["video"]>;
 type Segment = {index:number; state:RunState; started_at?:string; ended_at?:string; start_seconds:number; end_seconds?:number; event_offset:number; native_offset:number; session_id?:string; save_file?:string; video?:Video};
 type Run = {
   id: string; name?: string; reasoning_effort?: ReasoningLevel; benchmark: Benchmark; state: RunState; created_at: string;
-  started_at?: string; ended_at?: string; reason?: string; model?: string;
+  started_at?: string; ended_at?: string; reason?: string; model?: string; language?: string;
   agent: "codex" | "opencode" | "manual"; max_seconds: number; elapsed_seconds: number;
   segments?:Segment[];
   checkpoint?:{file:string;sha256:string;saved_at:string;segment:number};
@@ -55,6 +55,12 @@ export const sha256 = (value: string | Buffer) => createHash("sha256").update(va
 const errorText = (e: unknown) => e instanceof Error ? e.message : String(e);
 
 /** Extra Codex overrides for an OpenAI-compatible provider (for example OpenCode Go → DeepSeek). */
+function languagePrompt(run: Run) {
+  if (!run.language) return "";
+  const label = /^(?:chinese|中文|zh)/i.test(run.language) ? "Simplified Chinese (简体中文)" : run.language;
+  return `CRITICAL OUTPUT LANGUAGE: ${label}. Write every user-facing message and every reasoning summary in ${label}. Do not write English prose. Keep code, commands, file paths, identifiers and in-game proper names unchanged. `;
+}
+
 function codexProviderArgs(): string[] {
   const provider = process.env.AUTORIO_CODEX_PROVIDER?.trim();
   if (!provider) return [];
@@ -164,8 +170,18 @@ export class RunManager {
   }
   list() { return [...this.runs.values()].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)).map(run => this.view(run)); }
   get(id: string) { const run = this.runs.get(id); return run ? this.view(run) : undefined; }
+  private stateMarkdown(run: Run) {
+    for (const relative of ["workspace/STATE.md", "STATE.md"]) {
+      try {
+        const file = path.join(this.dir(run), relative);
+        if (!fs.statSync(file).isFile()) continue;
+        return fs.readFileSync(file, "utf8").slice(0, 8000);
+      } catch { /* try the other location */ }
+    }
+    return undefined;
+  }
   private view(run: Run) {
-    return { ...run, resumable:run.state==="paused" && Boolean(run.checkpoint && fs.existsSync(path.join(this.dir(run),run.checkpoint.file))), model_label: modelLabel(run), elapsed_seconds: run === this.active && run.state === "running" ? this.elapsed() : run.elapsed_seconds };
+    return { ...run, state_md: this.stateMarkdown(run), resumable:run.state==="paused" && Boolean(run.checkpoint && fs.existsSync(path.join(this.dir(run),run.checkpoint.file))), model_label: modelLabel(run), elapsed_seconds: run === this.active && run.state === "running" ? this.elapsed() : run.elapsed_seconds };
   }
   log(id: string, offset: number, native: boolean | "events" | "telemetry" = false) {
     const run = this.runs.get(id);
@@ -184,7 +200,7 @@ export class RunManager {
     } finally { fs.closeSync(fd); }
   }
 
-  start(options: { benchmark?: string; model?: string; reasoning_effort?: string; agent?: string; max_seconds?: number; terminal?: boolean; recording?: boolean; capture_video?:boolean }) {
+  start(options: { benchmark?: string; model?: string; reasoning_effort?: string; agent?: string; language?: string; max_seconds?: number; terminal?: boolean; recording?: boolean; capture_video?:boolean }) {
     if (this.active || this.hooks.running()) throw new Error("Stop the active game/run before starting another run.");
     const benchmark = this.benchmarks.find(b => b.id === (options.benchmark || "smoke"));
     if (!benchmark) throw new Error("Unknown benchmark");
@@ -193,6 +209,7 @@ export class RunManager {
     const max = options.max_seconds ?? benchmark.max_seconds;
     if (!Number.isFinite(max) || max < 1 || max > 86400) throw new Error("max_seconds must be between 1 and 86400");
     if (options.model !== undefined && (typeof options.model !== "string" || !options.model.trim())) throw new Error("Invalid model");
+    if (options.language !== undefined && (typeof options.language !== "string" || !options.language.trim() || options.language.length > 40)) throw new Error("Invalid language");
     if (options.terminal !== undefined && typeof options.terminal !== "boolean") throw new Error("terminal must be a boolean");
     if (options.recording !== undefined && typeof options.recording !== "boolean") throw new Error("recording must be a boolean");
     if(options.capture_video!==undefined && typeof options.capture_video!=="boolean") throw new Error("capture_video must be a boolean");
@@ -206,6 +223,7 @@ export class RunManager {
       reasoning_effort: agent === "codex" ? effort as ReasoningLevel : undefined,
       benchmark: { ...benchmark, milestones: trackedMilestones(benchmark) }, state: "preparing", created_at: created.toISOString(),
       model: agent === "opencode" ? opencodeModel(options.model) : options.model,
+      language: (options.language?.trim() || process.env.AUTORIO_AGENT_LANGUAGE?.trim()) || undefined,
       agent: agent as Run["agent"], max_seconds: max,
       terminal: agent !== "manual" && (options.terminal ?? process.env.AUTORIO_TERMINAL === "1"),
       elapsed_seconds: 0, milestones: {}, warnings: [],
@@ -401,7 +419,7 @@ export class RunManager {
     const usage: Record<string, number> = resuming && run.usage ? { ...run.usage } : {};
     run.output_format = "events";
     this.persist(run);
-    const prompt = (resuming ? "Continue the same benchmark from its saved game. Read RESUME.md and re-observe the player/world before acting. " : "")
+    const prompt = languagePrompt(run) + (resuming ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. " : "")
       + "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. "
       + "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
     const command = ["run", "--format", "json", "--thinking", "--model", model, "--auto",
@@ -562,7 +580,7 @@ export class RunManager {
     if (run.reasoning_effort) args.push("-c", `model_reasoning_effort=${JSON.stringify(run.reasoning_effort)}`);
     args.push(...codexProviderArgs());
     if(resuming && run.session_id)args.push("resume",run.session_id);
-    args.push((resuming?"Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. ":"")+"Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
+    args.push(languagePrompt(run)+(resuming?"Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. ":"")+"Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
       "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.");
     const env: NodeJS.ProcessEnv = { ...process.env, FACTORIO_API_BASE: `http://127.0.0.1:${PORT}` };
     delete env.RCON_PASSWORD;
@@ -771,7 +789,7 @@ export class RunManager {
       run.state = state;run.reason=reason; run.ended_at = new Date().toISOString(); this.persist(run);
       fs.writeFileSync(path.join(this.dir(run), "SUMMARY.md"), [
         `# ${run.benchmark.title}`, "", `Run: ${run.name || run.id}`, `Result: ${state}`, `Reason: ${reason}`,
-        `Agent: ${modelLabel(run)}`, `Active play time: ${run.elapsed_seconds.toFixed(2)} seconds`,
+        `Agent: ${modelLabel(run)}`, `Language: ${run.language || "model default"}`, `Active play time: ${run.elapsed_seconds.toFixed(2)} seconds`,
         `Segments: ${run.segments?.length || 1}`,`Checkpoint: ${run.checkpoint?.file || "unavailable"}`,
         `Tokens: ${run.usage ? JSON.stringify(run.usage) : "unavailable"} (${run.usage_status || "unavailable"})`, "",
         ...Object.entries(run.milestones).map(([id, m]) => `- ${id}: ${m.wall_seconds.toFixed(2)} seconds / ${m.game_ticks} ticks`),

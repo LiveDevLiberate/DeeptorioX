@@ -104,6 +104,8 @@ Next candidate: research (50) or armed exploration (25) when idle
 
 ## Available interface
 
+- Follow the output language requested by the run prompt for every message and
+  reasoning summary; keep code, commands, paths and identifiers unchanged.
 - Use `factorio.py` to observe and act in the game.
 - It is both a command-line program and an importable Python module.
 - The default manager address is `http://localhost:3000`.
