@@ -1669,7 +1669,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
     try { return json(res, 202, runManager.start(await readJson(req))); }
     catch (error: any) { return json(res, 400, { error: error.message }); }
   }
-  const runMatch = url.pathname.match(/^\/api\/runs\/([^/]+)(?:\/(stop|resume|log|video))?$/);
+  const runMatch = url.pathname.match(/^\/api\/runs\/([^/]+)(?:\/(stop|resume|pause|log|video))?$/);
   if (runMatch) {
     const run = runManager.get(runMatch[1]);
     if (!run) return json(res, 404, { error: "Run not found" });
@@ -1691,6 +1691,10 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
     }
     if(runMatch[2]==="resume" && req.method==="POST") {
       try{return json(res,202,runManager.resume(run.id));}
+      catch(error:any){return json(res,409,{error:error.message});}
+    }
+    if(runMatch[2]==="pause" && req.method==="POST") {
+      try{await runManager.pause();return json(res,200,runManager.get(run.id));}
       catch(error:any){return json(res,409,{error:error.message});}
     }
     if (runMatch[2] === "stop" && req.method === "POST") {

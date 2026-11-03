@@ -65,11 +65,11 @@ async function main() {
   if (["help", "--help", "-h"].includes(command)) {
     const cli = process.platform === "win32" ? "autorio.cmd" : "./autorio";
     const osName = process.platform === "win32" ? "Windows" : process.platform === "darwin" ? "macOS" : "Linux";
-    console.log(`Autorio runs (${osName})\n\n  ${cli} start [smoke|automation|rocket] [--model NAME] [--agent opencode|codex] [--thinking LEVEL] [--seconds N] [--manual] [--detach] [--terminal] [--watch] [--video|--no-video]\n  ${cli} benchmarks\n  ${cli} list\n  ${cli} show RUN_ID\n  ${cli} watch RUN_ID\n  ${cli} stop RUN_ID\n  ${cli} resume RUN_ID\n  ${cli} compare RUN_ID RUN_ID [...]\n  ${cli} obs-status\n  ${cli} shutdown\n\nStart opens graphical Factorio and runs an agent (OpenCode by default; --agent codex opts into Codex). Steam must be running and signed in.\nA standalone recording window opens for the run and closes two seconds after it ends.\nUse --terminal for the optional terminal viewer; --watch follows operator logs here. Ctrl-C while watching stops and saves the run.\n--thinking selects reasoning effort (default low; supported levels depend on model).\n--manual starts the game and telemetry without Codex for integration/debugging.\nshutdown stops any run and closes the manager. Equivalent npm entry: npm run run -- COMMAND`);
+    console.log(`Autorio runs (${osName})\n\n  ${cli} start [smoke|automation|rocket] [--model NAME] [--agent opencode|codex] [--thinking LEVEL] [--seconds N] [--manual] [--detach] [--terminal] [--watch] [--video|--no-video]\n  ${cli} benchmarks\n  ${cli} list\n  ${cli} show RUN_ID\n  ${cli} watch RUN_ID\n  ${cli} stop RUN_ID\n  ${cli} pause RUN_ID\n  ${cli} resume RUN_ID\n  ${cli} compare RUN_ID RUN_ID [...]\n  ${cli} obs-status\n  ${cli} shutdown\n\nStart opens graphical Factorio and runs an agent (OpenCode by default; --agent codex opts into Codex). Steam must be running and signed in.\nA standalone recording window opens for the run and closes two seconds after it ends.\nUse --terminal for the optional terminal viewer; --watch follows operator logs here. Ctrl-C while watching stops and saves the run.\n--thinking selects reasoning effort (default low; supported levels depend on model).\n--manual starts the game and telemetry without Codex for integration/debugging.\nshutdown stops any run and closes the manager. Equivalent npm entry: npm run run -- COMMAND`);
     return;
   }
   if (command === "shutdown") { await api("/api/manager/stop", {}); console.log("Manager shutdown requested; any active run will be stopped and saved."); return; }
-  if (!["start", "benchmarks", "list", "show", "watch", "stop", "resume", "compare"].includes(command)) throw new Error(`Unknown command: ${command}`);
+  if (!["start", "benchmarks", "list", "show", "watch", "stop", "pause", "resume", "compare"].includes(command)) throw new Error(`Unknown command: ${command}`);
   await ensureManager();
   if (command === "start") {
     const run = await api("/api/runs", { benchmark: args[0]?.startsWith("--") ? "smoke" : args[0] || "smoke",
@@ -94,6 +94,7 @@ async function main() {
   else if (command === "show") console.log(JSON.stringify(await api(`/api/runs/${args[0]}`), null, 2));
   else if (command === "watch") await watch(args[0]);
   else if (command === "stop") console.log(JSON.stringify(await api(`/api/runs/${args[0]}/stop`, {}), null, 2));
+  else if (command === "pause") console.log(JSON.stringify(await api(`/api/runs/${args[0]}/pause`, {}), null, 2));
   else if (command === "compare") {
     if (args.length < 2) throw new Error("compare needs at least two run IDs");
     const runs = await Promise.all(args.map(id => api(`/api/runs/${id}`)));

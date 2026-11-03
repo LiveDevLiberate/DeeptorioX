@@ -552,6 +552,22 @@ and warnings. A hard manager crash can leave OBS recording; stop that recording
 manually before another captured run. Existing unrelated OBS outputs are never
 stopped automatically.
 
+## Pausing to change code or mods
+
+`pause` saves a checkpoint, stops the agent and game, and leaves the run in the
+resumable `paused` state:
+
+```bash
+./autorio pause RUN_ID
+# update code/mods, then
+./autorio resume RUN_ID
+```
+
+Resume keeps the same run ID, game save, workspace (including agent-written
+scripts and notes), and agent session. It also re-copies the managed profile, so
+control-mod changes take effect. A normal `stop` is terminal; use `pause` when
+you want to restart the game and continue the same run.
+
 ## Quota pauses and continuing a run
 
 When the agent reports an exhausted account usage quota, the runner immediately

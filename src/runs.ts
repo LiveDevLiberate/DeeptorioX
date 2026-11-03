@@ -688,6 +688,12 @@ export class RunManager {
     await this.preparation;
     await this.finish("stopped", "Stopped by operator");
   }
+  /** Save a checkpoint and stop the game while keeping this run resumable. */
+  async pause() {
+    if (!this.active) throw new Error("No active run");
+    if (!["running", "saving"].includes(this.active.state)) throw new Error("Only a running run can be paused");
+    await this.finish("paused", "Paused by operator");
+  }
   async shutdown() { if (this.active) await this.stop(); }
   private finish(state: RunState, reason: string): Promise<void> {
     if (this.ending) return this.ending;
