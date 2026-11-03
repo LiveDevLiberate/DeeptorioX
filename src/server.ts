@@ -1,4 +1,4 @@
-import { createServer, IncomingMessage, ServerResponse } from "http";
+import { createServer, IncomingMessage, ServerResponse, request as httpRequest } from "http";
 import type { ChildProcess } from "node:child_process";
 import {obsStatus} from "./obs.js";
 import fsSync from "fs";
@@ -443,18 +443,65 @@ function agentNativeBuildCommand(item: BuildRequest, dryRun = false): string {
   return parts.join(" ");
 }
 
-function agentBuildDestinationCommand(item: BuildRequest): string {
+/** Mine trees and rocks that overlap a build footprint before placement. */
+function agentClearBuildFootprintCommand(item: BuildRequest): string {
+  const direction = item.direction ?? 0;
+  return [
+    "/sc",
+    "local p=game.players[1]",
+    "local function done(v) rcon.print(helpers.table_to_json(v)) end",
+    "if not p or not p.character then done{ok=false,error='no_character'} return end",
+    `local name=${luaString(item.name)}`,
+    `local ax=${Number(item.anchor.x)}`,
+    `local ay=${Number(item.anchor.y)}`,
+    `local direction=${Number(direction)}`,
+    "local proto=prototypes.entity[name]",
+    "if not proto then done{ok=false,error='unknown_entity',name=name} return end",
+    "local width=proto.tile_width or 1 local height=proto.tile_height or 1",
+    "if direction==4 or direction==12 then width,height=height,width end",
+    "local function clearable(e)",
+    "if not e.valid then return false end",
+    "if e.type=='tree' then return e.minable end",
+    // Tree stumps are non-minable corpses; destroy them right away.
+    "if e.type=='corpse' and e.name:find('stump',1,true)~=nil then return true end",
+    "return e.type=='simple-entity' and e.minable and (e.name:find('rock',1,true)~=nil or e.name:find('stone',1,true)~=nil)",
+    "end",
+    "local found=p.surface.find_entities_filtered{area={{ax,ay},{ax+width,ay+height}}} or {}",
+    "local cleared={} local pending={} local skipped={} local blocked=false",
+    "for _,e in pairs(found) do",
+    "if e.valid and e~=p.character and e.type~='resource' then",
+    "if clearable(e) then",
+    "local ename=e.name local etype=e.type",
+    "if etype=='corpse' then",
+    "e.destroy()",
+    "table.insert(cleared,{name=ename,type=etype,removed='corpse'})",
+    "elseif p.can_reach_entity(e) then",
+    "local mined=p.mine_entity(e,true)",
+    "if mined then table.insert(cleared,{name=ename,type=etype}) else table.insert(skipped,{name=ename,type=etype,reason='mine_failed'}) blocked=true end",
+    "else table.insert(pending,{name=ename,type=etype,x=math.floor(e.position.x),y=math.floor(e.position.y)}) end",
+    "else table.insert(skipped,{name=e.name,type=e.type,reason='not_clearable'}) blocked=true end",
+    "end",
+    "end",
+    "done{ok=not blocked and #pending==0,cleared=cleared,pending=pending,skipped=skipped,footprint={min_x=ax,min_y=ay,width=width,height=height}}",
+  ].join(" ");
+}
+
+function agentBuildDestinationCommand(item: BuildRequest, forceStaging = false): string {
   const direction = item.direction ?? 0;
   return [
     "/sc", "local p=game.players[1]", "local function done(v) rcon.print(helpers.table_to_json(v)) end",
     "if not p or not p.character then done{ok=false,error='no_character'} return end",
     `local name=${luaString(item.name)}`, `local ax=${item.anchor.x}`, `local ay=${item.anchor.y}`, `local dir=${direction}`,
+    `local force=${forceStaging ? "true" : "false"}`,
     "local proto=prototypes.entity[name] if not proto then done{ok=false,error='unknown_entity'} return end",
     "local w=proto.tile_width local h=proto.tile_height if dir==4 or dir==12 then w,h=h,w end local cx=ax+w/2 local cy=ay+h/2",
-    "local dx=cx-p.position.x local dy=cy-p.position.y if dx*dx+dy*dy<=p.build_distance*p.build_distance and p.surface.can_place_entity{name=name,position={cx,cy},direction=dir,force=p.force,build_check_type=defines.build_check_type.manual} then done{ok=true,position={x=p.position.x,y=p.position.y},center={x=cx,y=cy}} return end",
-    "local margin=1 local offsets={{-(w/2+margin),0},{w/2+margin,0},{0,-(h/2+margin)},{0,h/2+margin},{-(w/2+margin),-(h/2+margin)},{w/2+margin,-(h/2+margin)},{-(w/2+margin),h/2+margin},{w/2+margin,h/2+margin}}",
-    "local best=nil local best_d=nil for _,o in pairs(offsets) do local tx=cx+o[1] local ty=cy+o[2] local pos=p.surface.find_non_colliding_position('character',{tx,ty},0.75,0.1) if pos then local reach_dx=pos.x-cx local reach_dy=pos.y-cy if reach_dx*reach_dx+reach_dy*reach_dy<=p.build_distance*p.build_distance then local dx=pos.x-p.position.x local dy=pos.y-p.position.y local d=dx*dx+dy*dy if not best_d or d<best_d then best=pos best_d=d end end end end",
-    "if not best then done{ok=false,error='no_reachable_staging_position'} return end done{ok=true,position=best,center={x=cx,y=cy}}",
+    "local dx=cx-p.position.x local dy=cy-p.position.y local in_reach=dx*dx+dy*dy<=p.build_distance*p.build_distance",
+    // Standing still is usually enough: obstacles are mined before placement,
+    // so only walk when the intended center is out of build range.
+    "if in_reach and not force then done{ok=true,in_reach=true,position={x=p.position.x,y=p.position.y},center={x=cx,y=cy}} return end",
+    "local margin=1.5 local offsets={{-(w/2+margin),0},{w/2+margin,0},{0,-(h/2+margin)},{0,h/2+margin},{-(w/2+margin),-(h/2+margin)},{w/2+margin,-(h/2+margin)},{-(w/2+margin),h/2+margin},{w/2+margin,h/2+margin}}",
+    "local best=nil local best_d=nil for _,o in pairs(offsets) do local tx=cx+o[1] local ty=cy+o[2] local pos=p.surface.find_non_colliding_position('character',{tx,ty},1.5,0.1) if pos then local reach_dx=pos.x-cx local reach_dy=pos.y-cy if reach_dx*reach_dx+reach_dy*reach_dy<=p.build_distance*p.build_distance then local dx=pos.x-p.position.x local dy=pos.y-p.position.y local d=dx*dx+dy*dy if not best_d or d<best_d then best=pos best_d=d end end end end",
+    "if not best then done{ok=false,error='no_reachable_staging_position'} return end done{ok=true,in_reach=in_reach,staging=true,position=best,center={x=cx,y=cy}}",
   ].join(" ");
 }
 
@@ -816,8 +863,8 @@ async function moveNearEntity(target: EntityTarget) {
   return nativeAction({kind:"approach",target:{...target,kind:target.kind || "entity"}});
 }
 
-async function movePlayerTo(x:number,y:number) {
-  return nativeAction({kind:"move",x,y});
+function movePlayerTo(x:number,y:number,timeoutMs?:number) {
+  return nativeAction({kind:"move",x,y,...(timeoutMs ? {timeout_ms:timeoutMs} : {})});
 }
 
 function agentRotateCommand(targets: Array<{ x: number; y: number }>): string {
@@ -1556,9 +1603,15 @@ async function rconCommand(command: string, timeoutMs = 3000): Promise<string> {
 }
 
 const nativeController=new NativeController(rconCommand);
+// Placement work is retried and moves only short distances, so a stuck native
+// action is aborted quickly instead of holding the whole job for ten minutes.
+const ACTION_TIMEOUT_MS=120_000;
+const BUILD_MOVE_TIMEOUT_MS=120_000;
 function nativeAction(payload:Record<string,unknown>) {
   const job=currentJob;
-  return nativeController.run(payload,()=>Boolean(job?.cancel_requested) || (runManager.busy && !runManager.acceptingActions));
+  const {timeout_ms,...action}=payload as Record<string,any>;
+  const timeout=typeof timeout_ms==="number"&&timeout_ms>0?timeout_ms:600_000;
+  return nativeController.run(action,()=>Boolean(job?.cancel_requested) || (runManager.busy && !runManager.acceptingActions),timeout);
 }
 
 type JobAction =
@@ -1608,7 +1661,12 @@ const actionPaths: Record<JobAction, string> = {
 };
 
 function splitJobPayload(action: JobAction, payload: any): any[] {
-  if (action === "build") return (Array.isArray(payload?.entities) ? payload.entities : []).map((entity: any) => ({ entities: [entity] }));
+  if (action === "build") {
+    const clear = payload?.clear_obstacles !== false;
+    return (Array.isArray(payload?.entities) ? payload.entities : []).map((entity: any) => ({
+      entities: [entity], clear_obstacles: clear,
+    }));
+  }
   if (["mine", "move", "rotate", "set-recipe", "launch-rocket"].includes(action)) {
     return (Array.isArray(payload?.targets) ? payload.targets : []).map((target: any) => ({ targets: [target] }));
   }
@@ -1631,6 +1689,34 @@ function publicJob(job: ActionJob) {
   };
 }
 
+// The queue owns timeouts and cancellation, so dispatch long actions over a
+// plain HTTP request with no client-side deadline (fetch/undici aborts at 300s).
+function internalPost(pathname: string, payload: unknown): Promise<{ status: number; body: any }> {
+  return new Promise((resolve, reject) => {
+    const body = Buffer.from(JSON.stringify(payload), "utf8");
+    const req = httpRequest({
+      host: "127.0.0.1", port: PORT, path: pathname, method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": body.length,
+        "X-Autorio-Internal": INTERNAL_JOB_KEY,
+      },
+    }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (chunk: Buffer) => chunks.push(chunk));
+      res.on("end", () => {
+        try { resolve({ status: res.statusCode ?? 0, body: JSON.parse(Buffer.concat(chunks).toString("utf8")) }); }
+        catch (err) { reject(err); }
+      });
+    });
+    // Safety net only: settle the socket after half an hour without any
+    // response instead of hanging the job queue forever.
+    req.setTimeout(30 * 60 * 1000, () => req.destroy(new Error("internal action timed out")));
+    req.on("error", reject);
+    req.end(body);
+  });
+}
+
 async function runActionJob(job: ActionJob) {
   if (job.cancel_requested) {
     job.status = "cancelled";
@@ -1648,15 +1734,11 @@ async function runActionJob(job: ActionJob) {
         job.status = "cancelled";
         break;
       }
-      const response = await fetch(`http://127.0.0.1:${PORT}${actionPaths[job.action]}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Autorio-Internal": INTERNAL_JOB_KEY },
-        body: JSON.stringify(payload),
-      });
-      const envelope = await response.json() as any;
+      const response = await internalPost(actionPaths[job.action], payload);
+      const envelope = response.body;
       const data = envelope?.data;
       let result = data?.results?.[0] ?? data ?? envelope;
-      if (!response.ok) {
+      if (response.status < 200 || response.status >= 300) {
         result = { ok: false, error: envelope?.error || `HTTP ${response.status}`, detail: result };
       }
       job.results.push(result);
@@ -2187,22 +2269,26 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
     try {
       const results: any[] = [];
       for (const entity of trimmed) {
-        const destination = parseRconJson<any>(
-          await rconCommand(agentBuildDestinationCommand(entity)),
+        // Clear obstacles from the current position first: walking the
+        // character through a forest to a staging tile is much slower than
+        // mining the trees that are already within reach.
+        const placement = parseRconJson<any>(
+          await rconCommand(agentBuildDestinationCommand(entity, false)),
           "RCON build destination returned invalid JSON",
         );
-        if (!destination?.ok) {
+        if (!placement?.ok) {
           results.push({
             ok: false,
             name: entity.name,
             requested_anchor: entity.anchor,
-            error: destination?.error || "no_reachable_staging_position",
+            error: placement?.error || "no_reachable_staging_position",
           });
           continue;
         }
         const movement = await movePlayerTo(
-          Number(destination.position.x),
-          Number(destination.position.y),
+          Number(placement.position.x),
+          Number(placement.position.y),
+          BUILD_MOVE_TIMEOUT_MS,
         );
         if (!movement.ok) {
           results.push({
@@ -2214,9 +2300,89 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
           });
           continue;
         }
-        const response = await rconCommand(agentNativeBuildCommand(entity));
-        const result = parseRconJson<any>(response, "RCON build returned invalid JSON");
-        results.push({ ...result, movement: movement.movement });
+        let usedMovement = movement.movement;
+        let clearing: any = null;
+        const clearFootprint = async (acc: any) => {
+          // Mining a tree leaves a stump that can still block placement, so
+          // re-scan a few times until the footprint stops changing.
+          for (let pass = 0; pass < 4; pass++) {
+            const data = parseRconJson<any>(
+              await rconCommand(agentClearBuildFootprintCommand(entity)),
+              "RCON build clearing returned invalid JSON",
+            );
+            if (!data) break;
+            acc.passes++;
+            const cleared = Array.isArray(data.cleared) ? data.cleared : [];
+            const pending = Array.isArray(data.pending) ? data.pending : [];
+            acc.cleared.push(...cleared);
+            acc.skipped = Array.isArray(data.skipped) ? data.skipped : [];
+            let minedPending = 0;
+            for (const target of pending.slice(0, 8)) {
+              const mined = await nativeAction({
+                kind: "mine",
+                target: {
+                  x: Number(target.x), y: Number(target.y),
+                  kind: "entity", name: target.name,
+                },
+                timeout_ms: ACTION_TIMEOUT_MS,
+              });
+              if (mined?.ok) {
+                acc.cleared.push({ name: target.name, type: target.type });
+                minedPending++;
+              } else {
+                acc.skipped.push({
+                  name: target.name, type: target.type,
+                  reason: mined?.error || "mine_failed",
+                });
+              }
+            }
+            acc.pending_remaining = Math.max(0, pending.length - minedPending);
+            if (cleared.length === 0 && minedPending === 0 && pending.length === 0) break;
+            if (cleared.length === 0 && minedPending === 0 && pending.length > 0) {
+              // Everything left is out of mining reach: step to a staging tile
+              // once and re-scan instead of chasing single trees.
+              const staging = parseRconJson<any>(
+                await rconCommand(agentBuildDestinationCommand(entity, true)),
+                "RCON build staging destination returned invalid JSON",
+              );
+              if (!staging?.ok) break;
+              const walked = await movePlayerTo(
+                Number(staging.position.x), Number(staging.position.y), BUILD_MOVE_TIMEOUT_MS,
+              );
+              if (!walked.ok) break;
+              usedMovement = walked.movement;
+            }
+          }
+          acc.ok = acc.skipped.length === 0 && (acc.pending_remaining ?? 0) === 0;
+        };
+        if (body?.clear_obstacles !== false) {
+          clearing = { ok: true, cleared: [], skipped: [], passes: 0, pending_remaining: 0 };
+          await clearFootprint(clearing);
+        }
+        let response = await rconCommand(agentNativeBuildCommand(entity));
+        let result = parseRconJson<any>(response, "RCON build returned invalid JSON");
+        // A player standing on the new building's tiles also blocks placement:
+        // step to a staging position, clear the opened footprint and retry.
+        if (!result?.ok && result?.error === "cannot_build") {
+          const retryDestination = parseRconJson<any>(
+            await rconCommand(agentBuildDestinationCommand(entity, true)),
+            "RCON build retry destination returned invalid JSON",
+          );
+          if (retryDestination?.ok) {
+            const retryMovement = await movePlayerTo(
+              Number(retryDestination.position.x),
+              Number(retryDestination.position.y),
+              BUILD_MOVE_TIMEOUT_MS,
+            );
+            if (retryMovement.ok) {
+              usedMovement = retryMovement.movement;
+              if (clearing) await clearFootprint(clearing);
+              response = await rconCommand(agentNativeBuildCommand(entity));
+              result = parseRconJson<any>(response, "RCON build retry returned invalid JSON");
+            }
+          }
+        }
+        results.push({ ...result, movement: usedMovement, ...(clearing ? { clearing } : {}) });
       }
       return json(res, 200, {
         ok: true,

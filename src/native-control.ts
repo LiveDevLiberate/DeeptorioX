@@ -12,7 +12,7 @@ export function nativeCommand(method:string,args:unknown[]=[]):string {
 export class NativeController {
   constructor(private command:(lua:string)=>Promise<string>,private delay=(ms:number)=>new Promise<void>(r=>setTimeout(r,ms))){}
   async stop(token?:string) {return JSON.parse(await this.command(nativeCommand("stop",token?[token]:[])));}
-  async run(payload:Record<string,unknown>,cancelled:()=>boolean) {
+  async run(payload:Record<string,unknown>,cancelled:()=>boolean,timeoutMs=600_000) {
     if(cancelled())return {ok:false,error:"cancelled"};
     const token=randomUUID();let finished=false;
     const began=performance.now();
@@ -20,7 +20,7 @@ export class NativeController {
       let result=JSON.parse(await this.command(nativeCommand("start",[{...payload,token}])));
       while(result.status==="running") {
         if(cancelled())return {ok:false,error:"cancelled"};
-        if(performance.now()-began>600000)return {ok:false,error:"action_timeout"};
+        if(performance.now()-began>timeoutMs)return {ok:false,error:"action_timeout"};
         await this.delay(100);
         if(cancelled())return {ok:false,error:"cancelled"};
         result=JSON.parse(await this.command(nativeCommand("poll",[token])));

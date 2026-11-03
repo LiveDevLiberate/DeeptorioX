@@ -56,9 +56,9 @@ Commands:
   observe-connections --center-x <n> --center-y <n> --radius <n>
   observe-entity-prototype --name <entity-name>
   observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]
-  act-build --entity name,anchor-x,anchor-y,dir [--entity ...]
-  act-build-belt --from x,y --to x,y [--name transport-belt]
-  act-build-loader --from x,y --to x,y [--name inserter]
+  act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]
+  act-build-belt --from x,y --to x,y [--name transport-belt] [--no-clear]
+  act-build-loader --from x,y --to x,y [--name inserter] [--no-clear]
   act-mine --target x,y [--target ...] [--resource [name]] [--targets-json <json>]
   act-rotate --target x,y [--target ...] [--targets-json <json>]
   act-move --target x,y [--target ...] [--targets-json <json>]
@@ -107,7 +107,7 @@ COMMAND_USAGE = {
     "observe-connections": "observe-connections: Audit inserter/belt/machine links and report dead ends or reversed links.\nUsage: factorio.py observe-connections --center-x <n> --center-y <n> --radius <n>\n",
     "observe-entity-prototype": "observe-entity-prototype: Look up entity dimensions, fluid connections, energy info.\nUsage: factorio.py observe-entity-prototype --name <entity-name>\n",
     "observe-placement": "observe-placement: Analyze buildability without consuming an item.\nUsage: factorio.py observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]\n",
-    "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...]\n   or: factorio.py act-build --entities-json <json>\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding.\n",
+    "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]\n   or: factorio.py act-build --entities-json <json> [--no-clear]\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding. Trees and rocks in the\nfootprint are mined before placement unless --no-clear is given.\n",
     "act-mine": "act-mine: Mine a resource or entity at target tile coordinates.\nUsage: factorio.py act-mine --target x,y [--target ...] [--resource [name]]\n   or: factorio.py act-mine --targets-json <json>\nResource mode excludes the character and prioritizes the requested resource deterministically.\nNote: The character walks into reach and performs one native mining cycle per target (one extraction for a resource vein).\n",
     "act-rotate": "act-rotate: Rotate entities at target tile coordinates (first entity at each point).\nUsage: factorio.py act-rotate --target x,y [--target ...]\n   or: factorio.py act-rotate --targets-json <json>\nDirection (in results): 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding.\n",
     "act-move": "act-move: Move the player through paced, collision-checked steps to target tile coordinates.\nUsage: factorio.py act-move --target x,y [--target ...]\n   or: factorio.py act-move --targets-json <json>\nNote: Stops and returns partial progress if an intermediate step is blocked.\n",
@@ -502,8 +502,11 @@ class FactorioClient:
         encoded_id = quote(str(job_id), safe="-_.!~*'()")
         return self.request("POST", f"/api/agent/jobs/{encoded_id}/cancel")
 
-    def build(self, entities: list[dict[str, Any]], **options: Any) -> Any:
-        return self.submit_action("build", {"entities": entities}, **options)
+    def build(self, entities: list[dict[str, Any]], *, clear: bool = True,
+              **options: Any) -> Any:
+        """Build entities after mining trees/rocks from their footprints."""
+        return self.submit_action(
+            "build", {"entities": entities, "clear_obstacles": clear}, **options)
 
     def mine(self, targets: list[dict[str, Any]], **options: Any) -> Any:
         return self.submit_action("mine", {"targets": targets}, **options)
@@ -777,21 +780,23 @@ def run(argv: list[str]) -> int:
 
         if cmd == "act-build":
             entities = json.loads(flag("entities-json")) if flag("entities-json") else parse_entities(flags.get("entity", []))
-            job = submit("build", {"entities": entities})
+            job = submit("build", {"entities": entities, "clear_obstacles": not bool(flag("no-clear"))})
         elif cmd == "act-build-belt":
             start_value, end_value = flag("from"), flag("to")
             if not start_value or not end_value:
                 raise ValueError("Missing --from or --to")
             start = parse_targets([start_value], False)[0]
             end = parse_targets([end_value], False)[0]
-            job = submit("build", {"entities": belt_line_entities(start, end, flag("name") or "transport-belt")})
+            job = submit("build", {"entities": belt_line_entities(start, end, flag("name") or "transport-belt"),
+                                   "clear_obstacles": not bool(flag("no-clear"))})
         elif cmd == "act-build-loader":
             start_value, end_value = flag("from"), flag("to")
             if not start_value or not end_value:
                 raise ValueError("Missing --from or --to")
             start = parse_targets([start_value], False)[0]
             end = parse_targets([end_value], False)[0]
-            job = submit("build", {"entities": [loader_entity(start, end, flag("name") or "inserter")]})
+            job = submit("build", {"entities": [loader_entity(start, end, flag("name") or "inserter")],
+                                   "clear_obstacles": not bool(flag("no-clear"))})
         elif cmd in ("act-mine", "act-rotate", "act-move", "act-set-recipe", "act-launch-rocket"):
             require_recipe = cmd == "act-set-recipe"
             targets = json.loads(flag("targets-json")) if flag("targets-json") else parse_targets(flags.get("target", []), require_recipe)

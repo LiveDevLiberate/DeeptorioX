@@ -139,6 +139,7 @@ end
 local function request_path(a,p)
   stop_player(p)
   a.phase='pathfinding';a.path=nil;a.path_index=1;a.requested_tick=game.tick
+  a.progress_distance=nil;a.progress_index=nil
   a.request=p.surface.request_path{
     bounding_box=p.character.prototype.collision_box,collision_mask=p.character.prototype.collision_mask,
     start=p.position,goal=a.goal,force=p.force,radius=a.radius,entity_to_ignore=p.character,
@@ -253,9 +254,17 @@ local function update(a,p)
     a.radius=math.max(0.2,a.radius/2)
     return request_path(a,p)
   end
-  if distance(p.position,a.stuck_position)>0.1 then
-    a.stuck_position={x=p.position.x,y=p.position.y};a.stuck_tick=game.tick
-  elseif game.tick-a.stuck_tick>STUCK_TICKS then
+  -- Judge progress against the current waypoint, not raw position: a character
+  -- sliding along a tree still jitters a few centimetres every tick, which used
+  -- to mask a fully blocked route forever.
+  if a.progress_index~=a.path_index then
+    a.progress_index=a.path_index;a.progress_distance=nil
+  end
+  local point_distance=distance(p.position,point.position)
+  if not a.progress_distance or point_distance<a.progress_distance-0.15 then
+    a.progress_distance=point_distance;a.progress_tick=game.tick
+  elseif game.tick-(a.progress_tick or game.tick)>STUCK_TICKS then
+    a.progress_distance=nil
     if (a.avoid_count or 0)>=1 then
       local cleared=begin_clearing(a,p)
       if cleared then return end

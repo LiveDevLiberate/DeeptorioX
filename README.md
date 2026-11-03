@@ -293,6 +293,12 @@ short perpendicular or backward sidestep (alternating sides), then mines nearby
 trees/rocks in front of it when the sidestep cannot free it. Repeated failures
 return `blocked`; `avoid_count` and `clear_count` report attempts and cleared
 obstacles.
+Building pre-clears its footprint: before placement the bridge mines reachable
+trees and rocks that overlap the requested entity, reports them under
+`clearing.cleared`/`clearing.skipped`, and retries once on `cannot_build`.
+Player buildings, cliffs, water, and resources are never removed by this pass.
+Disable it per request with `clear=False` or `--no-clear`.
+
 Mining uses native mining state, game mining times and speed bonuses. One mining
 request per resource target extracts one cycle; a rock/tree/building is removed
 only when its real mining cycle finishes. Results include actual item drops,

@@ -47,6 +47,17 @@ class ClientTests(unittest.TestCase):
             client.launch_rocket(targets, detach=True, idempotency_key="launch-1")
         submit.assert_called_once_with("launch-rocket", {"targets": targets}, detach=True, idempotency_key="launch-1")
 
+    def test_build_clears_obstacles_by_default(self):
+        client = factorio.FactorioClient()
+        entities = [{"name": "stone-furnace", "anchor": {"x": 1, "y": 2}}]
+        with patch.object(client, "submit_action", return_value={"job_id": "build"}) as submit:
+            client.build(entities)
+            client.build(entities, clear=False)
+        self.assertEqual(submit.call_args_list, [
+            unittest.mock.call("build", {"entities": entities, "clear_obstacles": True}),
+            unittest.mock.call("build", {"entities": entities, "clear_obstacles": False}),
+        ])
+
     def test_rocket_launch_cli_batches_targets_and_reports_rejection(self):
         for result_ok in [True, False]:
             stdout = io.StringIO()

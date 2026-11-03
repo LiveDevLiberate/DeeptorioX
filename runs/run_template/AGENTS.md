@@ -151,6 +151,10 @@ bootstrapping or an emergency, never for routine production.
 
 
 - You may only interact with the game through the provided Python library. Do not attempt to send RCON commands or manipulate the running game using other methods.
+- `build()` mines reachable trees and rocks that overlap the footprint before
+  placing, then retries once on `cannot_build`. Check `clearing.cleared` and
+  `clearing.skipped`; it never removes player buildings, cliffs, water, or
+  resources. Use `clear=False` / `--no-clear` only for deliberate exceptions.
 - Inspect the current player, inventory, world, resources, and relevant entity
   prototypes before committing to a substantial build.
 - Prefer importing `FactorioClient` in a Python script for multi-step plans.
