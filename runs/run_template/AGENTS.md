@@ -12,7 +12,7 @@ Prioritize useful in-game progress and the critical path to the objective. Use e
 
 ## Core subtask loop
 
-The game reduces to five repeating subtasks. Do not wander: score them, choose
+The game reduces to six repeating subtasks. Do not wander: score them, choose
 one, define a measurable finish line, execute with automation, verify, re-score.
 
 ### Subtasks and finish lines
@@ -24,17 +24,42 @@ one, define a measurable finish line, execute with automation, verify, re-score.
 | New mine | ore patch depleted, ore stock falling, or a new resource is required | drills are placed, fuelled/powered, output linked, and `N` ore/min is delivered for 3 minutes | ore/min, remaining ore, delivery |
 | Research optimization | labs idle, science packs missing, current tech ETA too high | current tech completes or the queue is healthy, labs run continuously, and pack supply meets demand for 3 minutes | science/min, ETA, missing packs |
 | Base defense | enemies or damage exist (skip on peaceful benchmark maps; score 0) | perimeter is covered, ammo/repair is automated, and no damage occurs for 10 minutes | coverage, damage, ammo |
+| Armed exploration | no higher-priority subtask scores above ~45, the base is stable, and map/resource coverage is incomplete; a required resource is missing | target area is charted, resource patches/threats/routes are recorded in `RESOURCES.md`/`MAP.md`, and you return with safe health/ammo | new chunks, patches found, threats marked/cleared, distance, health/ammo |
 
 A finish line is always quantified and time-based. "Looks good" is not done.
 Timebox each subtask (usually 10-20 minutes); if it is not done at the timebox,
 re-score instead of polishing forever.
+
+### Armed exploration (idle-time subtask)
+
+Exploration is the fallback when nothing important is blocked, and the emergency
+tool when a hard resource is missing (oil for blue science, uranium, a fresh ore
+patch). It is not random wandering.
+
+- Only start when the base is stable (no `no_fuel`/`no_power` alerts), a
+  maintenance loop is running, and no other subtask scores above ~45.
+- Go armed: weapon, ammo, armor, repair packs, and enough fuel/food for the
+  trip. If enemies are present, do not explore unarmed. Retreat when health or
+  ammo is low; mark strong nests instead of feeding the base to them.
+- Search with a plan: use radar and `observe-map`/`observe-resources`, then sweep
+  expanding arcs or parallel lines through uncharted chunks. Do not re-walk
+  charted corridors.
+- Record every find in `RESOURCES.md` (type, center, amount, distance, route) and
+  threats/coverage in `MAP.md`.
+- Stop at the timebox, when the target resource is found, when a route/outpost
+  site is identified, or when health/ammo makes continuing unsafe. Return,
+  refuel, and hand off to the **New mine** subtask.
+- Exploration is a low score by default; it rises when a required resource is
+  missing. A missing hard prerequisite (for example crude oil) is an emergency
+  override, not idle exploration.
+
 
 ### Scoring
 
 Score every subtask 0-100 before choosing and after finishing:
 
 - `impact` 0-40: how directly it advances the rocket/science critical path
-- `urgency` 0-30: no power/fuel, ore depletion, blocked output, attacks
+- `urgency` 0-30: no power/fuel, missing hard resource, ore depletion, blocked output, attacks
 - `payoff` 0-20: how soon it unblocks other production
 - `effort` 0-10 penalty: long walking, scarce materials, risky layout
 
@@ -48,7 +73,7 @@ Record scores and reasons in `STATE.md`.
 ### The loop
 
 1. Snapshot: `observe-factory`, `observe-layout`, `observe-research`, inventory.
-2. Score all five subtasks and write the numbers and reasons in `STATE.md`.
+2. Score all six subtasks and write the numbers and reasons in `STATE.md`.
 3. Pick the highest score; if two are within 10 points, prefer the one on the
    rocket/science critical path.
 4. Write the current subtask, score, quantified `done_when`, timebox, and first
@@ -68,12 +93,12 @@ Update `STATE.md` after every subtask so a resumed session can continue.
 # STATE
 Updated: <time>
 Objective: rocket
-Scores: production 40, logistics 35, mining 60, research 50, defense 0
+Scores: production 40, logistics 35, mining 60, research 50, defense 0, exploration 25
 Current: mining (score 60)
 Done when: 2 coal drills fuelled, coal delivered to boiler chests, 60 coal/min sustained 3 min
 Timebox: 15 min
 Progress: <measured values>
-Next candidate: research (50)
+Next candidate: research (50) or armed exploration (25) when idle
 ```
 
 
