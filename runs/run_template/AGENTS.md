@@ -10,6 +10,73 @@ Read `TASK.md` and complete the objective in the running Factorio game as quickl
 
 Prioritize useful in-game progress and the critical path to the objective. Use efficient batches and reusable Python scripts when helpful, avoid redundant observations or unnecessary waiting, and let machines produce while you plan your next steps. Verify important results, but keep explanations concise and do not spend time polishing reports while the objective is unfinished. Do not stop until the objective is actually complete. Speed must come from effective play through the provided interface, not bypassing the game rules.
 
+## Core subtask loop
+
+The game reduces to five repeating subtasks. Do not wander: score them, choose
+one, define a measurable finish line, execute with automation, verify, re-score.
+
+### Subtasks and finish lines
+
+| Subtask | Start when | Finish when | Measure |
+| --- | --- | --- | --- |
+| Existing line optimization | machines idle, blocked, starved, or below target rate | target output sustained for 3 minutes with no `no_power`/`no_fuel` and no blocked machines | output/min, idle/blocked counts |
+| Logistics optimization | manual transfer needed, belt/inserter gap, or a chest buffer is the only link | the item reaches its destination continuously for 3 minutes without agent intervention | manual transfers = 0, throughput, belt coverage |
+| New mine | ore patch depleted, ore stock falling, or a new resource is required | drills are placed, fuelled/powered, output linked, and `N` ore/min is delivered for 3 minutes | ore/min, remaining ore, delivery |
+| Research optimization | labs idle, science packs missing, current tech ETA too high | current tech completes or the queue is healthy, labs run continuously, and pack supply meets demand for 3 minutes | science/min, ETA, missing packs |
+| Base defense | enemies or damage exist (skip on peaceful benchmark maps; score 0) | perimeter is covered, ammo/repair is automated, and no damage occurs for 10 minutes | coverage, damage, ammo |
+
+A finish line is always quantified and time-based. "Looks good" is not done.
+Timebox each subtask (usually 10-20 minutes); if it is not done at the timebox,
+re-score instead of polishing forever.
+
+### Scoring
+
+Score every subtask 0-100 before choosing and after finishing:
+
+- `impact` 0-40: how directly it advances the rocket/science critical path
+- `urgency` 0-30: no power/fuel, ore depletion, blocked output, attacks
+- `payoff` 0-20: how soon it unblocks other production
+- `effort` 0-10 penalty: long walking, scarce materials, risky layout
+
+`score = impact + urgency + payoff - effort`
+
+Emergency override: zero power/fuel, damage/attack, or a stuck agent is handled
+immediately, regardless of score. Use `observe-factory` alerts/totals,
+`observe-layout`, `observe-research`, and `inventory_counts()` as evidence.
+Record scores and reasons in `STATE.md`.
+
+### The loop
+
+1. Snapshot: `observe-factory`, `observe-layout`, `observe-research`, inventory.
+2. Score all five subtasks and write the numbers and reasons in `STATE.md`.
+3. Pick the highest score; if two are within 10 points, prefer the one on the
+   rocket/science critical path.
+4. Write the current subtask, score, quantified `done_when`, timebox, and first
+   action in `STATE.md`.
+5. Execute automation-first, in batches; never one entity per model turn.
+6. Verify with observations. If `done_when` is met, mark it done and re-score.
+7. If the timebox expires, re-score and switch. If an emergency appears, switch
+   immediately.
+8. Keep the factory running while planning: use condition waits, not fixed sleeps.
+
+Do not switch subtasks mid-task without an emergency or an expired timebox.
+Update `STATE.md` after every subtask so a resumed session can continue.
+
+### STATE.md template
+
+```md
+# STATE
+Updated: <time>
+Objective: rocket
+Scores: production 40, logistics 35, mining 60, research 50, defense 0
+Current: mining (score 60)
+Done when: 2 coal drills fuelled, coal delivered to boiler chests, 60 coal/min sustained 3 min
+Timebox: 15 min
+Progress: <measured values>
+Next candidate: research (50)
+```
+
+
 ## Available interface
 
 - Use `factorio.py` to observe and act in the game.
