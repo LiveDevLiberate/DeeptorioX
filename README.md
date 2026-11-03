@@ -260,6 +260,7 @@ Optional `.env` settings (process environment takes precedence):
 | `FACTORIO_DISABLE_AUDIO` | Set to `1` for silent runs |
 | `AUTORIO_STARTUP_SECONDS` | `180`; maximum graphical readiness wait |
 | `AUTORIO_CONTEXT_LIMIT` | Optional agent context limit in tokens; when reached, the agent session is restarted (game/workspace preserved) |
+| `AUTORIO_MAX_MOVE_TILES` | `64`; the Python client rejects longer single moves so callers use waypoints and observe the route |
 | `AUTORIO_TERMINAL` | Set to `1` to use the optional terminal viewer instead of web recording view |
 | `AUTORIO_AGENT_LANGUAGE` | Optional language for agent messages/reasoning summaries, e.g. `Chinese`; code and commands stay unchanged |
 | `AUTORIO_BROWSER` | Windows/macOS: optional path to the Edge/Chrome executable used for the recording window |
@@ -414,7 +415,10 @@ python3 factorio.py job-status --job-id <id>
 python3 factorio.py job-cancel --job-id <id>
 ```
 
-Jobs are in-memory, retained for one hour, and run one at a time so concurrent
+Craft jobs verify handcraftability, output space, ingredients and queue acceptance;
+the Python client then waits until the expected products appear (use
+`--no-wait`/`detach` for asynchronous queueing). Jobs are in-memory, retained
+for one hour, and run one at a time so concurrent
 clients cannot race the player character. Cancellation takes effect between
 atomic actions; an action already executing in Factorio is not rolled back.
 

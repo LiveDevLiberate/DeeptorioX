@@ -18,13 +18,13 @@ const I18N = {
     states: { preparing: "preparing", launching: "launching", running: "running", saving: "saving", completed: "completed", failed: "failed", stopped: "stopped", timed_out: "timed out", interrupted: "interrupted", paused: "paused" },
     activity: { thinking: "Thinking", acting: "Acting", reporting: "Reporting", idle: "Idle", output: "Output", error: "Error" },
     subtasks: { production: "Prod", logistics: "Logi", mining: "Mine", research: "Res", defense: "Def", exploration: "Expl" },
-    done: "Done", pending: "STATE.md pending", tokens: "tok", expand: "Expand status details", collapse: "Collapse status details",
+    done: "Done", pending: "STATE.md pending", tokens: "tok", plan: "plan", expand: "Expand status details", collapse: "Collapse status details",
   },
   zh: {
     states: { preparing: "准备中", launching: "启动中", running: "运行中", saving: "保存中", completed: "已完成", failed: "失败", stopped: "已停止", timed_out: "超时", interrupted: "中断", paused: "暂停" },
     activity: { thinking: "思考中", acting: "执行中", reporting: "汇报中", idle: "空闲", output: "输出", error: "错误" },
     subtasks: { production: "生产", logistics: "物流", mining: "采矿", research: "科研", defense: "防御", exploration: "探索" },
-    done: "完成条件", pending: "等待 STATE.md", tokens: "令牌", expand: "展开状态详情", collapse: "收起状态详情",
+    done: "完成条件", pending: "等待 STATE.md", tokens: "令牌", plan: "计划", expand: "展开状态详情", collapse: "收起状态详情",
   },
 };
 let lastStatusAt = 0, lastEventAt = 0, activity = "idle", uiLang;
@@ -83,7 +83,10 @@ function renderStatus(run) {
   const context = run.context_limit
     ? ` · ctx ${Math.round((run.context_tokens || 0) / 1000)}k/${Math.round(run.context_limit / 1000)}k`
     : "";
-  statusMeta.textContent = `${Math.round(run.elapsed_seconds || 0)}s / ${run.max_seconds || 0}s · ${Number(tokens || 0).toLocaleString()} ${strings.tokens}${context}`;
+  const planAge = run.state_updated_at
+    ? Math.floor((Date.now() - Date.parse(run.state_updated_at)) / 60000) : null;
+  const stale = planAge !== null && planAge >= 10 ? ` · ${strings.plan} ${planAge}m old` : "";
+  statusMeta.textContent = `${Math.round(run.elapsed_seconds || 0)}s / ${run.max_seconds || 0}s · ${Number(tokens || 0).toLocaleString()} ${strings.tokens}${context}${stale}`;
   const markdown = run.state_md || "";
   const current = (markdown.match(/^Current:\s*(.+)$/m) || [])[1] || "";
   const done = (markdown.match(/^Done when:\s*(.+)$/m) || [])[1] || "";

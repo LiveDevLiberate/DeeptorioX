@@ -154,6 +154,9 @@ bootstrapping or an emergency, never for routine production.
 - Inspect the current player, inventory, world, resources, and relevant entity
   prototypes before committing to a substantial build.
 - Prefer importing `FactorioClient` in a Python script for multi-step plans.
+- `craft` waits until its products appear and fails with `not_handcraftable`,
+  `output_full`, or `Insufficient ingredients` when the craft cannot run. Use
+  `--no-wait`/`detach=True` only when you intentionally queue work in the background.
 - Treat action results as authoritative. Check `action_job_ok()` and inspect
   individual results because a completed batch may contain partial failures.
 - For any flow that would need repeated insert/extract (coal, ore, plates, science),
@@ -176,6 +179,8 @@ bootstrapping or an emergency, never for routine production.
   before committing to more machines; fix `no_fuel`, `no_power`, and
   `waiting_for_space_in_destination` before expanding.
 - Use placement observations before constructing tightly packed layouts.
+- Never request a single move farther than ~64 tiles (the client rejects it). Move in waypoints, observe the route/terrain, check `no_path`/`blocked`/`avoid_count`, and replan instead of letting a script walk blindly into water, cliffs, or a forest.
+- Update `STATE.md` whenever a blocker is resolved or the current subtask changes; `observe-factory` includes the active plan and its age, and stale plans mislead the operator and the next session.
 - Account for the player's actual walking path, obstacles, entity reach, and native mining time. If a valid
   placement reports `blocked`, move to an accessible side and retry only the
   failed placement.

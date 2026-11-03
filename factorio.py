@@ -65,7 +65,7 @@ Commands:
   act-launch-rocket --target x,y [--target ...] [--targets-json <json>]
   act-set-recipe --target x,y,recipe [--target ...] [--targets-json <json>]
   act-research --technology <name>
-  act-craft --item <name> --count <n>
+  act-craft --item <name> --count <n> [--no-wait]
   act-insert --entity x,y --item <name> --count <n>
   act-extract --entity x,y --item <name> --count <n|all>
   wait --ms <n>
@@ -114,7 +114,7 @@ COMMAND_USAGE = {
     "act-launch-rocket": "act-launch-rocket: Launch a ready rocket silo at target tile coordinates.\nUsage: factorio.py act-launch-rocket --target x,y [--target ...]\n   or: factorio.py act-launch-rocket --targets-json <json>\nNote: Walks into reach. Success means launch initiated; the benchmark waits for an actual launch.\n",
     "act-set-recipe": "act-set-recipe: Set the recipe on assemblers at target tile coordinates.\nUsage: factorio.py act-set-recipe --target x,y,recipe [--target ...]\n   or: factorio.py act-set-recipe --targets-json <json>\nNote: The character walks into reach using native pathfinding.\n",
     "act-research": "act-research: Start researching a technology.\nUsage: factorio.py act-research --technology <name>\n",
-    "act-craft": "act-craft: Start crafting a recipe in the player's crafting queue.\nUsage: factorio.py act-craft --item <name> --count <n>\n",
+    "act-craft": "act-craft: Queue a handcraft and verify its products appear (or use --no-wait).\nUsage: factorio.py act-craft --item <name> --count <n> [--no-wait]\n",
     "act-insert": "act-insert: Move items from player inventory into an entity at x,y.\nUsage: factorio.py act-insert --entity x,y --item <name> --count <n>\nNote: The character walks into reach using native pathfinding.\n",
     "act-extract": "act-extract: Remove items from an entity at x,y into player inventory.\nUsage: factorio.py act-extract --entity x,y --item <name> --count <n|all>\nNote: The character walks into reach using native pathfinding.\n",
     "wait": "wait: Sleep locally for N milliseconds between actions.\nUsage: factorio.py wait --ms <n>\n",
@@ -415,6 +415,10 @@ class FactorioClient:
     def observe_placement(self, placements: list[dict[str, Any]]) -> Any:
         return self.request("POST", "/api/agent/observe/placement", {"placements": placements})
 
+    def player_position(self) -> dict[str, float]:
+        player = data_value(self.observe_player())["player"]
+        return {"x": float(player["x"]), "y": float(player["y"])}
+
     def inventory_counts(self) -> dict[str, int]:
         player = data_value(self.observe_player())["player"]
         counts: dict[str, int] = {}
@@ -507,7 +511,22 @@ class FactorioClient:
     def rotate(self, targets: list[dict[str, Any]], **options: Any) -> Any:
         return self.submit_action("rotate", {"targets": targets}, **options)
 
-    def move(self, targets: list[dict[str, Any]], **options: Any) -> Any:
+    def move(self, targets: list[dict[str, Any]], *, max_step: float | None = None,
+             **options: Any) -> Any:
+        limit = max_step
+        if limit is None:
+            limit = float(os.environ.get("AUTORIO_MAX_MOVE_TILES", "64"))
+        if limit and limit > 0 and targets:
+            here = self.player_position()
+            for target in targets:
+                x, y = float(target.get("x")), float(target.get("y"))
+                distance = math.hypot(x - here["x"], y - here["y"])
+                if distance > limit:
+                    ratio = limit / distance
+                    wx, wy = here["x"] + (x - here["x"]) * ratio, here["y"] + (y - here["y"]) * ratio
+                    raise ValueError(
+                        f"move target ({x:g},{y:g}) is {distance:.0f} tiles away (limit {limit:g}); "
+                        f"move in waypoints, e.g. ({wx:.0f},{wy:.0f}) first, and observe the route")
         return self.submit_action("move", {"targets": targets}, **options)
 
     def launch_rocket(self, targets: list[dict[str, Any]], **options: Any) -> Any:
@@ -520,8 +539,38 @@ class FactorioClient:
     def research(self, technology: str, **options: Any) -> Any:
         return self.submit_action("research", {"technology": technology}, **options)
 
-    def craft(self, item: str, count: int = 1, **options: Any) -> Any:
-        return self.submit_action("craft", {"item": item, "count": count}, **options)
+    def craft(self, item: str, count: int = 1, *, wait: bool = True,
+              wait_timeout: float | None = None, **options: Any) -> Any:
+        before = self.inventory_counts() if wait and not options.get("detach") else {}
+        job = self.submit_action("craft", {"item": item, "count": count}, **options)
+        if not wait or options.get("detach") or not action_job_ok(job):
+            return job
+        result = (job.get("results") or [{}])[0] if isinstance(job, dict) else {}
+        products = result.get("products") if isinstance(result, dict) else None
+        if not isinstance(products, list) or not products:
+            products = [{"name": item, "amount": 1, "type": "item"}]
+        if wait_timeout is None:
+            try:
+                wait_timeout = max(15.0, float(result.get("energy") or 0.5) * max(1, count) * 1.5 + 15.0)
+            except (TypeError, ValueError):
+                wait_timeout = max(15.0, count * 1.5 + 15.0)
+        deadline = time.monotonic() + wait_timeout
+        while time.monotonic() < deadline:
+            counts = self.inventory_counts()
+            complete = True
+            for product in products:
+                if product.get("type", "item") == "fluid":
+                    continue
+                name = str(product.get("name"))
+                amount = int(product.get("amount", 1)) * count
+                if counts.get(name, 0) < before.get(name, 0) + amount:
+                    complete = False
+                    break
+            if complete:
+                return job
+            time.sleep(max(0.25, self.poll_interval))
+        raise TimeoutError(
+            f"craft {item} x{count} was queued but its products did not appear within {wait_timeout:g}s")
 
     def insert(self, entity: dict[str, float], item: str, count: int = 1,
                **options: Any) -> Any:
@@ -760,7 +809,11 @@ def run(argv: list[str]) -> int:
             item = flag("item")
             if not item:
                 raise ValueError("Missing --item")
-            job = submit("craft", {"item": item, "count": parse_number(flag("count"), 1)})
+            waiter = FactorioClient(parsed.base)
+            job = waiter.craft(item, parse_number(flag("count"), 1),
+                               wait=not bool(flag("no-wait") or flag("detach")),
+                               detach=bool(flag("detach")),
+                               idempotency_key=flag("idempotency-key"))
         elif cmd in ("act-insert", "act-extract"):
             entity_value = flag("entity")
             item = flag("item")

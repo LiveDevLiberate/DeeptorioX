@@ -141,6 +141,20 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             factorio.loader_entity({"x": 0, "y": 0}, {"x": 2, "y": 2})
 
+    def test_craft_waits_for_products_and_times_out(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        job = {"status": "completed", "results": [{"ok": True, "energy": 0.5, "products": [
+            {"name": "copper-cable", "amount": 2, "type": "item"},
+        ]}]}
+        with patch.object(client, "inventory_counts", side_effect=[
+            {"copper-cable": 0}, {"copper-cable": 0}, {"copper-cable": 2},
+        ]), patch.object(client, "submit_action", return_value=job):
+            self.assertIs(client.craft("copper-cable", 1), job)
+        with patch.object(client, "inventory_counts", return_value={}), \
+                patch.object(client, "submit_action", return_value=job):
+            with self.assertRaises(TimeoutError):
+                client.craft("copper-cable", 1, wait_timeout=0)
+
 
 if __name__ == "__main__":
     unittest.main()

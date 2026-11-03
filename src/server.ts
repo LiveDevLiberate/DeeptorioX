@@ -993,10 +993,10 @@ function agentResearchStartCommand(technology: string): string {
 }
 
 function agentCraftCommand(recipe: string, count: number): string {
-  const parts = [
+  return [
     "/sc",
     "local player=game.players[1]",
-    'if not player then rcon.print(\'{"error":"No player"}\') return end',
+    "if not player or not player.character or not player.character.valid then rcon.print(helpers.table_to_json{ok=false,error='no_character'}) return end",
     "local function esc(v)",
     "if v==nil then return 'null' end",
     "local t=type(v)",
@@ -1010,29 +1010,19 @@ function agentCraftCommand(recipe: string, count: number): string {
     "end",
     `local recipe=${luaString(recipe)}`,
     `local count=${count}`,
-    "if not player.force.recipes[recipe] then rcon.print('{\"recipe\":'..esc(recipe)..',\"count\":'..esc(count)..',\"ok\":false,\"error\":\"Unknown recipe\"}') return end",
-    "if not player.force.recipes[recipe].enabled then rcon.print(helpers.table_to_json{recipe=recipe,count=count,ok=false,error='recipe_locked'}) return end",
+    "local recipe_obj=player.force.recipes[recipe]",
+    "if not recipe_obj then rcon.print(helpers.table_to_json{recipe=recipe,count=count,ok=false,error='unknown_recipe'}) return end",
+    "if not recipe_obj.enabled then rcon.print(helpers.table_to_json{recipe=recipe,count=count,ok=false,error='recipe_locked'}) return end",
+    "local handcraft=false local cats=recipe_obj.categories if cats then for _,c in pairs(cats) do if c=='crafting' then handcraft=true break end end else local ok_cat,cat=pcall(function() return recipe_obj.category end) if ok_cat and cat=='crafting' then handcraft=true end end",
+    "if not handcraft then rcon.print(helpers.table_to_json{recipe=recipe,count=count,ok=false,error='not_handcraftable'}) return end",
+    "local products={} for _,prod in pairs(recipe_obj.products or {}) do local amount=prod.amount or prod.amount_min or 1 local ptype=prod.type or 'item' if ptype=='fluid' then rcon.print(helpers.table_to_json{recipe=recipe,count=count,ok=false,error='not_handcraftable'}) return end table.insert(products,{name=prod.name,type=ptype,amount=amount}) if not player.can_insert{name=prod.name,count=amount} then rcon.print(helpers.table_to_json{recipe=recipe,count=count,ok=false,error='output_full',product=prod.name}) return end end",
+    "if #products==0 then rcon.print(helpers.table_to_json{recipe=recipe,count=count,ok=false,error='not_handcraftable'}) return end",
     "local craftable=player.get_craftable_count(recipe)",
-    "if craftable < count then",
-    "local out={}",
-    "table.insert(out,'\"recipe\":'..esc(recipe))",
-    "table.insert(out,'\"count\":'..esc(count))",
-    "table.insert(out,'\"craftable\":'..esc(craftable))",
-    "table.insert(out,'\"ok\":false')",
-    "table.insert(out,'\"error\":'..esc('Insufficient ingredients'))",
-    "rcon.print('{'..table.concat(out,',')..'}')",
-    "return",
-    "end",
-    "local called,queued=pcall(function() return player.begin_crafting{recipe=recipe,count=count} end) local ok=called and queued==count local err=not called and queued or (not ok and 'crafting_rejected' or nil)",
-    "if ok then rcon.print(helpers.table_to_json{recipe=recipe,count=count,queued=queued,ok=true}) return end",
-    "local out={}",
-    "table.insert(out,'\"recipe\":'..esc(recipe))",
-    "table.insert(out,'\"count\":'..esc(count))",
-    "table.insert(out,'\"ok\":'..tostring(ok))",
-    "if err then table.insert(out,'\"error\":'..esc(tostring(err))) end",
-    "rcon.print('{'..table.concat(out,',')..'}')",
-  ];
-  return parts.join(" ");
+    "if craftable < count then rcon.print(helpers.table_to_json{recipe=recipe,count=count,craftable=craftable,ok=false,error='Insufficient ingredients'}) return end",
+    "local called,queued=pcall(function() return player.begin_crafting{recipe=recipe,count=count} end) local ok=called and queued==count",
+    "if not ok then rcon.print(helpers.table_to_json{recipe=recipe,count=count,queued=queued,ok=false,error=called and 'crafting_rejected' or tostring(queued)}) return end",
+    "rcon.print(helpers.table_to_json{recipe=recipe,count=count,queued=queued,ok=true,completed=false,products=products,crafting_queue=(player.crafting_queue and #player.crafting_queue or 0),energy=recipe_obj.energy})",
+  ].join(" ");
 }
 
 function agentInsertCommand(params: {
@@ -2673,6 +2663,8 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
     try {
       const response = await rconCommand(agentFactoryCommand({ x, y, radius }));
       const data = normalizeFactoryData(parseRconJson<any>(response, "RCON factory observation returned invalid JSON"));
+      const plan = runManager.plan();
+      if (plan) data.plan = plan;
       return json(res, 200, { ok: true, data });
     } catch (err: any) {
       return json(res, 500, { error: err?.message || "RCON command failed" });

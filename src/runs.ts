@@ -175,18 +175,27 @@ export class RunManager {
   }
   list() { return [...this.runs.values()].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)).map(run => this.view(run)); }
   get(id: string) { const run = this.runs.get(id); return run ? this.view(run) : undefined; }
-  private stateMarkdown(run: Run) {
+  private stateFile(run: Run) {
     for (const relative of ["workspace/STATE.md", "STATE.md"]) {
       try {
         const file = path.join(this.dir(run), relative);
-        if (!fs.statSync(file).isFile()) continue;
-        return fs.readFileSync(file, "utf8").slice(0, 8000);
+        const stat = fs.statSync(file);
+        if (!stat.isFile()) continue;
+        return { text: fs.readFileSync(file, "utf8").slice(0, 8000), updated_at: stat.mtime.toISOString() };
       } catch { /* try the other location */ }
     }
     return undefined;
   }
+  /** The active agent's own plan, for observe-factory and the status header. */
+  plan() {
+    const run = this.active;
+    if (!run) return undefined;
+    const state = this.stateFile(run);
+    return { run_id: run.id, state_md: state?.text, updated_at: state?.updated_at };
+  }
   private view(run: Run) {
-    return { ...run, state_md: this.stateMarkdown(run), resumable:run.state==="paused" && Boolean(run.checkpoint && fs.existsSync(path.join(this.dir(run),run.checkpoint.file))), model_label: modelLabel(run), elapsed_seconds: run === this.active && run.state === "running" ? this.elapsed() : run.elapsed_seconds };
+    const state = this.stateFile(run);
+    return { ...run, state_md: state?.text, state_updated_at: state?.updated_at, resumable:run.state==="paused" && Boolean(run.checkpoint && fs.existsSync(path.join(this.dir(run),run.checkpoint.file))), model_label: modelLabel(run), elapsed_seconds: run === this.active && run.state === "running" ? this.elapsed() : run.elapsed_seconds };
   }
   log(id: string, offset: number, native: boolean | "events" | "telemetry" = false) {
     const run = this.runs.get(id);
