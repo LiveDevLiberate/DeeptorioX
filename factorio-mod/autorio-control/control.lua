@@ -5,6 +5,8 @@ local reset_after_load = false
 local STUCK_TICKS = 45
 local AVOID_TICKS = 30
 local MAX_AVOIDS = 8
+local MAX_CLEARS = 16
+local CLEAR_TICKS = 600
 local function state()
   storage.autorio_control = storage.autorio_control or {}
   return storage.autorio_control
@@ -33,7 +35,7 @@ local function result(a,ok,err)
   local p=game.get_player(a.player)
   local position=p and p.valid and p.position or a.last_position
   return {token=a.token,status='done',ok=ok,error=err,name=a.name,x=a.target_x,y=a.target_y,
-    mined_count=a.mined_count or 0,items=a.items or {},avoid_count=a.avoid_count or 0,
+    mined_count=a.mined_count or 0,items=a.items or {},avoid_count=a.avoid_count or 0,clear_count=a.clear_count or 0,
     entity=a.entity_info,
     movement={distance=(a.distance or 0)+distance(position,a.last_position),duration_ms=((a.walk_end or game.tick)-a.started_tick)*1000/60,
       game_ticks=(a.walk_end or game.tick)-a.started_tick,final_position={x=position.x,y=position.y}},
@@ -99,6 +101,41 @@ local function begin_avoidance(a,p)
   end
   return false,'blocked'
 end
+local function clearable_obstacle(entity)
+  if not entity.valid or not entity.minable then return false end
+  if entity.type=='tree' then return true end
+  return entity.type=='simple-entity' and entity.name:find('rock',1,true)~=nil
+end
+local function obstacle_score(a,p,entity)
+  local dx,dy=entity.position.x-p.position.x,entity.position.y-p.position.y
+  local dist=math.sqrt(dx*dx+dy*dy)
+  local gx,gy=a.goal.x-p.position.x,a.goal.y-p.position.y
+  local glen=math.sqrt(gx*gx+gy*gy)
+  local align=0
+  if dist>0.001 and glen>0.001 then align=(dx*gx+dy*gy)/(dist*glen) end
+  return align*2-dist*0.15
+end
+-- When sidestepping cannot free the character, mine the closest tree/rock in
+-- front of it. Clearing one obstacle at a time keeps routes fresh and avoids
+-- destroying a whole forest on a single bad path.
+local function begin_clearing(a,p)
+  if (a.clear_count or 0)>=MAX_CLEARS then return false,'blocked' end
+  local best,best_score=nil,nil
+  for _,entity in pairs(p.surface.find_entities_filtered{position=p.position,radius=3.0}) do
+    if clearable_obstacle(entity) and p.can_reach_entity(entity) then
+      local score=obstacle_score(a,p,entity)
+      if not best_score or score>best_score then best,best_score=entity,score end
+    end
+  end
+  if not best then return false end
+  a.clear_count=(a.clear_count or 0)+1
+  a.clear_entity=best
+  a.phase='clearing'
+  a.clear_until=game.tick+CLEAR_TICKS
+  a.stuck_tick=game.tick
+  stop_player(p)
+  return true
+end
 local function request_path(a,p)
   stop_player(p)
   a.phase='pathfinding';a.path=nil;a.path_index=1;a.requested_tick=game.tick
@@ -150,6 +187,32 @@ local function update(a,p)
     if a.kind=='mine' then begin_mining(a,p) else finish(a,true) end
     return
   end
+  if a.phase=='clearing_done' then
+    a.phase='walking';a.stuck_tick=game.tick
+    return request_path(a,p)
+  end
+  if a.phase=='clearing' then
+    local entity=a.clear_entity
+    if not entity or not entity.valid then
+      a.clear_entity=nil;a.phase='clearing_done';return
+    end
+    if game.tick>a.clear_until then
+      a.clear_entity=nil;a.phase='clearing_done';return
+    end
+    if not p.can_reach_entity(entity) then
+      a.clear_entity=nil
+      local ok,err=begin_avoidance(a,p)
+      if ok then return end
+      return finish(a,false,err or 'blocked')
+    end
+    p.walking_state={walking=false,direction=defines.direction.north}
+    p.selected=entity
+    if p.selected~=entity then
+      a.clear_entity=nil;a.phase='clearing_done';return
+    end
+    p.mining_state={mining=true,position=entity.position}
+    return
+  end
   if a.retry_tick then
     if game.tick>=a.retry_tick then a.retry_tick=nil;request_path(a,p) end
     return
@@ -181,6 +244,8 @@ local function update(a,p)
     -- away instead of repeating the same zero-length route.
     a.range_adjustments=(a.range_adjustments or 0)+1
     if a.range_adjustments>6 or a.radius<=0.2 then
+      local cleared=begin_clearing(a,p)
+      if cleared then return end
       local ok,err=begin_avoidance(a,p)
       if ok then return end
       return finish(a,false,err or 'blocked')
@@ -191,6 +256,10 @@ local function update(a,p)
   if distance(p.position,a.stuck_position)>0.1 then
     a.stuck_position={x=p.position.x,y=p.position.y};a.stuck_tick=game.tick
   elseif game.tick-a.stuck_tick>STUCK_TICKS then
+    if (a.avoid_count or 0)>=1 then
+      local cleared=begin_clearing(a,p)
+      if cleared then return end
+    end
     local ok,err=begin_avoidance(a,p)
     if ok then return end
     return finish(a,false,err or 'blocked')
@@ -217,6 +286,8 @@ script.on_event(defines.events.on_script_path_request_finished,function(event)
   elseif not event.path then
     local p=game.get_player(a.player)
     if p and p.valid and p.character then
+      local cleared=begin_clearing(a,p)
+      if cleared then return end
       local ok=begin_avoidance(a,p)
       if ok then return end
     end
@@ -228,6 +299,13 @@ script.on_event(defines.events.on_script_path_request_finished,function(event)
 end)
 script.on_event(defines.events.on_pre_player_mined_item,function(event)
   local a=state().active
+  if a and a.phase=='clearing' and event.player_index==a.player and event.entity==a.clear_entity then
+    a.clear_entity=nil
+    local p=game.get_player(a.player)
+    if p then p.mining_state={mining=false} end
+    a.phase='clearing_done';a.stuck_tick=game.tick;a.avoid_count=0
+    return
+  end
   if a and a.kind=='mine' and a.phase=='mining' and event.player_index==a.player and event.entity==a.entity then
     a.mined=true
     -- Stop immediately, so a resource action mines exactly one cycle.
@@ -261,7 +339,7 @@ remote.add_interface('autorio-control',{
     if not pos or type(pos.x)~='number' or type(pos.y)~='number' or math.abs(pos.x)==math.huge or math.abs(pos.y)==math.huge then return {ok=false,status='done',error='invalid_target'} end
     local a={token=args.token,kind=args.kind,player=p.index,started_tick=game.tick,lease=game.tick+300,
       last_position={x=p.position.x,y=p.position.y},stuck_position={x=p.position.x,y=p.position.y},
-      stuck_tick=game.tick,distance=0,avoid_count=0,retries=0,mined_count=0,items={}}
+      stuck_tick=game.tick,distance=0,avoid_count=0,clear_count=0,retries=0,mined_count=0,items={}}
     if args.kind=='move' then
       a.goal={x=args.x,y=args.y};a.radius=0.18
     elseif args.kind=='mine' or args.kind=='approach' then
@@ -286,7 +364,7 @@ remote.add_interface('autorio-control',{
     if a and a.token==token then
       if game.tick_paused then return finish(a,false,'game_paused') end
       a.lease=game.tick+300
-      return {ok=true,status='running',token=token,phase=a.phase,avoid_count=a.avoid_count or 0,game_ticks=game.tick-a.started_tick}
+      return {ok=true,status='running',token=token,phase=a.phase,avoid_count=a.avoid_count or 0,clear_count=a.clear_count or 0,game_ticks=game.tick-a.started_tick}
     end
     if s.last and s.last.token==token then return s.last end
     return {ok=false,status='done',error='action_not_found'}

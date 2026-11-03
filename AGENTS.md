@@ -61,7 +61,7 @@
 ## Notes and known gaps
 - `RUN_REPORT.md` is historical; many listed gaps have already been addressed.
 - Milestones use polling (first-observed timestamps); production includes handcrafting and machines.
-- `factorio-mod/autorio-control` drives native walking/pathfinding and mining each tick. Keep action cancellation, a short heartbeat lease, neutral controls on save reload, and sidestep avoidance for blocked walking. No teleport or fixed-delay fallback.
+- `factorio-mod/autorio-control` drives native walking/pathfinding and mining each tick. Keep action cancellation, a short heartbeat lease, neutral controls on save reload, sidestep avoidance, and tree/rock clearing when the character is blocked. No teleport or fixed-delay fallback.
 - The API is a cooperative evaluation interface, not isolation against hostile agents.
 - Quota-exhausted runs become paused and can resume manually from their checkpoint and Codex session. Segments retain separate saves/videos; active time and scoring accumulate, excluding quota waits and game loading. Forced interruptions are not automatically resumed. One active game/run at a time.
 - Tests should verify lifecycle and scoring behavior, not require real Codex or Factorio launches.
