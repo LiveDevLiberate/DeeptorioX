@@ -34,7 +34,8 @@ Prioritize useful in-game progress and the critical path to the objective. Use e
   individual results because a completed batch may contain partial failures.
 - For any flow that would need repeated insert/extract (coal, ore, plates, science),
   build belts with `build_belt_line()` / `act-build-belt` and connect machines with
-  inserters. Chests are buffers, not transport.
+  `build_loader()` / `act-build-loader` (endpoints exactly two tiles apart on one
+  axis). Chests are buffers, not transport.
 - Never sleep for production; use `wait_for_item`, `wait_for_research`,
   `wait_for_factory`, or `wait_until` so work resumes the moment a condition is met.
 - Use `observe-factory` to check power, fuel, and blocked-building status counts

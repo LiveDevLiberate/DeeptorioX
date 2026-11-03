@@ -126,6 +126,21 @@ class ClientTests(unittest.TestCase):
             counts = client.wait_for_item("iron-plate", 10)
         self.assertEqual(counts["iron-plate"], 12)
 
+    def test_loader_entity_direction_and_spacing(self):
+        cases = [
+            ((0, 0), (2, 0), (1, 0, 4)),
+            ((2, 0), (0, 0), (1, 0, 12)),
+            ((0, 0), (0, 2), (0, 1, 8)),
+            ((0, 2), (0, 0), (0, 1, 0)),
+        ]
+        for source, target, (x, y, direction) in cases:
+            entity = factorio.loader_entity({"x": source[0], "y": source[1]}, {"x": target[0], "y": target[1]})
+            self.assertEqual((entity["x"], entity["y"], entity["direction"]), (x, y, direction))
+        with self.assertRaises(ValueError):
+            factorio.loader_entity({"x": 0, "y": 0}, {"x": 1, "y": 0})
+        with self.assertRaises(ValueError):
+            factorio.loader_entity({"x": 0, "y": 0}, {"x": 2, "y": 2})
+
 
 if __name__ == "__main__":
     unittest.main()

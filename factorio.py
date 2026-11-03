@@ -33,6 +33,7 @@ __all__ = [
     "parse_targets",
     "submit_action_job",
     "belt_line_entities",
+    "loader_entity",
 ]
 
 
@@ -55,6 +56,7 @@ Commands:
   observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]
   act-build --entity name,anchor-x,anchor-y,dir [--entity ...]
   act-build-belt --from x,y --to x,y [--name transport-belt]
+  act-build-loader --from x,y --to x,y [--name inserter]
   act-mine --target x,y [--target ...] [--resource [name]] [--targets-json <json>]
   act-rotate --target x,y [--target ...] [--targets-json <json>]
   act-move --target x,y [--target ...] [--targets-json <json>]
@@ -275,6 +277,21 @@ def belt_line_entities(start: dict[str, Any], end: dict[str, Any],
     return entities
 
 
+def loader_entity(source: dict[str, Any], target: dict[str, Any],
+                  name: str = "inserter") -> dict[str, Any]:
+    """Place one inserter between two tiles exactly two apart in a straight line."""
+    x1, y1 = int(round(float(source["x"]))), int(round(float(source["y"])))
+    x2, y2 = int(round(float(target["x"]))), int(round(float(target["y"])))
+    dx = (x2 > x1) - (x2 < x1)
+    dy = (y2 > y1) - (y2 < y1)
+    if bool(dx) == bool(dy):
+        raise ValueError("loader endpoints must be on the same row or column")
+    if abs(x2 - x1) + abs(y2 - y1) != 2:
+        raise ValueError("loader endpoints must be exactly two tiles apart")
+    direction = 4 if dx > 0 else 12 if dx < 0 else 8 if dy > 0 else 0
+    return {"name": name, "x": x1 + dx, "y": y1 + dy, "direction": direction}
+
+
 class FactorioClient:
     """Synchronous Python client for the Factorio manager API.
 
@@ -356,6 +373,10 @@ class FactorioClient:
     def build_belt_line(self, start: dict[str, Any], end: dict[str, Any],
                         *, name: str = "transport-belt", **options: Any) -> Any:
         return self.build(belt_line_entities(start, end, name), **options)
+
+    def build_loader(self, source: dict[str, Any], target: dict[str, Any],
+                     *, name: str = "inserter", **options: Any) -> Any:
+        return self.build([loader_entity(source, target, name)], **options)
 
     def observe_factory(self, *, x: float | None = None, y: float | None = None,
                         radius: float = 120) -> Any:
@@ -679,6 +700,13 @@ def run(argv: list[str]) -> int:
             start = parse_targets([start_value], False)[0]
             end = parse_targets([end_value], False)[0]
             job = submit("build", {"entities": belt_line_entities(start, end, flag("name") or "transport-belt")})
+        elif cmd == "act-build-loader":
+            start_value, end_value = flag("from"), flag("to")
+            if not start_value or not end_value:
+                raise ValueError("Missing --from or --to")
+            start = parse_targets([start_value], False)[0]
+            end = parse_targets([end_value], False)[0]
+            job = submit("build", {"entities": [loader_entity(start, end, flag("name") or "inserter")]})
         elif cmd in ("act-mine", "act-rotate", "act-move", "act-set-recipe", "act-launch-rocket"):
             require_recipe = cmd == "act-set-recipe"
             targets = json.loads(flag("targets-json")) if flag("targets-json") else parse_targets(flags.get("target", []), require_recipe)
