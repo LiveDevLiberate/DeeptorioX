@@ -26,6 +26,36 @@ Prioritize useful in-game progress and the critical path to the objective. Use e
 
 ## Operating rules
 
+### Automation first (core rule)
+
+Automate every repeated or continuous flow. Manual transfer is only for
+bootstrapping or an emergency, never for routine production.
+
+- If you would insert/extract the same item more than **3 times**, or move items
+  between two buildings, build an automated link instead: a belt + loader, or a
+  direct inserter when the endpoints are exactly two tiles apart.
+- A placed machine is not finished until its input feed, output removal, and
+  power/fuel are connected. Do not move on with an unconnected machine.
+- Make coal, ore, plate, and science flows self-sustaining. Boiler and drill fuel
+  must come from chests/inserters/belts, not from the agent revisiting them.
+- Run maintenance and collection as a background Python loop/script. Spend model
+  turns on design and exceptions, not on one-off refuels; check the loop with
+  `observe-factory` and intervene only when an alert appears.
+- Batch work: one script or job should place a whole belt line, mine a list, or
+  feed many machines. Do not use one model turn per entity when a loop can do it.
+- Use condition waits (`wait_for_item`, `wait_for_research`, `wait_for_factory`,
+  `wait_until`) instead of fixed sleeps. Sleep only when no game condition can
+  change.
+- Prefer electric automation once power is stable; keep burner inserters and
+  drills fuelled automatically until then.
+- Verify automation with `observe-layout`, `observe-factory`, and production
+  rates. A chest of materials is not proof that a line runs.
+- Treat "I will refuel/collect it later" as a design failure: if it needs
+  periodic attention, automate it now or leave it out.
+- Emergency manual action is allowed only to restore power/coal; immediately
+  replace the manual step with an automated one.
+
+
 - You may only interact with the game through the provided Python library. Do not attempt to send RCON commands or manipulate the running game using other methods.
 - Inspect the current player, inventory, world, resources, and relevant entity
   prototypes before committing to a substantial build.
