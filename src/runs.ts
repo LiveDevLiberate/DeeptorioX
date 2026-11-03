@@ -34,7 +34,7 @@ type Run = {
   baseline_tick?: number; latest?: Snapshot; baseline?: Snapshot;
   milestones: Record<string, { wall_seconds: number; game_ticks: number; observed_at: string; initial?: boolean }>;
   agent_exit?: { code: number | null; signal: string | null };
-  session_id?: string; usage?: Record<string, number>; usage_status?: "final" | "last_reported" | "unavailable"; usage_source?: "session_log" | "turn.completed" | "opencode"; versions?: Record<string, string>;
+  session_id?: string; usage?: Record<string, number>; usage_status?: "final" | "last_reported" | "unavailable"; usage_source?: "session_log" | "turn.completed" | "opencode"; context_tokens?: number; context_limit?: number; session_resets?: number; versions?: Record<string, string>;
   hashes?: Record<string, string>; warnings: string[];
   actions: { submitted: number; completed: number; failed: number; cancelled: number; partial_failures: number };
 };
@@ -92,6 +92,7 @@ export class RunManager {
   private active?: Run;
   private agent?: ChildProcess;
   private opencodeRemote?: { distro: string; pidFile: string; pid?: number };
+  private contextResetting = false;
   private abort?: AbortController;
   private monitor?: NodeJS.Timeout;
   private watchdog?: NodeJS.Timeout;
@@ -217,6 +218,7 @@ export class RunManager {
     if (options.terminal !== undefined && typeof options.terminal !== "boolean") throw new Error("terminal must be a boolean");
     if (options.recording !== undefined && typeof options.recording !== "boolean") throw new Error("recording must be a boolean");
     if(options.capture_video!==undefined && typeof options.capture_video!=="boolean") throw new Error("capture_video must be a boolean");
+    const contextLimit = Math.floor(Number(process.env.AUTORIO_CONTEXT_LIMIT || 0));
     const effort = options.reasoning_effort ?? "low";
     if (!REASONING_LEVELS.includes(effort as ReasoningLevel)) throw new Error(`Invalid reasoning_effort; choose ${REASONING_LEVELS.join(", ")}`);
     const created = new Date();
@@ -231,6 +233,8 @@ export class RunManager {
       agent: agent as Run["agent"], max_seconds: max,
       terminal: agent !== "manual" && (options.terminal ?? process.env.AUTORIO_TERMINAL === "1"),
       elapsed_seconds: 0, milestones: {}, warnings: [],
+      context_tokens: 0, context_limit: Number.isFinite(contextLimit) && contextLimit > 0 ? contextLimit : undefined,
+      session_resets: 0,
       actions: { submitted: 0, completed: 0, failed: 0, cancelled: 0, partial_failures: 0 },
     };
     run.capture_video=run.agent!=="manual" && (options.capture_video ?? obsEnabled());
@@ -267,6 +271,7 @@ export class RunManager {
     if(sha256(fs.readFileSync(path.join(this.dir(run),run.checkpoint.file)))!==run.checkpoint.sha256)throw new Error("Checkpoint checksum changed; refusing to load a different game");
     if(run.elapsed_seconds>=run.max_seconds)throw new Error("The run has no active play time remaining");
     if(run.video?.state==="rendering")throw new Error("Wait for the current recording segment to finish rendering");
+    if(!run.context_limit) { const limit=Math.floor(Number(process.env.AUTORIO_CONTEXT_LIMIT || 0)); if(Number.isFinite(limit) && limit>0) run.context_limit=limit; }
     run.state="preparing";delete run.ended_at;delete run.reason;delete run.agent_exit;
     if(run.usage)run.usage_status="last_reported";
     this.elapsedBefore=run.elapsed_seconds;this.startedMono=0;this.beginSegment(run);
@@ -417,13 +422,14 @@ export class RunManager {
   }
 
   /** OpenCode reports structured JSONL; translate it to the transcript schema the UI already renders. */
-  private launchOpenCode(run: Run, workspace: string, resuming=false) {
+  private launchOpenCode(run: Run, workspace: string, resuming=false, restarting=false) {
     const model = opencodeModel(run.model);
     run.model = model;
-    const usage: Record<string, number> = resuming && run.usage ? { ...run.usage } : {};
+    const usage: Record<string, number> = (resuming || restarting) && run.usage ? { ...run.usage } : {};
     run.output_format = "events";
     this.persist(run);
-    const prompt = languagePrompt(run) + disciplinePrompt() + (resuming ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. " : "")
+    const prompt = languagePrompt(run) + disciplinePrompt()
+      + (restarting ? "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. " : resuming ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. " : "")
       + "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. "
       + "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
     const command = ["run", "--format", "json", "--thinking", "--model", model, "--auto",
@@ -525,6 +531,9 @@ export class RunManager {
         usage.cached_input_tokens = Math.max(usage.cached_input_tokens || 0, tokens.cache?.read || 0);
         usage.total_tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
         run.usage = { ...usage }; run.usage_status = "final"; run.usage_source = "opencode";
+        const context = (tokens.input || 0) + (tokens.cache?.read || 0);
+        run.context_tokens = context;
+        if (run.context_limit && context >= run.context_limit) void this.restartAgentForContext(run).catch(error => this.finish("failed", `Context reset failed: ${errorText(error)}`));
         return;
       }
       if (event.type === "error") {
@@ -535,6 +544,7 @@ export class RunManager {
       }
     };
     const capture = (stream: "stdout" | "stderr", chunk: Buffer) => {
+      if (this.agent !== child) return;
       fs.appendFileSync(path.join(this.dir(run), `agent.${stream}.log`), chunk);
       if (stream === "stdout") {
         eventBuffer += decoder.write(chunk);
@@ -558,6 +568,7 @@ export class RunManager {
     child.stderr?.on("data", (chunk: Buffer) => capture("stderr", chunk));
     child.once("error", error => { void this.finish("failed", `OpenCode launch failed: ${error.message}`); });
     child.once("close", (code, signal) => {
+      if (child !== this.agent) return;
       run.agent_exit = { code, signal }; this.persist(run);
       this.event(run, `OpenCode exited (${signal || code})`);
       if (run.state === "running" && !this.ending) {
@@ -571,8 +582,39 @@ export class RunManager {
       }
     });
   }
-  private launchCodex(run: Run, workspace: string, resuming=false) {
-    const usageBeforeTurn=resuming?{...run.usage}:{};
+  private async restartAgentForContext(run: Run) {
+    if (this.contextResetting || this.ending || run.state !== "running") return;
+    this.contextResetting = true;
+    try {
+      const child = this.agent;
+      const remote = this.opencodeRemote;
+      this.agent = undefined;
+      this.opencodeRemote = undefined;
+      if (remote?.pid) {
+        await execExecutable("wsl.exe", ["-d", remote.distro, "-e", "kill", "-TERM", String(remote.pid)], { timeout: 5_000 }).catch(() => {});
+      }
+      if (child?.pid) killProcessTree(child.pid, true);
+      if (remote?.pid) {
+        await execExecutable("wsl.exe", ["-d", remote.distro, "-e", "kill", "-KILL", String(remote.pid)], { timeout: 5_000 }).catch(() => {});
+      }
+      const previous = run.session_id;
+      run.session_id = undefined;
+      run.context_tokens = 0;
+      run.session_resets = (run.session_resets || 0) + 1;
+      this.event(run, `Context limit reached (${run.context_limit} tokens); starting a new agent session`);
+      const workspace = path.join(this.dir(run), "workspace");
+      fs.mkdirSync(workspace, { recursive: true });
+      fs.writeFileSync(path.join(workspace, "RESUME.md"), `Continue the same benchmark. The previous agent session (${previous || "unknown"}) was reset because its context reached ${run.context_limit} tokens. Active play time: ${run.elapsed_seconds.toFixed(2)} seconds.\n\nMilestones: ${JSON.stringify(run.milestones)}\n\nCurrent game snapshot: ${JSON.stringify(run.latest || {})}\n\nRe-read AGENTS.md and STATE.md, re-observe the player/world, and continue. Automate repeated work; never sleep longer than 10 seconds.\n`);
+      this.persist(run);
+      if (run.agent === "opencode") this.launchOpenCode(run, workspace, false, true);
+      else if (run.agent === "codex") this.launchCodex(run, workspace, false, true);
+    } finally {
+      this.contextResetting = false;
+    }
+  }
+
+  private launchCodex(run: Run, workspace: string, resuming=false, restarting=false) {
+    const usageBeforeTurn=(resuming||restarting)?{...run.usage}:{};
     run.output_format = run.terminal ? "native" : "events";
     this.persist(run);
     const args = ["exec", ...(run.terminal ? ["--color", "always"] : ["--json"]), "--ignore-user-config",
@@ -584,7 +626,7 @@ export class RunManager {
     if (run.reasoning_effort) args.push("-c", `model_reasoning_effort=${JSON.stringify(run.reasoning_effort)}`);
     args.push(...codexProviderArgs());
     if(resuming && run.session_id)args.push("resume",run.session_id);
-    args.push(languagePrompt(run)+disciplinePrompt()+(resuming?"Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. ":"")+"Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
+    args.push(languagePrompt(run)+disciplinePrompt()+(restarting?"Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. ":resuming?"Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. ":"")+"Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
       "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.");
     const env: NodeJS.ProcessEnv = { ...process.env, FACTORIO_API_BASE: `http://127.0.0.1:${PORT}` };
     delete env.RCON_PASSWORD;
@@ -602,6 +644,7 @@ export class RunManager {
     const limited=(message:string)=>{if(run.state!=="running" || this.ending)return;run.quota={message,detected_at:new Date().toISOString()};void this.finish("paused",`Codex quota exhausted: ${message}`);};
     const eventDecoder = new StringDecoder("utf8");
     const capture = (stream: "stdout" | "stderr", chunk: Buffer) => {
+      if (this.agent !== child) return;
       fs.appendFileSync(path.join(this.dir(run), `agent.${stream}.log`), chunk);
       if (run.terminal) {
         // The optional Terminal viewer still receives native human output.
@@ -621,7 +664,12 @@ export class RunManager {
             const event = JSON.parse(line);
             if (event.type === "thread.started") {run.session_id = event.thread_id;this.segment(run).session_id=event.thread_id;}
             const quota=quotaError(event);if(quota)limited(quota);
-            if (event.type === "turn.completed") { run.usage = Object.fromEntries(Object.entries(event.usage as Record<string,number>).map(([key,value])=>[key,value+(usageBeforeTurn[key] || 0)])); run.usage_status = "final"; run.usage_source = "turn.completed"; }
+            if (event.type === "turn.completed") {
+              run.usage = Object.fromEntries(Object.entries(event.usage as Record<string,number>).map(([key,value])=>[key,value+(usageBeforeTurn[key] || 0)]));
+              run.usage_status = "final"; run.usage_source = "turn.completed";
+              run.context_tokens = Number(run.usage.input_tokens) || run.context_tokens;
+              if (run.context_limit && run.context_tokens && run.context_tokens >= run.context_limit) void this.restartAgentForContext(run).catch(error => this.finish("failed", `Context reset failed: ${errorText(error)}`));
+            }
             if (event.type === "item.completed" && event.item) {
               const item = event.item;
               if (item.type === "reasoning" && item.text) this.thought(run, item.text);
@@ -644,6 +692,7 @@ export class RunManager {
     child.stderr?.on("data", (chunk: Buffer) => capture("stderr", chunk));
     child.once("error", error => { void this.finish("failed", `Codex launch failed: ${error.message}`); });
     child.once("close", (code, signal) => {
+      if (child !== this.agent) return;
       run.agent_exit = { code, signal }; this.persist(run);
       this.event(run, `Codex exited (${signal || code})`);
       if (run.state === "running" && !this.ending) {
@@ -795,7 +844,8 @@ export class RunManager {
         `# ${run.benchmark.title}`, "", `Run: ${run.name || run.id}`, `Result: ${state}`, `Reason: ${reason}`,
         `Agent: ${modelLabel(run)}`, `Language: ${run.language || "model default"}`, `Active play time: ${run.elapsed_seconds.toFixed(2)} seconds`,
         `Segments: ${run.segments?.length || 1}`,`Checkpoint: ${run.checkpoint?.file || "unavailable"}`,
-        `Tokens: ${run.usage ? JSON.stringify(run.usage) : "unavailable"} (${run.usage_status || "unavailable"})`, "",
+        `Tokens: ${run.usage ? JSON.stringify(run.usage) : "unavailable"} (${run.usage_status || "unavailable"})`,
+        `Context: ${run.context_tokens || 0}${run.context_limit ? ` / ${run.context_limit}` : ""} tokens; session resets: ${run.session_resets || 0}`, "",
         ...Object.entries(run.milestones).map(([id, m]) => `- ${id}: ${m.wall_seconds.toFixed(2)} seconds / ${m.game_ticks} ticks`),
         "", ...run.warnings.map(warning => `Warning: ${warning}`), "",
       ].join("\n"));

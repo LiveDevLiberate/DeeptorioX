@@ -259,6 +259,7 @@ Optional `.env` settings (process environment takes precedence):
 | `FACTORIO_WINDOW_SIZE` | `1000x760` |
 | `FACTORIO_DISABLE_AUDIO` | Set to `1` for silent runs |
 | `AUTORIO_STARTUP_SECONDS` | `180`; maximum graphical readiness wait |
+| `AUTORIO_CONTEXT_LIMIT` | Optional agent context limit in tokens; when reached, the agent session is restarted (game/workspace preserved) |
 | `AUTORIO_TERMINAL` | Set to `1` to use the optional terminal viewer instead of web recording view |
 | `AUTORIO_AGENT_LANGUAGE` | Optional language for agent messages/reasoning summaries, e.g. `Chinese`; code and commands stay unchanged |
 | `AUTORIO_BROWSER` | Windows/macOS: optional path to the Edge/Chrome executable used for the recording window |
@@ -599,6 +600,19 @@ Resume keeps the same run ID, game save, workspace (including agent-written
 scripts and notes), and agent session. It also re-copies the managed profile, so
 control-mod changes take effect. A normal `stop` is terminal; use `pause` when
 you want to restart the game and continue the same run.
+
+## Context limit and session restart
+
+Set `AUTORIO_CONTEXT_LIMIT=300000` (or another token count) to bound agent context.
+When the latest step's input + cached input tokens reach the limit, autorio stops
+that agent process, writes a fresh `RESUME.md` with the current milestone and game
+snapshot, clears the agent session ID, and starts a new session in the same
+workspace. The game, run ID, workspace, scripts, `STATE.md`, and cumulative token
+counters continue; `session_resets` records how many times this happened.
+
+A restart is in-place: Factorio is not stopped, so there is no save/load pause.
+The new session must re-read `AGENTS.md`, `STATE.md`, and `RESUME.md` before acting.
+The limit is disabled when unset or `0`.
 
 ## Quota pauses and continuing a run
 

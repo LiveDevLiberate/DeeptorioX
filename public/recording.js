@@ -80,7 +80,10 @@ function renderStatus(run) {
   statusActivity.textContent = `${strings.activity[activeKey] || activeKey}${waitSeconds ? ` ${waitSeconds}s` : ""}`;
   const usage = run.usage || {};
   const tokens = usage.total_tokens ?? ((usage.input_tokens || 0) + (usage.output_tokens || 0));
-  statusMeta.textContent = `${Math.round(run.elapsed_seconds || 0)}s / ${run.max_seconds || 0}s · ${Number(tokens || 0).toLocaleString()} ${strings.tokens}`;
+  const context = run.context_limit
+    ? ` · ctx ${Math.round((run.context_tokens || 0) / 1000)}k/${Math.round(run.context_limit / 1000)}k`
+    : "";
+  statusMeta.textContent = `${Math.round(run.elapsed_seconds || 0)}s / ${run.max_seconds || 0}s · ${Number(tokens || 0).toLocaleString()} ${strings.tokens}${context}`;
   const markdown = run.state_md || "";
   const current = (markdown.match(/^Current:\s*(.+)$/m) || [])[1] || "";
   const done = (markdown.match(/^Done when:\s*(.+)$/m) || [])[1] || "";
