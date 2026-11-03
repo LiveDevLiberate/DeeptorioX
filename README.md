@@ -255,6 +255,7 @@ Optional `.env` settings (process environment takes precedence):
 | `AUTORIO_DATA_DIR` | `.autorio` in this repository |
 | `AUTORIO_PORT` | `3000`; HTTP is bound to localhost |
 | `RCON_PORT` | `27015`; RCON is bound to localhost |
+| `AUTORIO_GAME_PORT` | `34197`; Factorio multiplayer host port, set per cluster instance |
 | `RCON_PASSWORD` | Generated and retained in `.autorio/rcon-password` if omitted |
 | `FACTORIO_WINDOW_SIZE` | `1000x760` |
 | `FACTORIO_DISABLE_AUDIO` | Set to `1` for silent runs |
@@ -316,6 +317,36 @@ stops abandoned actions if the manager disconnects. Saved controller requests ar
 never replayed after loading. Fluids that cannot be hand-mined are rejected.
 Nearby building avoids unnecessary walking; rejected rotations, locked recipes
 and rejected crafting requests report failure instead of false success.
+
+## Parallel evaluation cluster
+
+`scripts/cluster.mjs` runs several isolated manager + game instances on one
+machine so benchmark runs can be evaluated in parallel. It is the no-Docker
+counterpart of a research evaluation cluster: the manager still controls the
+installed graphical game, keeping native character animation, the visible game
+window and OBS capture available.
+
+```bash
+npm run build
+npm run cluster start -- --instances 2          # managers on :3000 and :3001
+npm run cluster status
+npm run cluster run -- --benchmark automation --model opencode-go/deepseek-v4.1-flash#low
+npm run cluster stop
+```
+
+Each instance gets its own HTTP port, RCON port, Factorio multiplayer host port
+and `AUTORIO_DATA_DIR` (`--data-dir`, default `.autorio/cluster/instance-N`), so
+saves, profiles, RCON passwords, runs and telemetry never collide. `start`
+waits until every manager answers, then writes `cluster.json`; `status` probes
+every instance and shows game/RCON/active-run state; `run` submits one benchmark
+run per instance through `POST /api/runs` and prints recording URLs (limit with
+`--instances-list 1,2`); `stop` shuts the games and managers down. `--save
+<name.zip>` seeds a save from `.autorio/saves/` into every instance and hosts it
+after start, which is handy for manual multi-instance debugging.
+
+Notes: every graphical instance needs its own memory and GPU budget, so keep
+`--instances` at 2-3 on a normal desktop; Steam must stay running. Cluster runs
+open no recording window by default (`--no-recording`); use the printed URLs.
 
 ## Development and APIs
 
@@ -431,6 +462,111 @@ atomic actions; an action already executing in Factorio is not rolled back.
 Direct calls to `/api/agent/act/*` are rejected. Submit `{action, payload}` to
 `POST /api/agent/jobs`, poll `GET /api/agent/jobs/:id`, and request cancellation
 with `POST /api/agent/jobs/:id/cancel`.
+
+## MCP server
+
+`src/mcp-server.ts` exposes the gameplay API to MCP clients (Claude Desktop,
+Cursor, etc.) over the stdio transport, with no extra dependencies. Build once,
+keep the manager running, then connect the compiled server:
+
+```bash
+npm run build
+node dist/mcp-server.js     # or: npm run mcp
+```
+
+The server reads `AUTORIO_API_BASE` (falling back to `FACTORIO_API_BASE`,
+default `http://127.0.0.1:3000`). Observation tools (`observe_*`,
+`server_status`, `list_runs`, `list_benchmarks`, `job_status`) are read-only.
+Game-changing tools (`build`, `mine`, `move`, `rotate`, `set_recipe`, `craft`,
+`insert`, `extract`, `research`, `launch_rocket`) submit a serialized action job
+and return its `job_id`; poll `job_status` until it leaves `queued`/`running`,
+and use `cancel_job` to request cancellation. Coordinates are map tiles and build
+anchors are top-left tile positions. Only stderr carries diagnostics, so stdout
+stays protocol-clean.
+
+Claude Desktop (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "autorio": {
+      "command": "node",
+      "args": ["/absolute/path/to/autorio/dist/mcp-server.js"],
+      "env": { "AUTORIO_API_BASE": "http://127.0.0.1:3000" }
+    }
+  }
+}
+```
+
+## Visual observation (game-window screenshot)
+
+`POST /api/agent/observe/visual` returns one PNG frame of the visible Factorio
+window so an agent can *look* at the factory, not just read RCON data:
+
+```bash
+curl -sS -X POST http://127.0.0.1:3000/api/agent/observe/visual \
+  -H 'Content-Type: application/json' -d '{}' \
+  | jq -r '.data.base64' | base64 -d > factory.png
+```
+
+Response: `{"ok":true,"data":{"format":"png","base64":"…","width":1920,"height":1080,"source":"window"}}`.
+Optional body `{"title":"Factorio"}` overrides the case-insensitive window-title
+match. Windows only and interactive desktop only: the game window must be
+visible, not minimized, at least 64×64, and the desktop unlocked (otherwise 500
+`visual_capture_unsupported_platform` / `game_window_not_found` /
+`game_window_minimized` / `game_window_occluded`). Capture only reads the
+desktop: it never clicks, types, moves, or focuses the game, so it cannot steal
+keyboard focus from native control. A covered window is rendered with
+`PrintWindow` first; foregrounding is never forced. `source` is `"window"`
+(`"obs"` is reserved for a future OBS-backed source). A 1080p frame is roughly
+1-4 MB PNG, 2-6 MB as base64; concurrent captures are not serialized.
+
+## Gym-style environment and trajectory database
+
+`autorio_gym.py` wraps the manager in a duck-typed Gym-style environment for
+batch evaluation code; it uses only the standard library and the repo's
+`factorio.py` client (no `gymnasium` dependency):
+
+```python
+from autorio_gym import FactorioEnv
+
+env = FactorioEnv(
+    save="smoke.zip",
+    max_steps=500,
+    trajectory_path=".autorio/trajectories/smoke.db",
+)
+observation = env.reset()                       # typed autorio_types.Observation
+terminated = truncated = False
+while not (terminated or truncated):
+    observation, reward, terminated, truncated, info = env.step(
+        {"type": "observe"}
+    )
+    print(observation.game.tick,
+          observation.player.inventory["iron-plate"],
+          observation.factory.power.get("satisfaction"))
+env.close()
+```
+
+`reset(options)` takes `save`, `name`, observation bounds (`x`, `y`, `radius`,
+`include`, ...) and hook overrides; it starts the configured save only when the
+manager has no game running. `step(action)` accepts `observe`, `noop`, `build`,
+`mine`, `move`, `rotate`, `craft`, `set_recipe`, `research`, `insert`, `extract`
+and `launch_rocket` actions, dispatches them through the normal job API, and
+returns `(Observation, reward, terminated, truncated, info)`. Rewards come from
+an optional `reward_fn(action, result, observation)`; a `task_verifier` marks
+the episode terminated, and `max_steps` (or a failed/cancelled job) truncates it.
+Because the manager exposes uptime rather than an in-game tick, `GameInfo.tick`
+is derived from uptime and is approximate while the game is paused.
+
+When `trajectory_path` is set, every reset/step/finish is recorded to SQLite
+(WAL journal mode) by `autorio_trajectory.TrajectoryStore`: an `episodes` table
+(`id`, `name`, `started_at`, `ended_at`, `config_json`, `total_reward`,
+`step_count`, `status`) and a `steps` table (`id`, `episode_id`, `step_index`,
+`action_json`, `observation_json`, `reward`, `terminated`, `truncated`,
+`info_json`, `created_at`). Observations are stored as the typed
+`Observation.to_dict()` and stay JSON-serializable. `list_episodes()` and
+`get_steps(episode_id)` provide read access; writes assume a single writer, so
+inspect a live database read-only from another process.
 
 ## Planning and observation
 

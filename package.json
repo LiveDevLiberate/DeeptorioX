@@ -10,7 +10,9 @@
     "run": "node dist/run-cli.js",
     "doctor": "npm run build && node scripts/doctor.mjs",
     "test": "npm run build && node --test tests/*.test.mjs && node scripts/run-python-tests.mjs",
-    "selftest": "npm run build && node scripts/run-python-script.mjs scripts/api-selftest.py"
+    "selftest": "npm run build && node scripts/run-python-script.mjs scripts/api-selftest.py",
+    "cluster": "node scripts/cluster.mjs",
+    "mcp": "node dist/mcp-server.js"
   },
   "dependencies": {},
   "devDependencies": {

@@ -24,6 +24,8 @@ export const SAVES_DIR = path.join(DATA_DIR, "saves");
 export const MANAGER_PROFILE = path.join(DATA_DIR, "manager");
 export const RCON_HOST = "127.0.0.1";
 export const RCON_PORT = Number(process.env.RCON_PORT || 27015);
+/** Multiplayer host port; a cluster gives every instance its own port. */
+export const GAME_PORT = Number(process.env.AUTORIO_GAME_PORT || 34197);
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const passwordFile = path.join(DATA_DIR, "rcon-password");
 export const RCON_PASSWORD = process.env.RCON_PASSWORD ||
@@ -61,6 +63,7 @@ export async function prepareProfile(dir: string) {
   await fs.promises.writeFile(path.join(dir, "config.ini"), [
     "[path]", `read-data=${FACTORIO_DATA}`, `write-data=${dir}`,
     "[general]", "locale=en", "[other]",
+    `port=${GAME_PORT}`,
     `local-rcon-socket=127.0.0.1:${RCON_PORT}`, `local-rcon-password=${RCON_PASSWORD}`,
     "[multiplayer-lobby]", "visibility-public=false", "visibility-steam=false", "visibility-lan=false",
     "[interface]", ...interfaceScale,

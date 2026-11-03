@@ -5,6 +5,10 @@
 - Agents use the importable Python client (`factorio.py`). `./autorio` (or `autorio.cmd` on Windows) launches and monitors OpenCode runs (Codex remains available with `--agent codex`).
 - `src/platform.ts`: cross-platform executable/process/path helpers (PATHEXT, `.cmd` shims, `taskkill`, Steam detection, browser discovery).
 - `src/opencode.ts`: OpenCode executable/model resolution, native-vs-WSL transport, WSL paths and shell quoting; `src/runs.ts` translates OpenCode JSON events into the transcript schema.
+- `autorio_gym.py`, `autorio_types.py`, `autorio_trajectory.py`: duck-typed Gym-style `FactorioEnv` (reset/step/observe/close), typed observation dataclasses, and a SQLite episode/step trajectory store.
+- `src/mcp-server.ts`: dependency-free MCP stdio server exposing observations and action jobs to MCP clients.
+- `src/vision.ts`, `scripts/capture-window.ps1`: Windows game-window screenshot observation (`POST /api/agent/observe/visual`).
+- `scripts/cluster.mjs`, `scripts/cluster-lib.mjs`: multi-instance evaluation cluster (isolated manager/RCON/game ports and data dirs, parallel benchmark runs, no Docker).
 
 ## Key paths
 - `src/server.ts`: HTTP API + Factorio process management + RCON bridge; `observe-factory` aggregates power/fuel/entity status.
@@ -38,13 +42,15 @@
 - `./autorio start automation --model MODEL`: Run a factory task.
 - `./autorio start smoke --manual --detach`: Prepare a game and telemetry without Codex.
 - `./autorio list|show|watch|stop|compare`: Inspect or control runs (see `./autorio --help`).
+- `npm run cluster -- <start|status|run|stop|logs>`: Manage isolated manager+game instances for parallel evaluation (see README "Parallel evaluation cluster").
+- `npm run mcp`: Serve the gameplay API to MCP clients over stdio (build first).
 - `npm test`: Build, Node lifecycle tests with fake processes, and Python client tests.
 
 ## Environment/config
 - `.env` is loaded if present; process environment wins. See `.env.example` and README.
 - `FACTORIO_BIN`, `FACTORIO_DATA`: full game executable and data directory (platform defaults; override in `.env`).
 - `AUTORIO_DATA_DIR` defaults to `.autorio`; `AUTORIO_PORT` defaults to 3000.
-- RCON is localhost only; `RCON_PORT` defaults to 27015; password is generated/stored if omitted.
+- RCON is localhost only; `RCON_PORT` defaults to 27015; password is generated/stored if omitted. `AUTORIO_GAME_PORT` defaults to 34197 and is set per cluster instance.
 - Agent runs open the web recording view in a standalone window (WKWebView on macOS, Edge/Chrome app mode on Windows) by default; `--terminal` or `AUTORIO_TERMINAL=1` opts into the Terminal viewer. `--detach` skips opening the browser; `--watch` follows operator logs.
 - OpenCode is the default agent (`opencode run --format json --model provider/model --auto`); `AUTORIO_OPENCODE_MODEL`, `OPENCODE_BIN`, `AUTORIO_WSL_DISTRO`, and `AUTORIO_WSL_OPENCODE` configure it. On Windows without a native CLI, runs are launched through `wsl.exe`.
 - `--agent codex` switches to Codex (`codex exec`); `CODEX_BIN` and `AUTORIO_CODEX_*` configure that path.

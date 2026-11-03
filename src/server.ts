@@ -16,6 +16,7 @@ import {NativeController} from "./native-control.js";
 import { launchRocket, ROCKET_STATE_LUA } from "./rocket.js";
 import { RunManager } from "./runs.js";
 import { IS_WINDOWS, isProcessExecutable, isProcessRunning, killProcessTree, sampleProcessUsage, spawnExecutable } from "./platform.js";
+import {visualObservation} from "./vision.js";
 
 fsSync.mkdirSync(DATA_DIR, { recursive: true });
 const PID_FILE = path.join(DATA_DIR, "factorio.pid");
@@ -2037,6 +2038,13 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
     const limit = Math.max(1, Math.min(1000, Number(limitRaw) || 200));
     const lines = state.logs.slice(-limit);
     return json(res, 200, { lines });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/agent/observe/visual") {
+    let body: any = null;
+    try { body = await readJson(req); } catch (err: any) { return json(res, 400, { error: err?.message || "Invalid JSON" }); }
+    try { return json(res, 200, await visualObservation(typeof body?.title === "string" ? { title: body.title } : {})); }
+    catch (err: any) { return json(res, 500, { error: err?.message || "Visual capture failed" }); }
   }
 
   if (req.method === "POST" && url.pathname === "/api/agent/observe/world") {
