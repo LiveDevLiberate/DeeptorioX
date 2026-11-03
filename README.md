@@ -304,6 +304,7 @@ and rejected crafting requests report failure instead of false success.
 ```bash
 npm run dev
 npm test
+npm run selftest      # read-only 2.1 API check against a live game
 ```
 
 `npm test` builds TypeScript, exercises run lifecycle/independent scoring with

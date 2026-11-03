@@ -64,8 +64,8 @@ local function reached(a,p)
   if a.entity then return a.entity.valid and p.can_reach_entity(a.entity) end
   return distance(p.position,a.goal)<=a.radius+0.08
 end
-local function free_position(p, direction, distance)
-  local candidate={x=p.position.x+direction.x*distance,y=p.position.y+direction.y*distance}
+local function free_position(p, direction, step)
+  local candidate={x=p.position.x+direction.x*step,y=p.position.y+direction.y*step}
   local free=p.surface.find_non_colliding_position('character',candidate,0.6,0.1)
   if free and distance(free,candidate)<=0.45 then return free end
   return nil
