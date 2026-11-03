@@ -75,7 +75,9 @@ function renderStatus(run) {
   statusState.textContent = strings.states[state] || state;
   statusState.className = `status-badge ${state}`;
   const activeKey = state === "running" ? (Date.now() - lastEventAt > 12000 ? "idle" : activity) : state;
-  statusActivity.textContent = strings.activity[activeKey] || activeKey;
+  const waitSeconds = (activeKey === "thinking" || activeKey === "idle") && lastEventAt
+    ? Math.max(0, Math.round((Date.now() - lastEventAt) / 1000)) : 0;
+  statusActivity.textContent = `${strings.activity[activeKey] || activeKey}${waitSeconds ? ` ${waitSeconds}s` : ""}`;
   const usage = run.usage || {};
   const tokens = usage.total_tokens ?? ((usage.input_tokens || 0) + (usage.output_tokens || 0));
   statusMeta.textContent = `${Math.round(run.elapsed_seconds || 0)}s / ${run.max_seconds || 0}s · ${Number(tokens || 0).toLocaleString()} ${strings.tokens}`;
@@ -101,7 +103,7 @@ function renderStatus(run) {
 }
 function render(item) {
   lastEventAt = Date.now();
-  if (item.type === "command_execution") activity = "acting";
+  if (item.type === "command_execution") activity = item.status === "completed" ? "thinking" : "acting";
   else if (item.type === "reasoning") activity = "thinking";
   else if (item.type === "agent_message") activity = "reporting";
   else if (item.type === "error") activity = "error";

@@ -497,8 +497,11 @@ native `opencode` when it is on PATH; otherwise it runs the CLI inside WSL using
 `AUTORIO_WSL_DISTRO` and `AUTORIO_WSL_OPENCODE`.
 
 ```bash
-./autorio start smoke --model opencode-go/deepseek-v4-pro
+./autorio start smoke --model opencode-go/deepseek-v4-flash#low
 ```
+
+OpenCode model variants use `#low`, `#high`, or `#max`. `#low` usually produces
+faster turns (less reasoning latency); `#high`/`#max` spend more time thinking.
 
 ### Output language
 

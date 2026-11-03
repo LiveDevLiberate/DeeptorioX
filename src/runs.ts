@@ -55,6 +55,10 @@ export const sha256 = (value: string | Buffer) => createHash("sha256").update(va
 const errorText = (e: unknown) => e instanceof Error ? e.message : String(e);
 
 /** Extra Codex overrides for an OpenAI-compatible provider (for example OpenCode Go → DeepSeek). */
+function disciplinePrompt() {
+  return "Never run a shell `sleep` longer than 10 seconds. Use wait_for_item, wait_for_research, wait_for_factory or wait_until, and keep doing useful work while production runs. ";
+}
+
 function languagePrompt(run: Run) {
   if (!run.language) return "";
   const label = /^(?:chinese|中文|zh)/i.test(run.language) ? "Simplified Chinese (简体中文)" : run.language;
@@ -419,7 +423,7 @@ export class RunManager {
     const usage: Record<string, number> = resuming && run.usage ? { ...run.usage } : {};
     run.output_format = "events";
     this.persist(run);
-    const prompt = languagePrompt(run) + (resuming ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. " : "")
+    const prompt = languagePrompt(run) + disciplinePrompt() + (resuming ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. " : "")
       + "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. "
       + "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
     const command = ["run", "--format", "json", "--thinking", "--model", model, "--auto",
@@ -580,7 +584,7 @@ export class RunManager {
     if (run.reasoning_effort) args.push("-c", `model_reasoning_effort=${JSON.stringify(run.reasoning_effort)}`);
     args.push(...codexProviderArgs());
     if(resuming && run.session_id)args.push("resume",run.session_id);
-    args.push(languagePrompt(run)+(resuming?"Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. ":"")+"Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
+    args.push(languagePrompt(run)+disciplinePrompt()+(resuming?"Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. ":"")+"Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
       "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.");
     const env: NodeJS.ProcessEnv = { ...process.env, FACTORIO_API_BASE: `http://127.0.0.1:${PORT}` };
     delete env.RCON_PASSWORD;

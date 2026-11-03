@@ -162,6 +162,8 @@ bootstrapping or an emergency, never for routine production.
   axis). Chests are buffers, not transport.
 - Never sleep for production; use `wait_for_item`, `wait_for_research`,
   `wait_for_factory`, or `wait_until` so work resumes the moment a condition is met.
+  **Hard cap: no shell `sleep` longer than 10 seconds.** Long sleeps waste the
+  run; poll a condition or switch to another useful subtask.
 - Use `observe-layout` for a compact ASCII map of the current base (rows are
   north-to-south, one character per tile/step). `rows` is a composite layer
   (actor > built > natural > resource > terrain); `built_rows` and
