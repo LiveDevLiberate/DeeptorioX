@@ -39,7 +39,7 @@ $("launchForm").onsubmit = async event => {
   event.preventDefault(); $("launch").disabled = true;
   try {
     const preset = $("model").selectedOptions[0];
-    await api("/api/runs",{benchmark:$("benchmark").value, model:preset.dataset.model, reasoning_effort:preset.dataset.thinking, max_seconds:Number($("seconds").value), agent:"opencode",terminal:false,capture_video:$("captureVideo").checked});
+    await api("/api/runs",{benchmark:$("benchmark").value, model:preset.dataset.model, reasoning_effort:preset.dataset.thinking, max_seconds:Number($("seconds").value), agent:preset.dataset.agent || "opencode", terminal:false, capture_video:$("captureVideo").checked});
     await refresh();
   } catch (error) { $("error").textContent = error.message; $("launch").disabled = false; }
 };

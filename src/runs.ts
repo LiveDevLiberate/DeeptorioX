@@ -13,8 +13,9 @@ import { sessionUsage } from "./token-usage.js";
 import {ObsRunRecorder,obsEnabled,ensureObsRunning,connectObs} from "./obs.js";
 import {renderTimelapse,verifyTimelapseMetadata} from "./timelapse.js";
 import { openRunRecording } from "./recording-window.js";
-import { IS_MACOS, IS_WINDOWS, codexExecutable, execExecutable, killProcessTree, spawnExecutable } from "./platform.js";
+import { IS_MACOS, IS_WINDOWS, codexExecutable, execExecutable, killProcessTree, resolveExecutable, spawnExecutable } from "./platform.js";
 import { opencodeModel, opencodeTransport, opencodeVersionCommand, shellQuote, toWslPath, wslBinCommand, wslDistro } from "./opencode.js";
+import { createDshState, dshArgs, dshEnvironmentPrompt, dshExecutable, dshProfile, parseDshModel, readDshApiKey, translateDshEvent, writeDshModelPatch, writeDshWrappers } from "./dsh.js";
 
 export type RunState = "preparing" | "launching" | "running" | "saving" | "completed" | "failed" | "stopped" | "timed_out" | "interrupted" | "paused";
 type Video = NonNullable<Run["video"]>;
@@ -22,7 +23,7 @@ type Segment = {index:number; state:RunState; started_at?:string; ended_at?:stri
 type Run = {
   id: string; name?: string; reasoning_effort?: ReasoningLevel; benchmark: Benchmark; state: RunState; created_at: string;
   started_at?: string; ended_at?: string; reason?: string; model?: string; language?: string;
-  agent: "codex" | "opencode" | "manual"; max_seconds: number; elapsed_seconds: number;
+  agent: "codex" | "opencode" | "dsh" | "manual"; max_seconds: number; elapsed_seconds: number;
   segments?:Segment[];
   checkpoint?:{file:string;sha256:string;saved_at:string;segment:number};
   quota?:{message:string;detected_at:string};
@@ -34,7 +35,7 @@ type Run = {
   baseline_tick?: number; latest?: Snapshot; baseline?: Snapshot;
   milestones: Record<string, { wall_seconds: number; game_ticks: number; observed_at: string; initial?: boolean }>;
   agent_exit?: { code: number | null; signal: string | null };
-  session_id?: string; usage?: Record<string, number>; usage_status?: "final" | "last_reported" | "unavailable"; usage_source?: "session_log" | "turn.completed" | "opencode"; context_tokens?: number; context_limit?: number; session_resets?: number; versions?: Record<string, string>;
+  session_id?: string; usage?: Record<string, number>; usage_status?: "final" | "last_reported" | "unavailable"; usage_source?: "session_log" | "turn.completed" | "opencode" | "dsh"; context_tokens?: number; context_limit?: number; session_resets?: number; versions?: Record<string, string>;
   hashes?: Record<string, string>; warnings: string[];
   actions: { submitted: number; completed: number; failed: number; cancelled: number; partial_failures: number };
 };
@@ -228,7 +229,7 @@ export class RunManager {
     const benchmark = this.benchmarks.find(b => b.id === (options.benchmark || "smoke"));
     if (!benchmark) throw new Error("Unknown benchmark");
     const agent = options.agent || "opencode";
-    if (!["manual", "codex", "opencode"].includes(agent)) throw new Error("agent must be opencode, codex or manual");
+    if (!["manual", "codex", "opencode", "dsh"].includes(agent)) throw new Error("agent must be opencode, codex, dsh or manual");
     const max = options.max_seconds ?? benchmark.max_seconds;
     if (!Number.isFinite(max) || max < 1 || max > 86400) throw new Error("max_seconds must be between 1 and 86400");
     if (options.model !== undefined && (typeof options.model !== "string" || !options.model.trim())) throw new Error("Invalid model");
@@ -237,19 +238,22 @@ export class RunManager {
     if (options.recording !== undefined && typeof options.recording !== "boolean") throw new Error("recording must be a boolean");
     if(options.capture_video!==undefined && typeof options.capture_video!=="boolean") throw new Error("capture_video must be a boolean");
     const contextLimit = Math.floor(Number(process.env.AUTORIO_CONTEXT_LIMIT || 0));
-    const effort = options.reasoning_effort ?? "low";
+    const explicitEffort = options.reasoning_effort;
+    const effort = explicitEffort ?? "low";
     if (!REASONING_LEVELS.includes(effort as ReasoningLevel)) throw new Error(`Invalid reasoning_effort; choose ${REASONING_LEVELS.join(", ")}`);
     const created = new Date();
     const timestamp = pacificTimestamp(created);
     const run: Run = {
       id: `${timestamp.replaceAll(":", "-").replaceAll(" ", "_")}-${randomUUID().slice(0, 8)}`,
       name: `${timestamp} · ${benchmark.id}`,
-      reasoning_effort: agent === "codex" ? effort as ReasoningLevel : undefined,
+      reasoning_effort: agent === "codex" ? effort as ReasoningLevel : agent === "dsh" ? (explicitEffort as ReasoningLevel | undefined) : undefined,
       benchmark: { ...benchmark, milestones: trackedMilestones(benchmark) }, state: "preparing", created_at: created.toISOString(),
       model: agent === "opencode" ? opencodeModel(options.model) : options.model,
       language: (options.language?.trim() || process.env.AUTORIO_AGENT_LANGUAGE?.trim()) || undefined,
       agent: agent as Run["agent"], max_seconds: max,
-      terminal: agent !== "manual" && (options.terminal ?? process.env.AUTORIO_TERMINAL === "1"),
+      // DSH renders only the web transcript; the codex-shaped terminal viewer
+      // cannot display its event stream.
+      terminal: agent !== "manual" && agent !== "dsh" && (options.terminal ?? process.env.AUTORIO_TERMINAL === "1"),
       elapsed_seconds: 0, milestones: {}, warnings: [],
       context_tokens: 0, context_limit: Number.isFinite(contextLimit) && contextLimit > 0 ? contextLimit : undefined,
       session_resets: 0,
@@ -259,7 +263,7 @@ export class RunManager {
     if(run.capture_video && run.terminal)throw new Error("OBS capture requires the web recording window; use --no-terminal or --no-video");
     if(run.capture_video)run.video={state:"pending",capture_fps:5,playback_fps:30,speed:6};
     run.recording = run.agent !== "manual" && !run.terminal && (run.capture_video || (options.recording ?? true));
-    run.output_format = run.agent === "opencode" ? "events" : run.terminal ? "native" : "events";
+    run.output_format = run.agent === "opencode" || run.agent === "dsh" ? "events" : run.terminal ? "native" : "events";
     fs.mkdirSync(this.dir(run), { recursive: true });
     this.active = run; this.runs.set(run.id, run); this.persist(run);
     this.beginSegment(run);
@@ -406,6 +410,7 @@ export class RunManager {
     this.watchdog = setTimeout(() => { void this.finish("timed_out", "Wall-clock time limit reached"); }, Math.max(1,run.max_seconds-run.elapsed_seconds) * 1000);
     if (run.agent === "codex") this.launchCodex(run, workspace, resuming);
     else if (run.agent === "opencode") this.launchOpenCode(run, workspace, resuming);
+    else if (run.agent === "dsh") this.launchDsh(run, workspace, resuming);
     this.monitor = setInterval(() => {
       void this.sample().catch(error => {
         this.telemetryErrors++;
@@ -434,24 +439,22 @@ export class RunManager {
   }
   private async checkAgent(run: Run) {
     if (run.agent === "codex") return this.checkCodex(run);
+    if (run.agent === "dsh") {
+      const { stdout } = await execExecutable(dshExecutable(), ["--version"], { timeout: 15_000 });
+      run.versions!.dsh = stdout.trim();
+      // Headless ignores the GUI credential store; fail before the clock starts.
+      if (!readDshApiKey()) {
+        throw new Error("DSH headless needs a DeepSeek API key: export DEEPSEEK_API_KEY, save it on the DSH Models page, or put it in this repo's .env");
+      }
+      return;
+    }
     const { bin, args } = opencodeVersionCommand();
     const { stdout } = await execExecutable(bin, args, { timeout: 15_000 });
     run.versions!.opencode = stdout.trim();
   }
 
-  /** OpenCode reports structured JSONL; translate it to the transcript schema the UI already renders. */
-  private launchOpenCode(run: Run, workspace: string, resuming=false, restarting=false) {
-    const model = opencodeModel(run.model);
-    run.model = model;
-    const usage: Record<string, number> = (resuming || restarting) && run.usage ? { ...run.usage } : {};
-    run.output_format = "events";
-    this.persist(run);
-    const prompt = languagePrompt(run) + disciplinePrompt()
-      + (restarting ? "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. " : resuming ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. " : "")
-      + "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. "
-      + "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
-    // Hard-enforce the short-wait rule for agent shell/Python commands. The
-    // wrappers live in the run workspace so they do not affect the manager.
+  /** Hard-enforce the short-wait rule for agent shell/Python commands. */
+  private writeShortWaitGuards(workspace: string) {
     fs.mkdirSync(path.join(workspace, "bin"), { recursive: true });
     fs.writeFileSync(path.join(workspace, "bin", "sleep"), [
       "#!/bin/sh",
@@ -480,6 +483,19 @@ export class RunManager {
       "_autoriods_time.sleep = _autoriods_sleep",
       "",
     ].join("\n"));
+  }
+  /** OpenCode reports structured JSONL; translate it to the transcript schema the UI already renders. */
+  private launchOpenCode(run: Run, workspace: string, resuming=false, restarting=false) {
+    const model = opencodeModel(run.model);
+    run.model = model;
+    const usage: Record<string, number> = (resuming || restarting) && run.usage ? { ...run.usage } : {};
+    run.output_format = "events";
+    this.persist(run);
+    const prompt = languagePrompt(run) + disciplinePrompt()
+      + (restarting ? "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. " : resuming ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. " : "")
+      + "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. "
+      + "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
+    this.writeShortWaitGuards(workspace);
     const command = ["run", "--format", "json", "--thinking", "--model", model, "--auto",
       ...(resuming && run.session_id ? ["--session", run.session_id] : []), prompt];
     const transport = opencodeTransport();
@@ -634,6 +650,179 @@ export class RunManager {
       }
     });
   }
+  /** DSH headless reports JSONL events; translate them to the transcript schema the UI already renders. */
+  private launchDsh(run: Run, workspace: string, resuming = false, restarting = false) {
+    const selection = parseDshModel(run.model);
+    run.model = `${selection.provider}/${selection.model}`;
+    run.output_format = "events";
+    this.persist(run);
+    const windows = IS_WINDOWS;
+    const apiBase = `http://127.0.0.1:${PORT}`;
+    // DSH's headless shell sandbox can deny wsl.exe; when a Windows Python is
+    // present the wrapper runs the same stdlib client directly and avoids WSL.
+    const windowsPython = windows ? Boolean(resolveExecutable("python") || resolveExecutable("py")) : false;
+    const environment = dshEnvironmentPrompt({
+      windows,
+      windowsPython,
+      distro: wslDistro(),
+      workspaceWsl: windows ? toWslPath(workspace) : workspace,
+      apiBase,
+    });
+    const prompt = environment + languagePrompt(run) + disciplinePrompt()
+      + (restarting ? "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. " : resuming ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. " : "")
+      + "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. "
+      + "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
+    this.writeShortWaitGuards(workspace);
+    writeDshWrappers(workspace, {
+      windows,
+      distro: wslDistro(),
+      workspaceWsl: windows ? toWslPath(workspace) : workspace,
+      apiBase,
+    });
+    const patchPath = writeDshModelPatch(workspace, selection);
+    const args = dshArgs({
+      profile: dshProfile(),
+      patchPath,
+      sessionId: resuming && run.session_id ? run.session_id : undefined,
+    });
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      DEEPSEEK_API_KEY: readDshApiKey() || "",
+      FACTORIO_API_BASE: apiBase,
+      DSH_PROFILE: dshProfile(),
+    };
+    delete env.RCON_PASSWORD;
+    delete env.OBS_WEBSOCKET_PASSWORD;
+    delete env.DSH_SESSION_ID;
+    delete env.DSH_PROFILE_DIR;
+    env.PYTHONPATH = [workspace, env.PYTHONPATH].filter(Boolean).join(path.delimiter);
+    const executable = dshExecutable();
+    const child = spawnExecutable(executable, args, {
+      cwd: workspace, env, stdio: ["pipe", "pipe", "pipe"],
+      detached: !IS_WINDOWS, windowsHide: true,
+    });
+    this.agent = child;
+    const launch = {
+      executable, args,
+      transport: windows ? "wsl-python" : "native",
+      model: run.model,
+      session: resuming ? run.session_id : undefined,
+      prompt_via: "stdin",
+    };
+    fs.mkdirSync(this.segmentDir(run), { recursive: true });
+    fs.writeFileSync(path.join(this.segmentDir(run), "agent-launch.json"), JSON.stringify(launch, null, 2));
+    fs.writeFileSync(path.join(this.dir(run), "agent-launch.json"), JSON.stringify({ ...launch, api_base: apiBase }, null, 2));
+    // The task goes over stdin: a positional task would let model text such as
+    // `node --version` be parsed as launcher options.
+    child.stdin?.on("error", () => {});
+    child.stdin?.end(prompt.endsWith("\n") ? prompt : prompt + "\n");
+    let eventBuffer = "", stderrTail = "", sequence = 0;
+    const decoder = new StringDecoder("utf8");
+    const usage: Record<string, number> = (resuming || restarting) && run.usage ? { ...run.usage } : {};
+    const emit = (event: any) => fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), JSON.stringify(event) + "\n");
+    const plain = (text: string) => fs.appendFileSync(path.join(this.dir(run), "codex.log"), text + "\n");
+    const limited = (message: string) => { if (run.state !== "running" || this.ending) return; run.quota = { message, detected_at: new Date().toISOString() }; void this.finish("paused", `DSH quota exhausted: ${message}`); };
+    const translator = createDshState();
+    const handle = (event: any) => {
+      for (const op of translateDshEvent(event, translator)) {
+        switch (op.kind) {
+          case "thread":
+            if (op.sessionId !== run.session_id) {
+              run.session_id = op.sessionId;
+              this.segment(run).session_id = op.sessionId;
+              emit({ type: "thread.started", thread_id: op.sessionId });
+            }
+            break;
+          case "reasoning":
+            this.thought(run, op.text);
+            emit({ type: "item.completed", item: { id: `dsh-reasoning-${++sequence}`, type: "reasoning", text: op.text } });
+            break;
+          case "message":
+            emit({ type: "item.completed", item: { id: `dsh-message-${++sequence}`, type: "agent_message", text: op.text } });
+            this.event(run, op.text);
+            plain(op.text);
+            break;
+          case "tool_start":
+            emit({ type: "item.started", item: { id: op.id, type: "command_execution", command: op.command, status: "in_progress", exit_code: null, aggregated_output: "" } });
+            this.event(run, op.command);
+            plain(`$ ${op.command}`);
+            break;
+          case "tool_end": {
+            const command = op.command || op.tool || op.id;
+            emit({ type: "item.completed", item: { id: op.id, type: "command_execution", command, status: op.status, exit_code: null, aggregated_output: op.output } });
+            this.event(run, `${command} (${op.status})\n${op.output}`);
+            plain(op.output);
+            break;
+          }
+          case "usage": {
+            const tokens = op.usage;
+            const addUsage = (key: "input_tokens" | "output_tokens" | "reasoning_output_tokens", value: number | undefined) => {
+              if (value) usage[key] = (usage[key] || 0) + value;
+            };
+            addUsage("input_tokens", tokens.input_tokens);
+            addUsage("output_tokens", tokens.output_tokens);
+            addUsage("reasoning_output_tokens", tokens.reasoning_output_tokens);
+            // DSH reports cache reads per step; never sum them across steps.
+            if (tokens.cached_input_tokens !== undefined) usage.cached_input_tokens = Math.max(usage.cached_input_tokens || 0, tokens.cached_input_tokens);
+            usage.total_tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
+            run.usage = { ...usage }; run.usage_status = "final"; run.usage_source = "dsh";
+            run.context_tokens = op.contextTokens;
+            if (run.context_limit && op.contextTokens >= run.context_limit) {
+              void this.restartAgentForContext(run).catch(error => this.finish("failed", `Context reset failed: ${errorText(error)}`));
+            }
+            break;
+          }
+          case "error": {
+            emit({ type: "error", message: op.message });
+            const quota = quotaError({ type: "error", message: op.message, error: { message: op.message } });
+            if (quota) limited(quota);
+            break;
+          }
+          case "final":
+            if (op.text) plain(op.text);
+            break;
+        }
+      }
+    };
+    const capture = (stream: "stdout" | "stderr", chunk: Buffer) => {
+      if (this.agent !== child) return;
+      fs.appendFileSync(path.join(this.dir(run), `agent.${stream}.log`), chunk);
+      if (stream === "stdout") {
+        eventBuffer += decoder.write(chunk);
+        let newline: number;
+        while ((newline = eventBuffer.indexOf("\n")) >= 0) {
+          const line = eventBuffer.slice(0, newline); eventBuffer = eventBuffer.slice(newline + 1);
+          if (!line.trim()) continue;
+          try { handle(JSON.parse(line)); } catch { /* raw bytes remain available */ }
+        }
+      } else {
+        fs.appendFileSync(path.join(this.dir(run), "activity.log"), chunk);
+        stderrTail = (stderrTail + chunk.toString()).slice(-8192);
+        for (const line of stderrTail.split("\n")) {
+          const quota = quotaError({ type: "error", message: line });
+          if (quota) limited(quota);
+        }
+      }
+      this.persist(run);
+    };
+    child.stdout?.on("data", (chunk: Buffer) => capture("stdout", chunk));
+    child.stderr?.on("data", (chunk: Buffer) => capture("stderr", chunk));
+    child.once("error", error => { void this.finish("failed", `DSH launch failed: ${error.message}`); });
+    child.once("close", (code, signal) => {
+      if (child !== this.agent) return;
+      run.agent_exit = { code, signal }; this.persist(run);
+      this.event(run, `DSH exited (${signal || code})`);
+      if (run.state === "running" && !this.ending) {
+        void (async () => {
+          // Let any already-queued crafting finish, then verify the game independently.
+          await sleep(1000);
+          if (run.state !== "running" || this.ending) return;
+          await this.sample();
+          if (!this.ending) await this.finish("failed", code === 0 ? "Agent exited before the objective was verified" : `DSH exited with ${signal || code}`);
+        })().catch(error => this.finish("failed", errorText(error)));
+      }
+    });
+  }
   private async restartAgentForContext(run: Run) {
     if (this.contextResetting || this.ending || run.state !== "running") return;
     this.contextResetting = true;
@@ -660,6 +849,7 @@ export class RunManager {
       this.persist(run);
       if (run.agent === "opencode") this.launchOpenCode(run, workspace, false, true);
       else if (run.agent === "codex") this.launchCodex(run, workspace, false, true);
+      else if (run.agent === "dsh") this.launchDsh(run, workspace, false, true);
     } finally {
       this.contextResetting = false;
     }

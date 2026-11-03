@@ -39,6 +39,36 @@ else {
 }
 `);
 const quotaCodex=toExecutable(quotaCodexScript,"quota-codex");
+const fakeDshScript = path.join(temp, "dsh.mjs");
+fs.writeFileSync(fakeDshScript, `#!${process.execPath}
+import fs from 'node:fs';
+const a = process.argv.slice(2);
+if (a.includes('--version')) { console.log('dsh test 0.2.1'); process.exit(0); }
+let input = '';
+process.stdin.on('data', chunk => input += chunk);
+process.stdin.on('end', () => {
+  const out = process.env.AUTORIO_DSH_TEST_DIR;
+  fs.mkdirSync(out, { recursive: true });
+  fs.writeFileSync(out + '/dsh-args.json', JSON.stringify(a));
+  fs.writeFileSync(out + '/dsh-stdin.txt', input);
+  fs.writeFileSync(out + '/dsh-env.json', JSON.stringify({ key: process.env.DEEPSEEK_API_KEY, profile: process.env.DSH_PROFILE, pythonpath: process.env.PYTHONPATH }));
+  const events = [
+    { type: 'session', sessionId: 'dsh-test-session', cwd: process.cwd() },
+    { type: 'status', phase: 'turn_start', turn: 1 },
+    { type: 'status', phase: 'step_start', turn: 1, step: 1 },
+    { type: 'thinking', text: 'I should observe the player first.' },
+    { type: 'tool_call', callId: 'call-1', tool: 'pwsh', input: { description: 'Observe player', command: 'pwsh -File .\\\\play.ps1 factorio.py observe-player' } },
+    { type: 'tool_result', callId: 'call-1', status: 'completed', result: '{"ok":true}' },
+    { type: 'status', phase: 'step_end', turn: 1, step: 1, usage: { inputTokens: 100, outputTokens: 20, cacheReadTokens: 40, totalTokens: 120 } },
+    { type: 'text', text: 'I observed the player.' },
+    { type: 'status', phase: 'turn_end', turn: 1, reason: { kind: 'completed' } },
+    { type: 'final', text: 'I observed the player.' }
+  ];
+  for (const event of events) console.log(JSON.stringify(event));
+  process.exit(0);
+});
+`);
+const fakeDsh = toExecutable(fakeDshScript, "dsh");
 process.env.AUTORIO_DATA_DIR = temp;
 process.env.FACTORIO_BIN = fake;
 process.env.CODEX_BIN = fakeCodex;
@@ -139,6 +169,67 @@ test("a successful agent exit does not count as game success", async () => {
   assert.equal(manager.log(run.id, log.offset, "events").data, "");
   assert.deepEqual(Buffer.from(manager.log(run.id, 3, "events").data, "base64"), native.subarray(3));
   assert.deepEqual(manager.get(run.id).milestones, {});
+});
+
+test("dsh agent runs headless, translates its event stream, and records usage", async () => {
+  const working = path.join(temp, "dsh-test");
+  fs.mkdirSync(working, { recursive: true });
+  const previousBin = process.env.DSH_BIN;
+  const previousHome = process.env.DSH_HOME;
+  const previousKey = process.env.DEEPSEEK_API_KEY;
+  const previousDir = process.env.AUTORIO_DSH_TEST_DIR;
+  process.env.DSH_BIN = fakeDsh;
+  process.env.DSH_HOME = path.join(temp, "dsh-home");
+  process.env.DEEPSEEK_API_KEY = "sk-test-key";
+  process.env.AUTORIO_DSH_TEST_DIR = working;
+  const { manager } = setup();
+  try {
+    const run = manager.start({ benchmark: "smoke", agent: "dsh", model: "deepseek-flash#low", language: "Chinese" });
+    await waitFor(() => manager.get(run.id).state === "failed");
+    const result = manager.get(run.id);
+    assert.match(result.reason, /before the objective/);
+    assert.equal(result.session_id, "dsh-test-session");
+    assert.equal(result.model, "deepseek-official/deepseek-flash");
+    assert.deepEqual(result.usage, { input_tokens: 100, output_tokens: 20, cached_input_tokens: 40, total_tokens: 120 });
+    assert.equal(result.usage_source, "dsh");
+    assert.equal(result.output_format, "events");
+    assert.equal(result.terminal, false);
+    const folder = path.join(temp, "runs", run.id);
+    const launch = JSON.parse(fs.readFileSync(path.join(folder, "agent-launch.json"), "utf8"));
+    assert.deepEqual(launch.args.slice(0, 2), ["--profile", "headless"]);
+    assert.ok(launch.args.includes("--patch"));
+    assert.ok(launch.args.includes("--json"));
+    assert.equal(launch.args.includes("--session-id"), false);
+    const args = JSON.parse(fs.readFileSync(path.join(working, "dsh-args.json"), "utf8"));
+    assert.deepEqual(args.slice(0, 2), ["--profile", "headless"]);
+    const stdinText = fs.readFileSync(path.join(working, "dsh-stdin.txt"), "utf8");
+    assert.match(stdinText, /Read AGENTS\.md and TASK\.md/);
+    assert.match(stdinText, process.platform === "win32" ? /play\.(cmd|ps1)/ : /play\.sh/);
+    assert.match(stdinText, /never sleep longer than 10 seconds/i);
+    const childEnv = JSON.parse(fs.readFileSync(path.join(working, "dsh-env.json"), "utf8"));
+    assert.equal(childEnv.key, "sk-test-key");
+    assert.equal(childEnv.profile, "headless");
+    assert.ok(String(childEnv.pythonpath || "").includes(path.join(folder, "workspace")));
+    const workspace = path.join(folder, "workspace");
+    assert.ok(fs.existsSync(path.join(workspace, "dsh-model.patch.yml")));
+    assert.match(fs.readFileSync(path.join(workspace, "dsh-model.patch.yml"), "utf8"), /reasoningEffort: "low"/);
+    assert.ok(fs.existsSync(path.join(workspace, process.platform === "win32" ? "play.cmd" : "play.sh")));
+    assert.ok(fs.existsSync(path.join(workspace, "bin", "sleep")));
+    assert.ok(fs.existsSync(path.join(workspace, "sitecustomize.py")));
+    const events = fs.readFileSync(path.join(folder, "agent.events.jsonl"), "utf8").trim().split("\n").map(line => JSON.parse(line));
+    assert.ok(events.some(event => event.type === "thread.started" && event.thread_id === "dsh-test-session"));
+    assert.ok(events.some(event => event.type === "item.completed" && event.item?.type === "reasoning"));
+    assert.ok(events.some(event => event.type === "item.completed" && event.item?.type === "agent_message" && event.item.text === "I observed the player."));
+    assert.ok(events.some(event => event.type === "item.started" && event.item?.type === "command_execution" && event.item.command.includes("observe-player")));
+    assert.ok(events.some(event => event.type === "item.completed" && event.item?.status === "completed" && event.item.aggregated_output.includes("ok")));
+    assert.match(manager.log(run.id, 0).text, /DSH exited/);
+  } finally {
+    await manager.shutdown();
+    if (previousBin === undefined) delete process.env.DSH_BIN; else process.env.DSH_BIN = previousBin;
+    if (previousHome === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = previousHome;
+    if (previousKey === undefined) delete process.env.DEEPSEEK_API_KEY; else process.env.DEEPSEEK_API_KEY = previousKey;
+    if (previousDir === undefined) delete process.env.AUTORIO_DSH_TEST_DIR; else process.env.AUTORIO_DSH_TEST_DIR = previousDir;
+  }
 });
 
 test("stop during preparation cannot start an agent or leave a live run", async () => {

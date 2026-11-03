@@ -7,6 +7,6 @@ export function pacificTimestamp(date: Date) {
 }
 export function modelLabel(run: {agent:string; model?:string; reasoning_effort?:string}) {
   if (run.agent === "manual") return "Manual";
-  const model = run.model || (run.agent === "opencode" ? "OpenCode default" : "Codex default");
+  const model = run.model || (run.agent === "opencode" ? "OpenCode default" : run.agent === "dsh" ? "DSH default" : "Codex default");
   return run.reasoning_effort ? `${model} (${run.reasoning_effort})` : model;
 }

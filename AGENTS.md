@@ -5,6 +5,7 @@
 - Agents use the importable Python client (`factorio.py`). `./autorio` (or `autorio.cmd` on Windows) launches and monitors OpenCode runs (Codex remains available with `--agent codex`).
 - `src/platform.ts`: cross-platform executable/process/path helpers (PATHEXT, `.cmd` shims, `taskkill`, Steam detection, browser discovery).
 - `src/opencode.ts`: OpenCode executable/model resolution, native-vs-WSL transport, WSL paths and shell quoting; `src/runs.ts` translates OpenCode JSON events into the transcript schema.
+- `src/dsh.ts`: DeepSeek Harness headless backend (`--agent dsh`): CLI/credential/model resolution, per-run model patch, `play.cmd`/`play.ps1`/`play.sh` wrappers, and the headless JSON event translator.
 - `autorio_gym.py`, `autorio_types.py`, `autorio_trajectory.py`: duck-typed Gym-style `FactorioEnv` (reset/step/observe/close), typed observation dataclasses, and a SQLite episode/step trajectory store.
 - `src/mcp-server.ts`: dependency-free MCP stdio server exposing observations and action jobs to MCP clients.
 - `src/vision.ts`, `scripts/capture-window.ps1`: Windows game-window screenshot observation (`POST /api/agent/observe/visual`).
@@ -54,6 +55,7 @@
 - Agent runs open the web recording view in a standalone window (WKWebView on macOS, Edge/Chrome app mode on Windows) by default; `--terminal` or `AUTORIO_TERMINAL=1` opts into the Terminal viewer. `--detach` skips opening the browser; `--watch` follows operator logs.
 - OpenCode is the default agent (`opencode run --format json --model provider/model --auto`); `AUTORIO_OPENCODE_MODEL`, `OPENCODE_BIN`, `AUTORIO_WSL_DISTRO`, and `AUTORIO_WSL_OPENCODE` configure it. On Windows without a native CLI, runs are launched through `wsl.exe`.
 - `--agent codex` switches to Codex (`codex exec`); `CODEX_BIN` and `AUTORIO_CODEX_*` configure that path.
+- `--agent dsh` runs the DeepSeek Harness headless profile (`dsh --profile headless --json`, task over stdin); `DSH_BIN`, `DSH_HOME`, `AUTORIO_DSH_PROFILE`, `AUTORIO_DSH_PROVIDER`, `AUTORIO_DSH_MODEL`, `AUTORIO_DSH_REASONING_EFFORT` configure it. Headless needs `DEEPSEEK_API_KEY` (environment/`.env`, or the plaintext `refs` entry in `$DSH_HOME/.credentials.yaml`). On Windows the agent shell is Windows PowerShell and gameplay goes through the generated `play.cmd` (Windows Python) with `play.ps1`/`play.sh` as the WSL fallback; the headless sandbox may deny `wsl.exe`, so keep the Windows Python path working. Do not edit the DSH profile to change models; autorio passes a `--patch` overlay.
 - `FACTORIO_API_BASE` overrides the Python client API address.
 - Steam must be running and signed in for graphical Steam builds.
 

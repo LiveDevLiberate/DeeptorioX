@@ -270,6 +270,11 @@ Optional `.env` settings (process environment takes precedence):
 | `AUTORIO_WSL_DISTRO` | Windows fallback distro for OpenCode, default `Ubuntu-24.04` |
 | `AUTORIO_WSL_OPENCODE` | Windows fallback WSL binary, default `$HOME/.opencode/bin/opencode` |
 | `CODEX_BIN` | Optional Codex CLI for `--agent codex` |
+| `DSH_BIN` | Optional DSH CLI for `--agent dsh`; defaults to `dsh` on PATH |
+| `DSH_HOME` | DSH harness home (`~/.dsh`); used to find `.credentials.yaml` for the DSH API key |
+| `AUTORIO_DSH_PROFILE` | DSH profile for agent runs, default `headless` |
+| `AUTORIO_DSH_PROVIDER` / `AUTORIO_DSH_MODEL` | Default DSH provider/model, `deepseek-official` / `deepseek-flash` |
+| `AUTORIO_DSH_REASONING_EFFORT` | Optional default DSH reasoning effort (`low`, `high`, `max`, ...) |
 | `FFMPEG_BIN` / `FFPROBE_BIN` | Windows: FFmpeg tools used for 5 fps → 30 fps timelapse conversion; found on PATH by default |
 | `OBS_BIN` | Windows: optional path to `obs64.exe` if OBS is not in its default install directory |
 | `FACTORIO_API_BASE` | Python/CLI connection override; normally `http://127.0.0.1:3000` |
@@ -685,6 +690,46 @@ comes from the environment. Example with OpenCode Go's DeepSeek model:
 `AUTORIO_CODEX_SANDBOX` defaults to `workspace-write`, except on Windows where
 Codex's sandbox currently rejects every agent command; there it defaults to
 `danger-full-access`. Set the variable explicitly to override either default.
+
+### DSH (DeepSeek Harness) as the agent
+
+`--agent dsh` runs the local [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
+headless profile (`dsh --profile headless --json`) and translates its event
+stream into the same transcript the OpenCode runs use. This is the natural
+backend when the same machine already runs the DSH desktop app and you want the
+benchmark to use that harness and its stored DeepSeek credentials.
+
+```bash
+./autorio start smoke --agent dsh --model deepseek-flash#low
+```
+
+Requirements and behavior:
+
+- `dsh` must be on PATH (Windows: the launcher installed by the app), or set
+  `DSH_BIN`. Check with `dsh --version`; the run records the version.
+- The headless profile deliberately ignores the desktop credential store, so an
+  API key is required: `DEEPSEEK_API_KEY` from the process environment, this
+  repo's `.env`, or (fallback) the plaintext `refs` block of
+  `$DSH_HOME/.credentials.yaml` that the DSH Models page writes. The key is only
+  passed to the child process, never logged.
+- The model is chosen with `provider/model#effort` or a bare model id; autorio
+  writes a per-run `agent-default-model` patch overlay (`dsh-model.patch.yml`)
+  so the profile itself is not modified. `AUTORIO_DSH_PROVIDER`,
+  `AUTORIO_DSH_MODEL`, and `AUTORIO_DSH_REASONING_EFFORT` set the defaults.
+- On Windows the DSH agent's shell tool is Windows PowerShell. The run workspace
+  gets a `play.cmd` wrapper that runs the same stdlib client with the Windows
+  Python (`FACTORIO_API_BASE`, `PYTHONPATH`, short-sleep guard included), and
+  `play.ps1`/`play.sh` remain as a WSL fallback for machines without Windows
+  Python; the prompt points the agent at `.\play.cmd factorio.py ...`. The DSH
+  headless sandbox may deny `wsl.exe`, which is why Windows Python is preferred.
+- Reasoning/media: `thinking` events become transcript reasoning, `text` events
+  become agent messages, `tool_call`/`tool_result` pairs render as command
+  items, and step usage (`inputTokens`, `outputTokens`, cache reads) feeds the
+  run token counters and the context-limit restart. The codex-shaped terminal
+  viewer is not used; DSH runs always render the web transcript.
+- The headless profile opens no ports and exits after the task; `--session-id`
+  resumes a persisted DSH session when a paused run continues in the same
+  workspace.
 
 ## Automatic OBS timelapses
 
