@@ -155,6 +155,13 @@ export class RunManager {
   private event(run: Run, text: string) {
     fs.appendFileSync(path.join(this.dir(run), "activity.log"), `[${new Date().toISOString()}] ${text}\n`);
   }
+  /** Plain reasoning stream for livestream overlays and TTS narration. */
+  private thought(run: Run, text: string) {
+    const clean = text.replace(/```[\s\S]*?```/g, " ").replace(/`[^`]*`/g, " ").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    fs.appendFileSync(path.join(this.dir(run), "thoughts.log"), clean + "\n");
+    fs.writeFileSync(path.join(this.dir(run), "thoughts.txt"), clean + "\n");
+  }
   list() { return [...this.runs.values()].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)).map(run => this.view(run)); }
   get(id: string) { const run = this.runs.get(id); return run ? this.view(run) : undefined; }
   private view(run: Run) {
@@ -397,7 +404,7 @@ export class RunManager {
     const prompt = (resuming ? "Continue the same benchmark from its saved game. Read RESUME.md and re-observe the player/world before acting. " : "")
       + "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. "
       + "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
-    const command = ["run", "--format", "json", "--model", model, "--auto",
+    const command = ["run", "--format", "json", "--thinking", "--model", model, "--auto",
       ...(resuming && run.session_id ? ["--session", run.session_id] : []), prompt];
     const transport = opencodeTransport();
     let executable: string;
@@ -450,6 +457,7 @@ export class RunManager {
     const emit = (event: any) => fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), JSON.stringify(event) + "\n");
     const plain = (text: string) => fs.appendFileSync(path.join(this.dir(run), "codex.log"), text + "\n");
     const limited=(message:string)=>{if(run.state!=="running" || this.ending)return;run.quota={message,detected_at:new Date().toISOString()};void this.finish("paused",`OpenCode quota exhausted: ${message}`);};
+    const thoughtIds = new Set<string>();
     const handle = (event: any) => {
       if (!event || typeof event !== "object") return;
       if (event.sessionID && event.sessionID !== run.session_id) {
@@ -463,6 +471,8 @@ export class RunManager {
         return;
       }
       if (event.type === "reasoning" && event.part?.text) {
+        const id = event.part.id || `${event.part.messageID}:${event.part.text.slice(0, 48)}`;
+        if (!thoughtIds.has(id)) { thoughtIds.add(id); this.thought(run, event.part.text); }
         emit({ type: "item.completed", item: { id: event.part.id || `opencode-reasoning-${++sequence}`, type: "reasoning", text: event.part.text } });
         return;
       }
@@ -592,6 +602,7 @@ export class RunManager {
             if (event.type === "turn.completed") { run.usage = Object.fromEntries(Object.entries(event.usage as Record<string,number>).map(([key,value])=>[key,value+(usageBeforeTurn[key] || 0)])); run.usage_status = "final"; run.usage_source = "turn.completed"; }
             if (event.type === "item.completed" && event.item) {
               const item = event.item;
+              if (item.type === "reasoning" && item.text) this.thought(run, item.text);
               if (item.type === "agent_message" || item.type === "reasoning") this.event(run, item.text || "");
               else if (item.type === "command_execution") this.event(run, `${item.command} (${item.status})\n${item.aggregated_output || ""}`);
             }

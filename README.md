@@ -159,6 +159,33 @@ On Windows the manager is reached through WSL's mirrored `127.0.0.1`. The
 dashboard at `http://127.0.0.1:3000/` shows milestones, production graphs and
 live activity.
 
+## Narrating agent thoughts (TTS)
+
+OpenCode is launched with `--thinking`, so its reasoning is saved as a plain
+stream in the run directory:
+
+```text
+.autorio/runs/<run-id>/thoughts.log   # one reasoning text per line
+.autorio/runs/<run-id>/thoughts.txt   # latest thought, useful for an OBS text source
+```
+
+Windows can speak those lines with the built-in System.Speech voices:
+
+```powershell
+cd C:\Users\Roger\autorio
+.\scripts\narrate.ps1 -ListVoices
+.\scripts\narrate.ps1                                # newest run, new thoughts only
+.\scripts\narrate.ps1 -RunId RUN_ID -Voice "Microsoft Zira Desktop"
+.\scripts\narrate.ps1 -IncludeMessages                 # also speak agent messages
+.\scripts\narrate.ps1 -FromStart -DryRun -Once          # test without audio
+```
+
+The narrated text is also written to `narration.txt` for a subtitle overlay.
+For OBS, add a **Text** source that reads `thoughts.txt` or `narration.txt`.
+`Ctrl-C` stops narration without touching the game. Reasoning is in the model's
+own language (DeepSeek V4.1 Flash currently thinks in English); select a voice
+that matches, or add a translation step before TTS if you want Chinese audio.
+
 ## Benchmarks and results
 
 `benchmarks/*.json` defines tasks, map generation settings and seed, explicit

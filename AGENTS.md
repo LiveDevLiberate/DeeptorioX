@@ -17,6 +17,7 @@
 - `src/obs-client.ts`, `src/obs.ts`: authenticated localhost OBS v5 control and run-owned two-window capture.
 - `native/timelapse.swift`, `src/timelapse.ts`: 5 fps → 30 fps silent MP4 conversion via AVFoundation (macOS) or FFmpeg (Windows).
 - `src/run-labels.ts`: Pacific local run timestamps and combined model/thinking labels.
+- `scripts/narrate.ps1`, run `thoughts.log`/`thoughts.txt`: Windows TTS narration of OpenCode reasoning for livestreams.
 - `src/token-usage.ts`: session-scoped Codex token-log fallback; counters may be last-reported rather than final.
 - `public/production-chart.js`: production graphs and science research annotations in the dashboard.
 - `src/run-cli.ts`, `autorio`: run CLI and Node discovery/build wrapper.
