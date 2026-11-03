@@ -167,6 +167,9 @@ bootstrapping or an emergency, never for routine production.
   (actor > built > natural > resource > terrain); `built_rows` and
   `resource_rows` preserve entities hidden underneath, and `overlaps` lists
   cells with more than one layer. Use it to plan belt lines and spot gaps.
+- Use `observe-connections` to audit inserter source/target links and belt continuity;
+  fix `inserter_no_source`, `inserter_no_target`, `belt_dead_end`,
+  `belt_opposite`, and `machine_no_inserters` before adding more machines.
 - Use `observe-factory` to check power, fuel, and blocked-building status counts
   before committing to more machines; fix `no_fuel`, `no_power`, and
   `waiting_for_space_in_destination` before expanding.

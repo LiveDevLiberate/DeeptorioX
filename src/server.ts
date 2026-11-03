@@ -88,6 +88,16 @@ function normalizeResearchData(data: any) {
   return data;
 }
 
+function normalizeConnectionsData(data: any) {
+  if (!data || typeof data !== "object") return data;
+  data.counts = data.counts && typeof data.counts === "object" ? data.counts : {};
+  data.inserters = arrayOrEmpty(data.inserters);
+  data.belts = arrayOrEmpty(data.belts);
+  data.machines = arrayOrEmpty(data.machines);
+  data.issues = arrayOrEmpty(data.issues);
+  return data;
+}
+
 function normalizeLayoutData(data: any) {
   if (!data || typeof data !== "object") return data;
   data.rows = arrayOrEmpty(data.rows);
@@ -1235,13 +1245,43 @@ function agentLayoutCommand(params: { x?: number; y?: number; radius: number; st
     "for _,e in pairs(s.find_entities_filtered{area={{min_x,min_y},{max_x+1,max_y+1}},type='resource'}) do fill(resource,e,resource_symbol(e.name)) end",
     "local entities={}",
     "local function status_name(e) local ok,v=pcall(function() return e.status end) if not ok or not v then return nil end for k,n in pairs(defines.entity_status) do if n==v then return k end end return tostring(v) end",
-    "local function symbol(e) local n=e.name if n:find('inserter',1,true) then return 'i' end if n=='transport-belt' then local d=e.direction if d==0 then return '^' elseif d==4 then return '>' elseif d==8 then return 'v' elseif d==12 then return '<' end return 'b' end if n:find('underground-belt',1,true) then return 'U' end if n:find('splitter',1,true) then return 'S' end if n:find('mining-drill',1,true) then return 'D' end if n:find('furnace',1,true) then return 'F' end if n:find('assembling-machine',1,true) then return 'A' end if n=='lab' then return 'L' end if n=='boiler' then return 'B' end if n=='steam-engine' or n=='generator' then return 'E' end if n:find('pump',1,true) then return 'W' end if n:find('electric-pole',1,true) then return 'P' end if n:find('chest',1,true) then return 'C' end if n=='radar' then return 'R' end if n=='rocket-silo' then return 'Z' end if e.type=='tree' then return 'T' end if e.type=='simple-entity' and n:find('rock',1,true) then return 'O' end if e.type=='fish' then return 'f' end if e.type=='character' then return '@' end return '?' end",
+    "local function symbol(e) local n=e.name if n:find('inserter',1,true) then local d=e.direction if d==0 then return 'n' elseif d==4 then return 'e' elseif d==8 then return 's' elseif d==12 then return 'w' end return 'i' end if n=='transport-belt' then local d=e.direction if d==0 then return '^' elseif d==4 then return '>' elseif d==8 then return 'v' elseif d==12 then return '<' end return 'b' end if n:find('underground-belt',1,true) then return 'U' end if n:find('splitter',1,true) then return 'S' end if n:find('mining-drill',1,true) then return 'D' end if n:find('furnace',1,true) then return 'F' end if n:find('assembling-machine',1,true) then return 'A' end if n=='lab' then return 'L' end if n=='boiler' then return 'B' end if n=='steam-engine' or n=='generator' then return 'E' end if n:find('pump',1,true) then return 'W' end if n:find('electric-pole',1,true) then return 'P' end if n:find('chest',1,true) then return 'C' end if n=='radar' then return 'R' end if n=='rocket-silo' then return 'Z' end if e.type=='tree' then return 'T' end if e.type=='simple-entity' and n:find('rock',1,true) then return 'O' end if e.type=='fish' then return 'f' end if e.type=='character' then return '@' end return '?' end",
     "for _,e in pairs(s.find_entities_filtered{area={{min_x,min_y},{max_x+1,max_y+1}}}) do if e.valid and e.type~='resource' and e.type~='item-entity' and e.type~='corpse' then local ch=symbol(e) if e.type=='tree' or e.type=='simple-entity' or e.type=='fish' then fill(natural,e,ch) elseif e.type=='character' then fill(actors,e,ch) else fill(built,e,ch) if #entities<250 then table.insert(entities,{name=e.name,x=e.position.x,y=e.position.y,direction=e.direction,status=status_name(e)}) end end end end",
     "local row,col=cell(player.position.x,player.position.y) if row then actors[row][col]='@' end",
     "local rows={} local built_rows={} local resource_rows={} local overlaps={} local overlaps_truncated=false",
     "for row=1,height do local chars={} local br={} local rr={} for col=1,width do local a=actors[row][col] local b=built[row][col] local n=natural[row][col] local r=resource[row][col] local t=terrain[row][col] chars[col]=a~=' ' and a or (b~=' ' and b or (n~=' ' and n or (r~=' ' and r or t))) br[col]=b~=' ' and b or ' ' rr[col]=r~=' ' and r or ' ' local layers={} if a~=' ' then table.insert(layers,'actor:'..a) end if b~=' ' then table.insert(layers,'built:'..b) end if n~=' ' then table.insert(layers,'natural:'..n) end if r~=' ' then table.insert(layers,'resource:'..r) end if t~=' ' and t~='.' then table.insert(layers,'terrain:'..t) end if #layers>1 then if #overlaps<200 then table.insert(overlaps,{x=min_x+(col-1)*step,y=min_y+(row-1)*step,layers=layers}) else overlaps_truncated=true end end end table.insert(rows,table.concat(chars)) table.insert(built_rows,table.concat(br)) table.insert(resource_rows,table.concat(rr)) end",
-    "local legend={['.']='ground',['~']='water',['#']='cliff',['=']='path',['o']='iron ore',['c']='copper ore',['k']='coal',['s']='stone',['u']='uranium',['p']='oil',['*']='other resource',['T']='tree',['O']='rock',['f']='fish',['@']='player',['i']='inserter',['>']='belt east',['<']='belt west',['^']='belt north',['v']='belt south',['U']='underground belt',['S']='splitter',['D']='mining drill',['F']='furnace',['A']='assembling machine',['L']='lab',['B']='boiler',['E']='steam engine',['W']='pump',['P']='electric pole',['C']='chest',['R']='radar',['Z']='rocket silo'}",
+    "local legend={['.']='ground',['~']='water',['#']='cliff',['=']='path',['o']='iron ore',['c']='copper ore',['k']='coal',['t']='stone',['u']='uranium',['p']='oil',['*']='other resource',['T']='tree',['O']='rock',['f']='fish',['@']='player',['e']='inserter east',['w']='inserter west',['n']='inserter north',['s']='inserter south',['>']='belt east',['<']='belt west',['^']='belt north',['v']='belt south',['U']='underground belt',['S']='splitter',['D']='mining drill',['F']='furnace',['A']='assembling machine',['L']='lab',['B']='boiler',['E']='steam engine',['W']='pump',['P']='electric pole',['C']='chest',['R']='radar',['Z']='rocket silo'}",
     "rcon.print(helpers.table_to_json{origin={x=min_x,y=min_y},step=step,width=width,height=height,rows=rows,built_rows=built_rows,resource_rows=resource_rows,legend=legend,entities=entities,overlaps=overlaps,overlaps_truncated=overlaps_truncated})",
+  ].join(" ");
+}
+
+function agentConnectionsCommand(params: { x?: number; y?: number; radius: number }): string {
+  const x = params.x === undefined ? "nil" : String(params.x);
+  const y = params.y === undefined ? "nil" : String(params.y);
+  return [
+    "/sc",
+    "local s=game.surfaces[1]",
+    "local player=game.players[1]",
+    `local x=${x} local y=${y} local radius=${params.radius}`,
+    "if not player then rcon.print(helpers.table_to_json{counts={},inserters={},belts={},machines={},issues={},error='no_player'}) return end",
+    "if x==nil then x=player.position.x end if y==nil then y=player.position.y end",
+    "local min_x=math.floor(x-radius) local min_y=math.floor(y-radius) local max_x=math.floor(x+radius) local max_y=math.floor(y+radius)",
+    "local function dir_vec(d) if d==0 then return 0,-1 elseif d==4 then return 1,0 elseif d==8 then return 0,1 elseif d==12 then return -1,0 end return 0,0 end",
+    "local function entity_at(tx,ty) local list=s.find_entities_filtered{area={{tx,ty},{tx+1,ty+1}}} for _,e in pairs(list) do if e.valid and e.type~='character' and e.type~='item-entity' and e.type~='corpse' then return e end end return nil end",
+    "local function summary(e) if not e then return nil end return {name=e.name,type=e.type,x=e.position.x,y=e.position.y,direction=e.direction} end",
+    "local inserters={} local belts={} local machines={} local issues={} local counts={inserters=0,belts=0,machines=0,issues=0}",
+    "local function issue(kind,e,extra) counts.issues=counts.issues+1 if #issues<200 then local item={kind=kind,name=e.name,x=e.position.x,y=e.position.y,direction=e.direction} if extra then for k,v in pairs(extra) do item[k]=v end end table.insert(issues,item) end end",
+    "local invalid_types={['electric-pole']=true,['lamp']=true,['radar']=true,['steam-engine']=true,['generator']=true,['pump']=true,['offshore-pump']=true,['pipe']=true,['pipe-to-ground']=true,['wall']=true,['gate']=true,['resource']=true,['tree']=true,['simple-entity']=true,['fish']=true,['character']=true,['inserter']=true}",
+    "for _,e in pairs(s.find_entities_filtered{area={{min_x,min_y},{max_x+1,max_y+1}}}) do",
+    "if e.valid then",
+    "if e.type=='inserter' then",
+    "counts.inserters=counts.inserters+1 local dx,dy=dir_vec(e.direction) local tx,ty=math.floor(e.position.x),math.floor(e.position.y) local source=summary(entity_at(tx-dx,ty-dy)) local target=summary(entity_at(tx+dx,ty+dy)) if #inserters<200 then table.insert(inserters,{name=e.name,x=e.position.x,y=e.position.y,direction=e.direction,source=source,target=target}) end if not source then issue('inserter_no_source',e) elseif invalid_types[source.type] then issue('inserter_invalid_source',e,{endpoint=source.name}) end if not target then issue('inserter_no_target',e) elseif invalid_types[target.type] then issue('inserter_invalid_target',e,{endpoint=target.name}) end",
+    "elseif e.type=='transport-belt' or e.type=='underground-belt' or e.type=='splitter' then",
+    "counts.belts=counts.belts+1 local dx,dy=dir_vec(e.direction) local tx,ty=math.floor(e.position.x),math.floor(e.position.y) local next_entity=entity_at(tx+dx,ty+dy) local next_summary=summary(next_entity) if #belts<200 then table.insert(belts,{name=e.name,x=e.position.x,y=e.position.y,direction=e.direction,next=next_summary}) end if not next_summary then issue('belt_dead_end',e) elseif e.type=='transport-belt' and next_summary.type~='transport-belt' and next_summary.type~='underground-belt' and next_summary.type~='splitter' then issue('belt_points_to_non_belt',e,{next=next_summary.name}) elseif next_summary.type=='transport-belt' and next_summary.direction==((e.direction+8)%16) then issue('belt_opposite',e,{next=next_summary.name}) end",
+    "elseif e.type=='furnace' or e.type=='assembling-machine' or e.type=='lab' or e.type=='boiler' then",
+    "counts.machines=counts.machines+1 local bb=e.bounding_box local list=nil pcall(function() list=s.find_entities_filtered{area={{bb.left_top.x-1,bb.left_top.y-1},{bb.right_bottom.x+1,bb.right_bottom.y+1}},type='inserter'} end) local near=0 if list then for _ in pairs(list) do near=near+1 end end if #machines<100 then table.insert(machines,{name=e.name,x=e.position.x,y=e.position.y,inserters=near}) end if near==0 and e.type~='furnace' then issue('machine_no_inserters',e) end local status=nil pcall(function() status=e.status end) if status==defines.entity_status.waiting_for_space_in_destination then issue('machine_output_blocked',e) end",
+    "end end end",
+    "rcon.print(helpers.table_to_json{window={x=min_x,y=min_y,radius=radius},counts=counts,inserters=inserters,belts=belts,machines=machines,issues=issues})",
   ].join(" ");
 }
 
@@ -2555,6 +2595,32 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
         "RCON extract returned invalid JSON",
       );
       return json(res, 200, { ok: true, data: { ...data, movement: movement.movement } });
+    } catch (err: any) {
+      return json(res, 500, { error: err?.message || "RCON command failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/agent/observe/connections") {
+    let body: any = null;
+    try {
+      body = await readJson(req);
+    } catch (err: any) {
+      return json(res, 400, { error: err?.message || "Invalid JSON" });
+    }
+    if (!rconConfigured()) {
+      return json(res, 409, { error: "RCON not configured" });
+    }
+    if (!state.rcon.connected) {
+      return json(res, 409, { error: "RCON not connected" });
+    }
+    const window = body?.window || {};
+    const x = Number.isFinite(Number(window.x)) ? Number(window.x) : undefined;
+    const y = Number.isFinite(Number(window.y)) ? Number(window.y) : undefined;
+    const radius = clampInt(window.radius, 120, 1, 256);
+    try {
+      const response = await rconCommand(agentConnectionsCommand({ x, y, radius }));
+      const data = normalizeConnectionsData(parseRconJson<any>(response, "RCON connection audit returned invalid JSON"));
+      return json(res, 200, { ok: true, data });
     } catch (err: any) {
       return json(res, 500, { error: err?.message || "RCON command failed" });
     }

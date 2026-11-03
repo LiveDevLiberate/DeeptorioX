@@ -53,6 +53,7 @@ def main() -> int:
     check("observe-resources", lambda: resources_detail(px, py))
     check("observe-factory", lambda: factory_detail(px, py))
     check("observe-layout", lambda: layout_detail(px, py))
+    check("observe-connections", lambda: connections_detail(px, py))
     check("observe-entity-prototype", lambda: prototype_detail())
     check("observe-placement", lambda: placement_detail(px, py))
     check("observe-entity", lambda: entity_detail(px, py))
@@ -125,6 +126,15 @@ def layout_detail(x: float, y: float) -> str:
     expect(isinstance(data.get("overlaps"), list), "layout overlaps is not an array")
     return (f"{len(data['rows'])} rows x {len(data['rows'][0])} cols, "
             f"{len(data.get('entities', []))} entities, {len(data.get('overlaps', []))} overlaps")
+
+
+def connections_detail(x: float, y: float) -> str:
+    data = data_value(client.observe_connections(x=x, y=y, radius=120))
+    expect(isinstance(data.get("counts"), dict), "connection counts is not an object")
+    for key in ("inserters", "belts", "machines", "issues"):
+        expect(isinstance(data.get(key), list), f"connection {key} is not an array")
+    return (f"{data['counts'].get('inserters', 0)} inserters, "
+            f"{data['counts'].get('belts', 0)} belts, {len(data['issues'])} issue(s)")
 
 
 def prototype_detail() -> str:
