@@ -14,11 +14,10 @@ const LATEST_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[SUPPORTED_PROTOCOL_V
 const DEFAULT_API_BASE = "http://127.0.0.1:3000";
 const REQUEST_TIMEOUT_MS = 120_000;
 
-const API_BASE = (
-  process.env.AUTORIO_API_BASE ||
-  process.env.FACTORIO_API_BASE ||
-  DEFAULT_API_BASE
-).replace(/\/+$/, "");
+const API_BASE = (process.env.AUTORIO_API_BASE || process.env.FACTORIO_API_BASE || DEFAULT_API_BASE).replace(
+  /\/+$/,
+  "",
+);
 
 const INSTRUCTIONS = [
   "This server exposes the autorio Factorio manager. Observation tools are read-only.",
@@ -146,7 +145,10 @@ function requireBuildEntities(args: JsonObject, key: string): JsonObject[] {
       throw new ToolArgumentError(`${key}[${index}].name must be a non-empty string`);
     }
     requirePoint(entity.anchor, `${key}[${index}].anchor`);
-    if (entity.direction !== undefined && (typeof entity.direction !== "number" || !Number.isInteger(entity.direction))) {
+    if (
+      entity.direction !== undefined &&
+      (typeof entity.direction !== "number" || !Number.isInteger(entity.direction))
+    ) {
       throw new ToolArgumentError(`${key}[${index}].direction must be an integer`);
     }
     return entity;
@@ -191,13 +193,15 @@ async function executeRequest(spec: HttpRequestSpec): Promise<ToolCallResult> {
     // Tool execution failures are returned as isError results so the model can
     // recover; they are not JSON-RPC protocol errors.
     return {
-      content: [{
-        type: "text",
-        text: [
-          `Autorio manager request failed: ${errorMessage(error)}`,
-          `Is the manager running at ${API_BASE}? Start it with "npm start" or "npm run dev".`,
-        ].join("\n"),
-      }],
+      content: [
+        {
+          type: "text",
+          text: [
+            `Autorio manager request failed: ${errorMessage(error)}`,
+            `Is the manager running at ${API_BASE}? Start it with "npm start" or "npm run dev".`,
+          ].join("\n"),
+        },
+      ],
       isError: true,
     };
   }
@@ -213,9 +217,10 @@ async function executeRequest(spec: HttpRequestSpec): Promise<ToolCallResult> {
   }
 
   if (!response.ok) {
-    const detail = isJsonObject(body) && typeof body.error === "string"
-      ? body.error
-      : raw.trim() || response.statusText || "request failed";
+    const detail =
+      isJsonObject(body) && typeof body.error === "string"
+        ? body.error
+        : raw.trim() || response.statusText || "request failed";
     const result: ToolCallResult = {
       content: [{ type: "text", text: `HTTP ${response.status}: ${detail}` }],
       isError: true,
@@ -254,7 +259,7 @@ function buildEntitySchema(): JsonObject {
   return {
     type: "object",
     properties: {
-      name: { type: "string", description: "Factorio entity prototype name, e.g. \"stone-furnace\"." },
+      name: { type: "string", description: 'Factorio entity prototype name, e.g. "stone-furnace".' },
       anchor: pointSchema("Top-left tile anchor for the entity."),
       direction: { type: "integer", description: "Optional entity direction (0-15, entity dependent)." },
     },
@@ -269,21 +274,30 @@ function targetArraySchema(description: string, items: JsonObject): JsonObject {
 
 function windowSchema(radiusDescription: string, extra: JsonObject = {}): JsonObject {
   return objectSchema({
-    x: { type: "number", description: "Center x in tiles (default 0, or the player position where the endpoint supports it)." },
-    y: { type: "number", description: "Center y in tiles (default 0, or the player position where the endpoint supports it)." },
+    x: {
+      type: "number",
+      description: "Center x in tiles (default 0, or the player position where the endpoint supports it).",
+    },
+    y: {
+      type: "number",
+      description: "Center y in tiles (default 0, or the player position where the endpoint supports it).",
+    },
     radius: { type: "number", description: radiusDescription },
     ...extra,
   });
 }
 
 function jobToolSchema(required: string[], properties: JsonObject): JsonObject {
-  return objectSchema({
-    ...properties,
-    idempotency_key: {
-      type: "string",
-      description: "Optional idempotency key; resubmitting the same key returns the existing job.",
+  return objectSchema(
+    {
+      ...properties,
+      idempotency_key: {
+        type: "string",
+        description: "Optional idempotency key; resubmitting the same key returns the existing job.",
+      },
     },
-  }, required);
+    required,
+  );
 }
 
 const POINT_ARRAY_SCHEMA = targetArraySchema("Target tile positions.", pointSchema("Target tile position."));
@@ -306,11 +320,12 @@ const TARGET_SCHEMA: JsonObject = {
 const TOOLS: ToolDefinition[] = [
   {
     name: "observe_world",
-    description: "Observe charted terrain and entities around a map position. Returns {ok, data, truncated}; data.tiles is run-length encoded terrain and data.entities is a compact entity list.",
+    description:
+      "Observe charted terrain and entities around a map position. Returns {ok, data, truncated}; data.tiles is run-length encoded terrain and data.entities is a compact entity list.",
     inputSchema: windowSchema("View radius in tiles (default 12, max 200).", {
       include: {
         type: "array",
-        description: "What to include: \"terrain\" for tiles and/or \"entities\". Defaults to both.",
+        description: 'What to include: "terrain" for tiles and/or "entities". Defaults to both.',
         items: { type: "string", enum: ["terrain", "entities"] },
         uniqueItems: true,
       },
@@ -319,7 +334,7 @@ const TOOLS: ToolDefinition[] = [
       const body: JsonObject = { window: windowArgs(args) };
       const include = args.include;
       if (include !== undefined) {
-        if (!Array.isArray(include) || include.some(item => typeof item !== "string")) {
+        if (!Array.isArray(include) || include.some((item) => typeof item !== "string")) {
           throw new ToolArgumentError("include must be an array of strings");
         }
         body.include = include;
@@ -341,8 +356,18 @@ const TOOLS: ToolDefinition[] = [
     name: "observe_player",
     description: "Observe the player character: position, inventories, equipment, and status.",
     inputSchema: objectSchema({
-      inventory_slots: { type: "integer", minimum: 1, maximum: 200, description: "Inventory slots to include (default 200)." },
-      equipment_slots: { type: "integer", minimum: 1, maximum: 50, description: "Equipment slots to include (default 50)." },
+      inventory_slots: {
+        type: "integer",
+        minimum: 1,
+        maximum: 200,
+        description: "Inventory slots to include (default 200).",
+      },
+      equipment_slots: {
+        type: "integer",
+        minimum: 1,
+        maximum: 50,
+        description: "Equipment slots to include (default 50).",
+      },
     }),
     request: (args) => {
       const limits: JsonObject = {};
@@ -353,11 +378,27 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "observe_research",
-    description: "Observe research state: available, locked, queued, current, and completed technologies with science pack requirements.",
+    description:
+      "Observe research state: available, locked, queued, current, and completed technologies with science pack requirements.",
     inputSchema: objectSchema({
-      available: { type: "integer", minimum: 0, maximum: 200, description: "Available technologies to include (default 50)." },
-      locked: { type: "integer", minimum: 0, maximum: 200, description: "Locked technologies to include (default 50)." },
-      completed: { type: "integer", minimum: 0, maximum: 200, description: "Completed technologies to include (default 50)." },
+      available: {
+        type: "integer",
+        minimum: 0,
+        maximum: 200,
+        description: "Available technologies to include (default 50).",
+      },
+      locked: {
+        type: "integer",
+        minimum: 0,
+        maximum: 200,
+        description: "Locked technologies to include (default 50).",
+      },
+      completed: {
+        type: "integer",
+        minimum: 0,
+        maximum: 200,
+        description: "Completed technologies to include (default 50).",
+      },
     }),
     request: (args) => {
       const limits: JsonObject = {};
@@ -371,7 +412,12 @@ const TOOLS: ToolDefinition[] = [
     name: "observe_recipes",
     description: "Observe crafting recipes available to the player, optionally limited to unlocked recipes.",
     inputSchema: objectSchema({
-      recipes: { type: "integer", minimum: 1, maximum: 300, description: "Maximum recipes to return (default 300)." },
+      recipes: {
+        type: "integer",
+        minimum: 1,
+        maximum: 300,
+        description: "Maximum recipes to return (default 300).",
+      },
       unlocked_only: { type: "boolean", description: "Only return unlocked recipes." },
     }),
     request: (args) => {
@@ -390,7 +436,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "observe_factory",
-    description: "Observe a compact factory power/fuel/status summary: entity counts by status, blocked or unfueled buildings, coal in fuel slots, electric network satisfaction, and alerts.",
+    description:
+      "Observe a compact factory power/fuel/status summary: entity counts by status, blocked or unfueled buildings, coal in fuel slots, electric network satisfaction, and alerts.",
     inputSchema: windowSchema("Audit radius in tiles (default 120, max 256)."),
     request: (args) => ({
       method: "POST",
@@ -400,7 +447,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "observe_layout",
-    description: "Observe a coarse terrain/layout summary (terrain classes, water, cliffs, and structure density) for planning.",
+    description:
+      "Observe a coarse terrain/layout summary (terrain classes, water, cliffs, and structure density) for planning.",
     inputSchema: windowSchema("Layout radius in tiles (default 35, max 80).", {
       step: { type: "integer", minimum: 1, maximum: 8, description: "Sampling step in tiles (default 1)." },
     }),
@@ -412,7 +460,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "observe_connections",
-    description: "Audit machine, inserter, belt, pipe, and power connections in an area and report missing or mismatched connections.",
+    description:
+      "Audit machine, inserter, belt, pipe, and power connections in an area and report missing or mismatched connections.",
     inputSchema: windowSchema("Audit radius in tiles (default 120, max 256)."),
     request: (args) => ({
       method: "POST",
@@ -422,10 +471,14 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "observe_placement",
-    description: "Dry-run placement analysis for one or more entities without building them: footprint, reach, terrain, blockers, and nearby valid anchors.",
-    inputSchema: objectSchema({
-      placements: targetArraySchema("Entities to analyze.", buildEntitySchema()),
-    }, ["placements"]),
+    description:
+      "Dry-run placement analysis for one or more entities without building them: footprint, reach, terrain, blockers, and nearby valid anchors.",
+    inputSchema: objectSchema(
+      {
+        placements: targetArraySchema("Entities to analyze.", buildEntitySchema()),
+      },
+      ["placements"],
+    ),
     request: (args) => ({
       method: "POST",
       path: "/api/agent/observe/placement",
@@ -434,7 +487,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "observe_resources",
-    description: "Observe charted resource patches (connected components with totals and nearest patches) and shoreline candidates around a position.",
+    description:
+      "Observe charted resource patches (connected components with totals and nearest patches) and shoreline candidates around a position.",
     inputSchema: windowSchema("Search radius in tiles (default 50, max 500)."),
     request: (args) => ({
       method: "POST",
@@ -444,7 +498,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "build",
-    description: "Queue a build job that places entities one at a time, walking into reach and clearing trees/rocks from footprints first. Returns the job immediately; poll job_status for results.",
+    description:
+      "Queue a build job that places entities one at a time, walking into reach and clearing trees/rocks from footprints first. Returns the job immediately; poll job_status for results.",
     inputSchema: jobToolSchema(["entities"], {
       entities: targetArraySchema("Entities to place.", buildEntitySchema()),
       clear_obstacles: {
@@ -465,7 +520,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "mine",
-    description: "Queue a mine job for resource or entity targets. Returns the job immediately; poll job_status for results.",
+    description:
+      "Queue a mine job for resource or entity targets. Returns the job immediately; poll job_status for results.",
     inputSchema: jobToolSchema(["targets"], {
       targets: targetArraySchema("Targets to mine.", TARGET_SCHEMA),
     }),
@@ -473,7 +529,7 @@ const TOOLS: ToolDefinition[] = [
       const targets = requirePoints(args, "targets");
       for (const target of targets) {
         if (target.kind !== undefined && target.kind !== "entity" && target.kind !== "resource") {
-          throw new ToolArgumentError("target kind must be \"entity\" or \"resource\"");
+          throw new ToolArgumentError('target kind must be "entity" or "resource"');
         }
         if (target.name !== undefined && typeof target.name !== "string") {
           throw new ToolArgumentError("target name must be a string");
@@ -484,7 +540,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "move",
-    description: "Queue a move job that walks the character to tile targets. Returns the job immediately; poll job_status for results.",
+    description:
+      "Queue a move job that walks the character to tile targets. Returns the job immediately; poll job_status for results.",
     inputSchema: jobToolSchema(["targets"], {
       targets: targetArraySchema("Tiles to walk to.", pointSchema("Destination tile.")),
     }),
@@ -492,7 +549,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "rotate",
-    description: "Queue a rotate job that rotates entities under the given tile targets. Returns the job immediately; poll job_status for results.",
+    description:
+      "Queue a rotate job that rotates entities under the given tile targets. Returns the job immediately; poll job_status for results.",
     inputSchema: jobToolSchema(["targets"], {
       targets: targetArraySchema("Entities to rotate.", pointSchema("Entity tile.")),
     }),
@@ -500,14 +558,15 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "set_recipe",
-    description: "Queue a set-recipe job that assigns a crafting recipe to assembling machines at the given tile targets. Returns the job immediately; poll job_status for results.",
+    description:
+      "Queue a set-recipe job that assigns a crafting recipe to assembling machines at the given tile targets. Returns the job immediately; poll job_status for results.",
     inputSchema: jobToolSchema(["targets"], {
       targets: targetArraySchema("Machines to configure.", {
         type: "object",
         properties: {
           x: { type: "number", description: "Map x coordinate in tiles." },
           y: { type: "number", description: "Map y coordinate in tiles." },
-          recipe: { type: "string", description: "Recipe name to set, e.g. \"iron-gear-wheel\"." },
+          recipe: { type: "string", description: 'Recipe name to set, e.g. "iron-gear-wheel".' },
         },
         required: ["x", "y", "recipe"],
         additionalProperties: false,
@@ -525,9 +584,10 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "craft",
-    description: "Queue a hand-crafting job. Returns the job immediately; poll job_status for results (crafting may take a while after the job completes).",
+    description:
+      "Queue a hand-crafting job. Returns the job immediately; poll job_status for results (crafting may take a while after the job completes).",
     inputSchema: jobToolSchema(["item"], {
-      item: { type: "string", description: "Recipe/item name to craft, e.g. \"iron-gear-wheel\"." },
+      item: { type: "string", description: 'Recipe/item name to craft, e.g. "iron-gear-wheel".' },
       count: { type: "integer", minimum: 1, maximum: 10000, description: "How many to craft (default 1)." },
     }),
     request: (args) => {
@@ -538,7 +598,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "insert",
-    description: "Queue a job that inserts items from the player inventory into a machine or container. Returns the job immediately; poll job_status for results.",
+    description:
+      "Queue a job that inserts items from the player inventory into a machine or container. Returns the job immediately; poll job_status for results.",
     inputSchema: jobToolSchema(["entity", "item"], {
       entity: pointSchema("Target entity tile."),
       item: { type: "string", description: "Item name to insert." },
@@ -555,7 +616,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "extract",
-    description: "Queue a job that extracts items from a machine or container into the player inventory. Returns the job immediately; poll job_status for results.",
+    description:
+      "Queue a job that extracts items from a machine or container into the player inventory. Returns the job immediately; poll job_status for results.",
     inputSchema: jobToolSchema(["entity", "item"], {
       entity: pointSchema("Source entity tile."),
       item: { type: "string", description: "Item name to extract." },
@@ -563,7 +625,7 @@ const TOOLS: ToolDefinition[] = [
         type: "integer",
         minimum: -1,
         maximum: 100000,
-        description: "How many to extract (default 1); use \"all\" or -1 to extract everything.",
+        description: 'How many to extract (default 1); use "all" or -1 to extract everything.',
       },
     }),
     request: (args) => {
@@ -584,15 +646,17 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "research",
-    description: "Queue a job that starts researching a technology. Returns the job immediately; poll job_status for results.",
+    description:
+      "Queue a job that starts researching a technology. Returns the job immediately; poll job_status for results.",
     inputSchema: jobToolSchema(["technology"], {
-      technology: { type: "string", description: "Technology name, e.g. \"automation\"." },
+      technology: { type: "string", description: 'Technology name, e.g. "automation".' },
     }),
     request: (args) => jobRequest("research", { technology: requireString(args, "technology") }, args),
   },
   {
     name: "launch_rocket",
-    description: "Queue a job that launches ready rocket silos; success means the launch was initiated, not that the rocket finished flying. Returns the job immediately; poll job_status for results.",
+    description:
+      "Queue a job that launches ready rocket silos; success means the launch was initiated, not that the rocket finished flying. Returns the job immediately; poll job_status for results.",
     inputSchema: jobToolSchema(["targets"], {
       targets: targetArraySchema("Rocket silo tiles to launch.", pointSchema("Silo tile.")),
     }),
@@ -600,7 +664,8 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "server_status",
-    description: "Read the autorio manager and Factorio server status, including whether the game is running and the current save.",
+    description:
+      "Read the autorio manager and Factorio server status, including whether the game is running and the current save.",
     inputSchema: objectSchema({}),
     request: () => ({ method: "GET", path: "/api/server/status" }),
   },
@@ -618,10 +683,14 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "job_status",
-    description: "Poll an action job by id. Reports status (queued/running/completed/failed/cancelled), progress, per-item results, and error.",
-    inputSchema: objectSchema({
-      job_id: { type: "string", description: "Job id returned by an action tool." },
-    }, ["job_id"]),
+    description:
+      "Poll an action job by id. Reports status (queued/running/completed/failed/cancelled), progress, per-item results, and error.",
+    inputSchema: objectSchema(
+      {
+        job_id: { type: "string", description: "Job id returned by an action tool." },
+      },
+      ["job_id"],
+    ),
     request: (args) => ({
       method: "GET",
       path: `/api/agent/jobs/${encodeURIComponent(requireString(args, "job_id"))}`,
@@ -629,10 +698,14 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: "cancel_job",
-    description: "Request cancellation of a queued or running action job. An action already executing in Factorio is not rolled back.",
-    inputSchema: objectSchema({
-      job_id: { type: "string", description: "Job id to cancel." },
-    }, ["job_id"]),
+    description:
+      "Request cancellation of a queued or running action job. An action already executing in Factorio is not rolled back.",
+    inputSchema: objectSchema(
+      {
+        job_id: { type: "string", description: "Job id to cancel." },
+      },
+      ["job_id"],
+    ),
     request: (args) => ({
       method: "POST",
       path: `/api/agent/jobs/${encodeURIComponent(requireString(args, "job_id"))}/cancel`,
@@ -641,10 +714,10 @@ const TOOLS: ToolDefinition[] = [
   },
 ];
 
-const TOOLS_BY_NAME = new Map(TOOLS.map(tool => [tool.name, tool]));
+const TOOLS_BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]));
 
 function publicTools(): JsonObject[] {
-  return TOOLS.map(tool => ({
+  return TOOLS.map((tool) => ({
     name: tool.name,
     description: tool.description,
     inputSchema: tool.inputSchema,
@@ -670,9 +743,8 @@ function sendError(id: JsonRpcId, code: number, message: string): void {
 function initializeResult(params: unknown): JsonObject {
   const incoming = isJsonObject(params) ? params : {};
   const requested = typeof incoming.protocolVersion === "string" ? incoming.protocolVersion : undefined;
-  const protocolVersion = requested && SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
-    ? requested
-    : LATEST_PROTOCOL_VERSION;
+  const protocolVersion =
+    requested && SUPPORTED_PROTOCOL_VERSIONS.includes(requested) ? requested : LATEST_PROTOCOL_VERSION;
   return {
     protocolVersion,
     capabilities: { tools: {} },
@@ -703,7 +775,7 @@ async function handleMessage(message: JsonObject): Promise<void> {
     sendError(null, -32600, "Invalid Request: id must be a string, number, or null");
     return;
   }
-  const id: JsonRpcId = hasId ? rawId as JsonRpcId : null;
+  const id: JsonRpcId = hasId ? (rawId as JsonRpcId) : null;
   const method = message.method;
   if (typeof method !== "string") {
     if (hasId) sendError(id, -32600, "Invalid Request: method must be a string");
@@ -770,12 +842,12 @@ let workQueue: Promise<void> = Promise.resolve();
 function enqueue(line: string): void {
   workQueue = workQueue
     .then(() => handleLine(line))
-    .catch(error => log(`message handling failed: ${errorMessage(error)}`));
+    .catch((error) => log(`message handling failed: ${errorMessage(error)}`));
 }
 
 function main(): void {
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
-  input.on("line", line => {
+  input.on("line", (line) => {
     const trimmed = line.trim();
     if (trimmed.length > 0) enqueue(trimmed);
   });
@@ -783,8 +855,8 @@ function main(): void {
   log(`MCP stdio server ready (manager API base ${API_BASE})`);
 }
 
-process.stdout.on("error", error => log(`stdout error: ${errorMessage(error)}`));
-process.on("uncaughtException", error => log(`uncaught exception: ${errorMessage(error)}`));
-process.on("unhandledRejection", reason => log(`unhandled rejection: ${errorMessage(reason)}`));
+process.stdout.on("error", (error) => log(`stdout error: ${errorMessage(error)}`));
+process.on("uncaughtException", (error) => log(`uncaught exception: ${errorMessage(error)}`));
+process.on("unhandledRejection", (reason) => log(`unhandled rejection: ${errorMessage(reason)}`));
 
 main();

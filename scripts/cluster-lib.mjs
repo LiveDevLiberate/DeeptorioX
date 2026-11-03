@@ -233,7 +233,11 @@ export function formatInstanceTable(rows = []) {
   const widths = header.map((title, column) =>
     Math.max(title.length, ...cells.map((line) => line[column].length)),
   );
-  const line = (values) => values.map((value, column) => value.padEnd(widths[column])).join("  ").trimEnd();
+  const line = (values) =>
+    values
+      .map((value, column) => value.padEnd(widths[column]))
+      .join("  ")
+      .trimEnd();
   return [line(header), line(widths.map((width) => "-".repeat(width))), ...cells.map(line)].join("\n");
 }
 

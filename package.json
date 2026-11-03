@@ -3,20 +3,33 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Graphical Factorio manager, JSON gameplay API and LLM benchmark runner",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "run": "node dist/run-cli.js",
     "doctor": "npm run build && node scripts/doctor.mjs",
-    "test": "npm run build && node --test tests/*.test.mjs && node scripts/run-python-tests.mjs",
+    "test": "npm run build && npm run test:node && npm run test:python",
+    "test:node": "node --test tests/*.test.mjs",
+    "test:python": "node scripts/run-python-tests.mjs",
+    "test:coverage": "npm run build && node --test --experimental-test-coverage tests/*.test.mjs",
+    "verify": "npm run build && npm run test:node && npm run test:python && npm run check:repo && npm run format:check",
+    "check:repo": "node scripts/check-repo.mjs",
+    "format": "prettier --write \"src/**/*.ts\" \"public/**/*.{js,css}\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" \"package.json\" \"tsconfig.json\" \".github/**/*.yml\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"public/**/*.{js,css}\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" \"package.json\" \"tsconfig.json\" \".github/**/*.yml\"",
+    "package": "node scripts/package.mjs",
     "selftest": "npm run build && node scripts/run-python-script.mjs scripts/api-selftest.py",
     "cluster": "node scripts/cluster.mjs",
     "mcp": "node dist/mcp-server.js"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "prettier": "^3.9.10",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }

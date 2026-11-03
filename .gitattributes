@@ -1,3 +1,5 @@
 * text=auto
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
+*.bat text eol=crlf
+*.{ts,mjs,js,jsx,json,css,yml,yaml,md,py,sh,lua,gitignore,gitattributes} text eol=lf

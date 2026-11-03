@@ -2,7 +2,7 @@
 
 ## Project summary
 - Node/TypeScript service (macOS and Windows) that launches the full graphical Factorio game as a local multiplayer host, exposes a JSON gameplay API, and manages benchmark runs.
-- Agents use the importable Python client (`factorio.py`). `./autorio` (or `autorio.cmd` on Windows) launches and monitors OpenCode runs (Codex remains available with `--agent codex`).
+- Agents use the importable Python client (`factorio.py`). `./autorio` (or `autorio.cmd` on Windows) launches and monitors agent runs: OpenCode by default, `--agent codex` for Codex, `--agent dsh` for the DeepSeek Harness headless profile.
 - `src/platform.ts`: cross-platform executable/process/path helpers (PATHEXT, `.cmd` shims, `taskkill`, Steam detection, browser discovery).
 - `src/opencode.ts`: OpenCode executable/model resolution, native-vs-WSL transport, WSL paths and shell quoting; `src/runs.ts` translates OpenCode JSON events into the transcript schema.
 - `src/dsh.ts`: DeepSeek Harness headless backend (`--agent dsh`): CLI/credential/model resolution, per-run model patch, `play.cmd`/`play.ps1`/`play.sh` wrappers, and the headless JSON event translator.
@@ -29,6 +29,10 @@
 - `native/recording-window.swift`, `src/recording-window.ts`: standalone recording window (WKWebView via Swift on macOS, Chromium app mode on Windows) that watches run.json and closes two seconds after a terminal run state; no Accessibility permission or automatic window arrangement.
 - `src/run-terminal.ts`, `src/terminal-view.ts`: Terminal (macOS) or a dedicated console window (Windows) running a direct viewer of native `codex exec` output, with no custom banner or interactive shell.
 - `benchmarks/*.json`: versioned seed, task, inventory, limits and milestone definitions.
+- `docs/architecture.md`, `CONTRIBUTING.md`, `CHANGELOG.md`: architecture, contribution workflow/quality gates, and release history.
+- `.github/workflows/ci.yml`: CI matrix (Ubuntu Node 20, Windows Node 24) running build, Node/Python tests, repo hygiene and Prettier check.
+- `src/logger.ts`, `src/health.ts`: structured JSONL logging + `GET /api/health`.
+- `scripts/check-repo.mjs`, `scripts/package.mjs`: repository hygiene gate and reproducible release packaging.
 - `public/recording.html`, `public/runs.css`: recording page and shared styling; `public/recording.js`, `public/codex-transcript.js` render structured Codex events as messages and collapsed command groups; `public/codex-output.js` supports older native logs.
 - `.autorio/`: ignored baselines, profiles, saves, run results, logs, and credentials.
 - Default game: Steam `factorio.app/Contents/MacOS/factorio` (macOS) or `...\steamapps\common\Factorio\bin\x64\factorio.exe` (Windows, auto-detected across Steam libraries).
@@ -38,6 +42,13 @@
 ## Common commands
 - `npm run dev`: Run the server in watch mode (tsx).
 - `npm run build`: Compile TypeScript to `dist/`.
+- `npm run verify`: Full local gate — build, Node tests, Python client tests, repository hygiene, Prettier check. Run this before committing.
+- `npm test`: Build, Node lifecycle tests with fake processes, and Python client tests.
+- `npm run test:node` / `npm run test:python`: Run one half of the suite.
+- `npm run test:coverage`: Node's built-in coverage report for the Node tests.
+- `npm run format` / `npm run format:check`: Prettier write/check over `src`, `public` JS/CSS, `tests`, `scripts`, package metadata and CI files (markdown/HTML/Lua are excluded).
+- `npm run check:repo`: Zero-dependency repository hygiene gate (scripts/engines, strict TS, LF endings, no focused tests, no stray `console.log`, no tracked build artifacts/secrets).
+- `npm run package`: Reproducible release artifacts (cumulative patch + `git archive` zip + sha256) into the repo parent directory; `--out`, `--base`, `--name` override the defaults.
 - `npm run start`: Run compiled server (`dist/server.js`).
 - `./autorio start smoke` (Windows: `autorio.cmd start smoke`): Build if needed, start manager, open graphical game, run Codex and watch progress.
 - `./autorio start automation --model MODEL`: Run a factory task.
@@ -45,13 +56,13 @@
 - `./autorio list|show|watch|stop|compare`: Inspect or control runs (see `./autorio --help`).
 - `npm run cluster -- <start|status|run|stop|logs>`: Manage isolated manager+game instances for parallel evaluation (see README "Parallel evaluation cluster").
 - `npm run mcp`: Serve the gameplay API to MCP clients over stdio (build first).
-- `npm test`: Build, Node lifecycle tests with fake processes, and Python client tests.
 
 ## Environment/config
 - `.env` is loaded if present; process environment wins. See `.env.example` and README.
 - `FACTORIO_BIN`, `FACTORIO_DATA`: full game executable and data directory (platform defaults; override in `.env`).
 - `AUTORIO_DATA_DIR` defaults to `.autorio`; `AUTORIO_PORT` defaults to 3000.
 - RCON is localhost only; `RCON_PORT` defaults to 27015; password is generated/stored if omitted. `AUTORIO_GAME_PORT` defaults to 34197 and is set per cluster instance.
+- `AUTORIO_LOG_LEVEL` (`debug|info|warn|error`, default `info`) selects the structured log level. Logs are JSONL in `<data-dir>/manager.log` with a human mirror on stderr; health polls are excluded from request logs. Never interpolate credentials into messages — add context objects and let the logger redact secret-looking keys.
 - Agent runs open the web recording view in a standalone window (WKWebView on macOS, Edge/Chrome app mode on Windows) by default; `--terminal` or `AUTORIO_TERMINAL=1` opts into the Terminal viewer. `--detach` skips opening the browser; `--watch` follows operator logs.
 - OpenCode is the default agent (`opencode run --format json --model provider/model --auto`); `AUTORIO_OPENCODE_MODEL`, `OPENCODE_BIN`, `AUTORIO_WSL_DISTRO`, and `AUTORIO_WSL_OPENCODE` configure it. On Windows without a native CLI, runs are launched through `wsl.exe`.
 - `--agent codex` switches to Codex (`codex exec`); `CODEX_BIN` and `AUTORIO_CODEX_*` configure that path.
@@ -62,6 +73,7 @@
 ## API + CLI surface (high level)
 - Server endpoints include:
   - `GET /api/server/status`, `POST /api/server/start`, `POST /api/server/stop`
+  - `GET /api/health`: 200 when all probes pass, 503 `degraded` with a `problems` list otherwise
   - `GET /api/saves`, `GET /api/server/logs`, `POST /api/rcon/command`
   - Agent endpoints under `/api/agent/...` for observe/actions (world, player, research, recipes, build, mine, rotate, set-recipe, craft, insert, extract, resources, entity-prototype).
 - CLI mirrors these as commands like `server-status`, `observe-world`, `act-build`, etc. See `python3 factorio.py --help` for commands.

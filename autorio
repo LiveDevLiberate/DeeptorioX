@@ -12,7 +12,7 @@ candidates = [os.environ.get("NODE_BIN"), shutil.which("node"), "/opt/homebrew/b
               str(Path.home() / ".cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node")]
 node = next((p for p in candidates if p and Path(p).is_file()), None)
 if not node:
-    sys.exit("Install Node.js 22+ or set NODE_BIN to its executable path.")
+    sys.exit("Install Node.js 20+ or set NODE_BIN to its executable path.")
 os.environ["PATH"] = str(Path(node).parent) + os.pathsep + os.environ.get("PATH", "")
 compiler = root / "node_modules/typescript/bin/tsc"
 if not compiler.exists():

@@ -15,7 +15,7 @@ $candidates = @(
 )
 $node = $candidates | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } | Select-Object -First 1
 if (-not $node) {
-  Write-Error "Install Node.js 22+ or set NODE_BIN to its executable path."
+  Write-Error "Install Node.js 20+ or set NODE_BIN to its executable path."
   exit 1
 }
 $env:PATH = (Split-Path -Parent $node) + ";" + $env:PATH

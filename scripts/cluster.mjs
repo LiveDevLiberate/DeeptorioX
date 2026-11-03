@@ -133,7 +133,9 @@ function ensureBuild() {
 }
 
 function clusterAlreadyRunning(info) {
-  return Boolean(info && Array.isArray(info.instances) && info.instances.some((instance) => isAlive(instance.pid)));
+  return Boolean(
+    info && Array.isArray(info.instances) && info.instances.some((instance) => isAlive(instance.pid)),
+  );
 }
 
 async function startCommand(options) {
@@ -198,7 +200,9 @@ async function startCommand(options) {
       };
       instances.push(record);
       started.push(record);
-      log(`  instance ${record.id}: manager pid ${record.pid}, api :${record.apiPort}, rcon :${record.rconPort}, game :${record.gamePort}`);
+      log(
+        `  instance ${record.id}: manager pid ${record.pid}, api :${record.apiPort}, rcon :${record.rconPort}, game :${record.gamePort}`,
+      );
     }
 
     await Promise.all(
@@ -290,11 +294,14 @@ async function statusCommand(options) {
     }),
   );
   if (options.json) {
-    log(JSON.stringify({ cluster: path.dirname(clusterFilePath(options.dataDir)), instances: rows }, null, 2));
+    log(
+      JSON.stringify({ cluster: path.dirname(clusterFilePath(options.dataDir)), instances: rows }, null, 2),
+    );
   } else {
     log(formatInstanceTable(rows));
     const down = rows.filter((row) => !row.ok);
-    if (down.length > 0) log(`\n${down.length} instance(s) not responding: ${down.map((row) => row.id).join(", ")}`);
+    if (down.length > 0)
+      log(`\n${down.length} instance(s) not responding: ${down.map((row) => row.id).join(", ")}`);
   }
   return rows;
 }
@@ -304,7 +311,9 @@ async function runCommand(options) {
   if (!options.benchmark) throw new Error("--benchmark is required for run");
   const selected = selectInstances(info.instances || [], options.instancesList);
   const body = buildRunRequest(options);
-  log(`Starting ${body.benchmark} on ${selected.length} instance(s)${body.model ? ` with ${body.model}` : ""}`);
+  log(
+    `Starting ${body.benchmark} on ${selected.length} instance(s)${body.model ? ` with ${body.model}` : ""}`,
+  );
   const results = await Promise.all(
     selected.map(async (instance) => {
       try {
@@ -334,7 +343,9 @@ async function runCommand(options) {
   for (const result of results) {
     if (result.ok) {
       ids.push(result.runId);
-      log(`  instance ${result.instance.id}: run ${result.runId} -> ${result.instance.url}/recording.html?run=${encodeURIComponent(result.runId || "")}`);
+      log(
+        `  instance ${result.instance.id}: run ${result.runId} -> ${result.instance.url}/recording.html?run=${encodeURIComponent(result.runId || "")}`,
+      );
     } else {
       log(`  instance ${result.instance.id}: FAILED ${result.error}`);
     }
@@ -412,9 +423,19 @@ function logsCommand(options) {
   for (const instance of selected) {
     log(`=== instance ${instance.id} (${instance.url}) ===`);
     log(`  ${instance.outFile}`);
-    log(`${readTail(instance.outFile).split(/\r?\n/).map((line) => `  | ${line}`).join("\n")}`);
+    log(
+      `${readTail(instance.outFile)
+        .split(/\r?\n/)
+        .map((line) => `  | ${line}`)
+        .join("\n")}`,
+    );
     log(`  ${instance.errFile}`);
-    log(`${readTail(instance.errFile, 20).split(/\r?\n/).map((line) => `  ! ${line}`).join("\n")}`);
+    log(
+      `${readTail(instance.errFile, 20)
+        .split(/\r?\n/)
+        .map((line) => `  ! ${line}`)
+        .join("\n")}`,
+    );
   }
 }
 

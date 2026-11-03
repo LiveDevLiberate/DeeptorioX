@@ -3,7 +3,8 @@ import path from "node:path";
 
 const dir = process.argv[2];
 if (!dir || !fs.existsSync(path.join(dir, "run.json"))) {
-  console.error("Usage: terminal-view RUN_DIRECTORY"); process.exit(1);
+  console.error("Usage: terminal-view RUN_DIRECTORY");
+  process.exit(1);
 }
 const viewerState = path.join(dir, "terminal-view.json");
 fs.writeFileSync(viewerState, JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() }));
@@ -16,9 +17,12 @@ if (process.stdout.isTTY) {
 process.on("exit", () => {
   fs.writeFileSync(viewerState, JSON.stringify({ pid: process.pid, exited_at: new Date().toISOString() }));
 });
-for (const signal of (process.platform === "win32" ? ["SIGINT", "SIGTERM"] : ["SIGINT", "SIGTERM", "SIGHUP"]) as NodeJS.Signals[]) process.on(signal, () => process.exit(0));
+for (const signal of (process.platform === "win32"
+  ? ["SIGINT", "SIGTERM"]
+  : ["SIGINT", "SIGTERM", "SIGHUP"]) as NodeJS.Signals[])
+  process.on(signal, () => process.exit(0));
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const terminal = new Set(["completed", "failed", "stopped", "timed_out", "interrupted", "paused"]);
 const file = path.join(dir, "codex.log");
 let offset = 0;
@@ -31,13 +35,19 @@ function readOutput() {
     const length = fs.readSync(fd, buffer, 0, buffer.length, offset);
     offset += length;
     process.stdout.write(buffer.subarray(0, length));
-  } finally { fs.closeSync(fd); }
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 for (;;) {
   let run;
-  try { run = JSON.parse(fs.readFileSync(path.join(dir, "run.json"), "utf8")); }
-  catch { await sleep(200); continue; }
+  try {
+    run = JSON.parse(fs.readFileSync(path.join(dir, "run.json"), "utf8"));
+  } catch {
+    await sleep(200);
+    continue;
+  }
   readOutput();
   if (terminal.has(run.state)) {
     while (fs.existsSync(file) && offset < fs.statSync(file).size) readOutput();

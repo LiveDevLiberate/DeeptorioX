@@ -14,7 +14,8 @@ type Target = { x: number; y: number };
 export function launchRocketCommand(target: Target): string {
   if (!Number.isFinite(target.x) || !Number.isFinite(target.y)) throw new Error("Invalid rocket target");
   return [
-    "/sc", ROCKET_STATE_LUA,
+    "/sc",
+    ROCKET_STATE_LUA,
     "local p=game.players[1]",
     `local x,y=${target.x},${target.y}`,
     "local function launch()",
@@ -39,10 +40,17 @@ export async function launchRocket(
   command: (lua: string) => Promise<string>,
   cancelled: () => boolean,
 ) {
-  if (!Number.isFinite(target.x) || !Number.isFinite(target.y)) return { ...target, ok: false, error: "invalid_target" };
+  if (!Number.isFinite(target.x) || !Number.isFinite(target.y))
+    return { ...target, ok: false, error: "invalid_target" };
   if (cancelled()) return { ...target, ok: false, error: "cancelled" };
   const movement = await approach(target);
-  if (!movement?.ok) return { ...target, ok: false, error: movement?.error || "movement_failed", movement: movement?.movement };
+  if (!movement?.ok)
+    return {
+      ...target,
+      ok: false,
+      error: movement?.error || "movement_failed",
+      movement: movement?.movement,
+    };
   if (cancelled()) return { ...target, ok: false, error: "cancelled", movement: movement.movement };
   let result;
   try {
@@ -51,6 +59,7 @@ export async function launchRocket(
     if (error instanceof SyntaxError) throw new Error("RCON launch-rocket returned invalid JSON");
     throw error;
   }
-  if (!result || typeof result.ok !== "boolean") throw new Error("RCON launch-rocket returned invalid result");
+  if (!result || typeof result.ok !== "boolean")
+    throw new Error("RCON launch-rocket returned invalid result");
   return { ...result, movement: movement.movement };
 }

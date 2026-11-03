@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const serverPath = fileURLToPath(new URL("../dist/mcp-server.js", import.meta.url));
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function withTimeout(promise, timeoutMs, label) {
   let timer;
@@ -25,11 +25,15 @@ async function startFakeManager() {
   const routes = new Map();
   const server = http.createServer((req, res) => {
     const chunks = [];
-    req.on("data", chunk => chunks.push(chunk));
+    req.on("data", (chunk) => chunks.push(chunk));
     req.on("end", () => {
       const text = Buffer.concat(chunks).toString("utf8");
       let body;
-      try { body = text.length > 0 ? JSON.parse(text) : undefined; } catch { body = text; }
+      try {
+        body = text.length > 0 ? JSON.parse(text) : undefined;
+      } catch {
+        body = text;
+      }
       const url = new URL(req.url, "http://127.0.0.1");
       const request = { method: req.method, path: url.pathname, headers: req.headers, body };
       requests.push(request);
@@ -48,7 +52,7 @@ async function startFakeManager() {
     requests,
     route: (method, pathname, handler) => routes.set(`${method} ${pathname}`, handler),
     baseUrl: `http://127.0.0.1:${port}`,
-    close: () => new Promise(resolve => server.close(resolve)),
+    close: () => new Promise((resolve) => server.close(resolve)),
   };
 }
 
@@ -65,9 +69,11 @@ function startMcpServer(baseUrl) {
   let nextId = 1;
 
   const output = createInterface({ input: child.stdout });
-  output.on("line", line => {
+  output.on("line", (line) => {
     let message;
-    try { message = JSON.parse(line); } catch (error) {
+    try {
+      message = JSON.parse(line);
+    } catch (error) {
       messages.push({ raw: line, parseError: error.message });
       return;
     }
@@ -78,15 +84,15 @@ function startMcpServer(baseUrl) {
       waiter.resolve(message);
     }
   });
-  child.stderr.on("data", chunk => stderr.push(String(chunk)));
-  const exited = new Promise(resolve => child.once("exit", code => resolve(code)));
+  child.stderr.on("data", (chunk) => stderr.push(String(chunk)));
+  const exited = new Promise((resolve) => child.once("exit", (code) => resolve(code)));
 
   function send(message) {
     child.stdin.write(`${JSON.stringify(message)}\n`);
   }
   function request(method, params) {
     const id = nextId++;
-    const response = new Promise(resolve => pending.set(id, { resolve }));
+    const response = new Promise((resolve) => pending.set(id, { resolve }));
     send({ jsonrpc: "2.0", id, method, ...(params === undefined ? {} : { params }) });
     return withTimeout(response, 5000, `${method} response`);
   }
@@ -96,7 +102,9 @@ function startMcpServer(baseUrl) {
   async function stop() {
     child.stdin.end();
     let timer;
-    const timeout = new Promise(resolve => { timer = setTimeout(() => resolve("timeout"), 3000); });
+    const timeout = new Promise((resolve) => {
+      timer = setTimeout(() => resolve("timeout"), 3000);
+    });
     const result = await Promise.race([exited, timeout]);
     clearTimeout(timer);
     if (result === "timeout") child.kill();
@@ -143,14 +151,33 @@ test("tools/list exposes the autorio gameplay tools with input schemas", async (
   const response = await mcp.request("tools/list", {});
   const tools = response.result.tools;
   assert.ok(Array.isArray(tools));
-  const names = tools.map(tool => tool.name);
+  const names = tools.map((tool) => tool.name);
   for (const expected of [
-    "observe_world", "observe_map", "observe_player", "observe_research",
-    "observe_recipes", "observe_factory", "observe_layout", "observe_connections",
-    "observe_placement", "observe_resources",
-    "build", "mine", "move", "rotate", "set_recipe", "craft", "insert", "extract",
-    "research", "launch_rocket",
-    "server_status", "list_runs", "list_benchmarks", "job_status", "cancel_job",
+    "observe_world",
+    "observe_map",
+    "observe_player",
+    "observe_research",
+    "observe_recipes",
+    "observe_factory",
+    "observe_layout",
+    "observe_connections",
+    "observe_placement",
+    "observe_resources",
+    "build",
+    "mine",
+    "move",
+    "rotate",
+    "set_recipe",
+    "craft",
+    "insert",
+    "extract",
+    "research",
+    "launch_rocket",
+    "server_status",
+    "list_runs",
+    "list_benchmarks",
+    "job_status",
+    "cancel_job",
   ]) {
     assert.ok(names.includes(expected), `missing tool: ${expected}`);
   }
@@ -160,7 +187,7 @@ test("tools/list exposes the autorio gameplay tools with input schemas", async (
     assert.equal(tool.inputSchema.type, "object");
     assert.equal(typeof tool.inputSchema.properties, "object");
   }
-  const build = tools.find(tool => tool.name === "build");
+  const build = tools.find((tool) => tool.name === "build");
   assert.deepEqual(build.inputSchema.required, ["entities"]);
   assert.equal(build.inputSchema.properties.entities.type, "array");
   assert.match(build.description, /job_status/);
@@ -176,7 +203,7 @@ test("tools/call maps observe_world to POST /api/agent/observe/world", async () 
   assert.equal(response.result.isError, undefined);
   assert.deepEqual(JSON.parse(response.result.content[0].text), body);
   assert.deepEqual(response.result.structuredContent, body);
-  const request = fake.requests.filter(entry => entry.path === "/api/agent/observe/world").at(-1);
+  const request = fake.requests.filter((entry) => entry.path === "/api/agent/observe/world").at(-1);
   assert.equal(request.method, "POST");
   assert.deepEqual(request.body, { window: { x: 5, y: 6, radius: 7 }, include: ["terrain"] });
 });
@@ -200,7 +227,7 @@ test("tools/call submits build through the asynchronous job API", async () => {
   assert.equal(response.result.isError, undefined);
   assert.deepEqual(response.result.structuredContent, job);
   assert.deepEqual(JSON.parse(response.result.content[0].text), job);
-  const request = fake.requests.filter(entry => entry.path === "/api/agent/jobs").at(-1);
+  const request = fake.requests.filter((entry) => entry.path === "/api/agent/jobs").at(-1);
   assert.equal(request.method, "POST");
   assert.deepEqual(request.body, {
     action: "build",
@@ -227,7 +254,7 @@ test("job_status polls GET /api/agent/jobs/:id and cancel_job posts /cancel", as
     arguments: { job_id: "job-build-1" },
   });
   assert.deepEqual(status.result.structuredContent, job);
-  const statusRequest = fake.requests.filter(entry => entry.path === "/api/agent/jobs/job-build-1").at(-1);
+  const statusRequest = fake.requests.filter((entry) => entry.path === "/api/agent/jobs/job-build-1").at(-1);
   assert.equal(statusRequest.method, "GET");
   assert.equal(statusRequest.body, undefined);
 
@@ -236,7 +263,9 @@ test("job_status polls GET /api/agent/jobs/:id and cancel_job posts /cancel", as
     arguments: { job_id: "job-build-1" },
   });
   assert.deepEqual(cancel.result.structuredContent, job);
-  const cancelRequest = fake.requests.filter(entry => entry.path === "/api/agent/jobs/job-build-1/cancel").at(-1);
+  const cancelRequest = fake.requests
+    .filter((entry) => entry.path === "/api/agent/jobs/job-build-1/cancel")
+    .at(-1);
   assert.equal(cancelRequest.method, "POST");
   assert.deepEqual(cancelRequest.body, {});
 });
@@ -246,7 +275,7 @@ test("server_status maps to GET /api/server/status", async () => {
   fake.route("GET", "/api/server/status", () => ({ status: 200, body }));
   const response = await mcp.request("tools/call", { name: "server_status", arguments: {} });
   assert.deepEqual(response.result.structuredContent, body);
-  const request = fake.requests.filter(entry => entry.path === "/api/server/status").at(-1);
+  const request = fake.requests.filter((entry) => entry.path === "/api/server/status").at(-1);
   assert.equal(request.method, "GET");
 });
 
@@ -260,7 +289,7 @@ test("observation tools compose the documented HTTP body shapes", async () => {
     name: "observe_recipes",
     arguments: { recipes: 10, unlocked_only: true },
   });
-  const lastBody = pathname => fake.requests.filter(entry => entry.path === pathname).at(-1).body;
+  const lastBody = (pathname) => fake.requests.filter((entry) => entry.path === pathname).at(-1).body;
   assert.deepEqual(lastBody("/api/agent/observe/player"), { limits: { inventory_slots: 40 } });
   assert.deepEqual(lastBody("/api/agent/observe/layout"), { window: { radius: 20, step: 2 } });
   assert.deepEqual(lastBody("/api/agent/observe/recipes"), {
@@ -288,9 +317,9 @@ test("action tools map payloads and job action names", async () => {
     arguments: { targets: [{ x: 10, y: 12 }] },
   });
   const bodies = fake.requests
-    .filter(entry => entry.path === "/api/agent/jobs")
+    .filter((entry) => entry.path === "/api/agent/jobs")
     .slice(-4)
-    .map(entry => entry.body);
+    .map((entry) => entry.body);
   assert.deepEqual(bodies, [
     { action: "insert", payload: { entity: { x: 3, y: 4 }, item: "coal", count: 5 } },
     { action: "extract", payload: { entity: { x: 3, y: 4 }, item: "iron-plate", count: "all" } },

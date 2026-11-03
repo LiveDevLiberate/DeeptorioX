@@ -79,7 +79,8 @@ function normalizeTitle(title: unknown): string {
 }
 
 function clampTimeout(timeoutMs: unknown): number {
-  const value = typeof timeoutMs === "number" && Number.isFinite(timeoutMs) ? Math.floor(timeoutMs) : DEFAULT_TIMEOUT_MS;
+  const value =
+    typeof timeoutMs === "number" && Number.isFinite(timeoutMs) ? Math.floor(timeoutMs) : DEFAULT_TIMEOUT_MS;
   return Math.min(Math.max(value, 2_000), MAX_TIMEOUT_MS);
 }
 
@@ -111,7 +112,9 @@ export async function captureGameWindow(
 ): Promise<VisualCapture> {
   const platform = deps.platform ?? process.platform;
   if (platform !== "win32") {
-    throw new Error("visual_capture_unsupported_platform: visual capture requires the Windows graphical Factorio window");
+    throw new Error(
+      "visual_capture_unsupported_platform: visual capture requires the Windows graphical Factorio window",
+    );
   }
   const title = normalizeTitle(options.title);
   const timeoutMs = clampTimeout(options.timeoutMs);
@@ -128,10 +131,16 @@ export async function captureGameWindow(
       await exec(
         powershellExecutable(),
         [
-          "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-          "-File", scriptPath,
-          "-Out", capturePath,
-          "-Title", title,
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          scriptPath,
+          "-Out",
+          capturePath,
+          "-Title",
+          title,
         ],
         { timeout: timeoutMs },
       );

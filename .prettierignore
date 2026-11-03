@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.autorio/
+factorio-mod/
+benchmarks/
+runs/
+native/
+public/*.html
+*.md
+package-lock.json
+.env*
+__pycache__/

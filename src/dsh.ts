@@ -56,10 +56,12 @@ export function dshReasoningEffort(env: NodeJS.ProcessEnv = process.env): string
  * plaintext `refs` block of $DSH_HOME/.credentials.yaml. The value is never
  * logged or persisted by autorio.
  */
-export function readDshApiKey(options: {
-  env?: NodeJS.ProcessEnv;
-  credentialsPath?: string;
-} = {}): string | undefined {
+export function readDshApiKey(
+  options: {
+    env?: NodeJS.ProcessEnv;
+    credentialsPath?: string;
+  } = {},
+): string | undefined {
   const env = options.env ?? process.env;
   const fromEnv = env[DSH_API_KEY_REF]?.trim();
   if (fromEnv) return fromEnv;
@@ -142,11 +144,13 @@ export function writeDshModelPatch(workspace: string, selection: DshModelSelecti
  * positional task would let the model's own flags, such as `--version`, be
  * parsed as CLI options).
  */
-export function dshArgs(options: {
-  profile?: string;
-  patchPath?: string;
-  sessionId?: string;
-} = {}): string[] {
+export function dshArgs(
+  options: {
+    profile?: string;
+    patchPath?: string;
+    sessionId?: string;
+  } = {},
+): string[] {
   const args = ["--profile", options.profile || dshProfile()];
   if (options.patchPath) args.push("--patch", options.patchPath);
   args.push("--json");
@@ -178,10 +182,10 @@ export function dshEnvironmentPrompt(options: {
   return [
     "Environment: the manager runs on Windows and your shell tool is Windows PowerShell.",
     options.windowsPython
-      ? "Run every gameplay command through the workspace batch wrapper: `.\\play.cmd factorio.py <command> ...`"
-        + " (for example `.\\play.cmd factorio.py observe-player`); for multi-step work write a Python script here and run `.\\play.cmd plan.py`."
-      : "Run every gameplay command through the WSL wrapper `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\play.ps1 factorio.py <command> ...`"
-        + " (`... -File .\\play.ps1 plan.py` for a script you write here).",
+      ? "Run every gameplay command through the workspace batch wrapper: `.\\play.cmd factorio.py <command> ...`" +
+        " (for example `.\\play.cmd factorio.py observe-player`); for multi-step work write a Python script here and run `.\\play.cmd plan.py`."
+      : "Run every gameplay command through the WSL wrapper `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\play.ps1 factorio.py <command> ...`" +
+        " (`... -File .\\play.ps1 plan.py` for a script you write here).",
     `The wrapper changes into the run workspace, exports FACTORIO_API_BASE=${options.apiBase}, PYTHONPATH and the short-sleep guard, then runs the Python client.`,
     options.windowsPython
       ? "A direct `python factorio.py <command> ...` also works when the wrapper is unavailable; the Windows Python client reaches the manager on 127.0.0.1."
@@ -200,46 +204,56 @@ export function writeDshWrappers(
   options: { windows: boolean; distro: string; workspaceWsl: string; apiBase: string },
 ): { sh: string; cmd?: string; ps1?: string } {
   const sh = path.join(workspace, "play.sh");
-  fs.writeFileSync(sh, [
-    "#!/bin/sh",
-    'cd "$(dirname "$0")" || exit 1',
-    `export FACTORIO_API_BASE="${options.apiBase}"`,
-    'export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"',
-    'export PATH="$PWD/bin:$PATH"',
-    'exec python3 "$@"',
-    "",
-  ].join("\n"), { mode: 0o755 });
+  fs.writeFileSync(
+    sh,
+    [
+      "#!/bin/sh",
+      'cd "$(dirname "$0")" || exit 1',
+      `export FACTORIO_API_BASE="${options.apiBase}"`,
+      'export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"',
+      'export PATH="$PWD/bin:$PATH"',
+      'exec python3 "$@"',
+      "",
+    ].join("\n"),
+    { mode: 0o755 },
+  );
   if (!options.windows) return { sh };
   // cmd.exe needs CRLF for reliable label handling.
   const cmd = path.join(workspace, "play.cmd");
-  fs.writeFileSync(cmd, [
-    "@echo off",
-    "setlocal",
-    'cd /d "%~dp0"',
-    `set "FACTORIO_API_BASE=${options.apiBase}"`,
-    'set "PYTHONPATH=%~dp0;%PYTHONPATH%"',
-    "where python >nul 2>nul",
-    "if not errorlevel 1 goto autorio_python",
-    "where py >nul 2>nul",
-    "if not errorlevel 1 goto autorio_py",
-    "echo autorio: no Windows Python found; use the WSL wrapper play.ps1 1>&2",
-    "exit /b 9009",
-    ":autorio_python",
-    "python %*",
-    "exit /b %errorlevel%",
-    ":autorio_py",
-    "py -3 %*",
-    "exit /b %errorlevel%",
-    "",
-  ].join("\r\n"));
+  fs.writeFileSync(
+    cmd,
+    [
+      "@echo off",
+      "setlocal",
+      'cd /d "%~dp0"',
+      `set "FACTORIO_API_BASE=${options.apiBase}"`,
+      'set "PYTHONPATH=%~dp0;%PYTHONPATH%"',
+      "where python >nul 2>nul",
+      "if not errorlevel 1 goto autorio_python",
+      "where py >nul 2>nul",
+      "if not errorlevel 1 goto autorio_py",
+      "echo autorio: no Windows Python found; use the WSL wrapper play.ps1 1>&2",
+      "exit /b 9009",
+      ":autorio_python",
+      "python %*",
+      "exit /b %errorlevel%",
+      ":autorio_py",
+      "py -3 %*",
+      "exit /b %errorlevel%",
+      "",
+    ].join("\r\n"),
+  );
   const ps1 = path.join(workspace, "play.ps1");
-  fs.writeFileSync(ps1, [
-    "param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)",
-    "$ErrorActionPreference = 'Continue'",
-    `& wsl.exe -d '${options.distro}' -e sh '${options.workspaceWsl}/play.sh' @CommandArgs`,
-    "exit $LASTEXITCODE",
-    "",
-  ].join("\n"));
+  fs.writeFileSync(
+    ps1,
+    [
+      "param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CommandArgs)",
+      "$ErrorActionPreference = 'Continue'",
+      `& wsl.exe -d '${options.distro}' -e sh '${options.workspaceWsl}/play.sh' @CommandArgs`,
+      "exit $LASTEXITCODE",
+      "",
+    ].join("\n"),
+  );
   return { sh, cmd, ps1 };
 }
 
@@ -248,7 +262,14 @@ export type DshOp =
   | { kind: "reasoning"; text: string }
   | { kind: "message"; text: string }
   | { kind: "tool_start"; id: string; tool: string; command: string; input: unknown }
-  | { kind: "tool_end"; id: string; tool?: string; command?: string; status: "completed" | "error"; output: string }
+  | {
+      kind: "tool_end";
+      id: string;
+      tool?: string;
+      command?: string;
+      status: "completed" | "error";
+      output: string;
+    }
   | { kind: "usage"; usage: Record<string, number>; contextTokens: number }
   | { kind: "error"; message: string }
   | { kind: "final"; text: string };
@@ -262,10 +283,11 @@ export function createDshState(): DshTranslatorState {
 }
 
 function toolCommand(tool: string, input: unknown): string {
-  const record = input && typeof input === "object" ? input as Record<string, unknown> : {};
+  const record = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
   const command = typeof record.command === "string" ? record.command.trim() : "";
   if (command) return command;
-  const detail = record.path ?? record.filePath ?? record.file_path ?? record.pattern ?? record.url ?? record.query;
+  const detail =
+    record.path ?? record.filePath ?? record.file_path ?? record.pattern ?? record.url ?? record.query;
   if (typeof detail === "string" && detail.trim()) return `${tool} ${detail.trim()}`;
   return tool;
 }
@@ -279,9 +301,8 @@ function usageOp(usage: unknown): Extract<DshOp, { kind: "usage" }> | null {
   const output = number(record.outputTokens);
   const reasoning = number(record.reasoningTokens);
   const cacheRead = number(record.cacheReadTokens);
-  const total = number(record.totalTokens) ?? (
-    input !== undefined && output !== undefined ? input + output : undefined
-  );
+  const total =
+    number(record.totalTokens) ?? (input !== undefined && output !== undefined ? input + output : undefined);
   const mapped: Record<string, number> = {};
   if (input !== undefined) mapped.input_tokens = input;
   if (output !== undefined) mapped.output_tokens = output;
@@ -309,13 +330,9 @@ export function translateDshEvent(event: unknown, state: DshTranslatorState): Ds
         ? [{ kind: "thread", sessionId: record.sessionId }]
         : [];
     case "thinking":
-      return typeof record.text === "string" && record.text
-        ? [{ kind: "reasoning", text: record.text }]
-        : [];
+      return typeof record.text === "string" && record.text ? [{ kind: "reasoning", text: record.text }] : [];
     case "text":
-      return typeof record.text === "string" && record.text
-        ? [{ kind: "message", text: record.text }]
-        : [];
+      return typeof record.text === "string" && record.text ? [{ kind: "message", text: record.text }] : [];
     case "tool_call": {
       const id = typeof record.callId === "string" ? record.callId : "";
       const tool = typeof record.tool === "string" ? record.tool : "tool";
@@ -331,14 +348,16 @@ export function translateDshEvent(event: unknown, state: DshTranslatorState): Ds
       state.pending.delete(id);
       const status = record.status === "error" ? "error" : "completed";
       const output = typeof record.result === "string" ? record.result : "";
-      return [{
-        kind: "tool_end",
-        id,
-        tool: pending?.tool,
-        command: pending?.command,
-        status,
-        output,
-      }];
+      return [
+        {
+          kind: "tool_end",
+          id,
+          tool: pending?.tool,
+          command: pending?.command,
+          status,
+          output,
+        },
+      ];
     }
     case "status": {
       if (record.phase === "step_end") {
@@ -349,9 +368,10 @@ export function translateDshEvent(event: unknown, state: DshTranslatorState): Ds
         const reason = record.reason;
         if (reason && typeof reason === "object" && reason.kind === "error") {
           const error = reason.error;
-          const message = error && typeof error === "object"
-            ? String(error.message || error.code || "DSH turn failed")
-            : String(reason.message || "DSH turn failed");
+          const message =
+            error && typeof error === "object"
+              ? String(error.message || error.code || "DSH turn failed")
+              : String(reason.message || "DSH turn failed");
           return [{ kind: "error", message }];
         }
         return [];

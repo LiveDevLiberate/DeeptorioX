@@ -33,9 +33,20 @@ test("parseArgs uses defaults and parses overrides", () => {
   assert.equal(defaults.options.recording, true);
 
   const parsed = parseArgs([
-    "start", "--instances", "3", "--port=3100", "--rcon-port", "27100",
-    "--game-port", "34198", "--data-dir", "tmp/cluster", "--save", "seed.zip",
-    "--no-recording", "--json",
+    "start",
+    "--instances",
+    "3",
+    "--port=3100",
+    "--rcon-port",
+    "27100",
+    "--game-port",
+    "34198",
+    "--data-dir",
+    "tmp/cluster",
+    "--save",
+    "seed.zip",
+    "--no-recording",
+    "--json",
   ]);
   assert.equal(parsed.command, "start");
   assert.equal(parsed.options.instances, 3);
@@ -71,7 +82,11 @@ test("planInstances assigns consecutive isolated ports and data dirs", () => {
   assert.equal(plan.length, 3);
   assert.deepEqual(
     plan.map((instance) => [instance.id, instance.apiPort, instance.rconPort, instance.gamePort]),
-    [[1, 3000, 27099, 34197], [2, 3001, 27100, 34198], [3, 3002, 27101, 34199]],
+    [
+      [1, 3000, 27099, 34197],
+      [2, 3001, 27100, 34198],
+      [3, 3002, 27101, 34199],
+    ],
   );
   assert.equal(plan[0].url, "http://127.0.0.1:3000");
   assert.ok(plan[1].dataDir.endsWith(path.join(".autorio", "cluster", "instance-2")));
@@ -80,19 +95,19 @@ test("planInstances assigns consecutive isolated ports and data dirs", () => {
 test("planInstances rejects invalid ranges", () => {
   assert.throws(() => planInstances({ root: "/repo", instances: 0 }), /positive integer/);
   assert.throws(() => planInstances({ root: "/repo", instances: 17 }), /At most 16/);
-  assert.throws(
-    () => planInstances({ root: "/repo", instances: 2, gamePort: 65535 }),
-    /exceeds 65535/,
-  );
+  assert.throws(() => planInstances({ root: "/repo", instances: 2, gamePort: 65535 }), /exceeds 65535/);
 });
 
 test("buildManagerEnv isolates manager, rcon and game ports", () => {
-  const env = buildManagerEnv({ PATH: "/bin", AUTORIO_PORT: "9999" }, {
-    apiPort: 3002,
-    rconPort: 27101,
-    gamePort: 34199,
-    dataDir: "/tmp/instance-3",
-  });
+  const env = buildManagerEnv(
+    { PATH: "/bin", AUTORIO_PORT: "9999" },
+    {
+      apiPort: 3002,
+      rconPort: 27101,
+      gamePort: 34199,
+      dataDir: "/tmp/instance-3",
+    },
+  );
   assert.equal(env.PATH, "/bin");
   assert.equal(env.AUTORIO_PORT, "3002");
   assert.equal(env.RCON_PORT, "27101");
@@ -113,9 +128,18 @@ test("cluster metadata round-trips through cluster.json", () => {
 
 test("selectInstances supports all, ids and errors", () => {
   const instances = [{ id: 1 }, { id: 2 }, { id: 3 }];
-  assert.deepEqual(selectInstances(instances, "all").map((i) => i.id), [1, 2, 3]);
-  assert.deepEqual(selectInstances(instances, undefined).map((i) => i.id), [1, 2, 3]);
-  assert.deepEqual(selectInstances(instances, "1,3").map((i) => i.id), [1, 3]);
+  assert.deepEqual(
+    selectInstances(instances, "all").map((i) => i.id),
+    [1, 2, 3],
+  );
+  assert.deepEqual(
+    selectInstances(instances, undefined).map((i) => i.id),
+    [1, 2, 3],
+  );
+  assert.deepEqual(
+    selectInstances(instances, "1,3").map((i) => i.id),
+    [1, 3],
+  );
   assert.throws(() => selectInstances(instances, "4"), /Unknown instance 4/);
   assert.throws(() => selectInstances(instances, "a"), /comma separated/);
 });
@@ -180,19 +204,41 @@ test("waitForInstance retries until a manager answers", async () => {
   assert.equal(result.ok, true);
   assert.equal(calls, 3);
   await assert.rejects(
-    () => waitForInstance("http://cluster:3999", {
-      intervalMs: 1,
-      timeoutMs: 20,
-      fetchImpl: async () => { throw new Error("down"); },
-    }),
+    () =>
+      waitForInstance("http://cluster:3999", {
+        intervalMs: 1,
+        timeoutMs: 20,
+        fetchImpl: async () => {
+          throw new Error("down");
+        },
+      }),
     /Timed out waiting/,
   );
 });
 
 test("formatInstanceTable renders cluster state", () => {
   const table = formatInstanceTable([
-    { id: 1, apiPort: 3000, rconPort: 27099, gamePort: 34197, pid: 111, ok: true, running: true, rconConnected: true, runId: "abc" },
-    { id: 2, apiPort: 3001, rconPort: 27100, gamePort: 34198, pid: 222, ok: false, running: false, rconConnected: false },
+    {
+      id: 1,
+      apiPort: 3000,
+      rconPort: 27099,
+      gamePort: 34197,
+      pid: 111,
+      ok: true,
+      running: true,
+      rconConnected: true,
+      runId: "abc",
+    },
+    {
+      id: 2,
+      apiPort: 3001,
+      rconPort: 27100,
+      gamePort: 34198,
+      pid: 222,
+      ok: false,
+      running: false,
+      rconConnected: false,
+    },
   ]);
   assert.match(table, /#\s+API\s+RCON\s+GAME\s+PID/);
   assert.match(table, /^1\s+3000\s+27099\s+34197\s+111\s+up\s+running\s+abc$/m);

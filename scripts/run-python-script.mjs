@@ -6,9 +6,17 @@ if (!script) {
   process.exit(2);
 }
 
-const candidates = process.platform === "win32"
-  ? [["py", ["-3"]], ["python", []], ["python3", []]]
-  : [["python3", []], ["python", []]];
+const candidates =
+  process.platform === "win32"
+    ? [
+        ["py", ["-3"]],
+        ["python", []],
+        ["python3", []],
+      ]
+    : [
+        ["python3", []],
+        ["python", []],
+      ];
 
 for (const [command, prefix] of candidates) {
   const probe = spawnSync(command, [...prefix, "--version"], { stdio: "ignore" });
