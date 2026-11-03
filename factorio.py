@@ -12,7 +12,7 @@ import os
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -65,6 +65,8 @@ Commands:
   act-insert --entity x,y --item <name> --count <n>
   act-extract --entity x,y --item <name> --count <n|all>
   wait --ms <n>
+  wait-for-item --item <name> --count <n> --timeout <s>
+  wait-for-research --technology <name> --timeout <s>
   job-status --job-id <id>
   job-cancel --job-id <id>
 
@@ -370,6 +372,55 @@ class FactorioClient:
     def observe_placement(self, placements: list[dict[str, Any]]) -> Any:
         return self.request("POST", "/api/agent/observe/placement", {"placements": placements})
 
+    def inventory_counts(self) -> dict[str, int]:
+        player = data_value(self.observe_player())["player"]
+        counts: dict[str, int] = {}
+        for container in player.get("inventories", []):
+            for slot in container.get("slots", []):
+                name, count = slot.get("name"), slot.get("count")
+                if name and count:
+                    counts[name] = counts.get(name, 0) + count
+        return counts
+
+    def wait_until(self, predicate: Callable[[], Any], *, timeout: float = 300,
+                   interval: float | None = None) -> Any:
+        """Poll a condition and return as soon as it is truthy."""
+        delay = self.poll_interval if interval is None else max(0.05, interval)
+        deadline = time.monotonic() + max(0.0, timeout)
+        while True:
+            value = predicate()
+            if value:
+                return value
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"condition not met within {timeout:g}s")
+            time.sleep(min(delay, remaining))
+
+    def wait_for_item(self, item: str, count: int = 1, *, timeout: float = 300,
+                      interval: float = 1.0) -> dict[str, int]:
+        self.wait_until(lambda: self.inventory_counts().get(item, 0) >= count,
+                        timeout=timeout, interval=interval)
+        return self.inventory_counts()
+
+    def wait_for_research(self, technology: str, *, timeout: float = 600,
+                          interval: float = 2.0) -> Any:
+        def completed() -> bool:
+            data = data_value(self.observe_research(completed=200))
+            return any(tech.get("name") == technology for tech in data.get("completed", []))
+        self.wait_until(completed, timeout=timeout, interval=interval)
+        return technology
+
+    def wait_for_factory(self, *, max_no_fuel: int = 0, max_no_power: int = 0,
+                         radius: float = 120, timeout: float = 300,
+                         interval: float = 3.0) -> Any:
+        def stable() -> bool:
+            data = data_value(self.observe_factory(radius=radius))
+            totals = data.get("totals", {})
+            return (totals.get("no_fuel", 0) <= max_no_fuel and
+                    totals.get("no_power", 0) <= max_no_power)
+        self.wait_until(stable, timeout=timeout, interval=interval)
+        return data_value(self.observe_factory(radius=radius))
+
     def submit_action(self, action: str, payload: Any, *, detach: bool = False,
                       idempotency_key: str | None = None,
                       timeout: float | None = None) -> Any:
@@ -661,6 +712,19 @@ def run(argv: list[str]) -> int:
             milliseconds = max(0, parse_number(flag("ms"), 0) or 0)
             time.sleep(milliseconds / 1000)
             return output({"waited_ms": milliseconds})
+        elif cmd == "wait-for-item":
+            item = flag("item")
+            if not item:
+                raise ValueError("Missing --item")
+            waiter = FactorioClient(parsed.base)
+            counts = waiter.wait_for_item(item, parse_number(flag("count"), 1), timeout=parse_number(flag("timeout"), 300))
+            return output({"item": item, "count": counts.get(item, 0)})
+        elif cmd == "wait-for-research":
+            technology = flag("technology")
+            if not technology:
+                raise ValueError("Missing --technology")
+            FactorioClient(parsed.base).wait_for_research(technology, timeout=parse_number(flag("timeout"), 600))
+            return output({"technology": technology, "completed": True})
         elif cmd == "job-status":
             job_id = flag("job-id")
             if not job_id:

@@ -426,7 +426,9 @@ with `POST /api/agent/jobs/:id/cancel`.
 - `observe-world` returns charted terrain as run-length encoded rows.
 - `observe-resources` returns charted connected-component patches, nearest-patch
   summaries, and shoreline candidates instead of individual resource entities.
-- `observe-factory` returns a compact power/fuel/status summary: entity counts by
+- Condition waits (`wait_for_item`, `wait_for_research`, `wait_for_factory`) return as
+soon as the target is reached instead of sleeping a fixed time. `observe-factory`
+returns a compact power/fuel/status summary: entity counts by
   status, lists of blocked or unfueled buildings, coal in fuel slots, electric
   network satisfaction when available, and human-readable `alerts`.
 

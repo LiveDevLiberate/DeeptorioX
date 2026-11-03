@@ -114,6 +114,18 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             factorio.belt_line_entities({"x": 0, "y": 0}, {"x": 2, "y": 2})
 
+    def test_wait_until_and_inventory_condition(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        self.assertEqual(client.wait_until(lambda: "ready"), "ready")
+        with self.assertRaises(TimeoutError):
+            client.wait_until(lambda: False, timeout=0)
+        payload = {"data": {"player": {"inventories": [
+            {"slots": [{"name": "iron-plate", "count": 12}]},
+        ]}}}
+        with patch.object(client, "observe_player", return_value=payload):
+            counts = client.wait_for_item("iron-plate", 10)
+        self.assertEqual(counts["iron-plate"], 12)
+
 
 if __name__ == "__main__":
     unittest.main()
