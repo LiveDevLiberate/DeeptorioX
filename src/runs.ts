@@ -562,7 +562,7 @@ export class RunManager {
     if (run.reasoning_effort) args.push("-c", `model_reasoning_effort=${JSON.stringify(run.reasoning_effort)}`);
     args.push(...codexProviderArgs());
     if(resuming && run.session_id)args.push("resume",run.session_id);
-    args.push((resuming?"Continue the same benchmark from its saved game. Read RESUME.md and re-observe the player/world before acting. ":"")+"Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
+    args.push((resuming?"Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. ":"")+"Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
       "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.");
     const env: NodeJS.ProcessEnv = { ...process.env, FACTORIO_API_BASE: `http://127.0.0.1:${PORT}` };
     delete env.RCON_PASSWORD;
