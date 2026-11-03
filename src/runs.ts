@@ -56,7 +56,7 @@ const errorText = (e: unknown) => e instanceof Error ? e.message : String(e);
 
 /** Extra Codex overrides for an OpenAI-compatible provider (for example OpenCode Go → DeepSeek). */
 function disciplinePrompt() {
-  return "Never run a shell `sleep` longer than 10 seconds. Use wait_for_item, wait_for_research, wait_for_factory or wait_until, and keep doing useful work while production runs. ";
+  return "Never run a shell `sleep` longer than 10 seconds. Use wait_for_item, wait_for_research, wait_for_factory or wait_until, and keep doing useful work while production runs. Batch at least five related actions or observations per tool call and print only a short summary. ";
 }
 
 function languagePrompt(run: Run) {
@@ -432,6 +432,36 @@ export class RunManager {
       + (restarting ? "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. " : resuming ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. " : "")
       + "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. "
       + "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
+    // Hard-enforce the short-wait rule for agent shell/Python commands. The
+    // wrappers live in the run workspace so they do not affect the manager.
+    fs.mkdirSync(path.join(workspace, "bin"), { recursive: true });
+    fs.writeFileSync(path.join(workspace, "bin", "sleep"), [
+      "#!/bin/sh",
+      'n="${1:-0}"',
+      'case "$n" in ""|*[!0-9.]*) exec /bin/sleep "$@" ;; esac',
+      'if [ "${n%%.*}" -gt 10 ] 2>/dev/null; then',
+      '  echo "[autoriods] sleep ${n}s capped to 10s; use wait_for_*" >&2',
+      '  n=10',
+      "fi",
+      'exec /bin/sleep "$n"',
+      "",
+    ].join("\n"), { mode: 0o755 });
+    fs.writeFileSync(path.join(workspace, "sitecustomize.py"), [
+      "import time as _autoriods_time",
+      "import sys as _autoriods_sys",
+      "_autoriods_orig_sleep = _autoriods_time.sleep",
+      "def _autoriods_sleep(seconds):",
+      "    try:",
+      "        value = float(seconds)",
+      "    except (TypeError, ValueError):",
+      "        return _autoriods_orig_sleep(seconds)",
+      "    if value > 10:",
+      '        print(f"[autoriods] sleep {value:g}s capped to 10s; use wait_for_*", file=_autoriods_sys.stderr, flush=True)',
+      "        value = 10",
+      "    return _autoriods_orig_sleep(value)",
+      "_autoriods_time.sleep = _autoriods_sleep",
+      "",
+    ].join("\n"));
     const command = ["run", "--format", "json", "--thinking", "--model", model, "--auto",
       ...(resuming && run.session_id ? ["--session", run.session_id] : []), prompt];
     const transport = opencodeTransport();
@@ -444,6 +474,8 @@ export class RunManager {
       const commandLine = [wslBinCommand(), ...command.map(shellQuote)].join(" ");
       fs.writeFileSync(script, ["#!/bin/sh",
         `cd ${shellQuote(toWslPath(workspace))}`,
+        `export PATH=${shellQuote(toWslPath(path.join(workspace, "bin")))}:"$PATH"`,
+        `export PYTHONPATH=${shellQuote(toWslPath(workspace))}${"${PYTHONPATH:+:$PYTHONPATH}"}`,
         `echo $$ > ${shellQuote(toWslPath(pidFile))}`,
         `exec ${commandLine}`, ""].join("\n"), { mode: 0o700 });
       executable = "wsl.exe";
@@ -459,6 +491,8 @@ export class RunManager {
     delete env.OBS_WEBSOCKET_PASSWORD;
     // OpenCode reads its own stored credentials; inherited API keys can be stale.
     delete env.OPENCODE_API_KEY;
+    env.PYTHONPATH = [workspace, env.PYTHONPATH].filter(Boolean).join(path.delimiter);
+    if (!IS_WINDOWS) env.PATH = [path.join(workspace, "bin"), env.PATH].filter(Boolean).join(path.delimiter);
     const child = spawnExecutable(executable, args, {
       cwd: workspace, env, stdio: ["ignore", "pipe", "pipe"],
       detached: !IS_WINDOWS, windowsHide: true,
