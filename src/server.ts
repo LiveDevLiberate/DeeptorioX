@@ -81,7 +81,7 @@ function normalizeResearchData(data: any) {
     );
   };
   normalizeTechnology(data.current);
-  for (const key of ["queue", "available", "locked", "completed"]) {
+  for (const key of ["queue", "available", "upgrades", "triggers", "locked", "completed"]) {
     data[key] = arrayOrEmpty(data[key]);
     for (const technology of data[key]) normalizeTechnology(technology);
   }
