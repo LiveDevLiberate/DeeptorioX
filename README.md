@@ -278,7 +278,9 @@ Walking and mining use the bundled **Autorio native character control** mod.
 The Python API is unchanged: move/build/interact requests walk the actual
 character along Factorio pathfinder routes, with normal collision and animation.
 Routes prefer straight legs, including native diagonal walking, and are computed
-fresh so new buildings are taken into account.
+fresh so new buildings are taken into account. A blocked character tries a short
+perpendicular or backward sidestep (alternating sides) and then requests a fresh
+path; repeated failures return `blocked`, and `avoid_count` reports attempts.
 Mining uses native mining state, game mining times and speed bonuses. One mining
 request per resource target extracts one cycle; a rock/tree/building is removed
 only when its real mining cycle finishes. Results include actual item drops,

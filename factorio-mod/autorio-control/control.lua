@@ -2,6 +2,9 @@
 -- Persistent requests are never restarted after loading a save. A short lease
 -- also stops the character if the manager loses its connection or exits.
 local reset_after_load = false
+local STUCK_TICKS = 45
+local AVOID_TICKS = 30
+local MAX_AVOIDS = 8
 local function state()
   storage.autorio_control = storage.autorio_control or {}
   return storage.autorio_control
@@ -30,7 +33,7 @@ local function result(a,ok,err)
   local p=game.get_player(a.player)
   local position=p and p.valid and p.position or a.last_position
   return {token=a.token,status='done',ok=ok,error=err,name=a.name,x=a.target_x,y=a.target_y,
-    mined_count=a.mined_count or 0,items=a.items or {},
+    mined_count=a.mined_count or 0,items=a.items or {},avoid_count=a.avoid_count or 0,
     entity=a.entity_info,
     movement={distance=(a.distance or 0)+distance(position,a.last_position),duration_ms=((a.walk_end or game.tick)-a.started_tick)*1000/60,
       game_ticks=(a.walk_end or game.tick)-a.started_tick,final_position={x=position.x,y=position.y}},
@@ -60,6 +63,41 @@ end
 local function reached(a,p)
   if a.entity then return a.entity.valid and p.can_reach_entity(a.entity) end
   return distance(p.position,a.goal)<=a.radius+0.08
+end
+local function free_position(p, direction, distance)
+  local candidate={x=p.position.x+direction.x*distance,y=p.position.y+direction.y*distance}
+  local free=p.surface.find_non_colliding_position('character',candidate,0.6,0.1)
+  if free and distance(free,candidate)<=0.45 then return free end
+  return nil
+end
+-- A blocked character tries a short perpendicular/backward sidestep, alternating
+-- sides, then asks the pathfinder again from its new position. This avoids
+-- repeatedly requesting the same blocked route against a wall or building.
+local function begin_avoidance(a,p)
+  local dx,dy=a.goal.x-p.position.x,a.goal.y-p.position.y
+  local length=math.sqrt(dx*dx+dy*dy)
+  if length<0.001 then dx,dy=1,0 else dx,dy=dx/length,dy/length end
+  local left={x=-dy,y=dx}
+  local right={x=dy,y=-dx}
+  local back={x=-dx,y=-dy}
+  local order=((a.avoid_count or 0)%2==0) and {left,right,back} or {right,left,back}
+  for _,direction in ipairs(order) do
+    for _,step in ipairs({1.0,1.6,2.4}) do
+      local free=free_position(p,direction,step)
+      if free then
+        a.avoid_count=(a.avoid_count or 0)+1
+        if a.avoid_count>MAX_AVOIDS then return false,'blocked' end
+        local octant=math.floor(math.atan2(direction.x,-direction.y)/(math.pi/4)+0.5)%8
+        a.phase='avoiding'
+        a.avoid_until=game.tick+AVOID_TICKS
+        a.avoid_direction=octant*2
+        a.stuck_tick=game.tick
+        stop_player(p)
+        return true
+      end
+    end
+  end
+  return false,'blocked'
 end
 local function request_path(a,p)
   stop_player(p)
@@ -116,6 +154,15 @@ local function update(a,p)
     if game.tick>=a.retry_tick then a.retry_tick=nil;request_path(a,p) end
     return
   end
+  if a.phase=='avoiding' then
+    if game.tick<a.avoid_until then
+      p.mining_state={mining=false}
+      p.walking_state={walking=true,direction=a.avoid_direction}
+      return
+    end
+    a.phase='walking';a.stuck_tick=game.tick
+    return request_path(a,p)
+  end
   if a.phase=='pathfinding' then
     if game.tick-a.requested_tick>600 then return finish(a,false,'pathfinding_timeout') end
     return
@@ -133,17 +180,20 @@ local function update(a,p)
     -- range than containers. Tighten a pathfinder radius that stopped too far
     -- away instead of repeating the same zero-length route.
     a.range_adjustments=(a.range_adjustments or 0)+1
-    if a.range_adjustments>6 or a.radius<=0.2 then return finish(a,false,'blocked') end
+    if a.range_adjustments>6 or a.radius<=0.2 then
+      local ok,err=begin_avoidance(a,p)
+      if ok then return end
+      return finish(a,false,err or 'blocked')
+    end
     a.radius=math.max(0.2,a.radius/2)
     return request_path(a,p)
   end
   if distance(p.position,a.stuck_position)>0.1 then
     a.stuck_position={x=p.position.x,y=p.position.y};a.stuck_tick=game.tick
-  elseif game.tick-a.stuck_tick>60 then
-    a.replans=a.replans+1
-    if a.replans>3 then return finish(a,false,'blocked') end
-    a.stuck_tick=game.tick
-    return request_path(a,p)
+  elseif game.tick-a.stuck_tick>STUCK_TICKS then
+    local ok,err=begin_avoidance(a,p)
+    if ok then return end
+    return finish(a,false,err or 'blocked')
   end
   local dx,dy=point.position.x-p.position.x,point.position.y-p.position.y
   local octant=math.floor(math.atan2(dx,-dy)/(math.pi/4)+0.5)%8
@@ -164,7 +214,13 @@ script.on_event(defines.events.on_script_path_request_finished,function(event)
     a.retries=a.retries+1
     if a.retries>5 then return finish(a,false,'pathfinder_busy') end
     a.retry_tick=game.tick+30
-  elseif not event.path then finish(a,false,'no_path')
+  elseif not event.path then
+    local p=game.get_player(a.player)
+    if p and p.valid and p.character then
+      local ok=begin_avoidance(a,p)
+      if ok then return end
+    end
+    finish(a,false,'no_path')
   else
     a.path=event.path;a.path_index=1;a.phase='walking'
     a.stuck_tick=game.tick
@@ -205,7 +261,7 @@ remote.add_interface('autorio-control',{
     if not pos or type(pos.x)~='number' or type(pos.y)~='number' or math.abs(pos.x)==math.huge or math.abs(pos.y)==math.huge then return {ok=false,status='done',error='invalid_target'} end
     local a={token=args.token,kind=args.kind,player=p.index,started_tick=game.tick,lease=game.tick+300,
       last_position={x=p.position.x,y=p.position.y},stuck_position={x=p.position.x,y=p.position.y},
-      stuck_tick=game.tick,distance=0,replans=0,retries=0,mined_count=0,items={}}
+      stuck_tick=game.tick,distance=0,avoid_count=0,retries=0,mined_count=0,items={}}
     if args.kind=='move' then
       a.goal={x=args.x,y=args.y};a.radius=0.18
     elseif args.kind=='mine' or args.kind=='approach' then
@@ -230,7 +286,7 @@ remote.add_interface('autorio-control',{
     if a and a.token==token then
       if game.tick_paused then return finish(a,false,'game_paused') end
       a.lease=game.tick+300
-      return {ok=true,status='running',token=token,phase=a.phase,game_ticks=game.tick-a.started_tick}
+      return {ok=true,status='running',token=token,phase=a.phase,avoid_count=a.avoid_count or 0,game_ticks=game.tick-a.started_tick}
     end
     if s.last and s.last.token==token then return s.last end
     return {ok=false,status='done',error='action_not_found'}
