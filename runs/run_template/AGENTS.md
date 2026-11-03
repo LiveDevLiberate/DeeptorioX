@@ -32,6 +32,9 @@ Prioritize useful in-game progress and the critical path to the objective. Use e
 - Prefer importing `FactorioClient` in a Python script for multi-step plans.
 - Treat action results as authoritative. Check `action_job_ok()` and inspect
   individual results because a completed batch may contain partial failures.
+- Use `observe-factory` to check power, fuel, and blocked-building status counts
+  before committing to more machines; fix `no_fuel`, `no_power`, and
+  `waiting_for_space_in_destination` before expanding.
 - Use placement observations before constructing tightly packed layouts.
 - Account for the player's actual walking path, obstacles, entity reach, and native mining time. If a valid
   placement reports `blocked`, move to an accessible side and retry only the

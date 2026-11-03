@@ -7,7 +7,7 @@
 - `src/opencode.ts`: OpenCode executable/model resolution, native-vs-WSL transport, WSL paths and shell quoting; `src/runs.ts` translates OpenCode JSON events into the transcript schema.
 
 ## Key paths
-- `src/server.ts`: HTTP API + Factorio process management + RCON bridge.
+- `src/server.ts`: HTTP API + Factorio process management + RCON bridge; `observe-factory` aggregates power/fuel/entity status.
 - `public/index.html`, `public/runs.js`: run launch controls, live progress, and run history.
 - `public/run.html`, `public/run.js`: run details, activity, production graphs, and results.
 - `public/compare.html`, `public/compare.js`: comparisons of selected historical runs.

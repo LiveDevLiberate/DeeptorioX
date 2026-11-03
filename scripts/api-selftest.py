@@ -51,6 +51,7 @@ def main() -> int:
     check("observe-world", lambda: world_detail(px, py))
     check("observe-map", lambda: map_detail(px, py))
     check("observe-resources", lambda: resources_detail(px, py))
+    check("observe-factory", lambda: factory_detail(px, py))
     check("observe-entity-prototype", lambda: prototype_detail())
     check("observe-placement", lambda: placement_detail(px, py))
     check("observe-entity", lambda: entity_detail(px, py))
@@ -103,6 +104,14 @@ def resources_detail(x: float, y: float) -> str:
     data = data_value(client.observe_resources(x=x, y=y, radius=48))
     expect(isinstance(data.get("patches"), list), "resource patches is not an array")
     return f"{len(data['patches'])} patches"
+
+
+def factory_detail(x: float, y: float) -> str:
+    data = data_value(client.observe_factory(x=x, y=y, radius=120))
+    expect(isinstance(data.get("counts"), dict), "factory counts is not an object")
+    expect(isinstance(data.get("alerts"), list), "factory alerts is not an array")
+    expect(isinstance(data.get("problems"), dict), "factory problems is not an object")
+    return f"{len(data['counts'])} entity types, {len(data['alerts'])} alert(s)"
 
 
 def prototype_detail() -> str:

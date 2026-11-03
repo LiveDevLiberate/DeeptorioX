@@ -49,6 +49,7 @@ Commands:
   observe-recipes --limit-recipes <n> [--unlocked-only]
   observe-entity --target x,y [--target ...] [--targets-json <json>]
   observe-resources --window-x <n> --window-y <n> --radius <n>
+  observe-factory --center-x <n> --center-y <n> --radius <n>
   observe-entity-prototype --name <entity-name>
   observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]
   act-build --entity name,anchor-x,anchor-y,dir [--entity ...]
@@ -93,6 +94,7 @@ COMMAND_USAGE = {
     "observe-recipes": "observe-recipes: List available recipes and their ingredients/products.\nUsage: factorio.py observe-recipes --limit-recipes <n> [--unlocked-only]\n",
     "observe-entity": "observe-entity: Inspect entity status, fuel, fluids, recipe, inventory.\nUsage: factorio.py observe-entity --target x,y [--target ...]\n   or: factorio.py observe-entity --targets-json <json>\n",
     "observe-resources": "observe-resources: Scan for resource patches in a radius.\nUsage: factorio.py observe-resources --window-x <n> --window-y <n> --radius <n>\n",
+    "observe-factory": "observe-factory: Summarize power, fuel, and entity status counts in a window.\nUsage: factorio.py observe-factory --center-x <n> --center-y <n> --radius <n>\n",
     "observe-entity-prototype": "observe-entity-prototype: Look up entity dimensions, fluid connections, energy info.\nUsage: factorio.py observe-entity-prototype --name <entity-name>\n",
     "observe-placement": "observe-placement: Analyze buildability without consuming an item.\nUsage: factorio.py observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]\n",
     "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...]\n   or: factorio.py act-build --entities-json <json>\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding.\n",
@@ -323,6 +325,15 @@ class FactorioClient:
         return self.request("POST", "/api/agent/observe/resources", {
             "window": {"x": x, "y": y, "radius": radius},
         })
+
+    def observe_factory(self, *, x: float | None = None, y: float | None = None,
+                        radius: float = 120) -> Any:
+        window: dict[str, Any] = {"radius": radius}
+        if x is not None:
+            window["x"] = x
+        if y is not None:
+            window["y"] = y
+        return self.request("POST", "/api/agent/observe/factory", {"window": window})
 
     def observe_entity_prototype(self, name: str) -> Any:
         return self.request("POST", "/api/agent/observe/entity-prototype", {"name": name})
@@ -558,6 +569,14 @@ def run(argv: list[str]) -> int:
                 "y": parse_number(flag("window-y"), 0),
                 "radius": parse_number(flag("radius"), 50),
             }})
+            return output(data_value(response))
+        if cmd == "observe-factory":
+            window = {"radius": parse_number(flag("radius"), 120)}
+            if parse_number(flag("center-x")) is not None:
+                window["x"] = parse_number(flag("center-x"))
+            if parse_number(flag("center-y")) is not None:
+                window["y"] = parse_number(flag("center-y"))
+            response = request("POST", "/api/agent/observe/factory", {"window": window})
             return output(data_value(response))
         if cmd == "observe-entity-prototype":
             name = flag("name")

@@ -314,6 +314,8 @@ fake game/agent processes, and runs the Python client tests. Actual graphical
 integration requires the installed game and Steam. `npm run dev` restarts on edits,
 which stops an active run; use a compiled manager for recordings.
 
+Agent observation endpoints include `/api/agent/observe/factory` (power/fuel/status summary).
+
 Run endpoints:
 
 - `GET /api/benchmarks`
@@ -422,6 +424,9 @@ with `POST /api/agent/jobs/:id/cancel`.
 - `observe-world` returns charted terrain as run-length encoded rows.
 - `observe-resources` returns charted connected-component patches, nearest-patch
   summaries, and shoreline candidates instead of individual resource entities.
+- `observe-factory` returns a compact power/fuel/status summary: entity counts by
+  status, lists of blocked or unfueled buildings, coal in fuel slots, electric
+  network satisfaction when available, and human-readable `alerts`.
 
 ## Token accounting and science research
 

@@ -88,6 +88,21 @@ function normalizeResearchData(data: any) {
   return data;
 }
 
+function normalizeFactoryData(data: any) {
+  if (!data || typeof data !== "object") return data;
+  data.counts = data.counts && typeof data.counts === "object" ? data.counts : {};
+  for (const value of Object.values(data.counts as Record<string, any>)) {
+    if (value && typeof value === "object") value.statuses = value.statuses && typeof value.statuses === "object" ? value.statuses : {};
+  }
+  data.problems = data.problems && typeof data.problems === "object" ? data.problems : {};
+  for (const key of ["no_fuel", "no_power", "no_input_fluid", "no_minable_resources", "waiting_for_space_in_destination", "no_ingredients", "missing_science_packs"]) {
+    data.problems[key] = arrayOrEmpty(data.problems[key]);
+  }
+  data.totals = data.totals && typeof data.totals === "object" ? data.totals : {};
+  data.alerts = arrayOrEmpty(data.alerts);
+  return data;
+}
+
 function normalizeEntityData(data: any) {
   if (!data || typeof data !== "object") return data;
   data.results = arrayOrEmpty(data.results);
@@ -1144,6 +1159,48 @@ function agentObserveEntityCommand(
   }
   parts.push("rcon.print(helpers.table_to_json{results=results})");
   return parts.join(" ");
+}
+
+function agentFactoryCommand(params: { x?: number; y?: number; radius: number }): string {
+  const x = params.x === undefined ? "nil" : String(params.x);
+  const y = params.y === undefined ? "nil" : String(params.y);
+  return [
+    "/sc",
+    "local s=game.surfaces[1]",
+    "local player=game.players[1]",
+    `local x=${x} local y=${y} local radius=${params.radius}`,
+    "if not player then rcon.print(helpers.table_to_json{ok=false,error='no_player'}) return end",
+    "if x==nil then x=player.position.x end if y==nil then y=player.position.y end",
+    "local area={{x-radius,y-radius},{x+radius,y+radius}}",
+    "local function status_name(e) if e.status==nil then return 'none' end for k,v in pairs(defines.entity_status) do if v==e.status then return k end end return tostring(e.status) end",
+    "local function fuel(e) local items={} local ok,inv=pcall(function() return e.get_fuel_inventory() end) if ok and inv and inv.valid then for i=1,#inv do local stack=inv[i] if stack and stack.valid_for_read then table.insert(items,{name=stack.name,count=stack.count}) end end end local burning=nil pcall(function() if e.burner and e.burner.currently_burning then burning=e.burner.currently_burning.name end end) return items,burning end",
+    "local counts={}",
+    "local statuses={'no_fuel','no_power','no_input_fluid','no_minable_resources','waiting_for_space_in_destination','no_ingredients','missing_science_packs'}",
+    "local problems={} local totals={} for _,key in ipairs(statuses) do problems[key]={} totals[key]=0 end",
+    "local coal=0 local without_fuel=0 local low_fuel=0",
+    "local types={'burner-mining-drill','furnace','boiler','generator','assembling-machine','lab','inserter','electric-pole'}",
+    "for _,e in pairs(s.find_entities_filtered{area=area,type=types}) do",
+    "local status=status_name(e) local name=e.name",
+    "counts[name]=counts[name] or {total=0,statuses={}}",
+    "counts[name].total=counts[name].total+1",
+    "counts[name].statuses[status]=(counts[name].statuses[status] or 0)+1",
+    "local items,burning=fuel(e) local coal_count=0 for _,item in ipairs(items) do if item.name=='coal' then coal_count=coal_count+item.count end end coal=coal+coal_count",
+    "if status=='no_fuel' then without_fuel=without_fuel+1 elseif coal_count>0 and coal_count<5 then low_fuel=low_fuel+1 end",
+    "for _,key in ipairs(statuses) do if status==key then totals[key]=totals[key]+1 if #problems[key]<20 then table.insert(problems[key],{name=name,x=e.position.x,y=e.position.y,status=status}) end end end",
+    "end",
+    "local power=nil local poles=s.find_entities_filtered{area=area,type='electric-pole'} if #poles>0 then local seen={} local production,consumption,transfer,networks=0,0,0,0 for _,pole in ipairs(poles) do local ok,sub=pcall(function() return pole.electric_network end) if ok and sub then local ok2,parent=pcall(function() return sub.parent_network end) if ok2 and parent then local key=tostring(parent) if not seen[key] then seen[key]=true networks=networks+1 local ok3,flow=pcall(function() return parent.flow_last_tick end) if ok3 and flow then production=production+(flow.maximum_production or 0) consumption=consumption+(flow.maximum_consumption or 0) transfer=transfer+(flow.total_transfer or 0) end end end end end power={networks=networks,maximum_production=production,maximum_consumption=consumption,total_transfer=transfer} if consumption>0 then power.satisfaction=math.min(1,transfer/consumption) end end",
+    "local alerts={} local function alert(n,text) if n and n>0 then table.insert(alerts,n..' '..text) end end",
+    "alert(totals.no_fuel,'entities have no fuel')",
+    "alert(totals.no_power,'entities have no power')",
+    "alert(totals.no_input_fluid,'entities have no input fluid')",
+    "alert(totals.no_minable_resources,'drills have no minable resources')",
+    "alert(totals.waiting_for_space_in_destination,'entities are waiting for output space')",
+    "alert(totals.no_ingredients,'furnaces have no ingredients')",
+    "alert(totals.missing_science_packs,'labs are missing science packs')",
+    "if type(power)=='table' and type(power.satisfaction)=='number' and power.satisfaction<0.95 then table.insert(alerts,string.format('power satisfaction %.0f%%',power.satisfaction*100)) end",
+    "if coal==0 then table.insert(alerts,'no coal in fuel slots in this area') end",
+    "rcon.print(helpers.table_to_json{window={x=x,y=y,radius=radius},counts=counts,problems=problems,totals=totals,fuel={coal_in_fuel_slots=coal,entities_without_fuel=without_fuel,entities_low_fuel=low_fuel},power=power,alerts=alerts})",
+  ].join(" ");
 }
 
 function agentResourcesCommand(params: {
@@ -2456,6 +2513,32 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
         "RCON extract returned invalid JSON",
       );
       return json(res, 200, { ok: true, data: { ...data, movement: movement.movement } });
+    } catch (err: any) {
+      return json(res, 500, { error: err?.message || "RCON command failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/agent/observe/factory") {
+    let body: any = null;
+    try {
+      body = await readJson(req);
+    } catch (err: any) {
+      return json(res, 400, { error: err?.message || "Invalid JSON" });
+    }
+    if (!rconConfigured()) {
+      return json(res, 409, { error: "RCON not configured" });
+    }
+    if (!state.rcon.connected) {
+      return json(res, 409, { error: "RCON not connected" });
+    }
+    const window = body?.window || {};
+    const x = Number.isFinite(Number(window.x)) ? Number(window.x) : undefined;
+    const y = Number.isFinite(Number(window.y)) ? Number(window.y) : undefined;
+    const radius = clampInt(window.radius, 120, 1, 256);
+    try {
+      const response = await rconCommand(agentFactoryCommand({ x, y, radius }));
+      const data = normalizeFactoryData(parseRconJson<any>(response, "RCON factory observation returned invalid JSON"));
+      return json(res, 200, { ok: true, data });
     } catch (err: any) {
       return json(res, 500, { error: err?.message || "RCON command failed" });
     }
