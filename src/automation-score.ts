@@ -97,7 +97,7 @@ export function manualMineUnits(results: unknown[]): number {
     if (result.ok === false) continue;
     const items =
       result.items && typeof result.items === "object" ? (result.items as Record<string, unknown>) : {};
-    const names = new Set<string>([String(result.name ?? "")]);
+    const names = new Set<string>([typeof result.name === "string" ? result.name : ""]);
     for (const name of Object.keys(items)) names.add(name);
     const mined = Number(result.mined_count);
     if ([...names].some((name) => RAW_RESOURCES.has(name))) {

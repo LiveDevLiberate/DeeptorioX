@@ -9,6 +9,13 @@ this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Regenerated `public/tool-manifest.json` after adding `/api/map-config`, so the
+  generated tool-discovery manifest and its freshness test are current again.
+- Removed unused telemetry imports from the recording bundle and made the
+  automation-score resource-name extraction type-safe; ESLint is clean again.
+
 ## [0.25.1] - 2026-11-04
 
 ### Changed
