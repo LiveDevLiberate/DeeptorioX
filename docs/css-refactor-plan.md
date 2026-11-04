@@ -133,3 +133,15 @@ Use one authoritative rule per property; retire earlier passes. Do not add new
 - Largest remaining legacy candidate: `base.css`'s old transcript block
   (~294 lines). A trial removal required moving several fallback properties to
   the final rules; it is deferred until the screenshot path itself is stable.
+
+### Phase 3 progress (round 7)
+
+- Retried the `base.css` legacy transcript cleanup now that screenshots run in a
+  stable no-audit state. Removed **245 lines** of pre-recording transcript/filter/
+  jump styling while preserving the dashboard `.run-info`, `.production-list`,
+  `.chart-legend` and `.science-marker` blocks.
+- Moved the still-needed fallbacks into the final rules: `white-space: pre-wrap`,
+  `overflow-wrap: anywhere`, summary `white-space: normal` + `cursor: pointer`,
+  and jump-pill `position: fixed`/`z-index`/`cursor`.
+- All six screenshots are **pixel-identical** to the pre-removal stable capture.
+- Stylesheet modules: **4,861 → 4,623 lines**.

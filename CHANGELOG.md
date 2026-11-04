@@ -22,6 +22,9 @@ this file.
   Also removed the superseded 120-line colour-system-v2 pass and consolidated
   the repeated status/meta/readout/connection-notice selector chains into their
   final rules (4,947 → 4,861 lines; screenshots still pixel-identical).
+  Removed the pre-recording legacy transcript/filter/jump block from `base.css`
+  (245 lines) while keeping dashboard run/chart primitives; stylesheet modules
+  are now 4,623 lines and screenshots remain pixel-identical.
 
 ### Added
 

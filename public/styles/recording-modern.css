@@ -587,6 +587,8 @@ body.recording #transcriptSearch::placeholder {
 body.recording #codexOutput {
   gap: 0;
   padding-top: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   color: var(--ink-soft);
   font-family: var(--font-body);
 }
@@ -627,6 +629,8 @@ body.recording #codexOutput .commands-summary {
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 500;
+  white-space: normal;
+  cursor: pointer;
 }
 body.recording #codexOutput .reasoning-summary .icon,
 body.recording #codexOutput .commands-summary .icon {
@@ -749,12 +753,15 @@ body.recording #codexOutput .filter-empty-reset {
   color: var(--safety);
 }
 body.recording .jump-latest {
+  position: fixed;
+  z-index: 20;
   border: 1px solid var(--safety);
   border-radius: 2px;
   background: var(--paper);
   color: var(--safety);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
   font-family: var(--font-body);
+  cursor: pointer;
 }
 body.recording .jump-latest:hover {
   border-color: var(--ink);
