@@ -411,10 +411,21 @@ function ensureCommandGroup() {
   return commandGroup;
 }
 function refreshCommandGroup(group) {
-  const stats = summarizeCommandGroup([...group.items.values()]);
+  const items = [...group.items.values()];
+  const stats = summarizeCommandGroup(items);
   const loopPrefix = group.loop ? `⚠ ${strings().loop} ×${group.loop} · ` : "";
   group.summary.textContent = `${loopPrefix}${stats.text}`;
-  prependIcon(group.summary, "laptop");
+  // Let the group icon reflect its dominant action category instead of every
+  // command group showing the same blue laptop glyph.
+  const counts = new Map();
+  for (const item of items) {
+    const category = summarizeCommand(item).category;
+    counts.set(category, (counts.get(category) || 0) + 1);
+  }
+  const dominant =
+    [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || "script";
+  group.summary.className = `commands-summary cat-${dominant}`;
+  prependIcon(group.summary, badgeIcon(dominant));
   group.details.classList.toggle("failed", stats.failed > 0);
   group.details.classList.toggle("loop", group.loop > 0);
 }
@@ -681,7 +692,11 @@ function renderMetrics() {
     const rates = telemetryRates(telemetrySamples, { limit: 2 });
     const top = rates[0];
     if (top) {
-      const metric = element("span", `${top.name} ${Math.round(top.rate)}${text.rateSuffix}`, "metric");
+      const metric = element(
+        "span",
+        `${top.name} ${Math.round(top.rate)}${text.rateSuffix}`,
+        "metric metric-production",
+      );
       prependIcon(metric, "factory");
       children.push(metric);
       const spark = element("span", "", "metric-spark");
@@ -694,13 +709,13 @@ function renderMetrics() {
     }
     const research = telemetryResearch(telemetrySamples);
     if (research) {
-      const metric = element("span", `${text.researchLabel} ${research}`, "metric");
+      const metric = element("span", `${text.researchLabel} ${research}`, "metric metric-research");
       prependIcon(metric, "flask");
       children.push(metric);
     }
     const power = telemetryPower(telemetrySamples);
     if (power) {
-      const metric = element("span", power, "metric");
+      const metric = element("span", power, "metric metric-power");
       prependIcon(metric, "bolt");
       children.push(metric);
     }

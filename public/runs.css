@@ -2600,3 +2600,164 @@ body.recording [hidden] {
 body.recording .status-toggle {
   cursor: pointer;
 }
+
+/* ============================================================================
+   Distinct icon hues — icons should read as different kinds at a glance.
+   (Masks use currentColor, so setting `color` tints the glyph only.)
+   ========================================================================= */
+#filterAll {
+  --chip-icon: #7aa2f7;
+}
+#filterThinking {
+  --chip-icon: #e0b072;
+}
+#filterActions {
+  --chip-icon: #8fd6a8;
+}
+#filterMessages {
+  --chip-icon: #7fb8e6;
+}
+#filterErrors {
+  --chip-icon: #ff8f85;
+}
+#filterDecisions {
+  --chip-icon: #c0a8f0;
+}
+#transcriptTools .chip .icon {
+  color: var(--chip-icon, currentColor);
+}
+#transcriptTools .chip.active .icon {
+  color: var(--chip-icon, currentColor);
+  filter: brightness(1.25) saturate(1.15);
+}
+
+/* Telemetry pills: production=green, research=violet, power=amber. */
+body.recording .metric .icon {
+  color: #7aa2f7;
+}
+body.recording .metric-production .icon {
+  color: #8fd6a8;
+}
+body.recording .metric-research .icon {
+  color: #c0a8f0;
+}
+body.recording .metric-power .icon {
+  color: #e0b072;
+}
+body.recording .metric.muted .icon {
+  color: #66737f;
+}
+body.recording .metric.error .icon {
+  color: #ff8f85;
+}
+
+/* Card headers: brain=amber reasoning, laptop=blue commands, wrench=green tools, flag=cyan markers. */
+#codexOutput .reasoning-summary .icon {
+  color: #e0b072;
+}
+#codexOutput .commands-summary .icon {
+  color: #7aa2f7;
+}
+#codexOutput .tool-details summary .icon {
+  color: #8fd6a8;
+}
+#codexOutput .event-marker .icon {
+  color: #7fd8e8;
+}
+.jump-latest .icon {
+  color: var(--accent-strong);
+}
+
+/* Action badge icons: one hue per category rather than a gray wall of "cmd". */
+#codexOutput .action-badge .icon {
+  color: #8b98a5;
+}
+#codexOutput .action-badge.build .icon,
+#codexOutput .action-badge.craft .icon,
+#codexOutput .action-badge.run .icon {
+  color: #8fd6a8;
+}
+#codexOutput .action-badge.mine .icon,
+#codexOutput .action-badge.deconstruct .icon {
+  color: #e0b072;
+}
+#codexOutput .action-badge.wait .icon {
+  color: #d8c07a;
+}
+#codexOutput .action-badge.observe .icon,
+#codexOutput .action-badge.job .icon,
+#codexOutput .action-badge.action .icon {
+  color: #7aa2f7;
+}
+#codexOutput .action-badge.recipe .icon,
+#codexOutput .action-badge.research .icon {
+  color: #c0a8f0;
+}
+#codexOutput .action-badge.rocket .icon {
+  color: #d8a0f0;
+}
+#codexOutput .action-badge.insert .icon {
+  color: #7fd8b8;
+}
+#codexOutput .action-badge.extract .icon {
+  color: #e0a072;
+}
+#codexOutput .action-badge.move .icon,
+#codexOutput .action-badge.rotate .icon,
+#codexOutput .action-badge.settings .icon {
+  color: #9fb3c8;
+}
+#codexOutput .action-badge.script .icon {
+  color: #7fb8e6;
+}
+#codexOutput .action-badge.server .icon {
+  color: #6fd8b2;
+}
+#codexOutput .action-badge.other .icon {
+  color: #8b98a5;
+}
+#codexOutput .action-badge.failed .icon {
+  color: #ff8f85;
+}
+
+/* Command-group header icons follow the group's dominant action category. */
+#codexOutput .commands-summary.cat-build .icon,
+#codexOutput .commands-summary.cat-craft .icon,
+#codexOutput .commands-summary.cat-run .icon {
+  color: #8fd6a8;
+}
+#codexOutput .commands-summary.cat-mine .icon,
+#codexOutput .commands-summary.cat-deconstruct .icon,
+#codexOutput .commands-summary.cat-wait .icon {
+  color: #e0b072;
+}
+#codexOutput .commands-summary.cat-observe .icon,
+#codexOutput .commands-summary.cat-job .icon,
+#codexOutput .commands-summary.cat-action .icon {
+  color: #7aa2f7;
+}
+#codexOutput .commands-summary.cat-recipe .icon,
+#codexOutput .commands-summary.cat-research .icon {
+  color: #c0a8f0;
+}
+#codexOutput .commands-summary.cat-rocket .icon {
+  color: #d8a0f0;
+}
+#codexOutput .commands-summary.cat-insert .icon {
+  color: #7fd8b8;
+}
+#codexOutput .commands-summary.cat-extract .icon {
+  color: #e0a072;
+}
+#codexOutput .commands-summary.cat-move .icon,
+#codexOutput .commands-summary.cat-rotate .icon,
+#codexOutput .commands-summary.cat-settings .icon {
+  color: #9fb3c8;
+}
+#codexOutput .commands-summary.cat-server .icon {
+  color: #6fd8b2;
+}
+#codexOutput .commands-summary.cat-script .icon,
+#codexOutput .commands-summary.cat-other .icon {
+  color: #7fb8e6;
+}

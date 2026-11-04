@@ -9,6 +9,19 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Icons now have distinct hues instead of one shared tint.** Filter chips get
+  their own colour (all=blue, thinking=amber, actions=green, messages=cyan,
+  errors=red, decisions=violet); telemetry pills colour their glyphs by metric
+  (production=green, research=violet, power=amber, error=red, muted=gray); card
+  headers use amber brain / blue terminal / green wrench / cyan flag; action
+  badges and command-group header icons are tinted by their action category
+  (the group glyph now follows the dominant category instead of always being the
+  blue laptop). Icon colour is purely a `color` value on the CSS mask, so the
+  neutral surfaces stay unchanged.
+
+## [0.12.1] - 2026-11-04
 ## [0.12.1] - 2026-11-04
 
 ### Fixed
