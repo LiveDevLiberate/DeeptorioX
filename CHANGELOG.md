@@ -24,7 +24,10 @@ this file.
   final rules (4,947 → 4,861 lines; screenshots still pixel-identical).
   Removed the pre-recording legacy transcript/filter/jump block from `base.css`
   (245 lines) while keeping dashboard run/chart primitives; stylesheet modules
-  are now 4,623 lines and screenshots remain pixel-identical.
+  are now 4,623 lines and screenshots remain pixel-identical. Round 8 removed
+  the obsolete modern-v4 light/panel/microcopy tail (28 lines) while retaining
+  its effective header layout and light chip/plan rules; modules now total
+  4,586 lines with pixel-identical stable screenshots.
 
 ### Added
 

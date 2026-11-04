@@ -146,35 +146,6 @@ body.recording .connection-notice button {
   }
 }
 
-/* Light theme surfaces and contrast fixes for this pass. */
-html[data-theme="light"] body.recording {
-  --ui-card: #ffffff;
-  --ui-card-soft: #f8fbf9;
-  --ui-card-border: #d8e3de;
-  --ui-kicker: #667a72;
-  --ui-control-border: #d8e3de;
-  --ui-control-bg: #ffffff;
-}
-
-html[data-theme="light"] body.recording #transcriptTools .chip:hover {
-  background: rgba(29, 84, 124, 0.06);
-}
-html[data-theme="light"] body.recording #transcriptTools .chip.active {
-  border-color: rgba(47, 111, 158, 0.25);
-}
-
-html[data-theme="light"] body.recording #agentStatus.stale-plan .status-plan {
-  border-color: #dbc58e;
-}
-
-/* Keep secondary microcopy readable on the black surfaces as well. */
-html:not([data-theme="light"]) body.recording #codexOutput .msg-time {
-  color: #93a8a2;
-}
-html:not([data-theme="light"]) body.recording .map-info-note {
-  color: #93a8a2;
-}
-
 /* Header line uses the full card width so the token/context meta can sit at the
    far edge instead of hugging the display controls. */
 body.recording .status-head {
@@ -183,17 +154,6 @@ body.recording .status-head {
 }
 body.recording .status-head .status-line {
   width: 100%;
-}
-
-/* Give panels a readable surface over the pure-black page. */
-body.recording {
-  --ui-card: #0b1115;
-  --ui-card-border: #26373f;
-}
-
-html[data-theme="light"] body.recording {
-  --ui-card: #f8fbf9;
-  --ui-card-border: #d5e2dc;
 }
 
 /* ============================================================================
@@ -957,6 +917,14 @@ body.recording .connection-notice button:hover {
 }
 
 /* Light blueprint overrides for rules the earlier theme pass owns. -------- */
+html[data-theme="light"] body.recording #agentStatus.stale-plan .status-plan {
+  border-color: #dbc58e;
+}
+html[data-theme="light"] body.recording #transcriptTools .chip.active {
+  border-top-color: rgba(47, 111, 158, 0.25);
+  border-left-color: rgba(47, 111, 158, 0.25);
+  border-right-color: rgba(47, 111, 158, 0.25);
+}
 html[data-theme="light"] body.recording {
   background-color: var(--paper);
   background-image:

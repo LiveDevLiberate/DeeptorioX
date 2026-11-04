@@ -145,3 +145,13 @@ Use one authoritative rule per property; retire earlier passes. Do not add new
   and jump-pill `position: fixed`/`z-index`/`cursor`.
 - All six screenshots are **pixel-identical** to the pre-removal stable capture.
 - Stylesheet modules: **4,861 → 4,623 lines**.
+
+### Phase 3 progress (round 8)
+
+- Removed the obsolete modern-v4 light/panel/microcopy tail (28 lines) while
+  retaining its header-layout rules, light stale-plan border, and the computed
+  chip border sides.
+- Initial whole-section removal was rejected because it changed header height and
+  the error notice; the retained subset is the minimum effective part.
+- Stable before/after screenshots remain **pixel-identical**. Stylesheet modules:
+  **4,623 → 4,586 lines**.
