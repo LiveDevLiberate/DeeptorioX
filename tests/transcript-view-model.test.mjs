@@ -237,3 +237,80 @@ test("LoopDetector flags repeated signatures inside the sliding window", () => {
   detector.reset();
   assert.equal(detector.push("mine:(1,2)").repeated, false);
 });
+
+test("observe summaries cover area, fluids, combat, player and factory", () => {
+  const area = summarizeCommand({
+    type: "command_execution",
+    command: "python3 factorio.py observe-area --center-x 4 --center-y -2 --radius 8",
+    status: "completed",
+    aggregated_output: JSON.stringify({
+      ok: true,
+      data: { counts: { total: 240, matched: 239, included: 12 } },
+    }),
+  });
+  assert.equal(area.outcome, "12/239 entities");
+  const fluids = summarizeCommand({
+    type: "command_execution",
+    command: "python3 factorio.py observe-fluids --radius 32",
+    status: "completed",
+    aggregated_output: JSON.stringify({
+      ok: true,
+      data: { counts: { pipe: 85 }, fluids: { petroleum: { amount: 500 }, water: { amount: 120 } } },
+    }),
+  });
+  assert.equal(fluids.outcome, "petroleum 500");
+  const combat = summarizeCommand({
+    type: "command_execution",
+    command: "python3 factorio.py observe-combat --radius 64",
+    status: "completed",
+    aggregated_output: JSON.stringify({ ok: true, data: { counts: { enemy_total: 0, turrets: 2 } } }),
+  });
+  assert.equal(combat.outcome, "0 enemies · 2 turrets");
+  const player = summarizeCommand({
+    type: "command_execution",
+    command: "python3 factorio.py observe-player",
+    status: "completed",
+    aggregated_output: JSON.stringify({ ok: true, data: { player: { health: 250 } } }),
+  });
+  assert.equal(player.outcome, "health 250");
+  const factory = summarizeCommand({
+    type: "command_execution",
+    command: "python3 factorio.py observe-factory --radius 24",
+    status: "completed",
+    aggregated_output: JSON.stringify({
+      ok: true,
+      data: { problems: { no_fuel: [{}, {}, {}], no_power: [{}], no_ingredients: [] } },
+    }),
+  });
+  assert.equal(factory.outcome, "3 no_fuel · 1 no_power");
+});
+
+test("copy-settings results use the settings summary path", () => {
+  const summary = summarizeCommand({
+    type: "command_execution",
+    command: "python3 factorio.py act-copy-settings --targets-json '[]'",
+    status: "completed",
+    aggregated_output: JSON.stringify({ ok: true, data: { results: [{ ok: true }, { ok: false }] } }),
+  });
+  assert.equal(summary.category, "settings");
+  assert.equal(summary.failed, true);
+  assert.match(summary.outcome, /1\/2 ok/);
+});
+
+test("decision detection, mini bars and telemetry helpers", async () => {
+  const model = await import("../public/transcript-view-model.js");
+  assert.equal(model.isDecisionText("Next step: mine coal"), true);
+  assert.equal(model.isDecisionText("The map looks calm."), false);
+  assert.deepEqual(model.miniBars([0, 5, 10]), [0, 50, 100]);
+  assert.deepEqual(model.miniBars([]), []);
+  const lines = [
+    JSON.stringify({ production_per_game_minute: { "iron-plate": 12, wood: 0 } }),
+    "not json",
+    JSON.stringify({ current_research: "automation", research_progress: 0.42 }),
+  ].join("\n");
+  const samples = model.parseTelemetryLines(lines);
+  assert.equal(samples.length, 2);
+  assert.deepEqual(model.telemetryRates(samples), [{ name: "iron-plate", rate: 12 }]);
+  assert.deepEqual(model.telemetrySeries(samples, "iron-plate", 4), [12]);
+  assert.equal(model.telemetryResearch(samples), "automation 42%");
+});

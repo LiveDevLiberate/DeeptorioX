@@ -76,7 +76,15 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     "statusCurrent",
     "statusDone",
     "statusScores",
+    "statusMetrics",
     "statusToggle",
+    "transcriptSearch",
+    "filterAll",
+    "filterThinking",
+    "filterActions",
+    "filterMessages",
+    "filterErrors",
+    "filterDecisions",
     "codexOutput",
   ];
   const nodes = Object.fromEntries(ids.map((id) => [id, new FakeNode()]));
@@ -175,6 +183,11 @@ test("recording page renders summaries, loops, turns and unread updates", async 
   };
   globalThis.location = { search: "?run=run1" };
   globalThis.history = { replaceState() {} };
+  const storage = new Map();
+  globalThis.localStorage = {
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, String(value)),
+  };
   if (hadNavigator) globalThis.navigator = { language: "en-US" };
   else
     Object.defineProperty(globalThis, "navigator", {
@@ -191,6 +204,23 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     fetchCalls.push(url);
     if (url === "/api/runs") return { ok: true, json: async () => ({ runs: [{ id: "run1" }] }) };
     if (url === "/api/runs/run1") return { ok: true, json: async () => runFixture };
+    if (url.includes("source=telemetry")) {
+      const samples = [
+        {
+          observed_at: "2026-11-04T00:00:00.000Z",
+          production_per_game_minute: { "iron-plate": 12, "copper-plate": 4 },
+          current_research: "automation",
+          research_progress: 0.42,
+        },
+      ];
+      return {
+        ok: true,
+        json: async () => ({
+          data: base64(samples.map((s) => JSON.stringify(s)).join("\n") + "\n"),
+          offset: 1,
+        }),
+      };
+    }
     if (url.startsWith("/api/runs/run1/log")) {
       const batch = currentBatch;
       const data = base64(jsonl(batch));
@@ -239,6 +269,26 @@ test("recording page renders summaries, loops, turns and unread updates", async 
       output.children.some((node) => node.className.includes("msg-time")),
       false,
     );
+
+    // Status metrics come from telemetry: top rate, sparkline bars and research progress.
+    const metrics = nodes.statusMetrics.children.map((node) => node.textContent);
+    assert.ok(
+      metrics.some((text) => /iron-plate 12\/min/.test(text)),
+      `metrics: ${metrics.join(" | ")}`,
+    );
+    assert.ok(
+      metrics.some((text) => /research automation 42%/.test(text)),
+      `metrics: ${metrics.join(" | ")}`,
+    );
+    assert.ok(nodes.statusMetrics.children.some((node) => node.className.includes("metric-spark")));
+
+    // Filter chips hide non-matching transcript entries and persist the choice.
+    nodes.filterThinking.fire("click");
+    assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, true);
+    assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, false);
+    assert.equal(storage.get("autorio.filter"), "thinking");
+    nodes.filterAll.fire("click");
+    assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, false);
 
     // User scrolled up; the next live batch shows the unread pill and clicking jumps down.
     output.scrollHeight = 1000;

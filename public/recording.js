@@ -10,6 +10,12 @@ import {
   classifyActivity,
   formatRelativeMs,
   LoopDetector,
+  isDecisionText,
+  miniBars,
+  parseTelemetryLines,
+  telemetryRates,
+  telemetrySeries,
+  telemetryResearch,
 } from "./transcript-view-model.js";
 const output = document.getElementById("codexOutput");
 const params = new URLSearchParams(location.search);
@@ -28,12 +34,32 @@ const openReasoning = [];
 let streamStart = 0;
 let firstBatch = true;
 let unread = 0;
+const MAX_RENDERED_NODES = 400;
+const MAX_COMMANDS_PER_GROUP = 120;
+let telemetryOffset = 0;
+let telemetrySamples = [];
+let lastTelemetryAt = 0;
+let lastErrorText = "";
+let filterMode = "all";
+let searchQuery = "";
+let trimmedCount = 0;
+let trimNote = null;
 const statusState = document.getElementById("statusState");
 const statusActivity = document.getElementById("statusActivity");
 const statusMeta = document.getElementById("statusMeta");
 const statusCurrent = document.getElementById("statusCurrent");
 const statusDone = document.getElementById("statusDone");
 const statusScores = document.getElementById("statusScores");
+const statusMetrics = document.getElementById("statusMetrics");
+const transcriptSearch = document.getElementById("transcriptSearch");
+const FILTER_BUTTONS = {
+  all: document.getElementById("filterAll"),
+  thinking: document.getElementById("filterThinking"),
+  actions: document.getElementById("filterActions"),
+  messages: document.getElementById("filterMessages"),
+  errors: document.getElementById("filterErrors"),
+  decisions: document.getElementById("filterDecisions"),
+};
 const SUBTASKS = ["production", "logistics", "mining", "research", "defense", "exploration"];
 const I18N = {
   en: {
@@ -74,8 +100,20 @@ const I18N = {
     loop: "loop?",
     repeated: "repeated",
     raw: "raw",
+    rateSuffix: "/min",
+    noTelemetry: "no telemetry",
+    researchLabel: "research",
+    trimmed: "earlier entries trimmed",
     expand: "Expand status details",
     collapse: "Collapse status details",
+    filters: {
+      all: "All",
+      thinking: "Thinking",
+      actions: "Actions",
+      messages: "Messages",
+      errors: "Errors",
+      decisions: "Decisions",
+    },
   },
   zh: {
     states: {
@@ -115,8 +153,20 @@ const I18N = {
     loop: "循环?",
     repeated: "重复",
     raw: "原始",
+    rateSuffix: "/分",
+    noTelemetry: "无遥测数据",
+    researchLabel: "研究",
+    trimmed: "更早记录已裁剪",
     expand: "展开状态详情",
     collapse: "收起状态详情",
+    filters: {
+      all: "全部",
+      thinking: "思考",
+      actions: "动作",
+      messages: "消息",
+      errors: "错误",
+      decisions: "决策",
+    },
   },
 };
 let lastStatusAt = 0,
@@ -170,6 +220,7 @@ function renderStatus(run) {
     document.documentElement.lang = uiLang === "zh" ? "zh-CN" : "en";
   }
   const strings = I18N[uiLang] || I18N.en;
+  updateTranscriptTools(strings);
   const state = run.state || "—";
   statusState.textContent = strings.states[state] || state;
   statusState.className = `status-badge ${state}`;
@@ -293,6 +344,9 @@ function renderCommand(item) {
   );
   const label = timeLabel(item);
   entry.node.replaceChildren(...[badge, main, raw].concat(label ? [element("span", label, "msg-time")] : []));
+  entry.node._kind = "commands";
+  if (summary.failed) lastErrorText = `${summary.label}${summary.target ? ` ${summary.target}` : ""} failed`;
+  else if (item.status === "completed") lastErrorText = "";
   if ((item.status === "completed" || item.status === "failed") && !entry.loopCounted) {
     entry.loopCounted = true;
     const repeat = loops.push(summary.key);
@@ -304,6 +358,19 @@ function renderCommand(item) {
   }
   group.items.set(item.id, item);
   refreshCommandGroup(group);
+  // Keep very long command groups bounded; raw logs still contain everything.
+  if (typeof group.details.removeChild === "function") {
+    while (group.details.children.length > MAX_COMMANDS_PER_GROUP) {
+      const first = group.details.firstChild;
+      if (!first) break;
+      group.details.removeChild(first);
+    }
+  }
+  while (group.items.size > MAX_COMMANDS_PER_GROUP * 2) {
+    const oldest = group.items.keys().next().value;
+    if (oldest === undefined) break;
+    group.items.delete(oldest);
+  }
 }
 function renderReasoning(item) {
   commandGroup = null;
@@ -332,6 +399,8 @@ function renderReasoning(item) {
   const body = element("div", "", "reasoning-body");
   body.textContent = collapseRepeatedSentences(text);
   node.append(summary, body);
+  node._kind = "reasoning";
+  node._decision = isDecisionText(text);
   output.append(node);
   const entry = { node, badge, count: 1 };
   entries.set(item.id, entry);
@@ -360,6 +429,9 @@ function renderMessage(item) {
     entry = { node, body };
     entries.set(item.id, entry);
   }
+  entry.node._kind = "message";
+  entry.node._error = item.type === "error";
+  if (item.type === "error") lastErrorText = String(item.text || "agent error").slice(0, 80);
   entry.node.classList.toggle("error", item.type === "error");
   entry.body.textContent = item.text || "";
 }
@@ -377,6 +449,7 @@ function renderTool(item) {
     if (label) summary.append(element("span", label, "msg-time"));
     output.append(node);
     entry = { node, summary, raw, title: "" };
+    node._kind = "tool";
     entries.set(item.id, entry);
   }
   const info = summarizeTool(item);
@@ -399,8 +472,141 @@ function render(item) {
 }
 function appendTurn(generation) {
   commandGroup = null;
-  output.append(element("div", `${strings().turn} ${generation}`, "turn-separator"));
+  const divider = element("div", `${strings().turn} ${generation}`, "turn-separator");
+  divider._kind = "turn";
+  output.append(divider);
 }
+function updateTranscriptTools(text) {
+  for (const [mode, button] of Object.entries(FILTER_BUTTONS)) {
+    if (button) button.textContent = text.filters?.[mode] || mode;
+  }
+  if (transcriptSearch) transcriptSearch.placeholder = uiLang === "zh" ? "过滤内容…" : "Filter…";
+}
+function nodeMatchesFilter(node) {
+  if (
+    searchQuery &&
+    !String(node.textContent || "")
+      .toLowerCase()
+      .includes(searchQuery)
+  )
+    return false;
+  if (filterMode === "all") return true;
+  const kind = node._kind;
+  if (filterMode === "thinking") return kind === "reasoning";
+  if (filterMode === "actions") return kind === "commands";
+  if (filterMode === "messages") return kind === "message";
+  if (filterMode === "errors")
+    return Boolean(node._error) || (kind === "commands" && node.classList.contains("failed"));
+  if (filterMode === "decisions") return kind === "reasoning" && Boolean(node._decision);
+  return true;
+}
+function applyFilters() {
+  if (!output) return;
+  for (const node of [...output.children]) {
+    if (node === trimNote) continue;
+    node.hidden = !nodeMatchesFilter(node);
+  }
+}
+function setFilter(mode) {
+  filterMode = mode;
+  for (const [key, button] of Object.entries(FILTER_BUTTONS)) {
+    if (button) button.classList.toggle("active", key === mode);
+  }
+  applyFilters();
+  try {
+    localStorage.setItem("autorio.filter", mode);
+  } catch {
+    /* localStorage may be unavailable */
+  }
+}
+function trimTranscript() {
+  if (typeof output.removeChild !== "function") return;
+  while (output.children.length > MAX_RENDERED_NODES) {
+    const first = output.firstChild;
+    if (!first) break;
+    output.removeChild(first);
+    trimmedCount += 1;
+  }
+  if (!trimmedCount) return;
+  if (!trimNote) {
+    trimNote = element("div", "", "trimmed-note");
+    output.prepend(trimNote);
+  }
+  trimNote.textContent = `${trimmedCount} ${strings().trimmed}`;
+}
+function renderMetrics() {
+  if (!statusMetrics) return;
+  const text = strings();
+  const children = [];
+  if (telemetrySamples.length) {
+    const rates = telemetryRates(telemetrySamples, { limit: 2 });
+    const top = rates[0];
+    if (top) {
+      children.push(element("span", `${top.name} ${Math.round(top.rate)}${text.rateSuffix}`, "metric"));
+      const spark = element("span", "", "metric-spark");
+      for (const width of miniBars(telemetrySeries(telemetrySamples, top.name, 8))) {
+        const bar = element("span", "", "metric-bar");
+        bar.style.width = `${Math.max(8, width)}%`;
+        spark.append(bar);
+      }
+      children.push(spark);
+    }
+    const research = telemetryResearch(telemetrySamples);
+    if (research) children.push(element("span", `${text.researchLabel} ${research}`, "metric"));
+  } else {
+    children.push(element("span", text.noTelemetry, "metric muted"));
+  }
+  if (lastErrorText) children.push(element("span", `⚠ ${lastErrorText}`, "metric error"));
+  statusMetrics.replaceChildren(...children);
+  statusMetrics.hidden = children.length === 0;
+}
+async function pollTelemetry() {
+  if (!id || mode !== "events") return;
+  if (Date.now() - lastTelemetryAt < 1500) return;
+  lastTelemetryAt = Date.now();
+  try {
+    const response = await fetch(
+      `/api/runs/${encodeURIComponent(id)}/log?source=telemetry&offset=${telemetryOffset}`,
+    );
+    if (!response.ok) return;
+    const log = await response.json();
+    const bytes = Uint8Array.from(atob(log.data || ""), (c) => c.charCodeAt(0));
+    const samples = parseTelemetryLines(new TextDecoder().decode(bytes));
+    telemetryOffset = log.offset ?? telemetryOffset;
+    if (!samples.length) return;
+    telemetrySamples = telemetrySamples.concat(samples).slice(-120);
+    renderMetrics();
+  } catch {
+    /* telemetry is optional */
+  }
+}
+function restorePreferences() {
+  try {
+    const stored = localStorage.getItem("autorio.filter");
+    if (stored) filterMode = stored;
+    const query = localStorage.getItem("autorio.search");
+    if (query && transcriptSearch) {
+      searchQuery = query.toLowerCase();
+      transcriptSearch.value = query;
+    }
+    transcriptSearch?.addEventListener("input", () => {
+      searchQuery = transcriptSearch.value.trim().toLowerCase();
+      try {
+        localStorage.setItem("autorio.search", transcriptSearch.value);
+      } catch {
+        /* localStorage may be unavailable */
+      }
+      applyFilters();
+    });
+    for (const [mode, button] of Object.entries(FILTER_BUTTONS)) {
+      button?.addEventListener("click", () => setFilter(mode));
+    }
+    setFilter(filterMode);
+  } catch {
+    /* preferences are optional */
+  }
+}
+restorePreferences();
 async function poll() {
   try {
     if (!id) {
@@ -472,6 +678,12 @@ async function poll() {
           jumpButton.hidden = false;
         }
       }
+      if (mode === "events") {
+        applyFilters();
+        trimTranscript();
+      }
+      renderMetrics();
+      void pollTelemetry();
       offset = log.offset;
     }
     document.title = "Agent transcript";

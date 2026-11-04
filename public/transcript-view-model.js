@@ -265,7 +265,7 @@ function summarizeEnvelope(action, category, { envelope }) {
   if (envelope?.error) return String(envelope.error).slice(0, 120);
   if (data?.error) return String(data.error).slice(0, 120);
   const results = Array.isArray(data?.results) ? data.results : null;
-  if (results && (category === "build" || category === "mine" || category === "deconstruct")) {
+  if (results && ["build", "mine", "deconstruct", "settings"].includes(category)) {
     const ok = results.filter((result) => result?.ok !== false).length;
     const failed = results.length - ok;
     const mined = results.reduce((sum, result) => sum + (Number(result?.mined_count) || 0), 0);
@@ -286,6 +286,40 @@ function summarizeEnvelope(action, category, { envelope }) {
         .map(([name, rate]) => `${name} ${Math.round(Number(rate))}/min`);
       if (top.length) return top.join(" · ");
       return "idle";
+    }
+    if (action === "observe-area") {
+      const counts = data?.counts || {};
+      const shown = counts.included ?? counts.matched ?? counts.total;
+      const matched = counts.matched ?? counts.total;
+      if (shown != null) return `${shown}/${matched != null ? matched : shown} entities`;
+    }
+    if (action === "observe-fluids") {
+      const fluids = data?.fluids || {};
+      const top = Object.entries(fluids)
+        .map(([name, value]) => [name, Number(value?.amount ?? value) || 0])
+        .sort((left, right) => right[1] - left[1])[0];
+      if (top && top[1] > 0) return `${top[0]} ${Math.round(top[1])}`;
+      return data?.counts ? `${data.counts.pipe || data.counts.tank || "0"} fluid entities` : "no fluid";
+    }
+    if (action === "observe-combat") {
+      const counts = data?.counts || {};
+      return `${counts.enemy_total || 0} enemies · ${counts.turrets || 0} turrets`;
+    }
+    if (action === "observe-player") {
+      const player = data?.player || data;
+      if (player?.health != null) return `health ${player.health}`;
+    }
+    if (action === "observe-factory") {
+      const activeProblems = Object.entries(data?.problems || {})
+        .map(([name, list]) => [name, Array.isArray(list) ? list.length : Number(list) || 0])
+        .filter(([, count]) => count > 0)
+        .slice(0, 3)
+        .map(([name, count]) => `${count} ${name}`);
+      if (activeProblems.length) return activeProblems.join(" · ");
+      if (data?.counts && typeof data.counts === "object") {
+        const count = Object.values(data.counts).find((value) => typeof value === "number");
+        if (count != null) return `${count} entities`;
+      }
     }
     if (data?.counts) {
       const count = Object.values(data.counts).find((value) => typeof value === "number");
@@ -326,8 +360,9 @@ function summarizeRawOutput(item) {
   return clean.length > 120 ? `${clean.slice(0, 119)}…` : clean;
 }
 
-/** Aggregate a command group: "12 build · 3 mine · 1 failed". */
-export function summarizeCommandGroup(items) {
+/** Aggregate a command group: "12 build · 3 mine · 1 failed". */ export function summarizeCommandGroup(
+  items,
+) {
   const counts = new Map();
   let failed = 0;
   let running = false;
@@ -408,4 +443,72 @@ export class LoopDetector {
     this.keys = [];
     this.counts.clear();
   }
+}
+
+/** True when a reasoning block contains a plan/decision keyword (filter mode). */
+export function isDecisionText(text) {
+  return PLAN_WORDS.test(normalizeReasoning(text));
+}
+
+/** Normalize a numeric series into bar widths 0..100 (sparkline via div bars). */
+export function miniBars(values, segments = 8) {
+  const numeric = (Array.isArray(values) ? values : [])
+    .map((value) => Number(value) || 0)
+    .slice(-Math.max(1, segments));
+  if (!numeric.length) return [];
+  const max = Math.max(1, ...numeric);
+  return numeric.map((value) => Math.round((value / max) * 100));
+}
+
+/** Parse JSONL telemetry samples (raw text → objects, skipping malformed lines). */
+export function parseTelemetryLines(text) {
+  const samples = [];
+  for (const line of String(text ?? "").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{")) continue;
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object") samples.push(parsed);
+    } catch {
+      /* skip malformed telemetry lines */
+    }
+  }
+  return samples;
+}
+
+/** Production rates per item from the most recent sample that has rates. */
+export function telemetryRates(samples, { limit = 2 } = {}) {
+  const withRates = (Array.isArray(samples) ? samples : [])
+    .filter(
+      (sample) => sample?.production_per_game_minute && typeof sample.production_per_game_minute === "object",
+    )
+    .at(-1);
+  if (!withRates) return [];
+  return Object.entries(withRates.production_per_game_minute)
+    .map(([name, rate]) => ({ name, rate: Number(rate) || 0 }))
+    .filter((entry) => entry.rate > 0)
+    .sort((left, right) => right.rate - left.rate)
+    .slice(0, Math.max(1, limit));
+}
+
+/** Rate series for one item across telemetry samples (for the mini sparkline). */
+export function telemetrySeries(samples, item, segments = 8) {
+  if (!item) return [];
+  return (Array.isArray(samples) ? samples : [])
+    .filter(
+      (sample) => sample?.production_per_game_minute && typeof sample.production_per_game_minute === "object",
+    )
+    .slice(-Math.max(1, segments))
+    .map((sample) => Number(sample.production_per_game_minute[item]) || 0);
+}
+
+/** Research label from the latest sample with research data: "automation 42%". */
+export function telemetryResearch(samples) {
+  const withResearch = (Array.isArray(samples) ? samples : [])
+    .filter((sample) => sample?.current_research)
+    .at(-1);
+  if (!withResearch) return null;
+  const name = withResearch.current_research;
+  const progress = Number(withResearch.research_progress);
+  return Number.isFinite(progress) ? `${name} ${Math.round(progress * 100)}%` : String(name);
 }
