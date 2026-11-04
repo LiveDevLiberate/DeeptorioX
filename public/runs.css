@@ -2588,3 +2588,15 @@ body.overlay #agentStatus {
 body.recording [hidden] {
   display: none !important;
 }
+
+/* The status toggle is a compact-header control: collapse every detail row,
+   leaving only the state/activity/meta line for recording or OBS. */
+#agentStatus.collapsed .status-current,
+#agentStatus.collapsed .status-done,
+#agentStatus.collapsed .status-metrics,
+#agentStatus.collapsed .status-scores {
+  display: none;
+}
+body.recording .status-toggle {
+  cursor: pointer;
+}

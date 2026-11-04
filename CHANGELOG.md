@@ -9,6 +9,16 @@ this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Status-collapse button now has a clear job.** It used to hide only the
+  score/done rows, which are empty in runs without `STATE.md`, so it looked
+  dead. It now collapses every detail row (current plan, done-when, metrics,
+  scores) and leaves a one-line compact header for recording/OBS; the preference
+  is persisted, the header defaults to collapsed in `?overlay=1`, tooltip/aria
+  labels follow the UI language, and `?status=collapsed|expanded` overrides it
+  for screenshots/tests.
+
 ## [0.11.0] - 2026-11-04
 
 ### Changed

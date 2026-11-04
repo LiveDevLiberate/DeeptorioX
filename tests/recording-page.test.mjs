@@ -328,6 +328,16 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     assert.equal(emptyNote.hidden, true);
     nodes.filterAll.fire("click");
 
+    // The status toggle is a compact-header control (collapses all detail rows).
+    // The fake page URL uses overlay=1, so the header starts collapsed.
+    assert.equal(nodes.agentStatus.classList.contains("collapsed"), true);
+    nodes.statusToggle.fire("click");
+    assert.equal(nodes.agentStatus.classList.contains("collapsed"), false);
+    assert.equal(nodes.statusToggle.textContent, "▾");
+    nodes.statusToggle.fire("click");
+    assert.equal(nodes.agentStatus.classList.contains("collapsed"), true);
+    assert.equal(nodes.statusToggle.textContent, "▸");
+
     // User scrolled up; the next live batch shows the unread pill and clicking jumps down.
     output.scrollHeight = 1000;
     output.clientHeight = 300;

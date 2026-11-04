@@ -191,11 +191,29 @@ let lastStatusAt = 0,
   uiLang;
 const statusHeader = document.getElementById("agentStatus");
 const statusToggle = document.getElementById("statusToggle");
-statusToggle?.addEventListener("click", () => {
-  const collapsed = statusHeader.classList.toggle("collapsed");
+const STATUS_COLLAPSED_KEY = "autorio.statusCollapsed";
+function updateStatusToggleLabel() {
+  if (!statusToggle || !statusHeader) return;
+  const collapsed = statusHeader.classList.contains("collapsed");
   const strings = I18N[uiLang || "en"];
   statusToggle.textContent = collapsed ? "▸" : "▾";
   statusToggle.setAttribute("aria-label", collapsed ? strings.expand : strings.collapse);
+  statusToggle.setAttribute("title", collapsed ? strings.expand : strings.collapse);
+}
+function setStatusCollapsed(collapsed, persist = false) {
+  if (!statusHeader) return;
+  statusHeader.classList.toggle("collapsed", collapsed);
+  updateStatusToggleLabel();
+  if (persist) {
+    try {
+      localStorage.setItem(STATUS_COLLAPSED_KEY, collapsed ? "1" : "0");
+    } catch {
+      /* localStorage may be unavailable */
+    }
+  }
+}
+statusToggle?.addEventListener("click", () => {
+  setStatusCollapsed(!statusHeader.classList.contains("collapsed"), true);
 });
 document.title = "Agent transcript";
 function element(tag, text, className) {
@@ -577,6 +595,7 @@ function updateTranscriptTools(text) {
     button.setAttribute("aria-pressed", button.classList.contains("active") ? "true" : "false");
   }
   if (transcriptSearch) transcriptSearch.placeholder = uiLang === "zh" ? "过滤内容…" : "Filter…";
+  updateStatusToggleLabel();
 }
 function nodeMatchesFilter(node) {
   if (
@@ -753,6 +772,21 @@ function restorePreferences() {
   }
 }
 restorePreferences();
+try {
+  const storedCollapse = localStorage.getItem(STATUS_COLLAPSED_KEY);
+  const requestedStatus = params.get("status");
+  setStatusCollapsed(
+    requestedStatus === "collapsed"
+      ? true
+      : requestedStatus === "expanded"
+        ? false
+        : storedCollapse === null
+          ? params.get("overlay") === "1"
+          : storedCollapse === "1",
+  );
+} catch {
+  setStatusCollapsed(params.get("overlay") === "1" || params.get("status") === "collapsed");
+}
 async function poll() {
   try {
     if (!id) {
