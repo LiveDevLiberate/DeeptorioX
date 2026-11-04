@@ -9,6 +9,19 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Recording transcript visual refresh.** The live thinking window now uses a
+  terminal-dashboard look: glassy status header with a state pill, pulsing
+  activity dot and telemetry metric chips; centered 1000px transcript column;
+  reasoning and command groups as bordered cards with CSS-triangle chevrons;
+  colour-coded action badges (build/mine/observe/recipe/…), inline raw toggles,
+  turn dividers, styled scrollbars and a floating unread pill. Terminal runs no
+  longer show a duplicate English activity label or an empty six-score row, and
+  long paths/messages wrap on narrow widths. `?overlay=1` keeps the larger-text
+  transparent variant. Functional behaviour and DOM hooks are unchanged
+  (front-end tests still pass).
+
 ## [0.7.1] - 2026-11-04
 
 ### Fixed

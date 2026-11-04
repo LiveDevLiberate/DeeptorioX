@@ -236,7 +236,11 @@ function renderStatus(run) {
     (activeKey === "thinking" || activeKey === "idle") && lastEventAt
       ? Math.max(0, Math.round((Date.now() - lastEventAt) / 1000))
       : 0;
-  statusActivity.textContent = `${strings.activity[activeKey] || activeKey}${waitSeconds ? ` ${waitSeconds}s` : ""}`;
+  const terminalState = !["running", "preparing", "launching", "saving"].includes(state);
+  statusActivity.classList.toggle("idle", terminalState);
+  statusActivity.textContent = terminalState
+    ? ""
+    : `${strings.activity[activeKey] || activeKey}${waitSeconds ? ` ${waitSeconds}s` : ""}`;
   const usage = run.usage || {};
   const tokens = usage.total_tokens ?? (usage.input_tokens || 0) + (usage.output_tokens || 0);
   const context = run.context_limit
@@ -258,14 +262,25 @@ function renderStatus(run) {
     : false;
   if (planStale) {
     statusCurrent.textContent = `⚠ ${strings.plan} stale${research ? ` · ${research}` : ""}`;
+    statusCurrent.hidden = false;
     statusDone.textContent = "";
+    statusDone.hidden = true;
     statusHeader?.classList.add("stale-plan");
   } else {
-    statusCurrent.textContent = current ? `▶ ${current}` : research || strings.pending;
+    const planLine = current ? `▶ ${current}` : research || (terminalState ? "" : strings.pending);
+    statusCurrent.textContent = planLine;
+    statusCurrent.hidden = !planLine;
     statusDone.textContent = done ? `${strings.done}: ${done}` : "";
+    statusDone.hidden = !done;
     statusHeader?.classList.remove("stale-plan");
   }
   const scores = parseScores(markdown);
+  const hasScores = SUBTASKS.some((key) => scores[key] != null);
+  statusScores.hidden = !hasScores;
+  if (!hasScores) {
+    statusScores.replaceChildren();
+    return;
+  }
   statusScores.replaceChildren(
     ...SUBTASKS.map((key) => {
       const row = element("div", "", "score");
