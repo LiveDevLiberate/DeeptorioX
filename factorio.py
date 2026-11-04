@@ -6,11 +6,13 @@ Provides both an importable client and a command-line interface for agents.
 
 from __future__ import annotations
 
+import base64
 import json
 import math
 import os
 import sys
 import time
+import zlib
 from dataclasses import dataclass, field
 from typing import Any, Callable
 from urllib.error import HTTPError
@@ -23,11 +25,26 @@ API_SCHEMA_VERSION = 2
 POLL_INTERVAL_SECONDS = 0.25
 MISSING = object()
 
+# Factorio blueprint strings are a one-character format version ("0"), then
+# base64(zlib(JSON)). Older and third-party strings omit either wrapper, so the
+# decoder tolerates a missing prefix and an in-payload version byte as well.
+BLUEPRINT_VERSION_PREFIX = "0"
+BLUEPRINT_MAX_ENTITIES_PER_JOB = 50
+BLUEPRINT_MAX_DECOMPRESSED_BYTES = 32 * 1024 * 1024
+BLUEPRINT_BASE64_ALPHABET = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+)
+
 __all__ = [
     "FactorioClient",
     "action_job_ok",
+    "blueprint_entities_count",
+    "blueprint_required_items",
     "compact",
     "data_value",
+    "decode_blueprint_string",
+    "encode_blueprint_string",
+    "expand_blueprint",
     "http_request",
     "parse_entities",
     "parse_targets",
@@ -59,6 +76,7 @@ Commands:
   act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]
   act-build-belt --from x,y --to x,y [--name transport-belt] [--no-clear]
   act-build-loader --from x,y --to x,y [--name inserter] [--no-clear]
+  act-build-blueprint (--blueprint-file <path>|--blueprint <string>) [--anchor x,y] [--dry-run] [--no-clear]
   act-mine --target x,y [--target ...] [--resource [name]] [--targets-json <json>]
   act-rotate --target x,y [--target ...] [--targets-json <json>]
   act-move --target x,y [--target ...] [--targets-json <json>]
@@ -108,6 +126,7 @@ COMMAND_USAGE = {
     "observe-entity-prototype": "observe-entity-prototype: Look up entity dimensions, fluid connections, energy info.\nUsage: factorio.py observe-entity-prototype --name <entity-name>\n",
     "observe-placement": "observe-placement: Analyze buildability without consuming an item.\nUsage: factorio.py observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]\n",
     "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]\n   or: factorio.py act-build --entities-json <json> [--no-clear]\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding. Trees and rocks in the\nfootprint are mined before placement unless --no-clear is given.\n",
+    "act-build-blueprint": "act-build-blueprint: Expand a Factorio blueprint string and build it in batches of at most 50 entities.\nUsage: factorio.py act-build-blueprint --blueprint-file <path> [--anchor x,y] [--dry-run] [--no-clear]\n   or: factorio.py act-build-blueprint --blueprint <string> [--anchor x,y] [--dry-run] [--no-clear]\nPosition: blueprint positions are map coordinates; --anchor moves the whole plan so its top-left tile lands there.\nDirections: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nDry run: prints the expanded entities, placement analysis, and missing items without building.\nNote: Recipes, filters and module settings inside the blueprint are NOT applied; set them with\nact-set-recipe afterwards. The character walks between entities, so a large plan takes many minutes.\n",
     "act-mine": "act-mine: Mine a resource or entity at target tile coordinates.\nUsage: factorio.py act-mine --target x,y [--target ...] [--resource [name]]\n   or: factorio.py act-mine --targets-json <json>\nResource mode excludes the character and prioritizes the requested resource deterministically.\nNote: The character walks into reach and performs one native mining cycle per target (one extraction for a resource vein).\n",
     "act-rotate": "act-rotate: Rotate entities at target tile coordinates (first entity at each point).\nUsage: factorio.py act-rotate --target x,y [--target ...]\n   or: factorio.py act-rotate --targets-json <json>\nDirection (in results): 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding.\n",
     "act-move": "act-move: Move the player through paced, collision-checked steps to target tile coordinates.\nUsage: factorio.py act-move --target x,y [--target ...]\n   or: factorio.py act-move --targets-json <json>\nNote: Stops and returns partial progress if an intermediate step is blocked.\n",
@@ -294,6 +313,305 @@ def loader_entity(source: dict[str, Any], target: dict[str, Any],
         raise ValueError("loader endpoints must be exactly two tiles apart")
     direction = 4 if dx > 0 else 12 if dx < 0 else 8 if dy > 0 else 0
     return {"name": name, "x": x1 + dx, "y": y1 + dy, "direction": direction}
+
+
+def _decode_blueprint_base64(text: str) -> bytes:
+    cleaned = "".join(text.split())
+    if not cleaned:
+        raise ValueError("blueprint string is empty")
+    unexpected = sorted({char for char in cleaned if char not in BLUEPRINT_BASE64_ALPHABET})
+    if unexpected:
+        raise ValueError("blueprint string is not valid base64 (unexpected character)")
+    # Some pasted strings lose their trailing padding; restore it before decoding.
+    padded = cleaned + "=" * (-len(cleaned) % 4)
+    try:
+        return base64.b64decode(padded, validate=True)
+    except ValueError as error:
+        raise ValueError(f"blueprint string is not valid base64: {error}") from error
+
+
+def _inflate_blueprint(payload: bytes) -> bytes:
+    if not payload:
+        raise ValueError("blueprint data is empty")
+    decompressor = zlib.decompressobj()
+    try:
+        data = decompressor.decompress(payload, BLUEPRINT_MAX_DECOMPRESSED_BYTES + 1)
+    except zlib.error as error:
+        raise ValueError(f"blueprint data is not valid zlib: {error}") from error
+    if decompressor.unconsumed_tail:
+        raise ValueError("blueprint is too large to expand")
+    try:
+        data += decompressor.flush()
+    except zlib.error as error:
+        raise ValueError(f"blueprint data is not valid zlib: {error}") from error
+    if not decompressor.eof:
+        raise ValueError("blueprint data is not a complete zlib stream")
+    if len(data) > BLUEPRINT_MAX_DECOMPRESSED_BYTES:
+        raise ValueError("blueprint is too large to expand")
+    return data
+
+
+def _strip_blueprint_version(data: bytes) -> bytes:
+    """Drop an in-payload format version byte (legacy/tolerated variant)."""
+    if not data:
+        raise ValueError("blueprint data is empty")
+    if data.startswith(b"{"):
+        return data
+    if data[:1] in (b"\x00", b"\x01"):
+        return data[1:]
+    raise ValueError(
+        "blueprint data has an unsupported format version; expected a Factorio blueprint string"
+    )
+
+
+def _decode_blueprint_body(text: str) -> dict[str, Any]:
+    """Decode the version-stripped base64(zlib(JSON)) body of a blueprint string."""
+    payload = _strip_blueprint_version(_inflate_blueprint(_decode_blueprint_base64(text)))
+    try:
+        decoded = payload.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError(f"blueprint JSON is not valid UTF-8: {error}") from error
+    try:
+        parsed = json.loads(decoded)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"blueprint JSON is invalid: {error}") from error
+    if not isinstance(parsed, dict):
+        raise ValueError("blueprint JSON must be an object")
+    return parsed
+
+
+def decode_blueprint_string(text: str) -> dict[str, Any]:
+    """Decode a Factorio blueprint string into its JSON payload.
+
+    Factorio stores blueprints as a one-character format version (normally
+    ``"0"``) followed by ``base64(zlib(JSON))``. This also accepts older
+    versionless/third-party strings, both with and without the version prefix.
+    Raises ``ValueError`` with a stage-specific message for corrupt base64,
+    zlib, or JSON.
+    """
+    if not isinstance(text, str):
+        raise ValueError("blueprint string must be a string")
+    cleaned = "".join(text.split())
+    if not cleaned:
+        raise ValueError("blueprint string is empty")
+    prefixed_error: ValueError | None = None
+    if len(cleaned) > 1 and cleaned[0].isdigit():
+        try:
+            return _decode_blueprint_body(cleaned[1:])
+        except ValueError as error:
+            prefixed_error = error
+    try:
+        return _decode_blueprint_body(cleaned)
+    except ValueError as error:
+        if prefixed_error is not None:
+            raise prefixed_error from error
+        raise
+
+
+def encode_blueprint_string(blueprint: dict[str, Any]) -> str:
+    """Encode a blueprint JSON payload into an importable Factorio blueprint string.
+
+    Inverse of :func:`decode_blueprint_string`; the output round-trips exactly
+    and uses Factorio's own ``"0" + base64(zlib(JSON))`` wire format.
+    """
+    if not isinstance(blueprint, dict):
+        raise ValueError("blueprint must be a dict")
+    payload = json.dumps(blueprint, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return BLUEPRINT_VERSION_PREFIX + base64.b64encode(zlib.compress(payload, 9)).decode("ascii")
+
+
+def _coerce_blueprint(blueprint: Any) -> dict[str, Any]:
+    if isinstance(blueprint, str):
+        return decode_blueprint_string(blueprint)
+    if isinstance(blueprint, dict):
+        return blueprint
+    raise ValueError("blueprint must be a blueprint string or a decoded dict")
+
+
+def _blueprint_entities(blueprint: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the entity list from a blueprint payload (wrapped or bare)."""
+    root = blueprint.get("blueprint")
+    if not isinstance(root, dict):
+        if isinstance(blueprint.get("entities"), list):
+            root = blueprint
+        elif "blueprint_book" in blueprint:
+            raise ValueError("blueprint books are not supported; export a single blueprint")
+        else:
+            raise ValueError("blueprint payload has no 'blueprint' object")
+    entities = root.get("entities", [])
+    if entities is None:
+        entities = []
+    if not isinstance(entities, list):
+        raise ValueError("blueprint entities must be a list")
+    for index, entity in enumerate(entities):
+        if not isinstance(entity, dict):
+            raise ValueError(f"blueprint entity {index} is not an object")
+    return entities
+
+
+def _blueprint_point(value: Any, label: str) -> tuple[float, float]:
+    if isinstance(value, dict):
+        raw_x, raw_y = value.get("x"), value.get("y")
+    elif isinstance(value, (list, tuple)) and len(value) == 2:
+        raw_x, raw_y = value
+    else:
+        raise ValueError(f"{label} must be {{'x': number, 'y': number}} or (x, y)")
+    try:
+        x, y = float(raw_x), float(raw_y)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{label} must contain numbers") from error
+    if not (math.isfinite(x) and math.isfinite(y)):
+        raise ValueError(f"{label} must be finite")
+    return x, y
+
+
+def _prototype_size(prototype_sizes: dict[str, Any] | None, name: str) -> tuple[int, int] | None:
+    """Resolve a prototype footprint from a name-keyed size map, if valid."""
+    if not prototype_sizes:
+        return None
+    value = prototype_sizes.get(name)
+    if isinstance(value, dict):
+        width, height = value.get("width"), value.get("height")
+    elif isinstance(value, (list, tuple)) and len(value) == 2:
+        width, height = value
+    else:
+        return None
+    try:
+        size = (int(width), int(height))
+    except (TypeError, ValueError):
+        return None
+    return size if size[0] > 0 and size[1] > 0 else None
+
+
+def expand_blueprint(
+    blueprint: Any,
+    *,
+    anchor: Any = None,
+    offset: tuple[float, float] = (0, 0),
+    prototype_sizes: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Convert a blueprint payload into manager build entities.
+
+    Blueprint ``position`` values are the entity *center* in absolute map
+    coordinates. The manager build API expects the integer top-left tile
+    (``anchor``) plus an optional direction, so each center is shifted by half
+    the prototype footprint; footprints rotate for east/west directions (4, 12),
+    exactly like ``agentBuild*Command`` in the manager.
+
+    ``prototype_sizes`` maps an entity name to ``{"width","height"}`` or
+    ``(width, height)``; it is required for correct anchors on entities larger
+    than one tile (assemblers, furnaces, splitters, ...). Without a size the
+    entity is assumed to be 1x1 and its anchor becomes ``floor(position)`` —
+    correct for belts, pipes, inserters, chests, poles and lamps, wrong for
+    larger prototypes, so pass real sizes (``FactorioClient.build_blueprint``
+    fetches them from ``observe-entity-prototype`` automatically).
+
+    ``anchor`` (``{"x","y"}`` or ``(x, y)``) moves the plan so its top-left
+    anchor lands there; ``offset`` is then added to every anchor. Results are
+    sorted deterministically by (y, x, entity_number).
+    """
+    entities = _blueprint_entities(_coerce_blueprint(blueprint))
+    anchor_point = _blueprint_point(anchor, "anchor") if anchor is not None else None
+    offset_x, offset_y = _blueprint_point(offset, "offset")
+    expanded: list[dict[str, Any]] = []
+    entity_numbers: list[int] = []
+    for index, entity in enumerate(entities):
+        name = entity.get("name")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"blueprint entity {index} has no name")
+        position_x, position_y = _blueprint_point(
+            entity.get("position"), f"blueprint entity {index} position"
+        )
+        direction = entity.get("direction")
+        direction_value: int | None = None
+        if direction is not None:
+            try:
+                direction_value = int(direction)
+            except (TypeError, ValueError) as error:
+                raise ValueError(f"blueprint entity {index} has an invalid direction") from error
+            if direction_value not in range(16):
+                raise ValueError(f"blueprint entity {index} direction must be 0-15")
+        size = _prototype_size(prototype_sizes, name)
+        if size is not None:
+            width, height = size
+            if direction_value in (4, 12):
+                width, height = height, width
+            anchor_x = position_x - width / 2
+            anchor_y = position_y - height / 2
+        else:
+            # Unknown footprint: assume 1x1 so the anchor is the top-left tile.
+            anchor_x, anchor_y = math.floor(position_x), math.floor(position_y)
+        item: dict[str, Any] = {
+            "name": name,
+            "anchor": {"x": int(round(anchor_x)), "y": int(round(anchor_y))},
+        }
+        if direction_value is not None:
+            item["direction"] = direction_value
+        number = entity.get("entity_number")
+        expanded.append(item)
+        entity_numbers.append(number if isinstance(number, int) else index)
+    if anchor_point is not None and expanded:
+        shift_x = anchor_point[0] - min(item["anchor"]["x"] for item in expanded)
+        shift_y = anchor_point[1] - min(item["anchor"]["y"] for item in expanded)
+    else:
+        shift_x = shift_y = 0.0
+    shift_x += offset_x
+    shift_y += offset_y
+    if shift_x or shift_y:
+        for item in expanded:
+            item["anchor"]["x"] = int(round(item["anchor"]["x"] + shift_x))
+            item["anchor"]["y"] = int(round(item["anchor"]["y"] + shift_y))
+    order = sorted(
+        range(len(expanded)),
+        key=lambda index: (
+            expanded[index]["anchor"]["y"],
+            expanded[index]["anchor"]["x"],
+            entity_numbers[index],
+            index,
+        ),
+    )
+    return [expanded[index] for index in order]
+
+
+def blueprint_entities_count(blueprint: Any) -> int:
+    """Number of entities in a blueprint payload or blueprint string."""
+    return len(_blueprint_entities(_coerce_blueprint(blueprint)))
+
+
+def blueprint_required_items(
+    blueprint: Any, *, item_names: dict[str, str] | None = None
+) -> dict[str, int]:
+    """Approximate build cost of a blueprint: one place item per entity.
+
+    The Factorio blueprint JSON does not store the item used to place an entity,
+    so the entity name is assumed to be the item name. ``item_names`` maps
+    prototype names to place items for exceptions (for example a modded
+    prototype with a different item). Contents stored on entities (``items``
+    and ``items_in_inventory``, present when the blueprint includes contents)
+    are added on top, so the result is a preflight estimate, not an exact bill.
+    """
+    entities = _blueprint_entities(_coerce_blueprint(blueprint))
+    mapping = item_names or {}
+    required: dict[str, int] = {}
+    for entity in entities:
+        prototype = entity.get("name")
+        if isinstance(prototype, str) and prototype:
+            item = mapping.get(prototype, prototype)
+            required[item] = required.get(item, 0) + 1
+        for field_name in ("items", "items_in_inventory"):
+            contents = entity.get(field_name)
+            if not isinstance(contents, dict):
+                continue
+            for item, count in contents.items():
+                if not isinstance(item, str) or not item:
+                    continue
+                try:
+                    amount = int(count)
+                except (TypeError, ValueError):
+                    continue
+                if amount > 0:
+                    required[item] = required.get(item, 0) + amount
+    return required
 
 
 class FactorioClient:
@@ -507,6 +825,200 @@ class FactorioClient:
         """Build entities after mining trees/rocks from their footprints."""
         return self.submit_action(
             "build", {"entities": entities, "clear_obstacles": clear}, **options)
+
+    def _blueprint_prototype_sizes(
+        self, names: list[str]
+    ) -> tuple[dict[str, dict[str, int]], list[str]]:
+        """Look up entity footprints through observe-entity-prototype (best effort)."""
+        sizes: dict[str, dict[str, int]] = {}
+        warnings: list[str] = []
+        for name in names:
+            try:
+                data = data_value(self.observe_entity_prototype(name))
+            except Exception as error:  # A failed lookup must not abort the build.
+                warnings.append(f"prototype lookup failed for {name}: {error}")
+                continue
+            tile = data.get("tile_size") if isinstance(data, dict) else None
+            if not isinstance(tile, dict):
+                warnings.append(f"prototype {name} has no tile_size; assuming 1x1")
+                continue
+            try:
+                width, height = int(tile.get("width")), int(tile.get("height"))
+            except (TypeError, ValueError):
+                warnings.append(f"prototype {name} has an invalid tile_size; assuming 1x1")
+                continue
+            if width <= 0 or height <= 0:
+                warnings.append(f"prototype {name} has an invalid tile_size; assuming 1x1")
+                continue
+            sizes[name] = {"width": width, "height": height}
+        return sizes, warnings
+
+    def build_blueprint(
+        self,
+        blueprint: Any,
+        *,
+        anchor: Any = None,
+        dry_run: bool = False,
+        clear: bool = True,
+        max_per_job: int = BLUEPRINT_MAX_ENTITIES_PER_JOB,
+        offset: tuple[float, float] = (0, 0),
+        prototype_sizes: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Decode, expand and build a Factorio blueprint string.
+
+        Entities are built in sequential jobs of at most ``max_per_job`` (capped
+        at the manager limit of 50); per-entity results and obstacle clearing
+        summaries are aggregated. Fatal job failures stop the remaining chunks
+        and are reported as ``failed_chunk``/``error``; individual entity
+        failures are returned in ``results`` and make ``ok`` false without
+        aborting later chunks.
+
+        ``dry_run`` builds nothing: it returns the expanded entities, a chunked
+        placement analysis, and the blueprint items missing from the player
+        inventory. ``ok`` is false when a build job fails, when any entity
+        result reports ``ok: false``, or (dry run) when items are missing.
+        ``anchor``/``offset``/``prototype_sizes`` behave like
+        :func:`expand_blueprint`; missing footprints are fetched from
+        ``observe-entity-prototype`` (or pass ``prototype_sizes`` directly).
+        """
+        payload = _coerce_blueprint(blueprint)
+        raw_entities = _blueprint_entities(payload)
+        if not raw_entities:
+            raise ValueError("blueprint contains no entities")
+        limit = int(max_per_job)
+        if limit < 1:
+            raise ValueError("max_per_job must be at least 1")
+        limit = min(limit, BLUEPRINT_MAX_ENTITIES_PER_JOB)
+        sizes: dict[str, Any] = dict(prototype_sizes or {})
+        unique_names = list(
+            dict.fromkeys(
+                entity["name"]
+                for entity in raw_entities
+                if isinstance(entity.get("name"), str) and entity.get("name")
+            )
+        )
+        unresolved = [name for name in unique_names if _prototype_size(sizes, name) is None]
+        warnings: list[str] = []
+        if unresolved:
+            fetched, lookup_warnings = self._blueprint_prototype_sizes(unresolved)
+            sizes.update(fetched)
+            warnings.extend(lookup_warnings)
+            for name in unresolved:
+                if _prototype_size(sizes, name) is None:
+                    warnings.append(
+                        f"unknown footprint for {name}; assuming 1x1 "
+                        "(pass prototype_sizes for an exact anchor)"
+                    )
+        entities = expand_blueprint(payload, anchor=anchor, offset=offset, prototype_sizes=sizes)
+        required = blueprint_required_items(payload)
+        for entity in raw_entities:
+            subtype = entity.get("type")
+            if subtype in ("input", "output"):
+                warnings.append(
+                    f"entity {entity.get('name')} is an underground {subtype}; the build API has "
+                    "no input/output subtype, so underground pairs may not place correctly"
+                )
+        if dry_run:
+            placement_results: list[Any] = []
+            placement_truncated = False
+            for start in range(0, len(entities), BLUEPRINT_MAX_ENTITIES_PER_JOB):
+                response = self.observe_placement(
+                    entities[start:start + BLUEPRINT_MAX_ENTITIES_PER_JOB]
+                )
+                data = data_value(response)
+                if isinstance(data, dict):
+                    placement_results.extend(data.get("results") or [])
+                if isinstance(response, dict) and response.get("truncated"):
+                    placement_truncated = True
+            available = self.inventory_counts()
+            missing_items = [
+                {
+                    "name": name,
+                    "required": count,
+                    "available": available.get(name, 0),
+                    "missing": count - available.get(name, 0),
+                }
+                for name, count in required.items()
+                if count > available.get(name, 0)
+            ]
+            missing_items.sort(key=lambda entry: entry["name"])
+            return {
+                "ok": not missing_items,
+                "entities": entities,
+                "placement": {"results": placement_results, "truncated": placement_truncated},
+                "missing_items": missing_items,
+                "required_items": required,
+                "warnings": warnings,
+            }
+        chunks = [entities[start:start + limit] for start in range(0, len(entities), limit)]
+        jobs: list[Any] = []
+        results: list[Any] = []
+        failed_chunk: int | None = None
+        error: str | None = None
+        cleared = 0
+        skipped: list[Any] = []
+        pending_remaining = 0
+        clearing_ok = True
+        for index, chunk in enumerate(chunks):
+            try:
+                job = self.build(chunk, clear=clear)
+            except Exception as chunk_error:  # Stop launching chunks after a job failure.
+                failed_chunk = index
+                error = str(chunk_error) or chunk_error.__class__.__name__
+                break
+            jobs.append(job)
+            status = job.get("status") if isinstance(job, dict) else None
+            if not isinstance(job, dict) or status in ("failed", "cancelled"):
+                failed_chunk = index
+                error = (
+                    str(job.get("error"))
+                    if isinstance(job, dict) and job.get("error")
+                    else f"build job for chunk {index} {status or 'failed'}"
+                )
+                break
+            chunk_results = job.get("results")
+            if not isinstance(chunk_results, list) or not chunk_results:
+                failed_chunk = index
+                error = f"build job for chunk {index} returned no results"
+                break
+            results.extend(chunk_results)
+            for result in chunk_results:
+                clearing = result.get("clearing") if isinstance(result, dict) else None
+                if not isinstance(clearing, dict):
+                    continue
+                cleared_entries = clearing.get("cleared")
+                if isinstance(cleared_entries, list):
+                    cleared += len(cleared_entries)
+                if isinstance(clearing.get("skipped"), list):
+                    skipped.extend(clearing["skipped"])
+                try:
+                    pending_remaining += int(clearing.get("pending_remaining") or 0)
+                except (TypeError, ValueError):
+                    pass
+                if clearing.get("ok") is False:
+                    clearing_ok = False
+        ok = failed_chunk is None and bool(results) and all(
+            isinstance(result, dict) and result.get("ok") is not False for result in results
+        )
+        summary: dict[str, Any] = {
+            "ok": ok,
+            "blueprint_entities": len(entities),
+            "chunks": len(chunks),
+            "max_per_job": limit,
+            "results": results,
+            "clearing": {
+                "ok": clearing_ok,
+                "cleared": cleared,
+                "skipped": skipped,
+                "pending_remaining": pending_remaining,
+            },
+            "job_ids": [job.get("job_id") for job in jobs if isinstance(job, dict)],
+            "warnings": warnings,
+        }
+        if failed_chunk is not None:
+            summary["failed_chunk"] = failed_chunk
+            summary["error"] = error
+        return summary
 
     def mine(self, targets: list[dict[str, Any]], **options: Any) -> Any:
         return self.submit_action("mine", {"targets": targets}, **options)
@@ -797,6 +1309,37 @@ def run(argv: list[str]) -> int:
             end = parse_targets([end_value], False)[0]
             job = submit("build", {"entities": [loader_entity(start, end, flag("name") or "inserter")],
                                    "clear_obstacles": not bool(flag("no-clear"))})
+        elif cmd == "act-build-blueprint":
+            blueprint_file = flag("blueprint-file")
+            blueprint_string = flag("blueprint")
+            if blueprint_file:
+                try:
+                    with open(blueprint_file, "r", encoding="utf-8") as handle:
+                        blueprint_text = handle.read()
+                except OSError as error:
+                    raise ValueError(
+                        f"Cannot read --blueprint-file {blueprint_file!r}: {error}") from error
+            elif blueprint_string is not None:
+                blueprint_text = blueprint_string
+            else:
+                raise ValueError("Missing --blueprint or --blueprint-file")
+            anchor_value = flag("anchor")
+            anchor: dict[str, Any] | None = None
+            if anchor_value:
+                parts = [part.strip() for part in anchor_value.split(",")]
+                if len(parts) != 2:
+                    raise ValueError("Invalid --anchor, expected x,y")
+                anchor_x, anchor_y = parse_number(parts[0], None), parse_number(parts[1], None)
+                if anchor_x is None or anchor_y is None:
+                    raise ValueError("Invalid --anchor, expected x,y")
+                anchor = {"x": anchor_x, "y": anchor_y}
+            blueprint_result = FactorioClient(parsed.base).build_blueprint(
+                blueprint_text,
+                anchor=anchor,
+                dry_run=bool(flag("dry-run")),
+                clear=not bool(flag("no-clear")),
+            )
+            return output(blueprint_result, ok=bool(blueprint_result.get("ok", True)))
         elif cmd in ("act-mine", "act-rotate", "act-move", "act-set-recipe", "act-launch-rocket"):
             require_recipe = cmd == "act-set-recipe"
             targets = json.loads(flag("targets-json")) if flag("targets-json") else parse_targets(flags.get("target", []), require_recipe)
