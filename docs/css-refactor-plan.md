@@ -197,3 +197,21 @@ Use one authoritative rule per property; retire earlier passes. Do not add new
   (the four dynamically used metric/theme icon masks were restored).
 - Modules: **4,377 → 4,288 lines**, now under the 4,300 target; six stable
   screenshots remain pixel-identical.
+
+## Final status
+
+- Entry: `public/runs.css` is 8 lines with five ordered module imports.
+- Modules: `tokens.css` 10, `base.css` 328, `recording.css` 2,530,
+  `dashboard.css` 152, `recording-modern.css` 1,268 — **4,296 lines total**
+  (from 5,879; −26.9%).
+- Automated CSS audit: **784 rules, 0 fully-shadowed rules**. The 221 initially
+  removed fully-dead rules plus declaration-level dedupe account for the bulk of
+  the reduction. Remaining repeated selectors carry effective declarations in
+  responsive/theme contexts; they are not dead overrides, and attempted whole
+  rule merging changed the cascade so it was deliberately rejected.
+- Browser regression: six stable screenshots (1280/390, dark/light, dialog,
+  error) remain pixel-identical; computed-style baseline covers normal,
+  collapsed, overlay, dialog and error states; focus trap/return, contrast,
+  target sizes and overflow are asserted.
+- Gates: `npm run test:ui` passes; `npm run verify` passes (313 Node + 117
+  Python); coverage gate passes.
