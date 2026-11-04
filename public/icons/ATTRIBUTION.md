@@ -27,6 +27,8 @@ used as CSS masks (`background-color: currentColor`) in the recording window.
 | `rocket.svg` | lorc | `rocket` | https://game-icons.net/1x1/lorc/rocket.html |
 | `rotate.svg` | delapouite | `clockwise-rotation` | https://game-icons.net/1x1/delapouite/clockwise-rotation.html |
 | `server.svg` | delapouite | `server-rack` | https://game-icons.net/1x1/delapouite/server-rack.html |
+| `sun.svg` | lorc | `sun` | https://game-icons.net/1x1/lorc/sun.html |
+| `moon.svg` | lorc | `moon` | https://game-icons.net/1x1/lorc/moon.html |
 | `map.svg` | lorc | `treasure-map` | https://game-icons.net/1x1/lorc/treasure-map.html |
 | `search.svg` | lorc | `magnifying-glass` | https://game-icons.net/1x1/lorc/magnifying-glass.html |
 | `siren.svg` | skoll | `siren` | https://game-icons.net/1x1/skoll/siren.html |

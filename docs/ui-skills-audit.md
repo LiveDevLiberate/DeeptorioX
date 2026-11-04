@@ -84,3 +84,15 @@ DOM-free `mapSettingsView()` helper; the dialog only lists map-generation
 overrides, with a note that unlisted resources use Factorio defaults. The icon is
 `lorc/treasure-map` (CC BY 3.0, attributed), and `tests/recording-structure.test.mjs`
 covers the button/dialog hooks.
+
+## Theme + alignment pass (v0.24.0)
+
+- Added a persisted light theme (`html[data-theme="light"]`) with a sun/moon
+  toggle; the dark theme remains the default. The inline head bootstrap applies
+  a saved/URL theme before CSS. Light overrides cover status, telemetry, radar,
+  toolbar, transcript cards/badges, scrollbars and the map dialog.
+- Fixed the shared page grid alignment: `.transcript-pane` no longer inherits
+  the dashboard `main` margin/padding, and toolbar + transcript use the same
+  `(100% - --ui-max) / 2 + --ui-gutter` inset as the status container. Measured
+  at 1200px: status content, top bar buttons, filter group and card left edges
+  are all x=67; status/search/right content edge x=1103.

@@ -26,6 +26,9 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(css, /\.ui-grid-12 \{/);
   assert.match(css, /\.ui-col-1-7 \{/);
   assert.match(css, /\.ui-col-8-12 \{/);
+  assert.match(css, /html\[data-theme="light"\] body\.recording/);
+  assert.match(css, /body\.recording main\.transcript-pane \{[^}]*margin: 0;/);
+  assert.match(css, /main\.transcript-pane > #transcriptTools,/);
   for (const id of [
     "agentStatus",
     "statusToggle",
@@ -51,6 +54,8 @@ test("recording page keeps its semantic structure and information surfaces", () 
   // Icons are preserved across the status and filter surfaces.
   assert.match(html, /class="icon icon-search"/);
   assert.match(html, /id="mapInfoToggle"[^>]*aria-controls="mapInfoOverlay"/);
+  assert.match(html, /id="themeToggle"[^>]*aria-pressed="false"/);
+  assert.match(html, /class="icon icon-sun"/);
   assert.match(html, /class="icon icon-map"/);
   assert.match(html, /id="mapInfoOverlay"[^>]*hidden/);
   assert.match(html, /id="mapInfoDialog"[^>]*role="dialog"[^>]*aria-modal="true"/);

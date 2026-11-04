@@ -3623,3 +3623,580 @@ body.recording .status-map-toggle .status-map-label {
     padding: 12px;
   }
 }
+
+/* ============================================================================
+   Shared page inset: header, toolbar and transcript cards use the SAME left and
+   right content edges. Previously the transcript used (100% - max)/2 without the
+   gutter, so cards sat 22px wider than the header/toolbar.
+   ========================================================================= */
+body.recording main.transcript-pane > #transcriptTools,
+body.recording main.transcript-pane > #codexOutput {
+  padding-left: max(var(--ui-gutter), calc((100% - var(--ui-max)) / 2 + var(--ui-gutter)));
+  padding-right: max(var(--ui-gutter), calc((100% - var(--ui-max)) / 2 + var(--ui-gutter)));
+}
+
+/* Theme toggle button ------------------------------------------------------ */
+.icon-sun {
+  --gi-icon: url("/icons/sun.svg");
+}
+.icon-moon {
+  --gi-icon: url("/icons/moon.svg");
+}
+body.recording .status-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid #22333a;
+  border-radius: 999px;
+  background: #101a1f;
+  color: #9db3ad;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+body.recording .status-theme-toggle:hover {
+  border-color: #2f4a52;
+  background: #16242a;
+  color: var(--rec-text);
+}
+body.recording .status-theme-toggle .icon {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+}
+body.recording .status-theme-toggle .status-theme-label {
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  body.recording .status-theme-label {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   Light theme
+   ----------------------------------------------------------------------------
+   Applied via <html data-theme="light"> (toggle in the status line or ?theme=light).
+   The dark theme remains the default. Tokens are overridden first, then the
+   components whose earlier rules use literal dark colours.
+   ========================================================================= */
+html[data-theme="light"] {
+  background: #eef3f1;
+  color-scheme: light;
+}
+html[data-theme="light"] body.recording {
+  --rec-bg: #f3f7f5;
+  --rec-bg-deep: #e9f0ed;
+  --rec-surface: #ffffff;
+  --rec-surface-strong: #ffffff;
+  --rec-border: #d8e3de;
+  --rec-border-strong: #c1d1ca;
+  --rec-text: #1d2b26;
+  --rec-text-body: #3c4d46;
+  --rec-text-muted: #62766e;
+  --rec-text-dim: #85978f;
+  --rec-accent: #2f7f5f;
+  --rec-accent-strong: #1d664b;
+  --rec-accent-soft: rgba(47, 127, 95, 0.12);
+  --rec-warm: #8a641c;
+  --rec-warm-soft: rgba(176, 128, 42, 0.11);
+  --rec-blue: #2f6f9e;
+  --rec-blue-soft: rgba(47, 111, 158, 0.1);
+  --rec-violet: #6b57a3;
+  --rec-danger: #b23f35;
+  --rec-danger-soft: rgba(178, 63, 53, 0.09);
+
+  --bg: #f3f7f5;
+  --panel: #ffffff;
+  --panel-2: #f8fbf9;
+  --border: #d8e3de;
+  --border-soft: #e5ede9;
+  --text: #1d2b26;
+  --body: #3c4d46;
+  --muted: #62766e;
+  --dim: #85978f;
+  --accent: #2f6f9e;
+  --accent-strong: #1d547c;
+  --accent-soft: rgba(47, 111, 158, 0.1);
+  --green: #1f7a52;
+  --amber: #8a641c;
+  --red: #b23f35;
+  --violet: #6b57a3;
+
+  background:
+    radial-gradient(1100px 500px at 8% -12%, rgba(153, 196, 178, 0.2), transparent 60%),
+    radial-gradient(900px 440px at 94% -8%, rgba(166, 190, 214, 0.16), transparent 58%), #f3f7f5;
+  color: var(--body);
+}
+html[data-theme="light"] body.recording ::selection {
+  background: rgba(47, 127, 95, 0.18);
+  color: #14231e;
+}
+
+/* Header */
+html[data-theme="light"] body.recording #agentStatus {
+  background: rgba(255, 255, 255, 0.93);
+  border-bottom-color: #d8e3de;
+  box-shadow: 0 8px 24px rgba(26, 50, 41, 0.07);
+}
+html[data-theme="light"] body.recording #agentStatus::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(47, 127, 95, 0.22) 35%,
+    rgba(47, 111, 158, 0.14) 70%,
+    transparent
+  );
+}
+html[data-theme="light"] body.recording .status-badge {
+  border-color: #d8e3de;
+  background: #f1f6f3;
+  color: #52655e;
+}
+html[data-theme="light"] body.recording .status-badge.running {
+  border-color: #b7dfcc;
+  background: #e2f4eb;
+  color: #0b6e4f;
+}
+html[data-theme="light"] body.recording .status-badge.paused {
+  border-color: #ead7b0;
+  background: #fbf3e2;
+  color: #8a6215;
+}
+html[data-theme="light"] body.recording .status-badge.completed {
+  border-color: #c1d8eb;
+  background: #e8f1fb;
+  color: #1f5f9c;
+}
+html[data-theme="light"] body.recording .status-badge.failed,
+html[data-theme="light"] body.recording .status-badge.timed_out,
+html[data-theme="light"] body.recording .status-badge.interrupted {
+  border-color: #efc4be;
+  background: #fdecea;
+  color: #a43b31;
+}
+html[data-theme="light"] body.recording .status-activity {
+  color: var(--text);
+}
+html[data-theme="light"] body.recording .status-activity::before {
+  background: #2f7f5f;
+  box-shadow: 0 0 0 3px rgba(47, 127, 95, 0.12);
+}
+html[data-theme="light"] body.recording .status-meta {
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .status-current {
+  color: var(--text);
+}
+html[data-theme="light"] body.recording .status-done {
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .status-line .status-toggle,
+html[data-theme="light"] body.recording .status-map-toggle,
+html[data-theme="light"] body.recording .status-theme-toggle {
+  border-color: #d8e3de;
+  background: #ffffff;
+  color: #52655e;
+}
+html[data-theme="light"] body.recording .status-line .status-toggle:hover,
+html[data-theme="light"] body.recording .status-map-toggle:hover,
+html[data-theme="light"] body.recording .status-theme-toggle:hover {
+  border-color: #b9ccc4;
+  background: #f3f8f6;
+  color: var(--text);
+}
+html[data-theme="light"] body.recording .status-line .status-toggle[aria-expanded="true"],
+html[data-theme="light"] body.recording .status-map-toggle[aria-expanded="true"] {
+  border-color: rgba(47, 111, 158, 0.35);
+  background: rgba(47, 111, 158, 0.08);
+  color: #1d547c;
+}
+html[data-theme="light"] body.recording .status-line .status-toggle .icon,
+html[data-theme="light"] body.recording .status-map-toggle .icon,
+html[data-theme="light"] body.recording .status-theme-toggle .icon {
+  color: #2f6f9e;
+}
+html[data-theme="light"] body.recording #agentStatus .status-current .icon {
+  color: #2f6f9e;
+}
+
+/* Metrics + radar */
+html[data-theme="light"] body.recording .metric {
+  border-color: #d8e3de;
+  background: #f8fbf9;
+  color: var(--body);
+}
+html[data-theme="light"] body.recording .metric .icon {
+  color: #2f6f9e;
+}
+html[data-theme="light"] body.recording .metric.muted {
+  color: var(--dim);
+}
+html[data-theme="light"] body.recording .metric.error {
+  border-color: #efc4be;
+  background: #fdf1ef;
+  color: #a43b31;
+}
+html[data-theme="light"] body.recording .metric-spark {
+  border-color: #d8e3de;
+  background: #edf3f0;
+}
+html[data-theme="light"] body.recording .metric-bar {
+  background: #5f9c82;
+}
+html[data-theme="light"] body.recording .metrics-table tr + tr > * {
+  border-top-color: #e7efeb;
+}
+html[data-theme="light"] body.recording .metric-progress {
+  background: #e4ece8;
+}
+html[data-theme="light"] body.recording .metric-progress-fill {
+  background: #6b8fd0;
+}
+html[data-theme="light"] body.recording .metric-production .metric-spark .metric-bar {
+  background: #5f9c82;
+}
+html[data-theme="light"] body.recording .score-track {
+  background: #e4ece8;
+}
+html[data-theme="light"] body.recording .score-fill {
+  background: #4f74b8;
+}
+html[data-theme="light"] body.recording .score.active .score-fill {
+  background: #2f6f9e;
+}
+html[data-theme="light"] body.recording .score-label,
+html[data-theme="light"] body.recording .score-value {
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .score-radar .radar-ring {
+  stroke: #cbd8d3;
+}
+html[data-theme="light"] body.recording .score-radar .radar-axis {
+  stroke: #dfe9e5;
+}
+html[data-theme="light"] body.recording .score-radar .score-polygon {
+  fill: rgba(47, 111, 158, 0.12);
+  stroke: #3f7ca6;
+}
+html[data-theme="light"] body.recording .score-radar .score-dot {
+  fill: #3f7ca6;
+}
+html[data-theme="light"] body.recording .score-radar .score-dot.active {
+  fill: #2f6f9e;
+  stroke: #ffffff;
+}
+html[data-theme="light"] body.recording .score-radar .radar-label {
+  fill: #62766e;
+}
+html[data-theme="light"] body.recording .score-radar .radar-label.active {
+  fill: #1d547c;
+}
+
+/* Toolbar */
+html[data-theme="light"] body.recording #transcriptTools {
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom-color: #d8e3de;
+}
+html[data-theme="light"] body.recording #transcriptTools .chip {
+  border-color: #d8e3de;
+  background: #f8fbf9;
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording #transcriptTools .chip:hover {
+  border-color: #b9ccc4;
+  background: #f1f7f4;
+  color: var(--text);
+}
+html[data-theme="light"] body.recording #transcriptTools .chip.active {
+  border-color: rgba(47, 111, 158, 0.4);
+  background: rgba(47, 111, 158, 0.09);
+  color: #1d547c;
+}
+html[data-theme="light"] body.recording #transcriptTools .chip.active .icon {
+  color: #1d547c;
+}
+html[data-theme="light"] body.recording #transcriptTools .search-field {
+  border-color: #d8e3de;
+  background: #ffffff;
+}
+html[data-theme="light"] body.recording #transcriptTools .search-field:focus-within {
+  border-color: rgba(47, 111, 158, 0.55);
+  box-shadow: 0 0 0 3px rgba(47, 111, 158, 0.12);
+}
+html[data-theme="light"] body.recording #transcriptTools .search-field .icon {
+  color: #7f948b;
+}
+html[data-theme="light"] body.recording #transcriptTools #transcriptSearch {
+  background: transparent;
+  color: var(--text);
+}
+html[data-theme="light"] body.recording #transcriptSearch::placeholder {
+  color: #92a49d;
+}
+
+/* Transcript cards */
+html[data-theme="light"] body.recording #codexOutput {
+  color: var(--body);
+}
+html[data-theme="light"] body.recording #codexOutput .msg-time {
+  color: var(--dim);
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning {
+  border-color: #dce6e2;
+  border-left-color: #6f9f8c;
+  background: #ffffff;
+  color: var(--body);
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning:hover {
+  border-color: #c9d9d3;
+  border-left-color: #4f8a74;
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning-summary {
+  color: var(--text);
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning-summary .icon {
+  color: #9a6b12;
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning-segment {
+  border-color: #e3ece8;
+  border-left-color: #9ac2b3;
+  background: #f7faf8;
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning-segment.decision {
+  border-left-color: rgba(181, 138, 54, 0.8);
+  background: #fbf5e8;
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning-segment-text {
+  color: #3f544c;
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning-segment.decision .reasoning-segment-text {
+  color: #5d4c2a;
+}
+html[data-theme="light"] body.recording #codexOutput .commands {
+  border-color: #dce6e2;
+  background: #ffffff;
+  color: var(--body);
+}
+html[data-theme="light"] body.recording #codexOutput .commands:hover {
+  border-color: #c9d9d3;
+}
+html[data-theme="light"] body.recording #codexOutput .commands-summary {
+  color: #2a3a34;
+}
+html[data-theme="light"] body.recording #codexOutput .commands-summary .icon {
+  color: #2f7f5f;
+}
+html[data-theme="light"] body.recording #codexOutput .commands[open] > .commands-summary {
+  border-bottom-color: #e5ede9;
+  background: #f6faf8;
+}
+html[data-theme="light"] body.recording #codexOutput .command {
+  border-top-color: #e7efec;
+}
+html[data-theme="light"] body.recording #codexOutput .command:hover {
+  background: #f8fbf9;
+}
+html[data-theme="light"] body.recording #codexOutput .action-target {
+  color: #24352e;
+}
+html[data-theme="light"] body.recording #codexOutput .action-outcome {
+  color: #5a6e66;
+}
+html[data-theme="light"] body.recording #codexOutput .action-duration {
+  color: var(--dim);
+}
+html[data-theme="light"] body.recording #codexOutput .action-raw summary {
+  border-color: #d8e3de;
+  color: #71867d;
+}
+html[data-theme="light"] body.recording #codexOutput .action-raw pre,
+html[data-theme="light"] body.recording #codexOutput .tool-raw {
+  border-color: #d8e3de;
+  background: #f6faf8;
+  color: #40544c;
+}
+html[data-theme="light"] body.recording #codexOutput .tool-details {
+  border-color: #d8e3de;
+  background: #ffffff;
+}
+html[data-theme="light"] body.recording #codexOutput .tool-details summary {
+  color: #3d5149;
+}
+html[data-theme="light"] body.recording #codexOutput .message {
+  border-color: #dce6e2;
+  border-left-color: #4f86b4;
+  background: #ffffff;
+  color: #3a4e46;
+}
+html[data-theme="light"] body.recording #codexOutput .message.error {
+  border-color: #efc4be;
+  border-left-color: #b4544b;
+  background: #fdf1ef;
+  color: #6d2822;
+}
+html[data-theme="light"] body.recording #codexOutput .turn-separator {
+  color: #82958e;
+}
+html[data-theme="light"] body.recording #codexOutput .turn-separator::before,
+html[data-theme="light"] body.recording #codexOutput .turn-separator::after {
+  background: linear-gradient(90deg, transparent, #dce6e2);
+}
+html[data-theme="light"] body.recording #codexOutput .trimmed-note {
+  border-color: #d8e3de;
+  background: #f6faf8;
+  color: #71867d;
+}
+html[data-theme="light"] body.recording #codexOutput::-webkit-scrollbar-thumb {
+  background: #cbd8d3;
+  background-clip: content-box;
+}
+html[data-theme="light"] body.recording #codexOutput .action-badge {
+  border-color: #d8e3de;
+  background: #eef4f1;
+  color: #3f6658;
+}
+html[data-theme="light"] body.recording #codexOutput .action-badge.build,
+html[data-theme="light"] body.recording #codexOutput .action-badge.craft {
+  border-color: #c4e1d3;
+  background: #eaf6f0;
+  color: #1d6b4d;
+}
+html[data-theme="light"] body.recording #codexOutput .action-badge.deconstruct,
+html[data-theme="light"] body.recording #codexOutput .action-badge.mine {
+  border-color: #ead7b0;
+  background: #fbf5e8;
+  color: #7d5912;
+}
+html[data-theme="light"] body.recording #codexOutput .action-badge.observe,
+html[data-theme="light"] body.recording #codexOutput .action-badge.job,
+html[data-theme="light"] body.recording #codexOutput .action-badge.wait {
+  border-color: #c7dceb;
+  background: #edf5fb;
+  color: #245d89;
+}
+html[data-theme="light"] body.recording #codexOutput .action-badge.recipe,
+html[data-theme="light"] body.recording #codexOutput .action-badge.research,
+html[data-theme="light"] body.recording #codexOutput .action-badge.insert,
+html[data-theme="light"] body.recording #codexOutput .action-badge.extract,
+html[data-theme="light"] body.recording #codexOutput .action-badge.rocket {
+  border-color: #d8cdec;
+  background: #f3effa;
+  color: #5a448f;
+}
+html[data-theme="light"] body.recording #codexOutput .action-badge.move,
+html[data-theme="light"] body.recording #codexOutput .action-badge.rotate,
+html[data-theme="light"] body.recording #codexOutput .action-badge.settings {
+  border-color: #d3dde3;
+  background: #f1f5f7;
+  color: #4b6068;
+}
+html[data-theme="light"] body.recording #codexOutput .action-badge.failed {
+  border-color: #efc4be;
+  background: #fdecea;
+  color: #a43b31;
+}
+html[data-theme="light"] body.recording #codexOutput .dedupe-badge,
+html[data-theme="light"] body.recording #codexOutput .loop-badge {
+  border-color: #ead7b0;
+  background: #fbf5e8;
+  color: #7d5912;
+}
+
+/* Jump pill + map dialog */
+html[data-theme="light"] body.recording .jump-latest {
+  border-color: rgba(47, 127, 95, 0.35);
+  background: #ffffff;
+  color: #1d664b;
+  box-shadow: 0 12px 30px rgba(26, 50, 41, 0.18);
+}
+html[data-theme="light"] body.recording .jump-latest:hover {
+  border-color: rgba(47, 127, 95, 0.55);
+  background: #f3f8f6;
+}
+html[data-theme="light"] body.recording .map-info-overlay {
+  background: rgba(29, 48, 41, 0.28);
+}
+html[data-theme="light"] body.recording .map-info-dialog {
+  border-color: #d8e3de;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(26, 50, 41, 0.2);
+  color: var(--body);
+}
+html[data-theme="light"] body.recording .map-info-head {
+  border-bottom-color: #e5ede9;
+}
+html[data-theme="light"] body.recording .map-info-head h2 {
+  color: var(--text);
+}
+html[data-theme="light"] body.recording .map-info-close {
+  border-color: #d8e3de;
+  background: #f8fbf9;
+  color: #52655e;
+}
+html[data-theme="light"] body.recording .map-info-close:hover {
+  border-color: #8fb2a4;
+  color: var(--text);
+}
+html[data-theme="light"] body.recording .map-info-seed {
+  border-color: #d8e3de;
+  background: #f6faf8;
+}
+html[data-theme="light"] body.recording .map-info-seed code {
+  color: #1d664b;
+}
+html[data-theme="light"] body.recording .map-info-label,
+html[data-theme="light"] body.recording .map-info-muted,
+html[data-theme="light"] body.recording .map-info-raw {
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .map-info-section-title {
+  color: var(--text);
+}
+html[data-theme="light"] body.recording .map-resource-table th {
+  color: var(--dim);
+}
+html[data-theme="light"] body.recording .map-resource-table th,
+html[data-theme="light"] body.recording .map-resource-table td {
+  border-bottom-color: #e7efeb;
+}
+html[data-theme="light"] body.recording .map-resource-table td {
+  color: var(--body);
+}
+html[data-theme="light"] body.recording .map-resource-table td:first-child {
+  color: var(--text);
+}
+html[data-theme="light"] body.recording .map-info-extra {
+  border-bottom-color: #e7efeb;
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .map-info-extra code {
+  color: var(--body);
+}
+html[data-theme="light"] body.recording .map-info-raw pre {
+  border-color: #d8e3de;
+  background: #f6faf8;
+  color: var(--body);
+}
+html[data-theme="light"] body.overlay {
+  background: #f3f7f5;
+}
+html[data-theme="light"] body.overlay #agentStatus {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+/* The manager's generic `main` layout (margin/padding) applies to dashboard
+   pages; the recording transcript must be a full-width shell instead. */
+body.recording main.transcript-pane {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+html[data-theme="light"] body.recording #codexOutput {
+  scrollbar-color: #cbd8d3 transparent;
+}

@@ -9,6 +9,29 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Light theme + theme toggle.** The recording page now supports a light
+  palette alongside the default dark theme. A `浅色 / 深色` button (sun/moon
+  icon, localized, hidden-label on narrow screens) toggles the theme, persists
+  the choice in `localStorage` (`autorio.theme`), updates `aria-pressed` and can
+  be deep-linked with `?theme=light` / `?theme=dark`. The inline head bootstrap
+  applies the saved/URL theme before CSS loads to avoid a flash. Light covers
+  the status header, badges, metrics/sparks/radar, toolbar/chips/search,
+  reasoning/commands/messages/action badges, scrollbars and the map dialog.
+
+### Fixed
+
+- **Grid alignment across the three page bands.** The recording `main` was
+  inheriting the dashboard manager's `10px` margins and `28px` padding while the
+  status header used its own 1080px container, and the transcript used a
+  different inset formula (missing the `22px` gutter). Added a shared inset:
+  header content, toolbar content and transcript cards now share the same left
+  edge (measured x=67 at 1200px) and the same right content edge (x=1103 for
+  header/search). The generic `main` margin/padding is reset for
+  `.transcript-pane`, and the toolbar background now spans the full width.
+
+## [0.23.0] - 2026-11-05
 ## [0.23.0] - 2026-11-04
 
 ### Added

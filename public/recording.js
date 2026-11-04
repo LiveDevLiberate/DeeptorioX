@@ -202,6 +202,10 @@ const I18N = {
       "Seed and autoplace overrides used to generate the benchmark map; blank values use Factorio defaults.",
     mapExtras: "Other map settings",
     mapRaw: "Raw map_gen",
+    light: "Light",
+    dark: "Dark",
+    switchLight: "Switch to light theme",
+    switchDark: "Switch to dark theme",
     filters: {
       all: "All",
       thinking: "Thinking",
@@ -329,6 +333,10 @@ const I18N = {
       "生成基准地图时使用的种子与资源生成覆盖。这里只列出覆盖项，未列出的资源和空值使用 Factorio 默认配置。",
     mapExtras: "其他地图设置",
     mapRaw: "原始 map_gen",
+    light: "浅色",
+    dark: "深色",
+    switchLight: "切换到浅色主题",
+    switchDark: "切换到深色主题",
     filters: {
       all: "全部",
       thinking: "思考",
@@ -353,6 +361,7 @@ const mapInfoBody = document.getElementById("mapInfoBody");
 const mapInfoClose = document.getElementById("mapInfoClose");
 const mapInfoTitle = document.getElementById("mapInfoTitle");
 const mapInfoNote = document.getElementById("mapInfoNote");
+const themeToggle = document.getElementById("themeToggle");
 const stateTimer = document.getElementById("stateTimer");
 const STATUS_COLLAPSED_KEY = "autorio.statusCollapsed";
 function updateStatusToggleLabel() {
@@ -374,6 +383,37 @@ function updateMapToggleLabel() {
   if (mapInfoClose) mapInfoClose.setAttribute("aria-label", strings.mapClose);
   if (mapInfoNote) mapInfoNote.textContent = strings.mapNote;
 }
+const THEME_KEY = "autorio.theme";
+function currentTheme() {
+  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+}
+function updateThemeToggleLabel() {
+  if (!themeToggle) return;
+  const strings = I18N[uiLang || "en"];
+  const light = currentTheme() === "light";
+  themeToggle.replaceChildren(
+    icon(light ? "moon" : "sun"),
+    element("span", light ? strings.dark : strings.light, "status-theme-label"),
+  );
+  const label = light ? strings.switchDark : strings.switchLight;
+  themeToggle.setAttribute("aria-label", label);
+  themeToggle.setAttribute("title", label);
+  themeToggle.setAttribute("aria-pressed", light ? "true" : "false");
+}
+function setTheme(theme, persist = true) {
+  document.documentElement.dataset.theme = theme;
+  if (persist) {
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      /* localStorage may be unavailable */
+    }
+  }
+  updateThemeToggleLabel();
+}
+themeToggle?.addEventListener("click", () => {
+  setTheme(currentTheme() === "light" ? "dark" : "light");
+});
 function mapValueText(value) {
   return value === null || value === undefined || value === "" ? "—" : String(value);
 }
@@ -474,6 +514,7 @@ mapInfoOverlay?.addEventListener("click", (event) => {
 document.addEventListener?.("keydown", (event) => {
   if (event.key === "Escape" && mapInfoOverlay && !mapInfoOverlay.hidden) closeMapInfo();
 });
+updateThemeToggleLabel();
 document.title = "Agent transcript";
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -648,6 +689,7 @@ function renderStatus(run) {
   const strings = I18N[uiLang] || I18N.en;
   updateTranscriptTools(strings);
   updateMapToggleLabel();
+  updateThemeToggleLabel();
   const state = run.state || "—";
   statusState.textContent = strings.states[state] || state;
   statusState.className = `status-badge ${state}`;
