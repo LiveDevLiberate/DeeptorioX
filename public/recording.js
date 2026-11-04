@@ -67,6 +67,14 @@ const FILTER_BUTTONS = {
   errors: document.getElementById("filterErrors"),
   decisions: document.getElementById("filterDecisions"),
 };
+const FILTER_ICONS = {
+  all: "stack",
+  thinking: "brain",
+  actions: "wrench",
+  messages: "chat",
+  errors: "siren",
+  decisions: "compass",
+};
 const SUBTASKS = ["production", "logistics", "mining", "research", "defense", "exploration"];
 const I18N = {
   en: {
@@ -557,7 +565,12 @@ function appendTurn(generation) {
 }
 function updateTranscriptTools(text) {
   for (const [mode, button] of Object.entries(FILTER_BUTTONS)) {
-    if (button) button.textContent = text.filters?.[mode] || mode;
+    if (!button) continue;
+    button.replaceChildren(
+      icon(FILTER_ICONS[mode] || "stack"),
+      element("span", text.filters?.[mode] || mode, "chip-label"),
+    );
+    button.setAttribute("aria-pressed", button.classList.contains("active") ? "true" : "false");
   }
   if (transcriptSearch) transcriptSearch.placeholder = uiLang === "zh" ? "过滤内容…" : "Filter…";
 }
@@ -589,7 +602,10 @@ function applyFilters() {
 function setFilter(mode) {
   filterMode = mode;
   for (const [key, button] of Object.entries(FILTER_BUTTONS)) {
-    if (button) button.classList.toggle("active", key === mode);
+    if (!button) continue;
+    const active = key === mode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
   }
   applyFilters();
   try {

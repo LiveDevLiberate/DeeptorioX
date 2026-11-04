@@ -9,6 +9,13 @@ this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Filter chip icons now survive label localization: updating the chip labels
+  replaces only the text span instead of overwriting the whole button, so the
+  game-icons.net glyphs (stack/brain/wrench/chat/siren/compass) stay visible in
+  both languages; chips also expose `aria-pressed` for the active filter.
+
 ## [0.10.0] - 2026-11-04
 
 ### Changed
