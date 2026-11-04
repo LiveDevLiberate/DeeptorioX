@@ -195,6 +195,34 @@ test("run completion is independently measured, saved, and reloaded", async () =
   assert.ok(manager.log(run.id, 0).text.includes("Milestone first-gear"));
 });
 
+test("launch map_gen overrides the benchmark map generation settings", async () => {
+  const { manager } = setup();
+  assert.throws(
+    () => manager.start({ agent: "manual", benchmark: "smoke", map_gen: { seed: 1.5 } }),
+    /map_gen.seed/,
+  );
+  const run = manager.start({
+    agent: "manual",
+    benchmark: "smoke",
+    map_gen: {
+      seed: 7,
+      peaceful_mode: false,
+      starting_area: 2,
+      autoplace_controls: { "iron-ore": { frequency: 2, size: 1.5, richness: 4 } },
+    },
+  });
+  assert.equal(run.benchmark.map_gen.seed, 7);
+  assert.equal(run.benchmark.map_gen.peaceful_mode, false);
+  assert.equal(run.benchmark.map_gen.starting_area, 2);
+  assert.deepEqual(run.benchmark.map_gen.autoplace_controls, {
+    "iron-ore": { frequency: 2, size: 1.5, richness: 4 },
+  });
+  await waitFor(() => manager.get(run.id).state === "running");
+  const stored = JSON.parse(fs.readFileSync(path.join(temp, "runs", run.id, "benchmark.json"), "utf8"));
+  assert.equal(stored.map_gen.seed, 7);
+  await manager.stop();
+});
+
 test("operator stop and wall-clock limit produce distinct terminal states", async () => {
   const { manager, stopped } = setup();
   const run = manager.start({ agent: "manual", benchmark: "smoke" });

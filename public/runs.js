@@ -1,8 +1,133 @@
 import { $, api, text, duration, activeStates, renderProgress, detailsUrl } from "./run-view.js";
 let runs = [],
   benchmarks = [],
+  mapConfig = null,
   currentId,
   polling = false;
+const FALLBACK_MAP_CONFIG = {
+  resources: [
+    { id: "iron-ore", label: "Iron ore" },
+    { id: "copper-ore", label: "Copper ore" },
+    { id: "coal", label: "Coal" },
+    { id: "stone", label: "Stone" },
+    { id: "crude-oil", label: "Crude oil" },
+    { id: "uranium-ore", label: "Uranium ore" },
+    { id: "water", label: "Water" },
+    { id: "trees", label: "Trees" },
+    { id: "rocks", label: "Rocks" },
+    { id: "enemy-base", label: "Enemy bases" },
+  ],
+  presets: [
+    { value: 0, label: "None" },
+    { value: 0.5, label: "Very low" },
+    { value: 0.75, label: "Low" },
+    { value: 1, label: "Normal" },
+    { value: 1.5, label: "High" },
+    { value: 2, label: "Very high" },
+    { value: 4, label: "Extreme" },
+  ],
+  fields: ["frequency", "size", "richness"],
+  limits: { seed: { min: 0, max: 4294967295 }, starting_area: { min: 0.5, max: 10 } },
+};
+function mapConfigData() {
+  return mapConfig?.resources?.length ? mapConfig : FALLBACK_MAP_CONFIG;
+}
+function selectedBenchmark() {
+  return benchmarks.find((benchmark) => benchmark.id === $("benchmark").value);
+}
+function addMapOption(select, value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  select.append(option);
+}
+function updateMapConfigSummary() {
+  const seed = $("mapSeed").value || "—";
+  const resources = new Set();
+  for (const select of document.querySelectorAll("#mapResources select")) {
+    if (select.value !== "") resources.add(select.dataset.resource);
+  }
+  $("mapConfigSummary").textContent =
+    `seed ${seed} · ${resources.size} resource override${resources.size === 1 ? "" : "s"}`;
+}
+function renderMapConfig(benchmark) {
+  const map = benchmark?.map_gen && typeof benchmark.map_gen === "object" ? benchmark.map_gen : {};
+  const controls =
+    map.autoplace_controls && typeof map.autoplace_controls === "object" ? map.autoplace_controls : {};
+  $("mapSeed").value = map.seed != null ? String(map.seed) : "";
+  $("mapPeaceful").checked = Boolean(map.peaceful_mode);
+  $("mapStartingArea").value = map.starting_area != null ? String(map.starting_area) : "";
+  const meta = mapConfigData();
+  const resources = [...meta.resources];
+  const known = new Set(resources.map((resource) => resource.id));
+  for (const id of Object.keys(controls)) {
+    if (!known.has(id)) resources.push({ id, label: id });
+  }
+  const rows = resources.map((resource) => {
+    const row = document.createElement("tr");
+    row.append(text("th", resource.label || resource.id));
+    row.firstChild.scope = "row";
+    for (const field of meta.fields) {
+      const cell = document.createElement("td");
+      const select = document.createElement("select");
+      select.className = "map-control";
+      select.dataset.resource = resource.id;
+      select.dataset.field = field;
+      select.setAttribute("aria-label", `${resource.label || resource.id} ${field}`);
+      addMapOption(select, "", "Default");
+      const presetValues = new Set();
+      for (const preset of meta.presets) {
+        presetValues.add(String(preset.value));
+        addMapOption(select, String(preset.value), preset.label);
+      }
+      const current = controls[resource.id]?.[field];
+      if (current != null && !presetValues.has(String(current))) {
+        addMapOption(select, String(current), `Custom (${current})`);
+      }
+      select.value = current != null ? String(current) : "";
+      select.onchange = updateMapConfigSummary;
+      cell.append(select);
+      row.append(cell);
+    }
+    return row;
+  });
+  $("mapResources").replaceChildren(...rows);
+  updateMapConfigSummary();
+}
+function buildMapGen() {
+  const benchmark = selectedBenchmark();
+  if (!benchmark) throw new Error("Select a benchmark first");
+  const seed = Number($("mapSeed").value);
+  if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295) {
+    throw new Error("Seed must be an integer between 0 and 4294967295");
+  }
+  const mapGen = {
+    ...(benchmark.map_gen && typeof benchmark.map_gen === "object" ? benchmark.map_gen : {}),
+    seed,
+  };
+  mapGen.peaceful_mode = $("mapPeaceful").checked;
+  const startingArea = $("mapStartingArea").value.trim();
+  if (startingArea) {
+    const value = Number(startingArea);
+    if (!Number.isFinite(value) || value < 0.5 || value > 10) {
+      throw new Error("Starting area must be a number between 0.5 and 10");
+    }
+    mapGen.starting_area = value;
+  } else {
+    delete mapGen.starting_area;
+  }
+  const controls = {};
+  for (const select of document.querySelectorAll("#mapResources select")) {
+    if (select.value === "") continue;
+    const resource = select.dataset.resource;
+    const field = select.dataset.field;
+    if (!resource || !field) continue;
+    controls[resource] ||= {};
+    controls[resource][field] = Number(select.value);
+  }
+  mapGen.autoplace_controls = controls;
+  return mapGen;
+}
 const checked = new Set();
 function renderHistory() {
   $("runs").replaceChildren(
@@ -68,10 +193,20 @@ async function refresh() {
   }
 }
 $("benchmark").onchange = () => {
-  const benchmark = benchmarks.find((b) => b.id === $("benchmark").value);
+  const benchmark = selectedBenchmark();
+  if (!benchmark) return;
   $("task").textContent = benchmark.task;
   $("seconds").value = benchmark.max_seconds;
+  renderMapConfig(benchmark);
 };
+$("mapReset").onclick = () => {
+  const benchmark = selectedBenchmark();
+  if (benchmark) renderMapConfig(benchmark);
+};
+for (const id of ["mapSeed", "mapStartingArea", "mapPeaceful"]) {
+  $(id).addEventListener("input", updateMapConfigSummary);
+  $(id).addEventListener("change", updateMapConfigSummary);
+}
 $("launchForm").onsubmit = async (event) => {
   event.preventDefault();
   $("launch").disabled = true;
@@ -85,6 +220,7 @@ $("launchForm").onsubmit = async (event) => {
       agent: preset.dataset.agent || "opencode",
       terminal: false,
       capture_video: $("captureVideo").checked,
+      map_gen: buildMapGen(),
     });
     await refresh();
   } catch (error) {
@@ -130,6 +266,11 @@ $("compare").onclick = () => {
 };
 try {
   benchmarks = (await api("/api/benchmarks")).benchmarks;
+  try {
+    mapConfig = await api("/api/map-config");
+  } catch {
+    mapConfig = null;
+  }
   $("benchmark").replaceChildren(
     ...benchmarks.map((b) => {
       const option = text("option", b.title);

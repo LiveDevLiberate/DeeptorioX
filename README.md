@@ -180,6 +180,15 @@ Select multiple history rows to compare runs on a separate page. Recording view
 remains a compact, separate display. Old `/runs.html` bookmarks redirect to the
 appropriate page. Position the game and recording window for OBS yourself.
 
+Before launching a run, open **Map configuration** in the launch form to
+customise map generation for the new run: seed, peaceful mode, starting area and
+per-resource frequency/size/richness overrides. `Default` keeps Factorio's map
+generation defaults and **Reset to benchmark** restores the selected benchmark's
+values. The effective settings are sent as `map_gen` in `POST /api/runs`,
+validated by the manager, stored with the run and used for baseline map
+creation; the recording window's Map dialog shows the actual seed/resource
+configuration.
+
 ## Checking game state while a run is active
 
 The manager exposes the same read-only gameplay API the agent uses. Observations

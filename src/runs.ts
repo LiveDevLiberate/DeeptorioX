@@ -38,6 +38,7 @@ import {
   reached,
   TELEMETRY_COMMAND,
 } from "./benchmarks.js";
+import { normalizeMapGen } from "./map-config.js";
 import { openRunTerminal } from "./run-terminal.js";
 import { pacificTimestamp, modelLabel, REASONING_LEVELS, ReasoningLevel } from "./run-labels.js";
 import { quotaError } from "./quota.js";
@@ -652,6 +653,7 @@ export class RunManager {
 
   start(options: {
     benchmark?: string;
+    map_gen?: unknown;
     model?: string;
     reasoning_effort?: string;
     agent?: string;
@@ -663,8 +665,11 @@ export class RunManager {
   }) {
     if (this.active || this.hooks.running())
       throw new Error("Stop the active game/run before starting another run.");
-    const benchmark = this.benchmarks.find((b) => b.id === (options.benchmark || "smoke"));
+    let benchmark = this.benchmarks.find((b) => b.id === (options.benchmark || "smoke"));
     if (!benchmark) throw new Error("Unknown benchmark");
+    if (options.map_gen !== undefined) {
+      benchmark = { ...benchmark, map_gen: normalizeMapGen(options.map_gen, benchmark.map_gen) };
+    }
     const agent = options.agent || "opencode";
     if (!["manual", "codex", "opencode", "dsh"].includes(agent))
       throw new Error("agent must be opencode, codex, dsh or manual");

@@ -2,6 +2,7 @@ import fsSync from "node:fs";
 import { Router } from "../http/router.js";
 import { json, readJson } from "../http/plumbing.js";
 import { errorMessage } from "../validation.js";
+import { mapConfigMeta } from "../map-config.js";
 import { obsStatus } from "../obs.js";
 import type { ApiContext } from "./context.js";
 
@@ -28,6 +29,16 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
     handler: (request) => {
       const { res } = request;
       return json(res, 200, { benchmarks: runManager.benchmarks });
+    },
+  });
+
+  router.add({
+    method: "GET",
+    path: "/api/map-config",
+    name: "/api/map-config",
+    handler: (request) => {
+      const { res } = request;
+      return json(res, 200, mapConfigMeta());
     },
   });
 

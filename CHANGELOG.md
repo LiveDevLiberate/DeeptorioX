@@ -9,6 +9,25 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Launch-time map configuration.** The launch form now has a collapsible
+  **Map configuration** section for new runs:
+  - seed (integer), peaceful mode and starting area;
+  - per-resource frequency / size / richness overrides for iron, copper, coal,
+    stone, crude oil, uranium, water, trees, rocks and enemy bases, with
+    None/Very low/Low/Normal/High/Very high/Extreme presets and an explicit
+    "Default" that keeps Factorio's generation defaults;
+  - "Reset to benchmark" restores the selected benchmark's map_gen values.
+
+  The effective config is sent as `map_gen` in `POST /api/runs`, validated by
+  `src/map-config.ts` (unknown fields/resources and out-of-range values are
+  rejected), stored on the run's benchmark and used for baseline map creation;
+  the recording window's Map dialog then shows the actual seed/resources.
+  `GET /api/map-config` exposes the resource list and presets to the form.
+  Tests cover normalization, launch integration and the static launch form.
+
+## [0.24.0] - 2026-11-05
 ## [0.24.0] - 2026-11-04
 
 ### Added
