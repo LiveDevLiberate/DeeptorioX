@@ -5708,3 +5708,76 @@ html[data-theme="light"] body.recording .connection-notice button {
 html:not([data-theme="light"]) body.recording #agentStatus.stale-plan .status-current {
   color: var(--safety);
 }
+
+/* ============================================================================
+   Colour + icon-size pass
+   One icon scale for the whole recording surface (12 / 14 / 18 px), aligned
+   with the factory-log type scale. The stale-plan warning is one colour (danger)
+   for both the text and the rule; light muted text is darkened to clear AA.
+   ========================================================================= */
+body.recording {
+  --icon-sm: 12px;
+  --icon-md: 14px;
+  --icon-lg: 18px;
+}
+html[data-theme="light"] body.recording {
+  --muted: #50656c;
+}
+body.recording #agentStatus.stale-plan .status-current {
+  color: var(--danger);
+}
+html[data-theme="light"] body.recording #agentStatus.stale-plan .status-current {
+  color: var(--danger);
+}
+body.recording .status-tools .status-toggle .icon,
+body.recording .status-tools .status-map-toggle .icon,
+body.recording .status-tools .status-theme-toggle .icon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+body.recording .status-current .icon {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+body.recording #transcriptTools .chip .icon,
+body.recording #transcriptTools .search-field .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+body.recording #codexOutput .action-badge .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin-right: 5px;
+}
+body.recording #codexOutput .reasoning-summary .icon,
+body.recording #codexOutput .commands-summary .icon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  margin-right: 7px;
+}
+body.recording .metric .icon,
+body.recording #statusMetrics .metric-value .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin-right: 5px;
+}
+body.recording #codexOutput .event-marker .icon,
+body.recording .jump-latest .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+body.recording .penalty-details .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin: 0 3px 0 0;
+}
+
+/* Final specificity for the hero target icon and stale warning. */
+body.recording #agentStatus .status-current .icon {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+html:not([data-theme="light"]) body.recording #agentStatus.stale-plan .status-current,
+html[data-theme="light"] body.recording #agentStatus.stale-plan .status-current {
+  color: var(--danger);
+}

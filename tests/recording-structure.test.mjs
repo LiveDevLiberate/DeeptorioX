@@ -37,6 +37,9 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(css, /--font-display:/);
   assert.match(css, /--safety:/);
   assert.match(css, /--font-body:/);
+  assert.match(css, /--icon-sm: 12px/);
+  assert.match(css, /--icon-md: 14px/);
+  assert.match(css, /--icon-lg: 18px/);
   assert.match(css, /body\.recording \.connection-notice/);
   assert.match(css, /body\.recording \.status-tools/);
   assert.match(css, /html\[data-theme="light"\] body\.recording #agentStatus\.stale-plan \.status-current/);

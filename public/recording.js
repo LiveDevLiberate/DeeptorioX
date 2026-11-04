@@ -646,7 +646,9 @@ const BADGE_ICONS = {
   other: "laptop",
 };
 function icon(name, className = "icon") {
-  return element("span", "", `${className} icon-${name}`);
+  const node = element("span", "", `${className} icon-${name}`);
+  node.setAttribute("aria-hidden", "true");
+  return node;
 }
 function prependIcon(node, name) {
   if (!node || typeof node.prepend !== "function") return node;
