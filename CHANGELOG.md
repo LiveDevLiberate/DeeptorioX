@@ -9,6 +9,24 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **STATE.md update API and enforcement.** `POST /api/agent/state` accepts
+  structured plan fields (`current`, `scores`, `objective`, `done_when`, `next`,
+  `timebox`, `progress`, `notes`, or a raw `markdown` override), writes the
+  canonical `workspace/STATE.md` atomically and refreshes the update deadline;
+  `GET /api/agent/state` returns `age_seconds` / `due` / `blocked` / interval
+  details. Python: `client.write_state(...)` and `client.state()`; CLI:
+  `state-write` / `state-show`.
+- Mutating agent jobs are refused with `409 STATE_UPDATE_REQUIRED` once STATE.md
+  is older than the hard interval (default 600 s, soft reminder at 300 s,
+  missing-state grace 120 s; configurable via `AUTORIO_STATE_*_SECONDS`).
+  Observations remain available; `observe_factory()` and `plan` include the
+  `state` block, and `act-mine`/`act-craft` responses carry it too. The prompt,
+  playbook and cookbook now require refreshing STATE.md every 5 minutes, so the
+  operator view cannot drift for long.
+
+## [0.15.0] - 2026-11-05
 ## [0.15.0] - 2026-11-04
 
 ### Added

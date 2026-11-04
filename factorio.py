@@ -76,6 +76,8 @@ Commands:
   observe-recipes --limit-recipes <n> [--unlocked-only]
   observe-entity --target x,y [--target ...] [--targets-json <json>]
   observe-resources --window-x <n> --window-y <n> --radius <n>
+  state-show
+  state-write --current <text> [--done-when <text>] [--next <text>] [--scores k=v,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]
   observe-factory --center-x <n> --center-y <n> --radius <n>
   observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>
   observe-connections --center-x <n> --center-y <n> --radius <n>
@@ -144,6 +146,8 @@ COMMAND_USAGE = {
     "observe-entity": "observe-entity: Inspect entity status, fuel, fluids, recipe, inventory.\nUsage: factorio.py observe-entity --target x,y [--target ...]\n   or: factorio.py observe-entity --targets-json <json>\n",
     "observe-resources": "observe-resources: Scan for resource patches in a radius.\nUsage: factorio.py observe-resources --window-x <n> --window-y <n> --radius <n>\n",
     "observe-factory": "observe-factory: Summarize power, fuel, and entity status counts in a window.\nUsage: factorio.py observe-factory --center-x <n> --center-y <n> --radius <n>\n",
+    "state-show": "state-show: Read the active run's STATE.md freshness/status.\nUsage: factorio.py state-show\n",
+    "state-write": "state-write: Write/refresh STATE.md (resets the update deadline gate).\nUsage: factorio.py state-write --current <text> [--done-when <text>] [--next <text>] [--scores production=50,logistics=40,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]\nMutating actions are refused with STATE_UPDATE_REQUIRED once STATE.md is too old; call this to continue.\n",
     "observe-layout": "observe-layout: Render a region as an ASCII map (belts, inserters, machines, terrain).\nUsage: factorio.py observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>\n",
     "observe-connections": "observe-connections: Audit inserter/belt/machine links and report dead ends or reversed links.\nUsage: factorio.py observe-connections --center-x <n> --center-y <n> --radius <n>\n",
     "observe-entity-prototype": "observe-entity-prototype: Look up entity dimensions, fluid connections, energy info.\nUsage: factorio.py observe-entity-prototype --name <entity-name>\n",
@@ -1523,6 +1527,31 @@ class FactorioClient:
             window["y"] = y
         return self.request("POST", "/api/agent/observe/factory", {"window": window})
 
+    def state(self) -> Any:
+        """Read the active run's STATE.md freshness/status."""
+        return self.request("GET", "/api/agent/state")
+
+    def write_state(self, current: str, *, scores: dict[str, int] | None = None,
+                    done_when: str | None = None, next: str | None = None,
+                    objective: str | None = None, timebox: str | None = None,
+                    progress: str | None = None, notes: str | None = None,
+                    markdown: str | None = None) -> Any:
+        """Write/refresh STATE.md and reset the state-update deadline gate."""
+        body: dict[str, Any] = {"current": current}
+        for key, value in {
+            "scores": scores,
+            "done_when": done_when,
+            "next": next,
+            "objective": objective,
+            "timebox": timebox,
+            "progress": progress,
+            "notes": notes,
+            "markdown": markdown,
+        }.items():
+            if value is not None:
+                body[key] = value
+        return self.request("POST", "/api/agent/state", body)
+
     def observe_connections(self, *, x: float | None = None, y: float | None = None,
                             radius: float = 120) -> Any:
         window: dict[str, Any] = {"radius": radius}
@@ -2648,6 +2677,30 @@ def run(argv: list[str]) -> int:
                 "radius": parse_number(flag("radius"), 50),
             }})
             return output(data_value(response))
+        if cmd == "state-show":
+            return output(data_value(request("GET", "/api/agent/state")))
+        if cmd == "state-write":
+            current = flag("current")
+            if not current:
+                raise ValueError("Missing --current")
+            body: dict[str, Any] = {"current": current}
+            for key in ("done-when", "next", "objective", "timebox", "progress", "notes", "markdown"):
+                value = flag(key)
+                if value is not None:
+                    body[key.replace("-", "_")] = value
+            scores_raw = flag("scores")
+            if scores_raw:
+                scores: dict[str, int] = {}
+                for part in scores_raw.split(","):
+                    piece = part.strip()
+                    if not piece:
+                        continue
+                    key, _, value = piece.partition("=")
+                    if not key or not value:
+                        raise ValueError(f"Invalid --scores entry '{piece}' (use key=value)")
+                    scores[key.strip()] = int(parse_number(value, 0) or 0)
+                body["scores"] = scores
+            return output(data_value(request("POST", "/api/agent/state", body)))
         if cmd == "observe-factory":
             window = {"radius": parse_number(flag("radius"), 120)}
             if parse_number(flag("center-x")) is not None:

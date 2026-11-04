@@ -173,6 +173,7 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.
 - Check `observe-factory().plan.automation` after each subtask: manual mines/crafts are penalty points; prefer drills/furnaces/assemblers.
+- Keep STATE.md fresh (`state-write` / `write_state`) at least every 5 min; stale state blocks mutating actions after 10 min.
 - Dry-run placement before every multi-entity build; failures are cheaper than rebuilding.
 - Batch: up to 50 entities/targets per action; chain jobs instead of one call per entity.
 - Never sleep more than 10 seconds; use `wait_for_*` conditions and re-observe.

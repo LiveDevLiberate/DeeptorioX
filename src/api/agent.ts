@@ -1183,6 +1183,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         );
         const plan = runManager.plan();
         if (plan) (data as JsonObject).plan = plan;
+        const state = runManager.stateStatus();
+        if (state) (data as JsonObject).state = state;
         return json(res, 200, { ok: true, data });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });

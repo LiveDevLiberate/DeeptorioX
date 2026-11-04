@@ -40,6 +40,7 @@ import type { ApiContext } from "./api/context.js";
 import { registerAgentRoutes } from "./api/agent.js";
 import { registerAreaEditRoutes } from "./api/area-edit.js";
 import { registerJobsRoutes } from "./api/jobs.js";
+import { registerStateRoutes } from "./api/state.js";
 import { registerManagerRoutes } from "./api/manager.js";
 import { registerRunsRoutes } from "./api/runs.js";
 import { registerSavesRoutes } from "./api/saves.js";
@@ -624,6 +625,7 @@ registerRunsRoutes(apiRouter, apiContext);
 // copy-settings action is reachable from clients (see src/api/area-edit.ts).
 registerAreaEditRoutes(apiRouter, apiContext);
 registerJobsRoutes(apiRouter, apiContext);
+registerStateRoutes(apiRouter, apiContext);
 registerSavesRoutes(apiRouter, apiContext);
 registerServerRoutes(apiRouter, apiContext);
 registerAgentRoutes(apiRouter, apiContext);

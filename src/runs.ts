@@ -22,6 +22,12 @@ import {
   type AutomationScore,
 } from "./automation-score.js";
 import {
+  evaluateStateGate,
+  renderStateMarkdown,
+  type StateGate,
+  type StateWriteInput,
+} from "./state-file.js";
+import {
   Benchmark,
   Snapshot,
   loadBenchmarks,
@@ -481,9 +487,68 @@ export class RunManager {
       research: run.latest?.current_research ?? null,
       research_progress: run.latest?.research_progress ?? null,
       automation: run.automation,
+      state: this.stateStatus(),
       remaining_seconds: Math.max(0, run.max_seconds - this.elapsed()),
     };
   }
+  /** STATE.md freshness and deadline information for the active run. */
+  stateStatus() {
+    const run = this.active;
+    if (!run) return undefined;
+    const state = this.stateFile(run);
+    const updated = state?.updated_at ? Date.parse(state.updated_at) : null;
+    const age = updated ? Math.max(0, (Date.now() - updated) / 1000) : null;
+    const gate = evaluateStateGate({
+      hasState: Boolean(state),
+      ageSeconds: age,
+      elapsedSeconds: this.elapsed(),
+      softSeconds: Number(process.env.AUTORIO_STATE_SOFT_SECONDS || 0) || undefined,
+      hardSeconds: Number(process.env.AUTORIO_STATE_HARD_SECONDS || 0) || undefined,
+      graceSeconds: Number(process.env.AUTORIO_STATE_GRACE_SECONDS || 0) || undefined,
+    });
+    return {
+      run_id: run.id,
+      state_md: state?.text,
+      updated_at: state?.updated_at,
+      age_seconds: gate.age_seconds,
+      soft_seconds: gate.soft_seconds,
+      hard_seconds: gate.hard_seconds,
+      grace_seconds: gate.grace_seconds,
+      due: gate.due,
+      blocked: gate.blocked,
+      hint: gate.hint,
+    };
+  }
+
+  /** Gate for mutating agent actions. */
+  stateGate(): { gate: StateGate; status: NonNullable<ReturnType<RunManager["stateStatus"]>> } | undefined {
+    const status = this.stateStatus();
+    if (!status) return undefined;
+    const gate: StateGate = evaluateStateGate({
+      hasState: Boolean(status.updated_at),
+      ageSeconds: status.age_seconds,
+      elapsedSeconds: this.elapsed(),
+      softSeconds: status.soft_seconds,
+      hardSeconds: status.hard_seconds,
+      graceSeconds: status.grace_seconds,
+    });
+    return { gate, status };
+  }
+
+  /** Write the canonical STATE.md from structured fields and refresh the deadline. */
+  writeState(input: StateWriteInput) {
+    const run = this.active;
+    if (!run) throw new Error("No active run");
+    if (!input || typeof input.current !== "string" || !input.current.trim())
+      throw new Error("Missing current subtask");
+    const workspace = path.join(this.dir(run), "workspace");
+    fs.mkdirSync(workspace, { recursive: true });
+    const markdown = renderStateMarkdown(input);
+    fs.writeFileSync(path.join(workspace, "STATE.md"), markdown);
+    this.event(run, `STATE.md updated: ${input.current.trim().slice(0, 120)}`);
+    return this.stateStatus();
+  }
+
   private view(run: Run) {
     const state = this.stateFile(run);
     return {

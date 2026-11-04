@@ -107,6 +107,22 @@ Automate extraction and crafting with drills, furnaces, assemblers and inserters
 hand work lowers the score and wastes active play time. The score is feedback,
 not a hard failure condition.
 
+### STATE.md update deadline
+
+`STATE.md` is the operator plan and is enforced by the manager:
+
+- Write it before your first gameplay action (`client.write_state(...)` or
+  `state-write --current ...`); the API renders the canonical markdown.
+- Refresh it at least every 5 minutes and whenever the current subtask or its
+  done-when condition changes. `state-show` / `GET /api/agent/state` returns
+  `age_seconds`, `due` and `blocked`.
+- After 10 minutes (600 s) the manager refuses mutating action jobs with
+  `409 STATE_UPDATE_REQUIRED`; observations remain available. Update STATE.md
+  through the API and continue. The same rules apply after a resume.
+- `act-mine` / `act-craft` responses and `observe_factory()` include the current
+  `state` block, so check it before long work.
+
+
 ### STATE.md template
 
 ```md

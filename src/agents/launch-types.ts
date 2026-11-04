@@ -68,8 +68,9 @@ const RESUME_PROMPT =
 const RESTART_PROMPT =
   "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. ";
 const BASE_TASK_PROMPT =
-  "STEP 0 (mandatory, before any gameplay action): your first tool call must write STATE.md in this workspace. Replace its content with this template, filling in the real objective and a first scored subtask from TASK.md:\n" +
+  "STEP 0 (mandatory, before any gameplay action): call the state API to write STATE.md (Python: client.write_state(current=..., scores={...}, done_when=..., next=...); CLI: state-write --current ...), or write STATE.md in this workspace with this template:\n" +
   "# STATE\nUpdated: <ISO-8601 timestamp>\nObjective: <from TASK.md>\nScores: production 0, logistics 0, mining 0, research 0, defense 0, exploration 0\nCurrent: <subtask name> (score 0)\nDone when: <quantified completion condition>\nNext: <first action>\n\n" +
+  "Refresh STATE.md at least every 5 minutes and whenever the subtask changes. The manager blocks mutating actions with STATE_UPDATE_REQUIRED once STATE.md is older than 10 minutes (or missing after the startup grace period); STATE.md writes reset that deadline. " +
   "Read AGENTS.md, COOKBOOK.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
   "Update STATE.md whenever the current subtask or its done-when condition changes, and after completing a subtask; the operator view and crash recovery rely on it. " +
   "The cookbook has proven layouts and the error-recovery matrix; follow it before inventing new designs. " +

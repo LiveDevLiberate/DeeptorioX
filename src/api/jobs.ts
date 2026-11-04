@@ -27,6 +27,14 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
       const { req, res } = request;
       if (runManager.busy && !runManager.acceptingActions)
         return json(res, 409, { error: "Run is not accepting actions" });
+      const stateGate = runManager.stateGate();
+      if (stateGate?.gate.blocked) {
+        return json(res, 409, {
+          error: "STATE_UPDATE_REQUIRED",
+          message: stateGate.gate.hint,
+          state: stateGate.status,
+        });
+      }
       const parsedBody = await readJsonBody(req);
       if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
       const body = parsedBody.body;
