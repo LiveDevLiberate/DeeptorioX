@@ -1617,3 +1617,109 @@ body.recording .status-activity:empty {
 #codexOutput .command {
   max-width: 100%;
 }
+
+/* ---- Icon system (inline SVG sprite) ------------------------------------- */
+.icon-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-right: 6px;
+  vertical-align: -2px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+#transcriptTools .chip .icon {
+  width: 12px;
+  height: 12px;
+  margin-right: 5px;
+  vertical-align: -1px;
+  opacity: 0.8;
+}
+#codexOutput .action-badge .icon {
+  width: 11px;
+  height: 11px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  opacity: 0.85;
+}
+#codexOutput .reasoning-summary .icon,
+#codexOutput .commands-summary .icon {
+  width: 13px;
+  height: 13px;
+  margin-right: 7px;
+  color: #7fc0a9;
+  opacity: 0.9;
+}
+#codexOutput .reasoning-summary .icon {
+  color: #e7c76f;
+}
+body.recording .metric .icon {
+  width: 11px;
+  height: 11px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  opacity: 0.75;
+}
+#codexOutput .event-marker .icon {
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  color: #9ed3f2;
+}
+.jump-latest .icon {
+  width: 12px;
+  height: 12px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+/* Reasoning body: one frame per thought segment. */
+#codexOutput .reasoning-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 16px 12px 26px;
+}
+#codexOutput .reasoning-segment {
+  padding: 9px 12px;
+  border: 1px solid #1d3036;
+  border-left: 2px solid #35564d;
+  border-radius: 8px;
+  background: rgba(11, 18, 21, 0.55);
+}
+#codexOutput .reasoning-segment.decision {
+  border-left-color: #c9a95a;
+  background: rgba(42, 34, 15, 0.28);
+}
+#codexOutput .reasoning-segment-text {
+  margin: 0;
+  color: #a9bdb7;
+  font:
+    13px/1.65 -apple-system,
+    "Segoe UI",
+    sans-serif;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#codexOutput .reasoning-segment.decision .reasoning-segment-text {
+  color: #e4d8b8;
+}
+
+/* Softer decision frame tint (reasoning segment boxes). */
+#codexOutput .reasoning-segment.decision {
+  background: rgba(46, 36, 15, 0.16);
+}
+#codexOutput .reasoning-segment.decision .reasoning-segment-text {
+  color: #d8cfb6;
+}

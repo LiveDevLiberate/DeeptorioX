@@ -195,6 +195,52 @@ function element(tag, text, className) {
   if (className) node.className = className;
   return node;
 }
+const SVG_NS = "http://www.w3.org/2000/svg";
+const BADGE_ICONS = {
+  build: "hammer",
+  mine: "pickaxe",
+  deconstruct: "trash",
+  observe: "eye",
+  move: "move",
+  rotate: "rotate",
+  recipe: "book",
+  craft: "wrench",
+  research: "flask",
+  insert: "arrow-right",
+  extract: "arrow-left",
+  rocket: "rocket",
+  settings: "sliders",
+  job: "clipboard",
+  wait: "clock",
+  script: "terminal",
+  server: "server",
+  run: "arrow-right",
+  action: "wrench",
+  other: "terminal",
+};
+function icon(name, className = "icon") {
+  if (typeof document.createElementNS !== "function") return element("span", "", `icon icon-${name}`);
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", className);
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  const use = document.createElementNS(SVG_NS, "use");
+  use.setAttribute("href", `#i-${name}`);
+  svg.append(use);
+  return svg;
+}
+function prependIcon(node, name) {
+  if (!node || typeof node.prepend !== "function") return node;
+  node.prepend(icon(name));
+  return node;
+}
+function setJumpLabel(label) {
+  jumpButton.textContent = label;
+  prependIcon(jumpButton, "arrow-down");
+}
+function badgeIcon(category) {
+  return BADGE_ICONS[category] || "terminal";
+}
 function parseScores(markdown) {
   const scores = {};
   const single = (markdown.match(/^Scores[^:\n]*:\s*(.+)$/m) || [])[1];
@@ -347,6 +393,7 @@ function refreshCommandGroup(group) {
   const stats = summarizeCommandGroup([...group.items.values()]);
   const loopPrefix = group.loop ? `⚠ ${strings().loop} ×${group.loop} · ` : "";
   group.summary.textContent = `${loopPrefix}${stats.text}`;
+  prependIcon(group.summary, "terminal");
   group.details.classList.toggle("failed", stats.failed > 0);
   group.details.classList.toggle("loop", group.loop > 0);
 }
@@ -362,6 +409,7 @@ function renderCommand(item) {
   }
   const badge = element("span", summary.label, `action-badge ${summary.category}`);
   if (summary.failed) badge.classList.add("failed");
+  prependIcon(badge, badgeIcon(summary.category));
   const main = element("span", "", "action-main");
   if (summary.target) main.append(element("span", summary.target, "action-target"));
   if (summary.outcome) main.append(element("span", summary.outcome, "action-outcome"));
@@ -422,13 +470,20 @@ function renderReasoning(item) {
   const node = element("details", "", "message reasoning");
   const summary = element("summary", "", "reasoning-summary");
   summary.textContent = segments[0]?.summary || "…";
+  prependIcon(summary, "bulb");
   const badge = element("span", "", "dedupe-badge");
   badge.hidden = true;
   summary.append(badge);
   const label = timeLabel(item);
   if (label) summary.append(element("span", label, "msg-time"));
   const body = element("div", "", "reasoning-body");
-  body.textContent = collapseRepeatedSentences(text);
+  for (const segment of segments) {
+    const frame = element("div", "", `reasoning-segment${isDecisionText(segment.body) ? " decision" : ""}`);
+    frame.append(element("div", collapseRepeatedSentences(segment.body), "reasoning-segment-text"));
+    body.append(frame);
+  }
+  if (!segments.length)
+    body.append(element("div", collapseRepeatedSentences(text), "reasoning-segment-text"));
   node.append(summary, body);
   node._kind = "reasoning";
   node._decision = isDecisionText(text);
@@ -489,6 +544,7 @@ function renderTool(item) {
   if (entry.title !== title) {
     entry.title = title;
     entry.summary.textContent = title;
+    prependIcon(entry.summary, "wrench");
     const label = timeLabel(item);
     if (label) entry.summary.append(element("span", label, "msg-time"));
   }
@@ -568,8 +624,9 @@ function trimTranscript() {
 }
 function renderEventMarker(text) {
   commandGroup = null;
-  const node = element("div", `◆ ${text}`, "event-marker");
+  const node = element("div", text, "event-marker");
   node._kind = "marker";
+  prependIcon(node, "flag");
   output.append(node);
 }
 function renderMetrics() {
@@ -580,7 +637,9 @@ function renderMetrics() {
     const rates = telemetryRates(telemetrySamples, { limit: 2 });
     const top = rates[0];
     if (top) {
-      children.push(element("span", `${top.name} ${Math.round(top.rate)}${text.rateSuffix}`, "metric"));
+      const metric = element("span", `${top.name} ${Math.round(top.rate)}${text.rateSuffix}`, "metric");
+      prependIcon(metric, "gear");
+      children.push(metric);
       const spark = element("span", "", "metric-spark");
       for (const width of miniBars(telemetrySeries(telemetrySamples, top.name, 8))) {
         const bar = element("span", "", "metric-bar");
@@ -590,13 +649,27 @@ function renderMetrics() {
       children.push(spark);
     }
     const research = telemetryResearch(telemetrySamples);
-    if (research) children.push(element("span", `${text.researchLabel} ${research}`, "metric"));
+    if (research) {
+      const metric = element("span", `${text.researchLabel} ${research}`, "metric");
+      prependIcon(metric, "flask");
+      children.push(metric);
+    }
     const power = telemetryPower(telemetrySamples);
-    if (power) children.push(element("span", power, "metric"));
+    if (power) {
+      const metric = element("span", power, "metric");
+      prependIcon(metric, "bolt");
+      children.push(metric);
+    }
   } else {
-    children.push(element("span", text.noTelemetry, "metric muted"));
+    const metric = element("span", text.noTelemetry, "metric muted");
+    prependIcon(metric, "terminal");
+    children.push(metric);
   }
-  if (lastErrorText) children.push(element("span", `⚠ ${lastErrorText}`, "metric error"));
+  if (lastErrorText) {
+    const metric = element("span", `⚠ ${lastErrorText}`, "metric error");
+    prependIcon(metric, "alert");
+    children.push(metric);
+  }
   statusMetrics.replaceChildren(...children);
   statusMetrics.hidden = children.length === 0;
 }
@@ -703,7 +776,7 @@ async function poll() {
             jumpButton.hidden = true;
           } else {
             unread += changed.length;
-            jumpButton.textContent = `${strings().newEvents} ${unread} ↓`;
+            setJumpLabel(`${strings().newEvents} ${unread} ↓`);
             jumpButton.hidden = false;
           }
         }
@@ -720,7 +793,7 @@ async function poll() {
         if (follow) output.scrollTop = output.scrollHeight;
         else if (text) {
           unread += 1;
-          jumpButton.textContent = `${strings().newEvents} ${unread} ↓`;
+          setJumpLabel(`${strings().newEvents} ${unread} ↓`);
           jumpButton.hidden = false;
         }
       }

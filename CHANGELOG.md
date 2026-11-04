@@ -9,6 +9,18 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Transcript icons and framed reasoning segments.** A small inline SVG icon
+  sprite (line icons, `currentColor`, no dependencies) is used sparingly: filter
+  chips (layers/bulb/wrench/chat/alert/compass), telemetry metric pills
+  (gear/flask/bolt/alert), action badges per category (hammer, pickaxe, eye,
+  arrows, flask, rocket, trash, clock, …), card headers (bulb for reasoning,
+  terminal for command groups, wrench for tool output, flag for event markers)
+  and the unread pill. Reasoning bodies are split into framed sub-boxes per
+  thought segment, with plan/decision segments carrying an amber left accent so
+  long thoughts read as discrete blocks instead of one wall of text.
+
 ## [0.8.0] - 2026-11-04
 
 ### Changed
