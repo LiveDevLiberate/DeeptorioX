@@ -13,8 +13,7 @@ commit `9e4e677` predates this file.
 
 ### Added
 
-- **Underground belt / pipe-to-ground support.** The build action accepts a per-entity
-  `underground_type: "input" | "output"`; the manager creates the explicit subtype through a
+- **Underground belt / pipe-to-ground support.** The build action accepts a per-entity  `underground_type: "input" | "output"`; the manager creates the explicit subtype through a
   dedicated Lua path (`create_entity` + item consumption, reach/collision checks) instead of the
   native cursor path, which cannot select underground variants. The Python client expands
   blueprint `input`/`output` subtypes into `underground_type`, ships them in every chunk, and adds
@@ -23,6 +22,15 @@ commit `9e4e677` predates this file.
   `build-underground-belt` / `build-underground-pipe` CLI commands. Live-validated on a real
   Windows-hosted Factorio: pairs were created with the correct `belt_to_ground_type` subtypes and
   the standard belt build path stayed intact.
+
+- **Client deconstruct-area.** `FactorioClient.deconstruct_area` plans an area through
+  `observe/area` (types/filters/player_only/limit) and removes the targets with the normal native
+  miner in <=50-target queued jobs: `dry_run` returns the exact plan without mining, empty areas
+  are ok no-ops, per-entity failures aggregate into `ok:false` without stopping later chunks, and
+  fatal job failures stop with `failed_chunk`/`error`. CLI `deconstruct-area` mirrors it
+  (`--include-all` = player_only false, `--types tree,simple-entity` for passability sweeps,
+  `--types resource` for ore). Live-validated on the real Windows game: area scan -> mine job
+  removed a tree (wood collected) and correctly reported a stale target as `no_entity`.
 
 ## [0.3.0] - 2026-11-04
 

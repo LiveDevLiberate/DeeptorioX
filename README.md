@@ -417,7 +417,9 @@ and `/observe/copy-settings` + `/act/copy-settings` (dry-run/reach-checked setti
 Python client adds `observe_snapshot`, `wait_for_production`, blueprint support
 (`build_blueprint`/`decode_blueprint_string`, underground input/output subtypes preserved) and
 construction planners (pipe lines, power networks, inserter pairs, mining outposts, defense lines,
-underground belt/pipe runs). Build requests may carry `underground_type: "input"|"output"` for
+underground belt/pipe runs). It also adds `deconstruct_area` (observe an area, then remove the
+targets with the normal native miner in <=50-target jobs; `dry_run` returns the plan first) and the
+matching `deconstruct-area` CLI. Build requests may carry `underground_type: "input"|"output"` for
 `underground-belt`/`pipe-to-ground`; the manager creates the explicit subtype and consumes the item.
 
 Run endpoints:

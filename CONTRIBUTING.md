@@ -48,7 +48,7 @@ repository hygiene + Prettier check, exactly what CI runs.
 | --- | --- |
 | `npm run build` / `npm run typecheck` | TypeScript compiles to `dist/` (strict, NodeNext ESM); `typecheck` skips emit |
 | `npm run test:node` | `node --test tests/*.test.mjs` — 270 Node tests (lifecycle, agent translators/launch specs, command builders, action jobs, HTTP/router/API handlers, telemetry sampler, area-edit, MCP tools, cluster, vision, observability, validation, UI helpers, …) |
-| `npm run test:python` | `node scripts/run-python-tests.mjs` — unittest discovery, 104 Python client/env tests (blueprint codec/build incl. underground subtypes, planners, new observations, CLI) |
+| `npm run test:python` | `node scripts/run-python-tests.mjs` — unittest discovery, 111 Python client/env tests (blueprint codec/build incl. underground subtypes, planners, new observations, deconstruct-area, CLI) |
 | `npm test` | Build, then `test:node`, then `test:python` |
 | `npm run test:coverage` / `npm run coverage` | Builds, then runs the Node suite with Node's built-in coverage through `scripts/coverage-gate.mjs`; fails below 82 % lines / 78 % branches / 84 % functions (CLI/env overrides, `--json`; current suite ~85.8 % lines / 85.4 % branches / 87.7 % functions) |
 | `npm run lint` / `npm run lint:fix` | Type-aware ESLint (`eslint.config.mjs`): `no-floating-promises`, `no-misused-promises`, unused vars and JS recommended rules as errors; `no-explicit-any` is a warning and is currently at **zero** — keep new dynamic boundaries typed through `src/validation.ts` |

@@ -152,7 +152,19 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
   `act-set-recipe`/manual edit. Prefer proven community blueprints for smelting arrays,
   green/red science, and oil processing before inventing a layout; then adapt to resources.
 
-## 12. Token and time discipline
+## 12. Cleanup and deconstruction
+
+- `deconstruct_area(x, y, radius, types=[...], player_only=False, dry_run=True)` first (from the
+  Python client): it calls `observe-area` and returns the exact target plan. Run it with
+  `dry_run=False` to remove the targets with the normal native miner (walking + real mining time,
+  <=50 targets per job).
+- Player-built things: `player_only=True` (default) uses the `last_user` heuristic; leave it false
+  and set `types` to sweep trees/rocks (`["tree","simple-entity"]`) or ore (`["resource"]`).
+- Use it to clear a build site, remove mistakes, or collect wood/stone; prefer mining a few
+  targets at a time near the character (long radius runs take real time and can fail per entity
+  when unreachable).
+
+## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.
 - Dry-run placement before every multi-entity build; failures are cheaper than rebuilding.

@@ -88,7 +88,7 @@
   - `GET /api/saves`, `GET /api/server/logs`, `POST /api/rcon/command`
   - Agent endpoints under `/api/agent/...` for observe/actions (world, player, research, recipes, build, mine, rotate, set-recipe, craft, insert, extract, resources, entity-prototype).
   - Agent capability endpoints: `POST /api/agent/observe/production` (per-minute rates from the manager's independent sampler), `/observe/fluids`, `/observe/combat`, `/observe/area` (deconstruction planning), `/observe/copy-settings` (dry-run) and `/act/copy-settings` (synchronous reach-checked settings paste). The telemetry sampler runs every 5 s while RCON is connected and is independent of benchmark runs.
-- CLI mirrors these as commands like `server-status`, `observe-world`, `act-build`, etc. See `python3 factorio.py --help` for commands.
+- CLI mirrors these as commands like `server-status`, `observe-world`, `act-build`, etc. See `python3 factorio.py --help` for commands. Client helpers include `observe_snapshot`, `observe_production/fluids/combat/area`, `copy_settings`, `build_blueprint`, `build_underground_belt_line`/`build_underground_pipe_line`, `deconstruct_area` (observe area -> native-mining batches) and the `build-*`/`deconstruct-area` CLI commands.
 
 ## Notes and known gaps
 - `RUN_REPORT.md` is historical; many listed gaps have already been addressed.

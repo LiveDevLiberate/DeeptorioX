@@ -87,9 +87,13 @@ Implementation status (2026-11-04, current batch):
   the input/output subtype. Diagonal/corner underground routing stays a follow-up (chain two
   axis-aligned plans). Planners place geometry only; recipes/filters follow with
   `act-set-recipe`.
-- P0-4 area edit: **done** server-side (`/api/agent/observe/area`, copy-settings dry-run +
-  synchronous reach-checked `act/copy-settings` using the verified `LuaEntity:copy_settings`
-  API). Deconstruction stays client-driven (observe area -> act-mine batch).
+- P0-4 area edit: **done**. Server: `/api/agent/observe/area` (deconstruction-planning entity
+  list with type/name filters and `player_only` last_user heuristic) and `/observe/copy-settings`
+  + synchronous reach-checked `/act/copy-settings` using the verified `LuaEntity:copy_settings`
+  API. Client: `FactorioClient.deconstruct_area` (observe area -> chunked native-mining jobs,
+  dry-run plan, per-entity aggregation) and `copy_settings`/`copy_settings_check`, plus the
+  `deconstruct-area` CLI. Live-validated: tree mined via the queued native miner with aggregated
+  results and a stale-target `no_entity` reported per entity.
 - P0-5 cookbook: **done** (`runs/run_template/COOKBOOK.md` copied into every run workspace and
   referenced from the agent prompt/playbook).
 
@@ -102,7 +106,10 @@ succeeded (with `removed_items`) after a native `act-move`; the Python client's 
 blueprint dry-run and planners also ran against the live manager. Underground validation: after
 inserting items via RCON, the build job created an `underground-belt` input/output pair (verified in
 Lua: `belt_to_ground_type` = input at x, output at x+4, direction 4) and a `pipe-to-ground` pair,
-and a normal `transport-belt` build still succeeded. Manager/game shut down cleanly.
+and a normal `transport-belt` build still succeeded. Deconstruct live test: `deconstruct_area`
+(dry-run) planned 10 trees around the player; executing a 2-target job mined one tree (2 wood,
+native walk + mining time) and reported the stale second target as `no_entity`, exactly the
+designed per-entity aggregation. Manager/game shut down cleanly.
 1. **Blueprint pipeline** (≈2–3 d)
    - Python: `decode_blueprint(str)` / `encode_blueprint(dict)` using stdlib `base64+zlib+json`
      (Factorio 2.x blueprint string format), `FactorioClient.build_blueprint(str, *, clear=True,
