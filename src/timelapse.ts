@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { DATA_DIR, ROOT, execFileAsync } from "./runtime.js";
 import { IS_WINDOWS, execExecutable, findOnPath } from "./platform.js";
+import { asNumber, asRecord } from "./validation.js";
 export const TIMELAPSE_TOOL = path.join(DATA_DIR, "tools", "autorio-timelapse");
 let building: Promise<void> | undefined;
 let ffmpegPath: string | undefined;
@@ -68,13 +69,17 @@ export async function buildTimelapseTool() {
     building = undefined;
   }
 }
-export function verifyTimelapseMetadata(metadata: any) {
+export function verifyTimelapseMetadata(metadata: unknown) {
   // AVFoundation reports nominal frame rates as floats (e.g. 30.0000019).
+  const record = asRecord(metadata);
+  const fps = asNumber(record?.fps);
+  const frames = asNumber(record?.frames);
   if (
-    !Number.isFinite(metadata?.fps) ||
-    Math.abs(metadata.fps - 30) > 0.01 ||
-    !Number.isInteger(metadata?.frames) ||
-    metadata.frames < 1
+    fps === undefined ||
+    Math.abs(fps - 30) > 0.01 ||
+    frames === undefined ||
+    !Number.isInteger(frames) ||
+    frames < 1
   )
     throw new Error("Timelapse output verification failed");
 }

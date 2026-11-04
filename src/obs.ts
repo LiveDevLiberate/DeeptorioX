@@ -4,11 +4,52 @@ import os from "node:os";
 import { DATA_DIR, execFileAsync } from "./runtime.js";
 import { ObsClient, ObsConnection } from "./obs-client.js";
 import { IS_WINDOWS, execExecutable, spawnExecutable } from "./platform.js";
+import { arrayOf, asBoolean, asNumber, asRecord, asString, numberOr } from "./validation.js";
 export const OBS_SCENE = "Autorio Runs",
   OBS_PROFILE = "Autorio Timelapse";
 const GAME = "Autorio · Factorio",
   LOG = "Autorio · Codex";
 const settingsFile = path.join(DATA_DIR, "obs-settings.json");
+
+/** One OBS window candidate from GetInputPropertiesListPropertyItems. */
+export type ObsWindowItem = {
+  itemEnabled?: boolean;
+  itemName?: string;
+  itemValue?: unknown;
+};
+
+function asWindowItem(value: unknown): ObsWindowItem | undefined {
+  const record = asRecord(value);
+  if (!record) return undefined;
+  return {
+    itemEnabled: asBoolean(record.itemEnabled),
+    itemName: asString(record.itemName),
+    itemValue: record.itemValue,
+  };
+}
+
+/** Parses the `propertyItems` list of one untrusted OBS window-property response. */
+export function parseWindowItems(value: unknown): ObsWindowItem[] {
+  return arrayOf(value, asWindowItem);
+}
+
+/** Parses a list of JSON objects from an untrusted OBS response field. */
+function recordList(value: unknown): Record<string, unknown>[] {
+  return arrayOf(value, asRecord);
+}
+
+/** Throws a contextual error for a required string field of an OBS response. */
+function requiredString(value: unknown, field: string): string {
+  const text = asString(value);
+  if (text === undefined) throw new Error(`OBS response is missing ${field}`);
+  return text;
+}
+
+/** Profile names from a GetProfileList reply (string or `{profileName}` entries). */
+function profileNames(value: unknown): string[] {
+  return arrayOf(value, (item) => (typeof item === "string" ? item : asString(asRecord(item)?.profileName)));
+}
+
 export function obsEnabled() {
   try {
     return (
@@ -34,28 +75,28 @@ function obsConfigPath() {
   );
 }
 export async function connectObs() {
-  let config: any = {};
+  let config: Record<string, unknown> = {};
   try {
-    config = JSON.parse(fs.readFileSync(obsConfigPath(), "utf8"));
+    config = asRecord(JSON.parse(fs.readFileSync(obsConfigPath(), "utf8"))) ?? {};
   } catch {
     /* Environment settings also supported. */
   }
   return ObsClient.connect(
-    process.env.OBS_WEBSOCKET_URL || `ws://127.0.0.1:${config.server_port || 4455}`,
-    process.env.OBS_WEBSOCKET_PASSWORD || config.server_password,
+    process.env.OBS_WEBSOCKET_URL || `ws://127.0.0.1:${asNumber(config.server_port) || 4455}`,
+    process.env.OBS_WEBSOCKET_PASSWORD || asString(config.server_password),
   );
 }
 export async function obsStatus() {
   let client: ObsConnection | undefined;
   try {
     client = await connectObs();
-    const version = await client.request("GetVersion");
-    const status = await client.request("GetRecordStatus");
+    const version = asRecord(await client.request("GetVersion")) ?? {};
+    const status = asRecord(await client.request("GetRecordStatus")) ?? {};
     return {
       enabled: obsEnabled(),
       connected: true,
-      version: version.obsVersion,
-      recording: status.outputActive,
+      version: asString(version.obsVersion),
+      recording: asBoolean(status.outputActive),
       capture_fps: 5,
       playback_fps: 30,
       speed: 6,
@@ -74,7 +115,12 @@ export async function obsStatus() {
   }
 }
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-export function selectWindow(items: any[], which: "game" | "log", runId: string, windowId?: number) {
+export function selectWindow(
+  items: ObsWindowItem[],
+  which: "game" | "log",
+  runId: string,
+  windowId?: number,
+): unknown {
   const enabled = items.filter((item) => item.itemEnabled !== false);
   const candidates = enabled.filter((item) => {
     const name = String(item.itemName);
@@ -123,7 +169,7 @@ export class ObsRunRecorder {
       "GetReplayBufferStatus",
       "GetVirtualCamStatus",
     ]) {
-      let status: any;
+      let status: unknown;
       try {
         status = await this.client.request(request);
       } catch (error) {
@@ -134,28 +180,33 @@ export class ObsRunRecorder {
           continue;
         throw error;
       }
-      if (status.outputActive)
+      if (asBoolean(asRecord(status)?.outputActive))
         throw new Error(
           "OBS already has an active output. Stop it before starting an automatically recorded run.",
         );
     }
-    const profiles = await this.client.request("GetProfileList");
-    this.originalProfile = profiles.currentProfileName;
-    this.originalScene = (await this.client.request("GetCurrentProgramScene")).sceneName;
-    if (profiles.profiles.some((p: any) => (typeof p === "string" ? p : p.profileName) === OBS_PROFILE))
+    const profiles = asRecord(await this.client.request("GetProfileList")) ?? {};
+    this.originalProfile = asString(profiles.currentProfileName);
+    this.originalScene = asString(asRecord(await this.client.request("GetCurrentProgramScene"))?.sceneName);
+    if (profileNames(profiles.profiles).includes(OBS_PROFILE))
       await this.client.request("SetCurrentProfile", { profileName: OBS_PROFILE });
     else await this.client.request("CreateProfile", { profileName: OBS_PROFILE });
     await this.client.request("SetCurrentProfile", { profileName: OBS_PROFILE });
     let profileReady = false;
     for (let attempt = 0; attempt < 30; attempt++) {
-      if ((await this.client.request("GetProfileList")).currentProfileName === OBS_PROFILE) {
+      if (
+        asString(asRecord(await this.client.request("GetProfileList"))?.currentProfileName) === OBS_PROFILE
+      ) {
         profileReady = true;
         break;
       }
       await pause(100);
     }
     if (!profileReady) throw new Error("OBS profile did not finish switching");
-    this.originalDirectory = (await this.client.request("GetRecordDirectory")).recordDirectory;
+    this.originalDirectory = requiredString(
+      asRecord(await this.client.request("GetRecordDirectory"))?.recordDirectory,
+      "recordDirectory",
+    );
     const outputSettings: Array<[string, string, string]> = IS_WINDOWS
       ? // Windows has no apple_h264; mkv is crash-safe and FFmpeg converts it afterwards.
         [
@@ -185,11 +236,11 @@ export class ObsRunRecorder {
     });
     let videoReady = false;
     for (let attempt = 0; attempt < 50; attempt++) {
-      const video = await this.client.request("GetVideoSettings");
+      const video = asRecord(await this.client.request("GetVideoSettings")) ?? {};
       if (
-        video.fpsNumerator / video.fpsDenominator === 5 &&
-        video.outputWidth === 1920 &&
-        video.outputHeight === 1080
+        numberOr(video.fpsNumerator, 0) / numberOr(video.fpsDenominator, 1) === 5 &&
+        asNumber(video.outputWidth) === 1920 &&
+        asNumber(video.outputHeight) === 1080
       ) {
         videoReady = true;
         break;
@@ -197,10 +248,10 @@ export class ObsRunRecorder {
       await pause(100);
     }
     if (!videoReady) throw new Error("OBS did not apply 1920×1080 at 5 fps");
-    const sceneList = await this.client.request("GetSceneList");
-    if (!sceneList.scenes.some((s: any) => s.sceneName === OBS_SCENE))
+    const sceneList = asRecord(await this.client.request("GetSceneList")) ?? {};
+    if (!recordList(sceneList.scenes).some((scene) => scene.sceneName === OBS_SCENE))
       await this.client.request("CreateScene", { sceneName: OBS_SCENE });
-    const inputs = (await this.client.request("GetInputList")).inputs;
+    const inputs = recordList((asRecord(await this.client.request("GetInputList")) ?? {}).inputs);
     const inputKind = IS_WINDOWS ? "window_capture" : "screen_capture";
     const inputSettings = (window: unknown) =>
       IS_WINDOWS
@@ -209,8 +260,8 @@ export class ObsRunRecorder {
           : { window, cursor: false }
         : { type: 1, window: window ?? 0, show_cursor: false, show_hidden_windows: true };
     for (const name of [GAME, LOG]) {
-      const existing = inputs.find((i: any) => i.inputName === name);
-      if (existing && existing.inputKind !== inputKind)
+      const existing = inputs.find((input) => input.inputName === name);
+      if (existing && asString(existing.inputKind) !== inputKind)
         throw new Error(`Reserved OBS source name is already in use: ${name}`);
       if (!existing)
         await this.client.request("CreateInput", {
@@ -220,21 +271,27 @@ export class ObsRunRecorder {
           inputSettings: inputSettings(undefined),
           sceneItemEnabled: true,
         });
-      const sceneItems = (await this.client.request("GetSceneItemList", { sceneName: OBS_SCENE })).sceneItems;
-      if (!sceneItems.some((i: any) => i.sourceName === name))
+      const sceneItems = recordList(
+        (asRecord(await this.client.request("GetSceneItemList", { sceneName: OBS_SCENE })) ?? {}).sceneItems,
+      );
+      if (!sceneItems.some((item) => asString(item.sourceName) === name))
         await this.client.request("CreateSceneItem", {
           sceneName: OBS_SCENE,
           sourceName: name,
           sceneItemEnabled: true,
         });
-      let window: any;
+      let window: unknown;
       for (let attempt = 0; attempt < 10; attempt++) {
-        const items = (
-          await this.client.request("GetInputPropertiesListPropertyItems", {
-            inputName: name,
-            propertyName: "window",
-          })
-        ).propertyItems;
+        const items = parseWindowItems(
+          (
+            asRecord(
+              await this.client.request("GetInputPropertiesListPropertyItems", {
+                inputName: name,
+                propertyName: "window",
+              }),
+            ) ?? {}
+          ).propertyItems,
+        );
         try {
           window = selectWindow(items, name === GAME ? "game" : "log", this.windowRunId, this.windowId);
           break;
@@ -248,8 +305,12 @@ export class ObsRunRecorder {
         inputSettings: inputSettings(window),
         overlay: false,
       });
-      const itemId = (await this.client.request("GetSceneItemId", { sceneName: OBS_SCENE, sourceName: name }))
-        .sceneItemId;
+      const itemId = asNumber(
+        (
+          asRecord(await this.client.request("GetSceneItemId", { sceneName: OBS_SCENE, sourceName: name })) ??
+          {}
+        ).sceneItemId,
+      );
       await this.client.request("SetSceneItemEnabled", {
         sceneName: OBS_SCENE,
         sceneItemId: itemId,
@@ -275,17 +336,19 @@ export class ObsRunRecorder {
       });
     }
     // The dedicated scene must contain exactly the two approved windows.
-    const sceneItems = (await this.client.request("GetSceneItemList", { sceneName: OBS_SCENE })).sceneItems;
-    if (sceneItems.some((i: any) => ![GAME, LOG].includes(i.sourceName)))
+    const sceneItems = recordList(
+      (asRecord(await this.client.request("GetSceneItemList", { sceneName: OBS_SCENE })) ?? {}).sceneItems,
+    );
+    if (sceneItems.some((item) => ![GAME, LOG].includes(asString(item.sourceName) ?? "")))
       throw new Error("Autorio Runs scene has extra sources; remove them before automatic recording");
-    const audio = await this.client.request("GetSpecialInputs");
+    const audio = asRecord(await this.client.request("GetSpecialInputs")) ?? {};
     for (const name of new Set<string>([
-      ...Object.values(audio).filter((v): v is string => typeof v === "string" && !!v),
+      ...Object.values(audio).filter((value): value is string => typeof value === "string" && !!value),
       GAME,
       LOG,
     ])) {
-      const mute = await this.client.request("GetInputMute", { inputName: name });
-      this.mutes.set(name, mute.inputMuted);
+      const mute = asRecord(await this.client.request("GetInputMute", { inputName: name }));
+      this.mutes.set(name, asBoolean(mute?.inputMuted) ?? false);
       await this.client.request("SetInputMute", { inputName: name, inputMuted: true });
     }
     await this.client.request("SetCurrentProgramScene", { sceneName: OBS_SCENE });
@@ -293,8 +356,11 @@ export class ObsRunRecorder {
     fs.mkdirSync(captureDir, { recursive: true });
     await this.client.request("SetRecordDirectory", { recordDirectory: captureDir });
     for (let attempt = 0; attempt < 30; attempt++) {
-      if (path.resolve((await this.client.request("GetRecordDirectory")).recordDirectory) === captureDir)
-        break;
+      const directory = requiredString(
+        asRecord(await this.client.request("GetRecordDirectory"))?.recordDirectory,
+        "recordDirectory",
+      );
+      if (path.resolve(directory) === captureDir) break;
       if (attempt === 29) throw new Error("OBS did not apply the run recording directory");
       await pause(100);
     }
@@ -302,7 +368,7 @@ export class ObsRunRecorder {
     await this.client.request("StartRecord");
     let recordingReady = false;
     for (let attempt = 0; attempt < 100; attempt++) {
-      if ((await this.client.request("GetRecordStatus")).outputActive) {
+      if (asBoolean(asRecord(await this.client.request("GetRecordStatus"))?.outputActive)) {
         recordingReady = true;
         break;
       }
@@ -326,8 +392,11 @@ export class ObsRunRecorder {
   }
   async stop(): Promise<string> {
     try {
-      const directory = (await this.client.request("GetRecordDirectory")).recordDirectory;
-      const profile = (await this.client.request("GetProfileList")).currentProfileName;
+      const directory = requiredString(
+        asRecord(await this.client.request("GetRecordDirectory"))?.recordDirectory,
+        "recordDirectory",
+      );
+      const profile = asString(asRecord(await this.client.request("GetProfileList"))?.currentProfileName);
       if (path.resolve(directory) !== path.join(this.dir, "video") || profile !== OBS_PROFILE) {
         this.owns = false;
         this.restoreAllowed = false;
@@ -335,7 +404,7 @@ export class ObsRunRecorder {
       }
       const result = await this.client.request("StopRecord");
       this.owns = false;
-      const output = path.resolve(result.outputPath);
+      const output = path.resolve(requiredString(asRecord(result)?.outputPath, "outputPath"));
       if (path.dirname(output) !== path.join(this.dir, "video"))
         throw new Error("OBS saved the recording outside this run's video directory");
       return output;
@@ -359,13 +428,16 @@ export class ObsRunRecorder {
   }
   private async restore() {
     if (this.owns) {
-      const directory = (await this.client.request("GetRecordDirectory")).recordDirectory;
+      const directory = requiredString(
+        asRecord(await this.client.request("GetRecordDirectory"))?.recordDirectory,
+        "recordDirectory",
+      );
       if (
         path.resolve(directory) !== path.join(this.dir, "video") ||
-        (await this.client.request("GetProfileList")).currentProfileName !== OBS_PROFILE
+        asString(asRecord(await this.client.request("GetProfileList"))?.currentProfileName) !== OBS_PROFILE
       )
         throw new Error("OBS output ownership changed during cleanup");
-      if ((await this.client.request("GetRecordStatus")).outputActive)
+      if (asBoolean(asRecord(await this.client.request("GetRecordStatus"))?.outputActive))
         await this.client.request("StopRecord");
       this.owns = false;
     }

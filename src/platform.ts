@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync, type ChildProcess, type SpawnOptions } from "node:child_process";
+import { asRecord } from "./validation.js";
 
 export const IS_WINDOWS = process.platform === "win32";
 export const IS_MACOS = process.platform === "darwin";
@@ -273,8 +274,8 @@ export function isProcessRunning(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch (error: any) {
-    if (error?.code === "ESRCH") return false;
+  } catch (error) {
+    if (asRecord(error)?.code === "ESRCH") return false;
     return true;
   }
 }

@@ -1,17 +1,19 @@
 import { createHash, randomUUID } from "node:crypto";
+import { asBoolean, asNumber, asRecord, asString } from "./validation.js";
 export function obsAuthentication(password: string, salt: string, challenge: string) {
   const hash = (value: string) => createHash("sha256").update(value).digest("base64");
   return hash(hash(password + salt) + challenge);
 }
+/** Local OBS v5 WebSocket connection; responses are untrusted JSON (`unknown`). */
 export interface ObsConnection {
-  request(type: string, data?: Record<string, unknown>): Promise<any>;
+  request(type: string, data?: Record<string, unknown>): Promise<unknown>;
   close(): void;
 }
 export class ObsClient implements ObsConnection {
   private socket: WebSocket;
   private pending = new Map<
     string,
-    { resolve: (data: any) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }
+    { resolve: (data: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }
   >();
   private constructor(url: string) {
     this.socket = new WebSocket(url);
@@ -41,9 +43,12 @@ export class ObsClient implements ObsConnection {
       client.socket.addEventListener("close", () => fail("OBS control connection closed"));
       client.socket.addEventListener("message", (event) => {
         try {
-          const message = JSON.parse(String(event.data));
-          if (message.op === 0) {
-            const auth = message.d.authentication;
+          const message: unknown = JSON.parse(String(event.data));
+          const envelope = asRecord(message);
+          const op = asNumber(envelope?.op);
+          const payload = asRecord(envelope?.d);
+          if (op === 0) {
+            const auth = asRecord(payload?.authentication);
             if (auth && !password) {
               clearTimeout(timer);
               client.close();
@@ -60,25 +65,34 @@ export class ObsClient implements ObsConnection {
                 d: {
                   rpcVersion: 1,
                   eventSubscriptions: 0,
-                  ...(auth
-                    ? { authentication: obsAuthentication(password!, auth.salt, auth.challenge) }
+                  ...(auth && password
+                    ? {
+                        authentication: obsAuthentication(
+                          password,
+                          String(auth.salt),
+                          String(auth.challenge),
+                        ),
+                      }
                     : {}),
                 },
               }),
             );
-          } else if (message.op === 2) {
+          } else if (op === 2) {
             clearTimeout(timer);
             resolve();
-          } else if (message.op === 7) {
-            const pending = client.pending.get(message.d.requestId);
+          } else if (op === 7) {
+            const requestId = asString(payload?.requestId);
+            if (!requestId) return;
+            const pending = client.pending.get(requestId);
             if (!pending) return;
             clearTimeout(pending.timer);
-            client.pending.delete(message.d.requestId);
-            if (message.d.requestStatus.result) pending.resolve(message.d.responseData || {});
+            client.pending.delete(requestId);
+            const requestStatus = asRecord(payload?.requestStatus) ?? {};
+            if (asBoolean(requestStatus.result)) pending.resolve(payload?.responseData || {});
             else
               pending.reject(
                 new Error(
-                  `OBS ${message.d.requestType}: ${message.d.requestStatus.comment || message.d.requestStatus.code}`,
+                  `OBS ${asString(payload?.requestType)}: ${asString(requestStatus.comment) || asString(requestStatus.code)}`,
                 ),
               );
           }
@@ -90,7 +104,7 @@ export class ObsClient implements ObsConnection {
     });
     return client;
   }
-  request(type: string, data: Record<string, unknown> = {}): Promise<any> {
+  request(type: string, data: Record<string, unknown> = {}): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const id = randomUUID();
       const timer = setTimeout(() => {

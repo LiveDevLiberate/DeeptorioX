@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { request as httpRequest } from "node:http";
+import { asRecord, asString, errorMessage } from "./validation.js";
 
 /**
  * Serialized action-job queue for the autorio manager.
@@ -29,6 +30,27 @@ export type JobAction =
 
 export type ActionJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
+/**
+ * JSON value accepted as a job payload and echoed back in job records. The
+ * queue only inspects `entities`/`targets`/`clear_obstacles`; everything else
+ * is forwarded verbatim to the matching action route.
+ */
+export type JobPayload = unknown;
+
+/** Result of one per-item `/api/agent/act/*` dispatch, reported to API clients. */
+export type JobResult = unknown;
+
+/** One internal dispatch as seen by the queue: HTTP status plus parsed JSON body. */
+export type JobDispatchResponse = { status: number; body: unknown };
+
+/** Envelope returned by the manager action routes: `{ok, data:{results}, error}`. */
+export type JobEnvelope = {
+  ok?: boolean;
+  error?: string;
+  data?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
 export type ActionJob = {
   id: string;
   action: JobAction;
@@ -39,10 +61,10 @@ export type ActionJob = {
   completed_at: string | null;
   total: number;
   completed: number;
-  results: any[];
+  results: JobResult[];
   error: string | null;
   cancel_requested: boolean;
-  payload: any;
+  payload: JobPayload;
 };
 
 /** Public (HTTP/JSON) projection of an action job. Field order is part of the API. */
@@ -55,13 +77,13 @@ export type PublicActionJob = {
   started_at: string | null;
   completed_at: string | null;
   progress: { completed: number; total: number };
-  results: any[];
+  results: JobResult[];
   error: string | null;
   cancel_requested: boolean;
 };
 
 /** Record persisted by the injected onRecord hook (run.json/actions accounting). */
-export type ActionJobRecord = PublicActionJob & { payload: any };
+export type ActionJobRecord = PublicActionJob & { payload: JobPayload };
 
 export type ActionJobQueueOptions = {
   /** Manager HTTP port that receives the internal `/api/agent/act/*` dispatches. */
@@ -105,20 +127,40 @@ export const actionPaths: Record<JobAction, string> = {
 };
 
 /** Splits a job payload into the ordered per-item payloads dispatched to the API. */
-export function splitJobPayload(action: JobAction, payload: any): any[] {
+export function splitJobPayload(action: JobAction, payload: JobPayload): unknown[] {
   if (action === "build") {
-    const clear = payload?.clear_obstacles !== false;
-    return (Array.isArray(payload?.entities) ? payload.entities : []).map((entity: any) => ({
+    const record = asRecord(payload);
+    const clear = record?.clear_obstacles !== false;
+    return (Array.isArray(record?.entities) ? record.entities : []).map((entity) => ({
       entities: [entity],
       clear_obstacles: clear,
     }));
   }
   if (["mine", "move", "rotate", "set-recipe", "launch-rocket"].includes(action)) {
-    return (Array.isArray(payload?.targets) ? payload.targets : []).map((target: any) => ({
+    const record = asRecord(payload);
+    return (Array.isArray(record?.targets) ? record.targets : []).map((target) => ({
       targets: [target],
     }));
   }
   return [payload ?? {}];
+}
+
+/**
+ * Reports the per-item result for one internal dispatch. Keeps the historical
+ * `data.results[0] ?? data ?? envelope` precedence and wraps non-2xx replies as
+ * `{ok:false, error, detail}` so job consumers keep the same JSON shapes.
+ */
+export function jobResultFromDispatch(response: JobDispatchResponse): JobResult {
+  const envelope: JobEnvelope | undefined = asRecord(response.body);
+  const data = envelope ? envelope.data : undefined;
+  const dataRecord = asRecord(data);
+  const firstResult = dataRecord && Array.isArray(dataRecord.results) ? dataRecord.results[0] : undefined;
+  let result: JobResult = firstResult ?? data ?? response.body;
+  if (response.status < 200 || response.status >= 300) {
+    const error = asString(envelope?.error) || `HTTP ${response.status}`;
+    result = { ok: false, error, detail: result };
+  }
+  return result;
 }
 
 function toPublicJob(job: ActionJob): PublicActionJob {
@@ -199,7 +241,7 @@ export class ActionJobQueue {
     return Boolean(job?.cancel_requested) || Boolean(this.isCancelledHook?.());
   }
 
-  submit(action: JobAction, payload: any, idempotencyKey: string | null): ActionJob {
+  submit(action: JobAction, payload: JobPayload, idempotencyKey: string | null): ActionJob {
     const scopedKey = idempotencyKey ? `${action}:${idempotencyKey}` : null;
     if (idempotencyKey) {
       const existingId = this.jobKeys.get(scopedKey!);
@@ -292,7 +334,7 @@ export class ActionJobQueue {
 
   // The queue owns timeouts and cancellation, so dispatch long actions over a
   // plain HTTP request with no client-side deadline (fetch/undici aborts at 300s).
-  private internalPost(pathname: string, payload: unknown): Promise<{ status: number; body: any }> {
+  private internalPost(pathname: string, payload: JobPayload): Promise<JobDispatchResponse> {
     return new Promise((resolve, reject) => {
       const body = Buffer.from(JSON.stringify(payload), "utf8");
       const req = httpRequest(
@@ -350,19 +392,13 @@ export class ActionJobQueue {
           break;
         }
         const response = await this.internalPost(actionPaths[job.action], payload);
-        const envelope = response.body;
-        const data = envelope?.data;
-        let result = data?.results?.[0] ?? data ?? envelope;
-        if (response.status < 200 || response.status >= 300) {
-          result = { ok: false, error: envelope?.error || `HTTP ${response.status}`, detail: result };
-        }
-        job.results.push(result);
+        job.results.push(jobResultFromDispatch(response));
         job.completed++;
       }
       job.status = job.cancel_requested ? "cancelled" : "completed";
-    } catch (err: any) {
+    } catch (error) {
       job.status = job.cancel_requested ? "cancelled" : "failed";
-      job.error = err?.message || "Action job failed";
+      job.error = errorMessage(error) || "Action job failed";
     } finally {
       job.completed_at = new Date().toISOString();
       this.record("finished", job);

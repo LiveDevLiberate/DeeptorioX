@@ -5,18 +5,41 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { obsStatus } from "./obs.js";
 import { DATA_DIR, PORT } from "./runtime.js";
+import { asRecord, asString } from "./validation.js";
+
+/** Run fields the CLI reads from `GET/POST /api/runs`; the API adds more. */
+type RunSummary = {
+  id: string;
+  name?: string;
+  state: string;
+  reason?: string;
+  agent: string;
+  model?: string;
+  model_label?: string;
+  terminal?: boolean;
+  elapsed_seconds: number;
+  segments: unknown[];
+  benchmark: { id: string };
+  hashes?: Record<string, string>;
+  milestones: Record<string, { wall_seconds: number; game_ticks: number }>;
+};
+type RunLog = { text: string; offset: number };
+type BenchmarkSummary = { id: string; title: string; max_seconds: number };
 
 const base = process.env.FACTORIO_API_BASE || `http://127.0.0.1:${PORT}`;
-async function api(endpoint: string, body?: unknown) {
+async function api<T = unknown>(endpoint: string, body?: unknown): Promise<T> {
   const response = await fetch(base + endpoint, {
     method: body === undefined ? "GET" : "POST",
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(120_000),
   });
-  const data = (await response.json()) as any;
-  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-  return data;
+  const data: unknown = await response.json();
+  if (!response.ok) {
+    // The manager reports failures as `{error}`; malformed bodies keep the status text.
+    throw new Error(asString(asRecord(data)?.error) || `HTTP ${response.status}`);
+  }
+  return data as T;
 }
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function ensureManager() {
@@ -76,8 +99,8 @@ async function watch(id: string) {
   });
   for (;;) {
     const [run, log] = await Promise.all([
-      api(`/api/runs/${id}`),
-      api(`/api/runs/${id}/log?offset=${offset}`),
+      api<RunSummary>(`/api/runs/${id}`),
+      api<RunLog>(`/api/runs/${id}/log?offset=${offset}`),
     ]);
     if (state !== run.state) {
       state = run.state;
@@ -118,7 +141,7 @@ async function main() {
     throw new Error(`Unknown command: ${command}`);
   await ensureManager();
   if (command === "start") {
-    const run = await api("/api/runs", {
+    const run = await api<RunSummary>("/api/runs", {
       benchmark: args[0]?.startsWith("--") ? "smoke" : args[0] || "smoke",
       model: option("--model"),
       reasoning_effort: option("--thinking"),
@@ -139,28 +162,28 @@ async function main() {
     if (args.includes("--watch") && !args.includes("--detach")) await watch(run.id);
   } else if (command === "resume") {
     if (!args[0]) throw new Error("Usage: ./autorio resume RUN_ID");
-    const run = await api(`/api/runs/${encodeURIComponent(args[0])}/resume`, {});
+    const run = await api<RunSummary>(`/api/runs/${encodeURIComponent(args[0])}/resume`, {});
     console.log(
       `Resuming ${run.name || run.id} · segment ${run.segments.length}\n${base}/run.html?run=${encodeURIComponent(run.id)}`,
     );
   } else if (command === "benchmarks")
     console.table(
-      (await api("/api/benchmarks")).benchmarks.map((b: any) => ({
-        id: b.id,
-        title: b.title,
-        limit_seconds: b.max_seconds,
+      (await api<{ benchmarks: BenchmarkSummary[] }>("/api/benchmarks")).benchmarks.map((benchmark) => ({
+        id: benchmark.id,
+        title: benchmark.title,
+        limit_seconds: benchmark.max_seconds,
       })),
     );
   else if (command === "list")
     console.table(
-      (await api("/api/runs")).runs.map((r: any) => ({
-        run: r.name || r.id,
-        id: r.id,
-        benchmark: r.benchmark.id,
-        agent: r.agent,
-        model: r.model_label,
-        state: r.state,
-        seconds: Math.round(r.elapsed_seconds),
+      (await api<{ runs: RunSummary[] }>("/api/runs")).runs.map((run) => ({
+        run: run.name || run.id,
+        id: run.id,
+        benchmark: run.benchmark.id,
+        agent: run.agent,
+        model: run.model_label,
+        state: run.state,
+        seconds: Math.round(run.elapsed_seconds),
       })),
     );
   else if (command === "show") console.log(JSON.stringify(await api(`/api/runs/${args[0]}`), null, 2));
@@ -171,7 +194,7 @@ async function main() {
     console.log(JSON.stringify(await api(`/api/runs/${args[0]}/pause`, {}), null, 2));
   else if (command === "compare") {
     if (args.length < 2) throw new Error("compare needs at least two run IDs");
-    const runs = await Promise.all(args.map((id) => api(`/api/runs/${id}`)));
+    const runs = await Promise.all(args.map((id) => api<RunSummary>(`/api/runs/${id}`)));
     if (
       new Set(runs.map((r) => `${r.hashes?.benchmark}:${r.hashes?.baseline_save}:${r.hashes?.client}`)).size >
       1
@@ -187,9 +210,9 @@ async function main() {
         state: r.state,
         seconds: Math.round(r.elapsed_seconds),
         ...Object.fromEntries(
-          Object.entries(r.milestones).map(([id, m]: [string, any]) => [
+          Object.entries(r.milestones).map(([id, milestone]) => [
             id,
-            `${m.wall_seconds.toFixed(1)}s / ${m.game_ticks} ticks`,
+            `${milestone.wall_seconds.toFixed(1)}s / ${milestone.game_ticks} ticks`,
           ]),
         ),
       })),

@@ -57,6 +57,8 @@ import { codexLaunchSpec, codexProviderArgs } from "./agents/codex-launch.js";
 import { dshLaunchSpec } from "./agents/dsh-launch.js";
 import type { LaunchFile, LaunchSpec } from "./agents/launch-types.js";
 import { openCodeLaunchSpec } from "./agents/opencode-launch.js";
+import type { ActionJobRecord } from "./action-jobs.js";
+import { asBoolean, asRecord } from "./validation.js";
 import {
   createCodexState,
   isCodexNativeErrorLine,
@@ -134,7 +136,7 @@ type Run = {
     string,
     { wall_seconds: number; game_ticks: number; observed_at: string; initial?: boolean }
   >;
-  agent_exit?: { code: number | null; signal: string | null };
+  agent_exit?: AgentExit;
   session_id?: string;
   usage?: Record<string, number>;
   usage_status?: "final" | "last_reported" | "unavailable";
@@ -153,11 +155,22 @@ type Run = {
     partial_failures: number;
   };
 };
+/** Metadata reported by timelapse rendering; persisted into run.json verbatim. */
+export type VideoRenderResult = {
+  file?: string;
+  fps?: number;
+  frames?: number;
+  [key: string]: unknown;
+};
+
+/** Terminal child-process outcome recorded in run.json (`agent_exit`). */
+export type AgentExit = { code: number | null; signal: string | null };
+
 type Hooks = {
   running(): boolean;
   openRecording?(dir: string): Promise<void>;
   startVideo?(dir: string): Promise<{ stop(): Promise<string> }>;
-  renderVideo?(source: string, dir: string): Promise<any>;
+  renderVideo?(source: string, dir: string): Promise<VideoRenderResult>;
   start(save: string, profile: string, logFile: string): Promise<void>;
   stop(): Promise<void>;
   command(lua: string, timeout?: number): Promise<string>;
@@ -188,6 +201,11 @@ type TranscriptEvent = {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const sha256 = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** Counts per-item job results that explicitly reported a failure. */
+export function failureCount(results: readonly unknown[]): number {
+  return results.filter((result) => asRecord(result)?.ok === false).length;
+}
 
 export class RunManager {
   readonly benchmarks = loadBenchmarks(ROOT);
@@ -263,7 +281,7 @@ export class RunManager {
   get acceptingActions() {
     return this.active?.state === "running";
   }
-  recordJob(phase: "submitted" | "finished", job: any) {
+  recordJob(phase: "submitted" | "finished", job: ActionJobRecord) {
     const run = this.active;
     if (!run || !["running", "saving"].includes(run.state)) return;
     fs.appendFileSync(
@@ -275,9 +293,7 @@ export class RunManager {
       if (job.status === "completed") run.actions.completed++;
       if (job.status === "failed") run.actions.failed++;
       if (job.status === "cancelled") run.actions.cancelled++;
-      run.actions.partial_failures += (job.results || []).filter(
-        (result: any) => result?.ok === false,
-      ).length;
+      run.actions.partial_failures += failureCount(job.results);
     }
     this.persist(run);
   }
@@ -553,7 +569,7 @@ export class RunManager {
       await ensureObsRunning();
       const client = await connectObs();
       try {
-        if ((await client.request("GetRecordStatus")).outputActive)
+        if (asBoolean(asRecord(await client.request("GetRecordStatus"))?.outputActive))
           throw new Error("OBS is already recording; refusing to take over an existing recording");
       } finally {
         client.close();
@@ -1013,7 +1029,7 @@ export class RunManager {
       sequence = 0;
     const decoder = new StringDecoder("utf8");
     const usage: Record<string, number> = (resuming || restarting) && run.usage ? { ...run.usage } : {};
-    const emit = (event: any) =>
+    const emit = (event: TranscriptEvent) =>
       fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), JSON.stringify(event) + "\n");
     const plain = (text: string) => fs.appendFileSync(path.join(this.dir(run), "codex.log"), text + "\n");
     const limited = (message: string) => {
@@ -1022,7 +1038,7 @@ export class RunManager {
       void this.finish("paused", `DSH quota exhausted: ${message}`);
     };
     const translator = createDshState();
-    const handle = (event: any) => {
+    const handle = (event: unknown) => {
       for (const op of translateDshEvent(event, translator)) {
         switch (op.kind) {
           case "thread":

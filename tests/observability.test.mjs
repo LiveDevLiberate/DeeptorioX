@@ -323,15 +323,20 @@ test("status code mapping is 200 for ok and 503 for degraded", () => {
 });
 
 test("server wires GET /api/health and routed request logging without console.log", () => {
-  const source = fs.readFileSync(new URL("../src/server.ts", import.meta.url), "utf8");
-  assert.match(source, /url\.pathname === "\/api\/health"/);
-  assert.match(source, /healthPayload\(/);
-  assert.match(source, /healthStatusCode\(payload\)/);
-  assert.match(source, /from "\.\/health\.js"/);
-  assert.match(source, /from "\.\/logger\.js"/);
-  assert.match(source, /configureLogger\(\{/);
-  assert.match(source, /path\.join\(DATA_DIR, "manager\.log"\)/);
-  assert.match(source, /logger\.info\("Server listening"/);
-  assert.match(source, /logger\.child\(\{ component: "http" \}\)/);
-  assert.doesNotMatch(source, /console\.log\(/);
+  const source = (relative) => fs.readFileSync(new URL(relative, import.meta.url), "utf8");
+  // `server.ts` (lifecycle + logging) and `src/api/server.ts` (route groups)
+  // must both stay wired: keep the intent even as server.ts is decomposed.
+  const api = source("../src/api/server.ts");
+  const server = source("../src/server.ts");
+  assert.match(api, /"\/api\/health"/);
+  assert.match(api, /healthPayload\(/);
+  assert.match(api, /healthStatusCode\(payload\)/);
+  assert.match(api, /from "\.\.\/health\.js"/);
+  assert.match(server, /from "\.\/logger\.js"/);
+  assert.match(server, /configureLogger\(\{/);
+  assert.match(server, /path\.join\(DATA_DIR, "manager\.log"\)/);
+  assert.match(server, /logger\.info\("Server listening"/);
+  assert.match(server, /logger\.child\(\{ component: "http" \}\)/);
+  assert.match(server, /httpLog\.info\("request"/);
+  assert.doesNotMatch(server, /console\.log\(/);
 });

@@ -1,9 +1,12 @@
+import { asRecord, asString } from "./validation.js";
+
 /** Only classify agent error events, never arbitrary tool output or agent prose. */
-export function quotaError(event: any): string | undefined {
-  if (!event || !["error", "turn.failed"].includes(event.type)) return;
-  const error = event.error || event;
-  const message = typeof error.message === "string" ? error.message : "";
-  const codes = [error.code, error.type, error.codex_error_info, event.code, event.codex_error_info];
+export function quotaError(event: unknown): string | undefined {
+  const record = asRecord(event);
+  if (!record || !["error", "turn.failed"].includes(asString(record.type) ?? "")) return undefined;
+  const error = asRecord(record.error) ?? record;
+  const message = asString(error.message) ?? "";
+  const codes = [error.code, error.type, error.codex_error_info, record.code, record.codex_error_info];
   if (
     codes.some(
       (code) =>

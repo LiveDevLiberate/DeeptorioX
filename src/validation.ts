@@ -86,6 +86,16 @@ export function describeValue(value: unknown): string {
   return typeof value;
 }
 
+/**
+ * Best-effort message for a caught `unknown`: Error instances and objects with a
+ * non-empty string `message` report it; anything else returns undefined so the
+ * caller can apply its own fallback (e.g. "Action job failed").
+ */
+export function errorMessage(value: unknown): string | undefined {
+  const message = value instanceof Error ? value.message : isRecord(value) ? value.message : undefined;
+  return typeof message === "string" && message ? message : undefined;
+}
+
 /** Collects the invalid fields of a record, for actionable error messages. */
 export function missingFields(record: unknown, fields: string[]): string[] {
   const object = asRecord(record);
