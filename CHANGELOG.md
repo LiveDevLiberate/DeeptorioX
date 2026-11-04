@@ -9,6 +9,8 @@ commit `9e4e677` predates this file.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-04
+
 ## [0.2.0] - 2026-11-04
 
 This section summarizes the 29 commits in `9e4e677..15465ed` (2026-11-03 to
@@ -127,5 +129,6 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ryanmadden/autorio/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ryanmadden/autorio/compare/9e4e677...v0.2.0
