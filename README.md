@@ -122,7 +122,7 @@ Agent runs open the web recording view by default. It shows agent messages and
 reasoning as collapsed blocks with a one-line summary (only the newest two stay
 expanded; identical consecutive thoughts collapse into a “repeated ×N” badge).
 Commands are summarized as action rows (category badge, target and result, e.g.
-`mine (129,-26) · 2/2 ok · mined 2 · +2 wood`), grouped with category counters
+`mine (129,-26) · 2/2 ok · mined 2 · +2 wood · 1.4s`), grouped with category counters
 (`12 build · 3 mine · 1 failed`); repeated identical actions raise a “loop? ×N”
 warning. Raw command and output stay behind an expandable row, and other tools
 are shown as a label + detail instead of raw JSON. Turn separators, relative
@@ -130,7 +130,8 @@ timestamps for live events, and a floating “N new ↓” button (auto-follow p
 when you scroll up) make long runs easier to follow. A toolbar filters by
 Thinking/Actions/Messages/Errors/Decisions and searches the transcript; the
 choice is remembered. The header also shows production rates from telemetry
-(with a mini sparkline), research progress, the latest failure, elapsed time and
+(with a mini sparkline), power satisfaction (electric networks around the
+player), research progress, the latest failure, elapsed time and
 tokens, the current subtask with its done condition, and six subtask scores from
 `STATE.md`. Labels switch between English and Simplified Chinese from the run's
 language, and the header collapses for narrow windows. Add `&overlay=1` to the

@@ -19,8 +19,10 @@ this file.
   target and result plus category counters (`12 build · 3 mine · 1 failed`) and a
   `loop? ×N` warning for repeated actions, non-command tools as label+detail, and
   turn dividers with relative timestamps for live events. A floating unread
-  (`N new ↓`) pill pauses auto-follow when scrolled up. The status bar gains
-  telemetry metrics (top production rate with a mini sparkline, research progress,
+  (`N new ↓`) pill pauses auto-follow when scrolled up. Action rows show command
+  duration when available. The status bar gains
+  telemetry metrics (top production rate with a mini sparkline, power satisfaction,
+  research progress,
   latest failure), and telemetry deltas insert event markers (research completed,
   item starts producing, rocket launched). A toolbar filters by
   Thinking/Actions/Messages/Errors/Decisions and searches the transcript

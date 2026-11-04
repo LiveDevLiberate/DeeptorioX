@@ -139,8 +139,9 @@ build Lua returning normalized JSON, alongside the capability observations
 Lua builders live in `src/command-builders.ts` and `src/observation-builders.ts` /
 `src/area-edit.ts` (unit-tested without a game); route registration/handlers live in `src/api/`,
 while RCON dispatch and shared state stay in `src/server.ts`. Benchmark telemetry is one `/sc`
-snapshot per sample (`TELEMETRY_COMMAND`: tick, production, research, rockets) parsed by
-`benchmarks.ts`; the sampler reuses that parser outside runs.
+snapshot per sample (`TELEMETRY_COMMAND`: tick, production, research, rockets, plus an optional
+power summary from electric networks within 128 tiles of the player) parsed by `benchmarks.ts`;
+the sampler reuses that parser outside runs.
 
 **Health and operational logs.** `GET /api/health` returns 200 when every probe passes and 503
 `degraded` (with a `problems` list) when a probe throws; an idle manager is healthy. The structured
