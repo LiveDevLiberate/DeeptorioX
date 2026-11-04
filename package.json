@@ -1,6 +1,6 @@
 {
   "name": "factorio-manager",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "private": true,
   "type": "module",
   "description": "Graphical Factorio manager, JSON gameplay API and LLM benchmark runner",
