@@ -27,6 +27,8 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(css, /\.ui-col-1-7 \{/);
   assert.match(css, /\.ui-col-8-12 \{/);
   assert.match(css, /html\[data-theme="light"\] body\.recording/);
+  assert.match(css, /html:not\(\[data-theme="light"\]\) body\.recording/);
+  assert.match(css, /--rec-bg: #000000/);
   assert.match(css, /body\.recording main\.transcript-pane \{[^}]*margin: 0;/);
   assert.match(css, /main\.transcript-pane > #transcriptTools,/);
   for (const id of [

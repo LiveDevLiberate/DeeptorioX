@@ -4317,3 +4317,40 @@ html[data-theme="light"] body.recording #codexOutput {
     min-width: 520px;
   }
 }
+
+/* ============================================================================
+   Dark theme: pure-black page background
+   The dark theme keeps its existing card/panel surfaces for hierarchy, but the
+   page, status header and transcript toolbar use a true black background. The
+   light theme is unaffected.
+   ========================================================================= */
+:root {
+  --bg: #000000;
+}
+html:not([data-theme="light"]) {
+  background: #000000;
+}
+html:not([data-theme="light"]) body {
+  background: #000000;
+}
+html:not([data-theme="light"]) body.recording {
+  --rec-bg: #000000;
+  --rec-bg-deep: #000000;
+  --bg: #000000;
+  background: #000000;
+}
+html:not([data-theme="light"]) body.recording #agentStatus {
+  background: #000000;
+  border-bottom-color: #1a1a1a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+}
+html:not([data-theme="light"]) body.recording #transcriptTools {
+  background: #000000;
+  border-bottom-color: #1a1a1a;
+}
+html:not([data-theme="light"]) body.overlay {
+  background: #000000;
+}
+html:not([data-theme="light"]) body.overlay #agentStatus {
+  background: #000000;
+}

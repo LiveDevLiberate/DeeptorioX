@@ -9,6 +9,15 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Dark theme now uses a true black page background (`#000`).** The recording
+  page, status header and transcript toolbar are pure black (the previous
+  green/blue radial gradients are removed); the dashboard page background is
+  black too. Card/panel surfaces keep their dark-grey hierarchy, and the light
+  theme is unchanged.
+
+## [0.25.0] - 2026-11-05
 ## [0.25.0] - 2026-11-04
 
 ### Added
