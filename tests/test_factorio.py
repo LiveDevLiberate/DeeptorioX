@@ -637,5 +637,557 @@ class BlueprintCliTests(unittest.TestCase):
         self.assertIn("--blueprint-file", stderr.getvalue())
 
 
+class TelemetryObservationTests(unittest.TestCase):
+    def test_observation_wrappers_match_endpoint_payloads(self):
+        client = factorio.FactorioClient()
+        with patch.object(client, "request", return_value={"ok": True, "data": {}}) as request:
+            self.assertEqual(client.observe_production(), {"ok": True, "data": {}})
+            client.observe_fluids(x=1, y=2, radius=16)
+            client.observe_combat(radius=8)
+            client.observe_area(
+                3, 4, radius=12, limit=5,
+                types=["assembling-machine-1"], filters=["iron-plate"], player_only=True)
+        self.assertEqual(request.call_args_list, [
+            unittest.mock.call("POST", "/api/agent/observe/production", {}),
+            unittest.mock.call("POST", "/api/agent/observe/fluids",
+                               {"x": 1, "y": 2, "radius": 16}),
+            unittest.mock.call("POST", "/api/agent/observe/combat",
+                               {"x": None, "y": None, "radius": 8}),
+            unittest.mock.call("POST", "/api/agent/observe/area", {
+                "window": {"x": 3, "y": 4, "radius": 12},
+                "limit": 5,
+                "types": ["assembling-machine-1"],
+                "filters": ["iron-plate"],
+                "player_only": True,
+            }),
+        ])
+
+    def test_observe_production_retries_telemetry_not_ready_once(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        responses = [
+            RuntimeError("telemetry not ready"),
+            {"ok": True, "data": {"samples": 2}},
+        ]
+        with patch.object(client, "request", side_effect=responses) as request, \
+                patch("factorio.time.sleep") as sleep:
+            result = client.observe_production()
+        self.assertEqual(result["data"]["samples"], 2)
+        self.assertEqual(request.call_count, 2)
+        sleep.assert_called_once_with(0.5)
+
+        with patch.object(client, "request", side_effect=RuntimeError("RCON not connected")):
+            with self.assertRaisesRegex(RuntimeError, "RCON"):
+                client.observe_production()
+
+        with patch.object(client, "request",
+                          side_effect=[RuntimeError("telemetry not ready")] * 2) as request, \
+                patch("factorio.time.sleep"):
+            with self.assertRaisesRegex(RuntimeError, "telemetry not ready"):
+                client.observe_production()
+        self.assertEqual(request.call_count, 2)
+
+    def test_copy_settings_routes_and_dry_run_alias(self):
+        client = factorio.FactorioClient()
+        targets = [{"source": {"x": 1, "y": 2}, "target": {"x": 3, "y": 4}}]
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.copy_settings(targets)
+            client.copy_settings(targets, dry_run=True)
+            client.copy_settings_check(targets)
+        self.assertEqual(request.call_args_list, [
+            unittest.mock.call("POST", "/api/agent/act/copy-settings", {"targets": targets}),
+            unittest.mock.call("POST", "/api/agent/observe/copy-settings", {"targets": targets}),
+            unittest.mock.call("POST", "/api/agent/observe/copy-settings", {"targets": targets}),
+        ])
+
+    def test_observe_snapshot_aggregates_parts_and_partial_failure(self):
+        client = factorio.FactorioClient()
+        with patch.object(client, "observe_player",
+                          return_value={"ok": True, "data": {"player": {"x": 1}}}), \
+                patch.object(client, "observe_factory",
+                             return_value={"data": {"totals": {}}}) as factory, \
+                patch.object(client, "observe_research",
+                             return_value={"data": {"completed": []}}), \
+                patch.object(client, "observe_production",
+                             return_value={"data": {"production_per_minute": {"iron-plate": 10}}}):
+            snapshot = client.observe_snapshot(5, 6, radius=32)
+        self.assertTrue(snapshot["ok"])
+        self.assertEqual(snapshot["player"], {"player": {"x": 1}})
+        self.assertEqual(snapshot["factory"], {"totals": {}})
+        self.assertEqual(snapshot["research"], {"completed": []})
+        self.assertEqual(snapshot["production"], {"production_per_minute": {"iron-plate": 10}})
+        factory.assert_called_once_with(x=5, y=6, radius=32)
+        self.assertNotIn("errors", snapshot)
+
+        failing = factorio.FactorioClient()
+        with patch.object(failing, "observe_player", return_value={"data": {}}), \
+                patch.object(failing, "observe_factory",
+                             side_effect=RuntimeError("RCON not connected")), \
+                patch.object(failing, "observe_research", return_value={"data": {}}), \
+                patch.object(failing, "observe_production", return_value={"data": {}}):
+            snapshot = failing.observe_snapshot()
+        self.assertFalse(snapshot["ok"])
+        self.assertEqual(snapshot["factory"],
+                         {"ok": False, "error": "RCON not connected"})
+        self.assertEqual(snapshot["errors"],
+                         [{"part": "factory", "error": "RCON not connected"}])
+
+    def test_wait_for_production_requires_stable_polls(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        responses = [
+            {"data": {"production_per_minute": {"iron-plate": 3}}},
+            {"data": {"production_per_minute": {"iron-plate": 12}}},
+            {"data": {"production_per_minute": {"iron-plate": 15}}},
+        ]
+        with patch.object(client, "observe_production", side_effect=responses), \
+                patch("factorio.time.sleep") as sleep:
+            result = client.wait_for_production(
+                "iron-plate", 10, timeout=60, interval=1, stable_polls=2)
+        self.assertEqual(result["production_per_minute"]["iron-plate"], 15)
+        self.assertEqual(sleep.call_count, 2)
+
+        with patch.object(client, "observe_production",
+                          side_effect=[RuntimeError("telemetry not ready")] + responses[-2:]), \
+                patch("factorio.time.sleep"):
+            recovered = client.wait_for_production("iron-plate", 10, timeout=60, interval=1)
+        self.assertEqual(recovered["production_per_minute"]["iron-plate"], 15)
+
+        with patch.object(client, "observe_production", return_value={
+            "data": {"production_per_minute": {"iron-plate": 1}},
+        }), patch("factorio.time.sleep"):
+            with self.assertRaisesRegex(TimeoutError, "did not reach 10/min"):
+                client.wait_for_production("iron-plate", 10, timeout=0, interval=0)
+
+    def test_wait_for_fluid_polls_the_fluid_aggregate(self):
+        client = factorio.FactorioClient(poll_interval=0)
+
+        def observation(amount):
+            return {"data": {"fluids": {"water": {"name": "water", "amount": amount}},
+                             "counts": {}}}
+
+        with patch.object(client, "observe_fluids", side_effect=[
+            observation(10), observation(60),
+        ]), patch("factorio.time.sleep"):
+            data = client.wait_for_fluid("water", 50, timeout=60, interval=1)
+        self.assertEqual(data["fluids"]["water"]["amount"], 60)
+
+        with patch.object(client, "observe_fluids", return_value=observation(10)), \
+                patch("factorio.time.sleep"):
+            with self.assertRaisesRegex(TimeoutError, "did not reach 50"):
+                client.wait_for_fluid("water", 50, timeout=0, interval=0)
+
+
+class PlannerTests(unittest.TestCase):
+    def test_plan_pipe_line_is_l_shaped_x_first(self):
+        entities = factorio.plan_pipe_line({"x": 0, "y": 0}, {"x": 3, "y": 2})
+        self.assertEqual(
+            [(entity["anchor"]["x"], entity["anchor"]["y"]) for entity in entities],
+            [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2)],
+        )
+        self.assertTrue(all(entity["name"] == "pipe" and entity["direction"] == 0
+                            for entity in entities))
+        reverse = factorio.plan_pipe_line({"x": 2, "y": 0}, {"x": 0, "y": 2})
+        self.assertEqual(
+            [(entity["anchor"]["x"], entity["anchor"]["y"]) for entity in reverse],
+            [(2, 0), (1, 0), (0, 0), (0, 1), (0, 2)],
+        )
+        self.assertEqual(factorio.plan_pipe_line((2, 2), (2, 2)), [])
+        with self.assertRaisesRegex(ValueError, "integer"):
+            factorio.plan_pipe_line({"x": 0.5, "y": 0}, (1, 0))
+
+    def test_plan_power_network_covers_area_and_targets(self):
+        poles = factorio.plan_power_network({"x": 0, "y": 0, "radius": 4})
+        self.assertEqual(
+            [(pole["anchor"]["x"], pole["anchor"]["y"]) for pole in poles],
+            [(-2, -2), (3, -2), (-2, 3), (3, 3)],
+        )
+        self.assertTrue(all(pole["name"] == "small-electric-pole" for pole in poles))
+        targets = factorio.plan_power_network([
+            {"x": 1, "y": 1},
+            {"x": 10, "y": 1},
+            {"name": "small-electric-pole", "anchor": {"x": 2, "y": 0}},
+        ])
+        # The existing pole at (2, 0) is deduped; its target box is not re-covered.
+        self.assertEqual(
+            [(pole["anchor"]["x"], pole["anchor"]["y"]) for pole in targets],
+            [(3, 1), (8, 1)],
+        )
+        self.assertEqual(
+            [pole["name"] for pole in factorio.plan_power_network(
+                {"x": 0, "y": 0, "radius": 4}, big_pole_every=2)],
+            ["small-electric-pole", "big-electric-pole",
+             "small-electric-pole", "big-electric-pole"],
+        )
+        with self.assertRaisesRegex(ValueError, "at least one"):
+            factorio.plan_power_network([])
+        with self.assertRaisesRegex(ValueError, "non-pole"):
+            factorio.plan_power_network([{"name": "small-electric-pole",
+                                          "anchor": {"x": 0, "y": 0}}])
+
+    def test_plan_inserter_pairs_places_and_dedupes(self):
+        machines = [{"anchor": {"x": 0, "y": 0}},
+                    {"anchor": {"x": 4, "y": 0}},
+                    {"anchor": {"x": 8, "y": 0}}]
+        pairs = factorio.plan_inserter_pairs(machines)
+        self.assertEqual(
+            [(entity["anchor"]["x"], entity["anchor"]["y"], entity["direction"])
+             for entity in pairs],
+            [(-1, 1, 4), (3, 1, 4), (7, 1, 4), (11, 1, 4)],
+        )
+        west = factorio.plan_inserter_pairs(machines, direction="west")
+        self.assertTrue(all(entity["direction"] == 12 for entity in west))
+        south = factorio.plan_inserter_pairs(
+            [{"anchor": {"x": 0, "y": 0}}, {"anchor": {"x": 0, "y": 4}}],
+            direction="south")
+        self.assertEqual(
+            [(entity["anchor"]["x"], entity["anchor"]["y"], entity["direction"])
+             for entity in south],
+            [(1, -1, 8), (1, 3, 8), (1, 7, 8)],
+        )
+        wide = factorio.plan_inserter_pairs(
+            [{"anchor": {"x": 0, "y": 0}, "width": 5, "height": 1}])
+        self.assertEqual(
+            [(entity["anchor"]["x"], entity["anchor"]["y"]) for entity in wide],
+            [(-1, 0), (5, 0)],
+        )
+        with self.assertRaisesRegex(ValueError, "direction"):
+            factorio.plan_inserter_pairs(machines, direction="up")
+
+    def test_plan_mining_outpost_lays_drills_belts_and_chest(self):
+        ore = [{"x": x, "y": y} for x in range(6) for y in range(3)]
+        plan = factorio.plan_mining_outpost(ore)
+        drills = [(entity["anchor"]["x"], entity["anchor"]["y"])
+                  for entity in plan["entities"]
+                  if entity["name"] == "electric-mining-drill"]
+        self.assertEqual(drills, [(0, 0), (3, 0)])
+        belts = [(entity["anchor"]["x"], entity["anchor"]["y"], entity["direction"])
+                 for entity in plan["entities"] if entity["name"] == "transport-belt"]
+        self.assertEqual(belts, [(x, 3, 4) for x in range(6)])
+        self.assertIn({"name": "inserter",
+                       "anchor": {"x": 6, "y": 3}, "direction": 4}, plan["entities"])
+        self.assertIn({"name": "iron-chest", "anchor": {"x": 7, "y": 3}},
+                      plan["entities"])
+        self.assertTrue(any("need power" in warning for warning in plan["warnings"]))
+
+        # Ore in the output-belt gap rows is reported as uncovered.
+        multi_row = factorio.plan_mining_outpost(
+            [{"x": x, "y": y} for x in range(3) for y in range(6)])
+        self.assertTrue(any("not covered" in warning for warning in multi_row["warnings"]))
+
+        area_plan = factorio.plan_mining_outpost(
+            {"x": 0, "y": 0, "radius": 4}, drill_grid=(5, 5), output=None)
+        self.assertTrue(area_plan["entities"])
+        self.assertTrue(any("assumes ore fills" in warning
+                            for warning in area_plan["warnings"]))
+        with self.assertRaisesRegex(ValueError, "ore tile"):
+            factorio.plan_mining_outpost([])
+
+    def test_plan_defense_line_spacing_walls_and_ammo(self):
+        plan = factorio.plan_defense_line((0, 0), (20, 0), ammo_chest="wooden-chest")
+        turrets = [(entity["anchor"]["x"], entity["anchor"]["y"], entity["direction"])
+                   for entity in plan["entities"] if entity["name"] == "gun-turret"]
+        self.assertEqual(turrets, [(0, 0, 8), (8, 0, 8), (16, 0, 8)])
+        walls = [entity for entity in plan["entities"] if entity["name"] == "stone-wall"]
+        self.assertEqual([wall["anchor"]["x"] for wall in walls], list(range(21)))
+        self.assertTrue(all(wall["anchor"]["y"] == 2 for wall in walls))
+        chests = [(entity["anchor"]["x"], entity["anchor"]["y"])
+                  for entity in plan["entities"] if entity["name"] == "wooden-chest"]
+        self.assertEqual(chests, [(0, -2), (8, -2), (16, -2)])
+        self.assertEqual(
+            [(entity["anchor"]["x"], entity["anchor"]["y"]) for entity in plan["entities"]
+             if entity["name"] == "inserter"],
+            [(0, -1), (8, -1), (16, -1)],
+        )
+
+        vertical = factorio.plan_defense_line((5, 0), (5, 12), spacing=6, wall=None)
+        turrets = [(entity["anchor"]["x"], entity["anchor"]["y"], entity["direction"])
+                   for entity in vertical["entities"] if entity["name"] == "gun-turret"]
+        self.assertEqual(turrets, [(5, 0, 4), (5, 6, 4)])
+        self.assertFalse(any(entity["name"] == "stone-wall"
+                             for entity in vertical["entities"]))
+        with self.assertRaisesRegex(ValueError, "horizontal or vertical"):
+            factorio.plan_defense_line((0, 0), (4, 4))
+        with self.assertRaisesRegex(ValueError, "spacing"):
+            factorio.plan_defense_line((0, 0), (10, 0), spacing=1)
+
+
+class PlanBuildAndBuilderTests(unittest.TestCase):
+    def test_plan_build_chunks_placement_and_reports_blockers(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        entities = [{"name": "transport-belt", "anchor": {"x": index, "y": 0}}
+                    for index in range(60)]
+        calls = []
+
+        def fake_placement(placements):
+            calls.append(len(placements))
+            results = [{"ok": True, "can_place": True} for _ in placements]
+            if len(calls) == 2:
+                results[5] = {"ok": False, "can_place": False, "error": "blocked",
+                              "diagnostics": {"tile_names": ["water"]}}
+            return {"ok": True, "data": {"results": results}}
+
+        with patch.object(client, "observe_placement", side_effect=fake_placement), \
+                patch.object(client, "inventory_counts",
+                             return_value={"transport-belt": 100}):
+            result = client.plan_build(entities)
+        self.assertEqual(calls, [50, 10])
+        self.assertFalse(result["ok"])
+        self.assertEqual(len(result["blockers"]), 1)
+        self.assertEqual(result["blockers"][0]["index"], 55)
+        self.assertEqual(result["blockers"][0]["name"], "transport-belt")
+        self.assertEqual(result["blockers"][0]["error"], "blocked")
+        self.assertEqual(result["missing_items"], [])
+        self.assertFalse(result["truncated"])
+
+        with patch.object(client, "observe_placement", return_value={
+            "data": {"results": [{"ok": True, "can_place": True},
+                                 {"ok": True, "can_place": True}]},
+        }), patch.object(client, "inventory_counts",
+                         return_value={"transport-belt": 1}):
+            result = client.plan_build([
+                {"name": "transport-belt", "anchor": {"x": 0, "y": 0}},
+                {"name": "inserter", "anchor": {"x": 1, "y": 0}},
+            ])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["missing_items"], [
+            {"name": "inserter", "required": 1, "available": 0, "missing": 1},
+        ])
+        with patch.object(client, "observe_placement", return_value={
+            "data": {"results": [{"ok": True, "can_place": True}]},
+        }), patch.object(client, "inventory_counts",
+                         side_effect=RuntimeError("player unavailable")):
+            resilient = client.plan_build([{"name": "pipe", "anchor": {"x": 0, "y": 0}}])
+        self.assertTrue(resilient["ok"])
+        self.assertEqual(resilient["missing_items"], [])
+        self.assertIn("inventory unavailable", resilient["warning"])
+        with self.assertRaisesRegex(ValueError, "at least one entity"):
+            client.plan_build([])
+
+    def test_build_pipe_line_plans_and_submits_chunks(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        calls = []
+
+        def fake_build(entities, *, clear=True):
+            calls.append((len(entities), clear))
+            return {"job_id": f"job-{len(calls)}", "status": "completed",
+                    "results": [{"ok": True} for _ in entities]}
+
+        with patch.object(client, "build", side_effect=fake_build):
+            result = client.build_pipe_line((0, 0), (120, 0), clear=False)
+        self.assertEqual([size for size, _ in calls], [50, 50, 21])
+        self.assertTrue(all(clear is False for _, clear in calls))
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["chunks"], 3)
+        self.assertEqual(len(result["entities"]), 121)
+        self.assertEqual(result["job_ids"], ["job-1", "job-2", "job-3"])
+
+    def test_builders_accept_plans_propagate_warnings_and_skip_empty(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        plan = [{"name": "pipe", "anchor": {"x": 0, "y": 0}, "direction": 0}]
+        with patch.object(client, "build", return_value={
+            "status": "completed", "results": [{"ok": True}],
+        }) as build:
+            result = client.build_pipe_line(plan=plan)
+        self.assertEqual(result["entities"], plan)
+        build.assert_called_once_with(plan, clear=True)
+        self.assertTrue(result["ok"])
+
+        with patch.object(client, "build") as build:
+            empty = client.build_pipe_line((2, 2), (2, 2))
+        self.assertEqual(empty["chunks"], 0)
+        self.assertTrue(empty["ok"])
+        build.assert_not_called()
+
+        def fake_build(entities, *, clear=True):
+            return {"status": "completed",
+                    "results": [{"ok": True} for _ in entities]}
+
+        with patch.object(client, "build", side_effect=fake_build):
+            outpost = client.build_mining_outpost(
+                [{"x": 0, "y": 0}, {"x": 1, "y": 0}, {"x": 2, "y": 0}])
+            power = client.build_power_network({"x": 0, "y": 0, "radius": 4})
+            defense = client.build_defense_line((0, 0), (16, 0), wall=None)
+            inserter_pairs = client.build_inserter_pairs(
+                [{"anchor": {"x": 0, "y": 0}}])
+        self.assertTrue(outpost["ok"])
+        self.assertTrue(any("need power" in warning for warning in outpost["warnings"]))
+        self.assertTrue(power["ok"])
+        self.assertEqual(len(power["entities"]), 4)
+        self.assertTrue(defense["ok"])
+        self.assertTrue(any("single wall layer" in warning for warning in defense["warnings"]))
+        self.assertEqual(len(inserter_pairs["entities"]), 2)
+
+        with patch.object(client, "build", side_effect=RuntimeError("queue unavailable")):
+            failed = client.build_defense_line((0, 0), (16, 0), wall=None)
+        self.assertFalse(failed["ok"])
+        self.assertEqual(failed["failed_chunk"], 0)
+        self.assertIn("queue unavailable", failed["error"])
+
+
+class ConstructionCliTests(unittest.TestCase):
+    def test_new_observe_commands_forward_to_http(self):
+        with patch("factorio.http_request",
+                   return_value={"ok": True, "data": {"scanned": 0}}) as http, \
+                redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run([
+                "observe-fluids", "--center-x", "1", "--center-y", "2", "--radius", "16"])
+        self.assertEqual(code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["cmd"], "observe-fluids")
+        self.assertEqual(payload["data"], {"scanned": 0})
+        http.assert_called_once_with(
+            factorio.DEFAULT_BASE, "POST", "/api/agent/observe/fluids",
+            {"x": 1, "y": 2, "radius": 16},
+        )
+
+        with patch("factorio.http_request", return_value={"ok": True, "data": {}}) as http, \
+                redirect_stdout(io.StringIO()):
+            factorio.run(["observe-production"])
+        http.assert_called_once_with(
+            factorio.DEFAULT_BASE, "POST", "/api/agent/observe/production", {})
+
+        with patch("factorio.http_request", return_value={"ok": True, "data": {}}) as http, \
+                redirect_stdout(io.StringIO()):
+            factorio.run(["observe-area", "--center-x", "3", "--center-y", "4",
+                          "--radius", "12", "--limit", "5", "--types", "furnace",
+                          "--filters", "iron-plate", "--player-only"])
+        http.assert_called_once_with(
+            factorio.DEFAULT_BASE, "POST", "/api/agent/observe/area",
+            {
+                "window": {"x": 3, "y": 4, "radius": 12},
+                "limit": 5,
+                "types": ["furnace"],
+                "filters": ["iron-plate"],
+                "player_only": True,
+            },
+        )
+
+    def test_copy_settings_and_snapshot_cli(self):
+        targets = [{"source": {"x": 1, "y": 2}, "target": {"x": 3, "y": 4}}]
+        with patch("factorio.FactorioClient.copy_settings_check",
+                   return_value={"ok": True, "data": {"ok": True}}) as check, \
+                redirect_stdout(io.StringIO()):
+            code = factorio.run([
+                "observe-copy-settings", "--target", "1,2,3,4"])
+        self.assertEqual(code, 0)
+        check.assert_called_once_with(targets)
+
+        with patch("factorio.FactorioClient.copy_settings",
+                   return_value={"ok": True, "data": {"ok": False, "counts": {}}}) as copy, \
+                redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run([
+                "act-copy-settings", "--target", "1,2,3,4", "--dry-run"])
+        self.assertEqual(code, 1)  # per-target failure reported in data.ok
+        self.assertFalse(json.loads(stdout.getvalue())["data"]["ok"])
+        copy.assert_called_once_with(targets, dry_run=True)
+
+        with patch("factorio.FactorioClient.observe_snapshot",
+                   return_value={"ok": True, "player": {}}) as snapshot, \
+                redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run(["observe-snapshot", "--center-x", "5", "--radius", "8"])
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(stdout.getvalue())["ok"])
+        snapshot.assert_called_once_with(x=5, y=None, radius=8)
+
+        with redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run(["observe-copy-settings", "--target", "1,2"])
+        self.assertEqual(code, 1)
+        self.assertIn("Invalid --target", json.loads(stdout.getvalue())["error"])
+
+    def test_build_commands_forward_planner_arguments(self):
+        with patch("factorio.FactorioClient.build_pipe_line",
+                   return_value={"ok": True, "chunks": 1}) as build, \
+                redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run([
+                "build-pipe-line", "--from", "0,0", "--to", "3,0", "--no-clear"])
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(stdout.getvalue())["ok"])
+        build.assert_called_once_with(
+            {"x": 0, "y": 0}, {"x": 3, "y": 0}, name="pipe", clear=False)
+
+        with patch("factorio.FactorioClient.build_power_network",
+                   return_value={"ok": True}) as build, redirect_stdout(io.StringIO()):
+            factorio.run([
+                "build-power-network", "--target", "1,1,3,3",
+                "--big-pole-every", "2", "--pole", "medium-electric-pole"])
+        build.assert_called_once_with(
+            [{"x": 1, "y": 1, "width": 3, "height": 3}],
+            pole="medium-electric-pole", big_pole_every=2, clear=True,
+        )
+
+        with patch("factorio.FactorioClient.build_inserter_pairs",
+                   return_value={"ok": True}) as build, redirect_stdout(io.StringIO()):
+            factorio.run([
+                "build-inserter-pairs", "--entity", "0,0,3,3", "--direction", "west"])
+        build.assert_called_once_with(
+            [{"x": 0, "y": 0, "width": 3, "height": 3}],
+            direction="west", inserter="inserter", clear=True,
+        )
+
+        with patch("factorio.FactorioClient.build_mining_outpost",
+                   return_value={"ok": True}) as build, redirect_stdout(io.StringIO()):
+            factorio.run([
+                "build-mining-outpost", "--ore", "0,0", "--ore", "1,0",
+                "--drill-size", "5,5"])
+        build.assert_called_once_with(
+            [{"x": 0, "y": 0}, {"x": 1, "y": 0}],
+            drill="electric-mining-drill", drill_grid=(5, 5),
+            output="iron-chest", clear=True,
+        )
+
+        with patch("factorio.FactorioClient.build_defense_line",
+                   return_value={"ok": True}) as build, redirect_stdout(io.StringIO()):
+            factorio.run([
+                "build-defense-line", "--from", "0,0", "--to", "20,0",
+                "--spacing", "6", "--ammo-chest", "wooden-chest", "--no-wall"])
+        build.assert_called_once_with(
+            {"x": 0, "y": 0}, {"x": 20, "y": 0},
+            turret="gun-turret", wall=None, spacing=6,
+            ammo_chest="wooden-chest", clear=True,
+        )
+
+        with patch("factorio.FactorioClient.build_power_network",
+                   return_value={"ok": True}) as build, redirect_stdout(io.StringIO()):
+            factorio.run(["build-power-network", "--area", "0,0,10"])
+        build.assert_called_once_with(
+            {"x": 0, "y": 0, "radius": 10},
+            pole="small-electric-pole", big_pole_every=0, clear=True,
+        )
+
+        with patch("factorio.FactorioClient.build_mining_outpost",
+                   return_value={"ok": True}) as build, redirect_stdout(io.StringIO()):
+            factorio.run(["build-mining-outpost", "--area", "0,0,8"])
+        build.assert_called_once_with(
+            {"x": 0, "y": 0, "radius": 8},
+            drill="electric-mining-drill", drill_grid=None,
+            output="iron-chest", clear=True,
+        )
+
+        with redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run(["build-power-network"])
+        self.assertEqual(code, 1)
+        self.assertIn("Missing --target or --area",
+                      json.loads(stdout.getvalue())["error"])
+        with redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run(["build-defense-line", "--from", "0,0"])
+        self.assertEqual(code, 1)
+        self.assertIn("Missing --from or --to", json.loads(stdout.getvalue())["error"])
+
+    def test_help_lists_all_new_commands(self):
+        commands = [
+            "observe-production", "observe-fluids", "observe-combat", "observe-area",
+            "observe-snapshot", "observe-copy-settings", "act-copy-settings",
+            "build-pipe-line", "build-power-network", "build-mining-outpost",
+            "build-defense-line", "build-inserter-pairs",
+        ]
+        for command in commands:
+            self.assertIn(command, factorio.COMMAND_USAGE)
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = factorio.run(["build-pipe-line", "--help"])
+        self.assertEqual(code, 0)
+        self.assertIn("--from x,y --to x,y", stderr.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

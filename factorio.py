@@ -46,8 +46,14 @@ __all__ = [
     "encode_blueprint_string",
     "expand_blueprint",
     "http_request",
+    "parse_copy_targets",
     "parse_entities",
     "parse_targets",
+    "plan_defense_line",
+    "plan_inserter_pairs",
+    "plan_mining_outpost",
+    "plan_pipe_line",
+    "plan_power_network",
     "submit_action_job",
     "belt_line_entities",
     "loader_entity",
@@ -73,10 +79,22 @@ Commands:
   observe-connections --center-x <n> --center-y <n> --radius <n>
   observe-entity-prototype --name <entity-name>
   observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]
+  observe-production
+  observe-fluids --center-x <n> --center-y <n> --radius <n>
+  observe-combat --center-x <n> --center-y <n> --radius <n>
+  observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only]
+  observe-snapshot --center-x <n> --center-y <n> --radius <n>
+  observe-copy-settings --target sx,sy,tx,ty [--target ...]
   act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]
   act-build-belt --from x,y --to x,y [--name transport-belt] [--no-clear]
   act-build-loader --from x,y --to x,y [--name inserter] [--no-clear]
   act-build-blueprint (--blueprint-file <path>|--blueprint <string>) [--anchor x,y] [--dry-run] [--no-clear]
+  act-copy-settings --target sx,sy,tx,ty [--target ...] [--dry-run]
+  build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]
+  build-power-network (--target x,y[,w,h] [--target ...] | --area x,y,radius) [--pole name] [--big-pole-every n] [--no-clear]
+  build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--no-clear]
+  build-mining-outpost (--ore x,y [--ore ...] | --area x,y,radius) [--drill name] [--drill-size w,h] [--output name] [--no-clear]
+  build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear]
   act-mine --target x,y [--target ...] [--resource [name]] [--targets-json <json>]
   act-rotate --target x,y [--target ...] [--targets-json <json>]
   act-move --target x,y [--target ...] [--targets-json <json>]
@@ -125,8 +143,20 @@ COMMAND_USAGE = {
     "observe-connections": "observe-connections: Audit inserter/belt/machine links and report dead ends or reversed links.\nUsage: factorio.py observe-connections --center-x <n> --center-y <n> --radius <n>\n",
     "observe-entity-prototype": "observe-entity-prototype: Look up entity dimensions, fluid connections, energy info.\nUsage: factorio.py observe-entity-prototype --name <entity-name>\n",
     "observe-placement": "observe-placement: Analyze buildability without consuming an item.\nUsage: factorio.py observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]\n",
+    "observe-production": "observe-production: Read per-minute production/consumption rates from the manager's telemetry sampler.\nUsage: factorio.py observe-production\n",
+    "observe-fluids": "observe-fluids: List fluid networks, levels and capacities around a window.\nUsage: factorio.py observe-fluids --center-x <n> --center-y <n> --radius <n>\nDefaults: player position, radius 32.\n",
+    "observe-combat": "observe-combat: Read enemy nests/units, own turrets (ammo/health) and player health.\nUsage: factorio.py observe-combat --center-x <n> --center-y <n> --radius <n>\nDefaults: player position, radius 64. Recent damage is not derivable; compare player.health across calls.\n",
+    "observe-area": "observe-area: List entities for deconstruction planning in an area (name/type/position/status).\nUsage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only]\n",
+    "observe-snapshot": "observe-snapshot: One call returning player, factory, research and production observations.\nUsage: factorio.py observe-snapshot --center-x <n> --center-y <n> --radius <n>\nNote: sequential requests; saves round trips and prompt tokens versus four separate calls.\n",
+    "observe-copy-settings": "observe-copy-settings: Dry-run source/target compatibility and reach report for settings copy.\nUsage: factorio.py observe-copy-settings --target source-x,source-y,target-x,target-y [--target ...]\n   or: factorio.py observe-copy-settings --targets-json <json>\nNote: The character must be in reach of both entities; move first.\n",
     "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]\n   or: factorio.py act-build --entities-json <json> [--no-clear]\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding. Trees and rocks in the\nfootprint are mined before placement unless --no-clear is given.\n",
     "act-build-blueprint": "act-build-blueprint: Expand a Factorio blueprint string and build it in batches of at most 50 entities.\nUsage: factorio.py act-build-blueprint --blueprint-file <path> [--anchor x,y] [--dry-run] [--no-clear]\n   or: factorio.py act-build-blueprint --blueprint <string> [--anchor x,y] [--dry-run] [--no-clear]\nPosition: blueprint positions are map coordinates; --anchor moves the whole plan so its top-left tile lands there.\nDirections: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nDry run: prints the expanded entities, placement analysis, and missing items without building.\nNote: Recipes, filters and module settings inside the blueprint are NOT applied; set them with\nact-set-recipe afterwards. The character walks between entities, so a large plan takes many minutes.\n",
+    "act-copy-settings": "act-copy-settings: Copy settings from source to target entities (synchronous, reach-checked).\nUsage: factorio.py act-copy-settings --target source-x,source-y,target-x,target-y [--target ...] [--dry-run]\n   or: factorio.py act-copy-settings --targets-json <json> [--dry-run]\nNote: Not a walking job; move the character into reach of every source and target first.\nUnreachable or incompatible pairs are reported and never mutated.\n",
+    "build-pipe-line": "build-pipe-line: Lay an L-shaped surface pipe line (x first, then y).\nUsage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]\nNote: surface pipes only: underground pipe pairs are not supported by the native build path.\n",
+    "build-power-network": "build-power-network: Place a pole grid covering entity targets or a scan area.\nUsage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]\n   or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear]\nCoverage: small pole supply area 5x5, 5-tile grid so adjacent poles are within wire reach.\n",
+    "build-inserter-pairs": "build-inserter-pairs: Place input+output inserters around rows of machines.\nUsage: factorio.py build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--name inserter] [--no-clear]\n   or: factorio.py build-inserter-pairs --entities-json <json> [--direction ...] [--no-clear]\nFootprints default to 3x3; pass w,h for other machine sizes. Shared machine-to-machine inserters are deduped.\n",
+    "build-mining-outpost": "build-mining-outpost: Place mining drills on a grid over ore tiles with belt rows and an output chest.\nUsage: factorio.py build-mining-outpost --ore x,y [--ore ...] [--drill name] [--drill-size w,h] [--output name] [--no-clear]\n   or: factorio.py build-mining-outpost --area x,y,radius [--drill name] [--drill-size w,h] [--output name]\nWarning: one output-belt row between drill rows is not mined; electric drills need a power network.\n",
+    "build-defense-line": "build-defense-line: Place 2x2 turrets spaced along a line with a single wall row in front.\nUsage: factorio.py build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear]\nFront side is +y for horizontal lines and +x for vertical lines; single wall layer, no gates/power.\n",
     "act-mine": "act-mine: Mine a resource or entity at target tile coordinates.\nUsage: factorio.py act-mine --target x,y [--target ...] [--resource [name]]\n   or: factorio.py act-mine --targets-json <json>\nResource mode excludes the character and prioritizes the requested resource deterministically.\nNote: The character walks into reach and performs one native mining cycle per target (one extraction for a resource vein).\n",
     "act-rotate": "act-rotate: Rotate entities at target tile coordinates (first entity at each point).\nUsage: factorio.py act-rotate --target x,y [--target ...]\n   or: factorio.py act-rotate --targets-json <json>\nDirection (in results): 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding.\n",
     "act-move": "act-move: Move the player through paced, collision-checked steps to target tile coordinates.\nUsage: factorio.py act-move --target x,y [--target ...]\n   or: factorio.py act-move --targets-json <json>\nNote: Stops and returns partial progress if an intermediate step is blocked.\n",
@@ -614,6 +644,566 @@ def blueprint_required_items(
     return required
 
 
+# Construction-planner conventions. All planners return entities for the
+# existing build API (`name`, `anchor` top-left tile, optional `direction`) and
+# use integer tile coordinates. Surface belts/pipes only: Factorio 2.1 native
+# build (`LuaPlayer.build_from_cursor`) has no input/output subtype parameter,
+# so underground belt/pipe pairs cannot be placed reliably and are NOT planned.
+POWER_POLE_DEFAULT = "small-electric-pole"
+POWER_POLE_BIG = "big-electric-pole"
+POWER_POLE_NAMES = frozenset(
+    {"small-electric-pole", "medium-electric-pole", "big-electric-pole", "substation"}
+)
+POWER_SUPPLY_HALF = 2  # small pole supply area is 5x5 centred on the pole tile
+POWER_TILE_STEP = POWER_SUPPLY_HALF * 2 + 1
+
+
+def _planner_point(value: Any, label: str, *, integer: bool = True) -> tuple[float, float]:
+    """(x, y) from a dict or 2-sequence, optionally requiring integer tiles."""
+    if isinstance(value, dict):
+        raw_x, raw_y = value.get("x"), value.get("y")
+    elif isinstance(value, (list, tuple)) and len(value) == 2:
+        raw_x, raw_y = value
+    else:
+        raise ValueError(f"{label} must be {{'x': number, 'y': number}} or (x, y)")
+    try:
+        x, y = float(raw_x), float(raw_y)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{label} must contain numbers") from error
+    if not (math.isfinite(x) and math.isfinite(y)):
+        raise ValueError(f"{label} must be finite")
+    if integer and not (x.is_integer() and y.is_integer()):
+        raise ValueError(f"{label} must use integer tile coordinates")
+    return x, y
+
+
+def _planner_size(value: Any, default: tuple[int, int]) -> tuple[int, int]:
+    """(width, height) from {'width','height'} or a 2-sequence."""
+    if value is None:
+        return default
+    if isinstance(value, dict):
+        raw_width, raw_height = value.get("width"), value.get("height")
+    elif isinstance(value, (list, tuple)) and len(value) == 2:
+        raw_width, raw_height = value
+    else:
+        raise ValueError("size must be {'width','height'} or (width, height)")
+    try:
+        width, height = int(raw_width), int(raw_height)
+    except (TypeError, ValueError) as error:
+        raise ValueError("size must contain positive integers") from error
+    if width < 1 or height < 1:
+        raise ValueError("size must contain positive integers")
+    return width, height
+
+
+def _planner_area(value: Any) -> tuple[int, int, int, int] | None:
+    """Bounding box for an {'x','y','radius'} area (or (x, y, radius)); else None."""
+    if isinstance(value, dict) and "radius" in value:
+        area_radius = _planner_size(
+            {"width": value.get("radius"), "height": value.get("radius")}, (1, 1)
+        )[0]
+        x, y = _planner_point(value, "area")
+        return (
+            int(x) - area_radius,
+            int(y) - area_radius,
+            int(x) + area_radius,
+            int(y) + area_radius,
+        )
+    if (
+        isinstance(value, (list, tuple))
+        and len(value) == 3
+        and all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in value)
+    ):
+        area_radius = _planner_size({"width": value[2], "height": value[2]}, (1, 1))[0]
+        x, y = _planner_point(value[:2], "area")
+        return (
+            int(x) - area_radius,
+            int(y) - area_radius,
+            int(x) + area_radius,
+            int(y) + area_radius,
+        )
+    return None
+
+
+def _planner_sequence(value: Any, label: str) -> list[Any]:
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    raise ValueError(f"{label} must be a list")
+
+
+def _planner_box(target: Any, index: int) -> tuple[int, int, int, int]:
+    """(min_x, min_y, max_x, max_y) covered by one planner target."""
+    if isinstance(target, (list, tuple)) and len(target) == 2:
+        x, y = _planner_point(target, f"target {index}")
+        width, height = 1, 1
+    elif isinstance(target, dict):
+        if isinstance(target.get("anchor"), dict):
+            x, y = _planner_point(target["anchor"], f"target {index} anchor")
+        else:
+            x, y = _planner_point(target, f"target {index}")
+        tile_size = target.get("tile_size")
+        tile_size = tile_size if isinstance(tile_size, dict) else {}
+        width = target.get("width", tile_size.get("width", 1))
+        height = target.get("height", tile_size.get("height", 1))
+        width, height = _planner_size({"width": width, "height": height}, (1, 1))
+    else:
+        raise ValueError(f"target {index} must be {{x,y}}, (x, y) or an entity")
+    anchor_x, anchor_y = int(x), int(y)
+    return anchor_x, anchor_y, anchor_x + width - 1, anchor_y + height - 1
+
+
+def _sort_entities(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Deterministic planner order: y, x, then name."""
+    return sorted(
+        entities,
+        key=lambda entity: (
+            entity["anchor"]["y"],
+            entity["anchor"]["x"],
+            str(entity.get("name", "")),
+        ),
+    )
+
+
+def _cover_axis(low: int, high: int) -> list[int]:
+    """Pole tile coordinates whose 5x5 supply areas cover [low, high]."""
+    if low > high:
+        low, high = high, low
+    if high - low < POWER_TILE_STEP:
+        return [max(low, high - POWER_SUPPLY_HALF)]
+    positions = [low + POWER_SUPPLY_HALF]
+    while positions[-1] + POWER_SUPPLY_HALF < high:
+        positions.append(positions[-1] + POWER_TILE_STEP)
+    return positions
+
+
+def plan_pipe_line(from_xy: Any, to_xy: Any, *, name: str = "pipe") -> list[dict[str, Any]]:
+    """L-shaped surface pipe line from `from_xy` to `to_xy` (x first, then y).
+
+    One pipe per tile including both endpoints, direction 0 (pipes are not
+    directional), deterministic x-then-y corner. Returns [] for identical
+    endpoints. Underground pipes are not planned: the native build path cannot
+    express the input/output subtype.
+    """
+    start_x, start_y = _planner_point(from_xy, "from")
+    end_x, end_y = _planner_point(to_xy, "to")
+    x1, y1, x2, y2 = int(start_x), int(start_y), int(end_x), int(end_y)
+    if (x1, y1) == (x2, y2):
+        return []
+
+    def pipe(x: int, y: int) -> dict[str, Any]:
+        return {"name": name, "anchor": {"x": x, "y": y}, "direction": 0}
+
+    entities = [pipe(x1, y1)]
+    x, y = x1, y1
+    step = 1 if x2 > x1 else -1
+    while x != x2:
+        x += step
+        entities.append(pipe(x, y1))
+    step = 1 if y2 > y1 else -1
+    while y != y2:
+        y += step
+        entities.append(pipe(x2, y))
+    return entities
+
+
+def plan_power_network(
+    targets_or_area: Any,
+    *,
+    pole: str = POWER_POLE_DEFAULT,
+    big_pole_every: int = 0,
+) -> list[dict[str, Any]]:
+    """Poles covering the bounding box of entity targets or a scan area.
+
+    Conventions: a small-electric-pole supply area is 5x5 centred on the pole
+    tile, so poles are placed on a 5-tile grid (`POWER_TILE_STEP`) where adjacent
+    poles are within the 7.5-tile wire reach (5 straight / ~7.07 diagonal).
+    The whole union rectangle of the targets is covered; this is a simple,
+    deterministic tiling, not a wire-length optimum, and existing pole entities
+    found in `targets` are kept (deduped) but not re-emitted.
+
+    `targets_or_area` accepts a target list (each `{x,y}`, `(x, y)`, or
+    `{anchor:{x,y},width?,height?}` entity) or an `{x,y,radius}` area. The area
+    is the square that fits the scan, so poles can sit outside open entrances.
+    `big_pole_every` replaces every Nth generated pole (1-based row-major order)
+    with a big-electric-pole for long-haul wiring; its smaller supply area is not
+    re-tiled, so leave 0 unless that trade-off is intended.
+    """
+    if not isinstance(pole, str) or not pole:
+        raise ValueError("pole must be an entity name")
+    every = int(big_pole_every)
+    if every < 0:
+        raise ValueError("big_pole_every must be >= 0")
+    area = _planner_area(targets_or_area)
+    existing: set[tuple[int, int]] = set()
+    boxes: list[tuple[int, int, int, int]] = []
+    if area is not None:
+        boxes.append(area)
+    else:
+        if isinstance(targets_or_area, dict):
+            targets = [targets_or_area]
+        else:
+            targets = _planner_sequence(targets_or_area, "targets")
+        if not targets:
+            raise ValueError("plan_power_network needs at least one target or an area")
+        for index, target in enumerate(targets):
+            if isinstance(target, dict) and target.get("name") in POWER_POLE_NAMES:
+                anchor = target.get("anchor")
+                try:
+                    anchor_x, anchor_y = _planner_point(anchor, f"target {index} anchor")
+                except ValueError:
+                    anchor_x, anchor_y = _planner_point(target, f"target {index}")
+                existing.add((int(anchor_x), int(anchor_y)))
+                continue
+            boxes.append(_planner_box(target, index))
+        if not boxes:
+            raise ValueError("plan_power_network needs at least one non-pole target")
+    min_x = min(box[0] for box in boxes)
+    min_y = min(box[1] for box in boxes)
+    max_x = max(box[2] for box in boxes)
+    max_y = max(box[3] for box in boxes)
+    entities: list[dict[str, Any]] = []
+    generated = 0
+    for y in _cover_axis(min_y, max_y):
+        for x in _cover_axis(min_x, max_x):
+            if (x, y) in existing:
+                continue
+            generated += 1
+            name = POWER_POLE_BIG if every and generated % every == 0 else pole
+            entities.append({"name": name, "anchor": {"x": x, "y": y}})
+    return _sort_entities(entities)
+
+
+def plan_inserter_pairs(
+    entities: Any,
+    *,
+    direction: Any = "east",
+    inserter: str = "inserter",
+    width: int = 3,
+    height: int = 3,
+) -> list[dict[str, Any]]:
+    """Input+output inserter pairs around machines, one pair per machine.
+
+    Machines are sorted by (y, x); for an east-flow row the input inserter sits
+    on the machine's west side facing east and the output inserter on its east
+    side facing east (west flow mirrors it, north/south use the vertical sides).
+    Inserts are deduped by tile, so two machines one tile apart share a single
+    machine-to-machine inserter. `direction` accepts east/west/north/south (or
+    4/12/0/8). Footprints default to 3x3 and can be overridden per machine with
+    `width`/`height`/`tile_size` or by the call-wide defaults.
+    """
+    flows = {
+        "east": (4, "horizontal"),
+        "west": (12, "horizontal"),
+        "south": (8, "vertical"),
+        "north": (0, "vertical"),
+    }
+    if isinstance(direction, int):
+        flow = {4: "east", 12: "west", 8: "south", 0: "north"}.get(direction)
+    else:
+        flow = str(direction).lower()
+    if flow not in flows:
+        raise ValueError("direction must be east, west, north or south")
+    direction_value, axis = flows[flow]
+    machine_list = _planner_sequence(entities, "entities")
+    machines: list[tuple[int, int, int, int]] = []
+    for index, machine in enumerate(machine_list):
+        if isinstance(machine, dict) and isinstance(machine.get("anchor"), dict):
+            anchor_x, anchor_y = _planner_point(machine["anchor"], f"entity {index} anchor")
+        else:
+            anchor_x, anchor_y = _planner_point(machine, f"entity {index}")
+        tile_size = machine.get("tile_size") if isinstance(machine, dict) else None
+        tile_size = tile_size if isinstance(tile_size, dict) else {}
+        entity_width = machine.get("width") if isinstance(machine, dict) else None
+        entity_height = machine.get("height") if isinstance(machine, dict) else None
+        machine_width, machine_height = _planner_size(
+            {
+                "width": entity_width or tile_size.get("width") or width,
+                "height": entity_height or tile_size.get("height") or height,
+            },
+            (width, height),
+        )
+        machines.append((int(anchor_x), int(anchor_y), machine_width, machine_height))
+    machines.sort(key=lambda machine: (machine[1], machine[0]))
+    emitted: dict[tuple[int, int], dict[str, Any]] = {}
+    for anchor_x, anchor_y, machine_width, machine_height in machines:
+        if axis == "horizontal":
+            center_y = anchor_y + machine_height // 2
+            if flow == "east":
+                candidates = [(anchor_x - 1, center_y), (anchor_x + machine_width, center_y)]
+            else:
+                candidates = [(anchor_x + machine_width, center_y), (anchor_x - 1, center_y)]
+        else:
+            center_x = anchor_x + machine_width // 2
+            if flow == "south":
+                candidates = [(center_x, anchor_y - 1), (center_x, anchor_y + machine_height)]
+            else:
+                candidates = [(center_x, anchor_y + machine_height), (center_x, anchor_y - 1)]
+        for x, y in candidates:
+            if (x, y) in emitted:
+                continue  # shared machine-to-machine inserter
+            emitted[(x, y)] = {
+                "name": inserter,
+                "anchor": {"x": x, "y": y},
+                "direction": direction_value,
+            }
+    return _sort_entities(list(emitted.values()))
+
+
+def plan_mining_outpost(
+    patch_area_or_centers: Any,
+    *,
+    drill: str = "electric-mining-drill",
+    drill_grid: Any = None,
+    output: str | None = "iron-chest",
+    inserter: str = "inserter",
+) -> dict[str, Any]:
+    """Mining outpost plan: drills on a grid over ore, with belt rows and a chest.
+
+    Input is an ore-tile list (`[{x,y}, ...]`, e.g. from `observe-resources`) or
+    an `{x,y,radius}` area that is treated as fully ore-filled. Drills are laid
+    on `drill_grid` (default 3x3) anchors aligned to the ore bounding box, with
+    one output-belt row between drill rows (`height + 1` stride); a chest is fed
+    by one inserter at the end of each row. Ore rows in the belt gaps and ore
+    outside the drill grid are reported as warnings and are not mined.
+
+    Returns `{"entities": [...], "warnings": [...]}`. Surface transport only:
+    no underground belts, no power poles for electric drills, no resource
+    coverage guarantee for arbitrary patch shapes.
+    """
+    drill_width, drill_height = _planner_size(drill_grid, (3, 3))
+    warnings: list[str] = []
+    area = _planner_area(patch_area_or_centers)
+    ore_tiles: set[tuple[int, int]] | None = None
+    if area is not None:
+        min_x, min_y, max_x, max_y = area
+        warnings.append(
+            "area input assumes ore fills the whole square; pass explicit ore tiles for exact coverage"
+        )
+    else:
+        ore_tiles = set()
+        for index, tile in enumerate(_planner_sequence(patch_area_or_centers, "ore tiles")):
+            if isinstance(tile, dict) and isinstance(tile.get("anchor"), dict):
+                tile_x, tile_y = _planner_point(tile["anchor"], f"ore tile {index} anchor")
+            else:
+                tile_x, tile_y = _planner_point(tile, f"ore tile {index}")
+            ore_tiles.add((int(tile_x), int(tile_y)))
+        if not ore_tiles:
+            raise ValueError("plan_mining_outpost needs at least one ore tile or an area")
+        min_x = min(tile[0] for tile in ore_tiles)
+        min_y = min(tile[1] for tile in ore_tiles)
+        max_x = max(tile[0] for tile in ore_tiles)
+        max_y = max(tile[1] for tile in ore_tiles)
+    row_stride = drill_height + 1  # one output-belt row between drill rows
+    drill_columns = list(range(min_x, max_x + 1, drill_width))
+    drill_rows: list[int] = []
+    row = min_y
+    while row <= max_y:
+        drill_rows.append(row)
+        row += row_stride
+    drills: list[tuple[int, int]] = []
+    skipped = 0
+    for anchor_y in drill_rows:
+        for anchor_x in drill_columns:
+            has_ore = area is not None or any(
+                (x, y) in ore_tiles
+                for x in range(anchor_x, anchor_x + drill_width)
+                for y in range(anchor_y, anchor_y + drill_height)
+            )
+            if has_ore:
+                drills.append((anchor_x, anchor_y))
+            else:
+                skipped += 1
+    if skipped:
+        warnings.append(f"skipped {skipped} drill positions with no ore under their footprint")
+    if ore_tiles is not None:
+        covered = {
+            (x, y)
+            for anchor_x, anchor_y in drills
+            for x in range(anchor_x, anchor_x + drill_width)
+            for y in range(anchor_y, anchor_y + drill_height)
+        }
+        uncovered = ore_tiles - covered
+        if uncovered:
+            warnings.append(
+                f"{len(uncovered)} ore tiles are not covered by any drill "
+                "(output-belt gap rows or grid edge)"
+            )
+    elif len(drill_rows) > 1:
+        warnings.append(
+            f"output belts leave {len(drill_rows) - 1} ore rows between drill rows unmined"
+        )
+    if "electric" in drill:
+        warnings.append("electric drills need power; no power network is planned by this helper")
+    entities: list[dict[str, Any]] = [
+        {"name": drill, "anchor": {"x": anchor_x, "y": anchor_y}}
+        for anchor_x, anchor_y in drills
+    ]
+    for anchor_y in drill_rows:
+        row_columns = [anchor_x for anchor_x, row_y in drills if row_y == anchor_y]
+        if not row_columns:
+            continue
+        belt_y = anchor_y + drill_height
+        belt_columns = list(range(min(row_columns), max(row_columns) + drill_width))
+        entities.extend(
+            {"name": "transport-belt", "anchor": {"x": belt_x, "y": belt_y}, "direction": 4}
+            for belt_x in belt_columns
+        )
+        if output:
+            inserter_x = belt_columns[-1] + 1
+            entities.append(
+                {"name": inserter, "anchor": {"x": inserter_x, "y": belt_y}, "direction": 4}
+            )
+            entities.append({"name": output, "anchor": {"x": inserter_x + 1, "y": belt_y}})
+    return {"entities": _sort_entities(entities), "warnings": warnings}
+
+
+def plan_defense_line(
+    from_xy: Any,
+    to_xy: Any,
+    *,
+    turret: str = "gun-turret",
+    wall: str | None = "stone-wall",
+    spacing: int = 8,
+    ammo_chest: str | None = None,
+    inserter: str = "inserter",
+) -> dict[str, Any]:
+    """Defense line plan: 2x2 turrets spaced along the line, wall row in front.
+
+    The front side is +y (south) for horizontal lines and +x (east) for vertical
+    lines; callers flip the endpoints/coordinates to face another direction.
+    Turret anchors are laid from the lower coordinate every `spacing` tiles, a
+    one-tile wall row sits two tiles in front of the turret row, and with
+    `ammo_chest` each turret gets a chest behind it plus an inserter feeding it.
+
+    Returns `{"entities": [...], "warnings": [...]}`. Single wall layer, no
+    gates, no power and no ammo production are planned.
+    """
+    start_x, start_y = _planner_point(from_xy, "from")
+    end_x, end_y = _planner_point(to_xy, "to")
+    x1, y1, x2, y2 = int(start_x), int(start_y), int(end_x), int(end_y)
+    if x1 != x2 and y1 != y2:
+        raise ValueError("defense line must be horizontal or vertical")
+    gap = int(spacing)
+    if gap < 2:
+        raise ValueError("spacing must be at least 2 tiles for 2x2 turrets")
+    entities: list[dict[str, Any]] = []
+    warnings: list[str] = [
+        "defense line is a single wall layer with no gates, power or ammo production"
+    ]
+    if x1 == x2 and y1 == y2:
+        warnings.append("defense line endpoints are identical; placing one turret")
+    if y1 == y2:
+        low, high = sorted((x1, x2))
+        anchors: list[tuple[int, int]] = []
+        x = low
+        while x + 1 <= high:
+            anchors.append((x, y1))
+            x += gap
+        if not anchors:
+            anchors.append((low, y1))
+            warnings.append("line is shorter than a 2x2 turret footprint")
+        for anchor_x, anchor_y in anchors:
+            entities.append(
+                {"name": turret, "anchor": {"x": anchor_x, "y": anchor_y}, "direction": 8}
+            )
+            if ammo_chest:
+                entities.append(
+                    {"name": inserter, "anchor": {"x": anchor_x, "y": anchor_y - 1}, "direction": 8}
+                )
+                entities.append(
+                    {"name": ammo_chest, "anchor": {"x": anchor_x, "y": anchor_y - 2}}
+                )
+        if wall:
+            entities.extend(
+                {"name": wall, "anchor": {"x": wall_x, "y": y1 + 2}}
+                for wall_x in range(low, high + 1)
+            )
+    else:
+        low, high = sorted((y1, y2))
+        anchors = []
+        y = low
+        while y + 1 <= high:
+            anchors.append((x1, y))
+            y += gap
+        if not anchors:
+            anchors.append((x1, low))
+            warnings.append("line is shorter than a 2x2 turret footprint")
+        for anchor_x, anchor_y in anchors:
+            entities.append(
+                {"name": turret, "anchor": {"x": anchor_x, "y": anchor_y}, "direction": 4}
+            )
+            if ammo_chest:
+                entities.append(
+                    {"name": inserter, "anchor": {"x": anchor_x - 1, "y": anchor_y}, "direction": 4}
+                )
+                entities.append(
+                    {"name": ammo_chest, "anchor": {"x": anchor_x - 2, "y": anchor_y}}
+                )
+        if wall:
+            entities.extend(
+                {"name": wall, "anchor": {"x": x1 + 2, "y": wall_y}}
+                for wall_y in range(low, high + 1)
+            )
+    return {"entities": _sort_entities(entities), "warnings": warnings}
+
+
+def parse_copy_targets(values: list[str]) -> list[dict[str, Any]]:
+    """CLI helper: parse `source-x,source-y,target-x,target-y` copy-settings pairs."""
+    targets = []
+    for entry in values:
+        parts = [part.strip() for part in entry.split(",")]
+        if len(parts) != 4:
+            raise ValueError(
+                f"Invalid --target '{entry}', expected source-x,source-y,target-x,target-y"
+            )
+        numbers = [parse_number(part, None) for part in parts]
+        if any(number is None for number in numbers):
+            raise ValueError(
+                f"Invalid --target '{entry}', expected source-x,source-y,target-x,target-y"
+            )
+        source_x, source_y, target_x, target_y = numbers
+        targets.append(
+            {
+                "source": {"x": source_x, "y": source_y},
+                "target": {"x": target_x, "y": target_y},
+            }
+        )
+    return targets
+
+
+def _parse_sized_points(values: list[str], label: str) -> list[dict[str, Any]]:
+    """CLI helper: parse `x,y[,width,height]` planner target/machine lists."""
+    points = []
+    for entry in values:
+        parts = [part.strip() for part in entry.split(",")]
+        if len(parts) not in (2, 4):
+            raise ValueError(f"Invalid {label} '{entry}', expected x,y[,width,height]")
+        x, y = parse_number(parts[0], None), parse_number(parts[1], None)
+        if x is None or y is None:
+            raise ValueError(f"Invalid {label} '{entry}', expected x,y[,width,height]")
+        point: dict[str, Any] = {"x": x, "y": y}
+        if len(parts) == 4:
+            width, height = parse_number(parts[2], None), parse_number(parts[3], None)
+            if width is None or height is None:
+                raise ValueError(f"Invalid {label} '{entry}', expected x,y[,width,height]")
+            point["width"] = width
+            point["height"] = height
+        points.append(point)
+    return points
+
+
+def _parse_area_flag(value: str, label: str = "area") -> dict[str, Any]:
+    """CLI helper: parse an `x,y,radius` area flag."""
+    parts = [part.strip() for part in value.split(",")]
+    if len(parts) != 3:
+        raise ValueError(f"Invalid --{label}, expected x,y,radius")
+    numbers = [parse_number(part, None) for part in parts]
+    if any(number is None for number in numbers):
+        raise ValueError(f"Invalid --{label}, expected x,y,radius")
+    x, y, radius = numbers
+    return {"x": x, "y": y, "radius": radius}
+
+
 class FactorioClient:
     """Synchronous Python client for the Factorio manager API.
 
@@ -733,6 +1323,95 @@ class FactorioClient:
     def observe_placement(self, placements: list[dict[str, Any]]) -> Any:
         return self.request("POST", "/api/agent/observe/placement", {"placements": placements})
 
+    def observe_production(self) -> Any:
+        """Per-minute production/consumption rates from the manager's sampler.
+
+        The sampler fills its first window lazily, so the first call after RCON
+        connects can answer 409 "telemetry not ready"; retry that case once after
+        ``max(poll_interval, 0.5)`` seconds, then let the error propagate. The
+        server attempts a live sample on the first call, so failures here mean
+        RCON/game state, not a missing window.
+        """
+        try:
+            return self.request("POST", "/api/agent/observe/production", {})
+        except RuntimeError as error:
+            if "telemetry not ready" not in str(error):
+                raise
+            time.sleep(max(self.poll_interval, 0.5))
+            return self.request("POST", "/api/agent/observe/production", {})
+
+    def observe_fluids(self, x: float | None = None, y: float | None = None,
+                       radius: int = 32) -> Any:
+        """Fluid networks/levels around a window (defaults to the player position)."""
+        return self.request("POST", "/api/agent/observe/fluids", {
+            "x": x, "y": y, "radius": radius,
+        })
+
+    def observe_combat(self, x: float | None = None, y: float | None = None,
+                       radius: int = 64) -> Any:
+        """Read-only enemy nests/units, player turrets, and player health scan."""
+        return self.request("POST", "/api/agent/observe/combat", {
+            "x": x, "y": y, "radius": radius,
+        })
+
+    def observe_area(self, x: float, y: float, radius: int = 64, *,
+                     limit: int | None = None, types: list[str] | None = None,
+                     filters: list[str] | None = None, player_only: bool = False) -> Any:
+        """Deconstruction-planning entity list for an area (name/type/position)."""
+        return self.request("POST", "/api/agent/observe/area", {
+            "window": {"x": x, "y": y, "radius": radius},
+            "limit": limit,
+            "types": types,
+            "filters": filters,
+            "player_only": player_only,
+        })
+
+    def copy_settings(self, targets: list[dict[str, Any]], *, dry_run: bool = False) -> Any:
+        """Copy entity settings between source/target pairs.
+
+        ``dry_run`` uses the read-only observe route (reach/compatibility report);
+        otherwise the synchronous act route mutates settings. Both are NOT job
+        queued and do not walk the character: call ``move()`` so the character is
+        within reach of every source and target first, then read the per-target
+        results for unreachable/incompatible pairs.
+        """
+        path = "/api/agent/observe/copy-settings" if dry_run else "/api/agent/act/copy-settings"
+        return self.request("POST", path, {"targets": targets})
+
+    def copy_settings_check(self, targets: list[dict[str, Any]]) -> Any:
+        """Dry-run alias of :meth:`copy_settings` (no settings are changed)."""
+        return self.copy_settings(targets, dry_run=True)
+
+    def observe_snapshot(self, x: float | None = None, y: float | None = None,
+                         radius: int = 64) -> dict[str, Any]:
+        """Player + factory + research + production in one sequential call.
+
+        Saves agent round trips and prompt tokens versus four separate calls.
+        Each part holds the response ``data``; a failing part is recorded as
+        ``{"ok": false, "error": ...}`` in place and in ``errors``, and the
+        aggregate ``ok`` becomes false. Production is polled last via
+        :meth:`observe_production` (which retries the not-ready case once).
+        """
+        snapshot: dict[str, Any] = {"ok": True}
+        errors: list[dict[str, str]] = []
+
+        def record(name: str, call: Callable[[], Any]) -> None:
+            try:
+                snapshot[name] = data_value(call())
+            except Exception as error:  # A partial snapshot must still be useful.
+                message = str(error) or error.__class__.__name__
+                snapshot[name] = {"ok": False, "error": message}
+                errors.append({"part": name, "error": message})
+
+        record("player", lambda: self.observe_player())
+        record("factory", lambda: self.observe_factory(x=x, y=y, radius=radius))
+        record("research", lambda: self.observe_research())
+        record("production", lambda: self.observe_production())
+        if errors:
+            snapshot["ok"] = False
+            snapshot["errors"] = errors
+        return snapshot
+
     def player_position(self) -> dict[str, float]:
         player = data_value(self.observe_player())["player"]
         return {"x": float(player["x"]), "y": float(player["y"])}
@@ -785,6 +1464,86 @@ class FactorioClient:
                     totals.get("no_power", 0) <= max_no_power)
         self.wait_until(stable, timeout=timeout, interval=interval)
         return data_value(self.observe_factory(radius=radius))
+
+    def wait_for_production(self, item: str, rate: float, *, timeout: float = 600,
+                            interval: float = 5.0, stable_polls: int = 2) -> Any:
+        """Wait until ``item`` is produced at >= ``rate`` per minute.
+
+        ``stable_polls`` consecutive polls must meet the rate (guards against a
+        one-sample spike). Returns the last production observation ``data``;
+        raises ``TimeoutError`` with the last rate and telemetry-timeout count.
+        """
+        required = max(1, int(stable_polls))
+        delay = max(0.05, float(interval))
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        consecutive = 0
+        timeouts = 0
+        last: Any = None
+        last_rate: float | None = None
+        while True:
+            try:
+                response = self.observe_production()
+                last = data_value(response)
+                rates = last.get("production_per_minute") if isinstance(last, dict) else None
+                try:
+                    last_rate = float((rates or {}).get(item, 0) or 0)
+                except (TypeError, ValueError):
+                    last_rate = 0.0
+            except RuntimeError:
+                timeouts += 1
+                consecutive = 0
+            else:
+                if last_rate is not None and last_rate >= float(rate):
+                    consecutive += 1
+                    if consecutive >= required:
+                        return last
+                else:
+                    consecutive = 0
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"production of {item} did not reach {rate:g}/min within {timeout:g}s "
+                    f"(last {last_rate if last_rate is not None else 'unavailable'}/min, "
+                    f"telemetry timeouts {timeouts})"
+                )
+            time.sleep(min(delay, remaining))
+
+    def wait_for_fluid(self, fluid: str, amount: float, *, timeout: float = 600,
+                       interval: float = 5.0) -> Any:
+        """Wait until the scanned fluid networks hold >= ``amount`` of ``fluid``.
+
+        Polls :meth:`observe_fluids` (default radius around the player) and sums
+        the ``fluids[fluid].amount`` aggregate that the endpoint returns; returns
+        the last observation ``data``. Raises ``TimeoutError`` with the last
+        amount and telemetry-timeout count.
+        """
+        delay = max(0.05, float(interval))
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        timeouts = 0
+        last: Any = None
+        last_amount = 0.0
+        while True:
+            try:
+                response = self.observe_fluids()
+                last = data_value(response)
+                fluids = last.get("fluids") if isinstance(last, dict) else None
+                entry = fluids.get(fluid) if isinstance(fluids, dict) else None
+                try:
+                    last_amount = float((entry or {}).get("amount", 0) or 0)
+                except (TypeError, ValueError):
+                    last_amount = 0.0
+            except RuntimeError:
+                timeouts += 1
+            else:
+                if last_amount >= float(amount):
+                    return last
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"fluid {fluid} did not reach {amount:g} within {timeout:g}s "
+                    f"(last amount {last_amount:g}, telemetry timeouts {timeouts})"
+                )
+            time.sleep(min(delay, remaining))
 
     def submit_action(self, action: str, payload: Any, *, detach: bool = False,
                       idempotency_key: str | None = None,
@@ -950,7 +1709,50 @@ class FactorioClient:
                 "required_items": required,
                 "warnings": warnings,
             }
-        chunks = [entities[start:start + limit] for start in range(0, len(entities), limit)]
+        summary = self._submit_planned(
+            entities,
+            clear=clear,
+            max_per_job=limit,
+            warnings=warnings,
+            include_entities=False,
+        )
+        summary["blueprint_entities"] = len(entities)
+        return summary
+
+    def _submit_planned(
+        self,
+        plan_entities: list[dict[str, Any]],
+        *,
+        clear: bool = True,
+        max_per_job: int = BLUEPRINT_MAX_ENTITIES_PER_JOB,
+        warnings: list[str] | None = None,
+        include_entities: bool = True,
+    ) -> dict[str, Any]:
+        """Submit a planned entity list in <=50-entity jobs and aggregate results.
+
+        Shared executor for the blueprint and construction planners: sequential
+        jobs, per-entity result/clearing aggregation, fatal-chunk stop with
+        ``failed_chunk``/``error``, and an empty-plan no-op success.
+        """
+        limit = int(max_per_job)
+        if limit < 1:
+            raise ValueError("max_per_job must be at least 1")
+        limit = min(limit, BLUEPRINT_MAX_ENTITIES_PER_JOB)
+        plan_entities = [dict(entity) for entity in plan_entities]
+        summary: dict[str, Any] = {
+            "ok": True,
+            "chunks": 0,
+            "max_per_job": limit,
+            "results": [],
+            "clearing": {"ok": True, "cleared": 0, "skipped": [], "pending_remaining": 0},
+            "job_ids": [],
+            "warnings": list(warnings or []),
+        }
+        if include_entities:
+            summary["entities"] = plan_entities
+        if not plan_entities:
+            return summary
+        chunks = [plan_entities[start:start + limit] for start in range(0, len(plan_entities), limit)]
         jobs: list[Any] = []
         results: list[Any] = []
         failed_chunk: int | None = None
@@ -1000,25 +1802,208 @@ class FactorioClient:
         ok = failed_chunk is None and bool(results) and all(
             isinstance(result, dict) and result.get("ok") is not False for result in results
         )
-        summary: dict[str, Any] = {
-            "ok": ok,
-            "blueprint_entities": len(entities),
-            "chunks": len(chunks),
-            "max_per_job": limit,
-            "results": results,
-            "clearing": {
+        summary.update(
+            ok=ok,
+            chunks=len(chunks),
+            results=results,
+            clearing={
                 "ok": clearing_ok,
                 "cleared": cleared,
                 "skipped": skipped,
                 "pending_remaining": pending_remaining,
             },
-            "job_ids": [job.get("job_id") for job in jobs if isinstance(job, dict)],
-            "warnings": warnings,
-        }
+            job_ids=[job.get("job_id") for job in jobs if isinstance(job, dict)],
+        )
         if failed_chunk is not None:
             summary["failed_chunk"] = failed_chunk
             summary["error"] = error
         return summary
+
+    def _resolve_plan(self, plan: Any) -> tuple[list[dict[str, Any]], list[str]]:
+        if isinstance(plan, dict):
+            entities = plan.get("entities")
+            warnings = plan.get("warnings") or []
+            if not isinstance(entities, list):
+                raise ValueError("plan must contain an entities list")
+            return (
+                [dict(entity) for entity in entities if isinstance(entity, dict)],
+                [str(warning) for warning in warnings],
+            )
+        if isinstance(plan, list):
+            return [dict(entity) for entity in plan if isinstance(entity, dict)], []
+        raise ValueError("plan must be an entity list or {'entities': [...]}")
+
+    def plan_build(self, entities: list[dict[str, Any]]) -> dict[str, Any]:
+        """Dry-run placement analysis for a planned entity list (chunked by 50).
+
+        Returns ``{ok, entities, results, blockers, missing_items, truncated}``
+        without building. ``blockers`` lists entities whose placement analysis
+        reports ``ok: false`` or ``can_place: false`` with their diagnostics;
+        ``missing_items`` compares the entities' place items against the player
+        inventory (entity name assumed to be the item name, like blueprints).
+        """
+        plan_entities = [dict(entity) for entity in entities]
+        if not plan_entities:
+            raise ValueError("plan_build needs at least one entity")
+        results: list[Any] = []
+        truncated = False
+        for start in range(0, len(plan_entities), BLUEPRINT_MAX_ENTITIES_PER_JOB):
+            chunk = plan_entities[start:start + BLUEPRINT_MAX_ENTITIES_PER_JOB]
+            response = self.observe_placement(chunk)
+            data = data_value(response)
+            if isinstance(data, dict):
+                results.extend(data.get("results") or [])
+            if isinstance(response, dict) and response.get("truncated"):
+                truncated = True
+        blockers: list[dict[str, Any]] = []
+        for index, result in enumerate(results):
+            entity = plan_entities[index] if index < len(plan_entities) else {}
+            if not isinstance(result, dict):
+                blockers.append({
+                    "index": index,
+                    "name": entity.get("name"),
+                    "anchor": entity.get("anchor"),
+                    "error": "invalid placement result",
+                })
+                continue
+            if result.get("ok") is False or result.get("can_place") is False:
+                blockers.append({
+                    "index": index,
+                    "name": entity.get("name"),
+                    "anchor": entity.get("anchor"),
+                    "intended_center": result.get("intended_center"),
+                    "diagnostics": result.get("diagnostics"),
+                    "error": result.get("error"),
+                })
+        required: dict[str, int] = {}
+        for entity in plan_entities:
+            name = entity.get("name")
+            if isinstance(name, str) and name:
+                required[name] = required.get(name, 0) + 1
+        inventory_warning: str | None = None
+        try:
+            available: dict[str, int] | None = self.inventory_counts()
+        except Exception as error:  # Inventory only feeds the optional preflight.
+            available = None
+            inventory_warning = (
+                f"inventory unavailable: {str(error) or error.__class__.__name__}"
+            )
+        missing_items = []
+        if available is not None:
+            missing_items = [
+                {
+                    "name": name,
+                    "required": count,
+                    "available": available.get(name, 0),
+                    "missing": count - available.get(name, 0),
+                }
+                for name, count in required.items()
+                if count > available.get(name, 0)
+            ]
+            missing_items.sort(key=lambda entry: entry["name"])
+        result: dict[str, Any] = {
+            "ok": not blockers and not missing_items,
+            "entities": plan_entities,
+            "results": results,
+            "blockers": blockers,
+            "missing_items": missing_items,
+            "truncated": truncated,
+        }
+        if inventory_warning is not None:
+            result["warning"] = inventory_warning
+        return result
+
+    def build_pipe_line(self, from_xy: Any = None, to_xy: Any = None, *,
+                        plan: Any = None, name: str = "pipe",
+                        clear: bool = True) -> dict[str, Any]:
+        """Plan (or accept) a surface pipe line and build it in chunks."""
+        if plan is not None:
+            entities, warnings = self._resolve_plan(plan)
+        else:
+            if from_xy is None or to_xy is None:
+                raise ValueError("build_pipe_line needs from/to points or a plan")
+            entities, warnings = plan_pipe_line(from_xy, to_xy, name=name), []
+        return self._submit_planned(entities, clear=clear, warnings=warnings)
+
+    def build_power_network(self, targets_or_area: Any = None, *, plan: Any = None,
+                            pole: str = POWER_POLE_DEFAULT, big_pole_every: int = 0,
+                            clear: bool = True) -> dict[str, Any]:
+        """Plan (or accept) a covering pole network and build it in chunks."""
+        if plan is not None:
+            entities, warnings = self._resolve_plan(plan)
+        else:
+            if targets_or_area is None:
+                raise ValueError("build_power_network needs targets/area or a plan")
+            entities = plan_power_network(
+                targets_or_area, pole=pole, big_pole_every=big_pole_every
+            )
+            warnings = []
+        return self._submit_planned(entities, clear=clear, warnings=warnings)
+
+    def build_inserter_pairs(self, machines: Any = None, *, plan: Any = None,
+                             direction: Any = "east", inserter: str = "inserter",
+                             width: int = 3, height: int = 3,
+                             clear: bool = True) -> dict[str, Any]:
+        """Plan (or accept) input/output inserter pairs and build them in chunks."""
+        if plan is not None:
+            entities, warnings = self._resolve_plan(plan)
+        else:
+            if machines is None:
+                raise ValueError("build_inserter_pairs needs machines or a plan")
+            entities, warnings = plan_inserter_pairs(
+                machines,
+                direction=direction,
+                inserter=inserter,
+                width=width,
+                height=height,
+            ), []
+        return self._submit_planned(entities, clear=clear, warnings=warnings)
+
+    def build_mining_outpost(self, patch_area_or_centers: Any = None, *,
+                             plan: Any = None, drill: str = "electric-mining-drill",
+                             drill_grid: Any = None, output: str | None = "iron-chest",
+                             inserter: str = "inserter",
+                             clear: bool = True) -> dict[str, Any]:
+        """Plan (or accept) a mining outpost and build it in chunks."""
+        if plan is not None:
+            entities, warnings = self._resolve_plan(plan)
+        else:
+            if patch_area_or_centers is None:
+                raise ValueError("build_mining_outpost needs ore tiles/area or a plan")
+            outpost = plan_mining_outpost(
+                patch_area_or_centers,
+                drill=drill,
+                drill_grid=drill_grid,
+                output=output,
+                inserter=inserter,
+            )
+            entities, warnings = outpost["entities"], outpost["warnings"]
+        return self._submit_planned(entities, clear=clear, warnings=warnings)
+
+    def build_defense_line(self, from_xy: Any = None, to_xy: Any = None, *,
+                           plan: Any = None, turret: str = "gun-turret",
+                           wall: str | None = "stone-wall", spacing: int = 8,
+                           ammo_chest: str | None = None,
+                           inserter: str = "inserter",
+                           clear: bool = True) -> dict[str, Any]:
+        """Plan (or accept) a defense line and build it in chunks."""
+        if plan is not None:
+            entities, warnings = self._resolve_plan(plan)
+        else:
+            if from_xy is None or to_xy is None:
+                raise ValueError("build_defense_line needs from/to points or a plan")
+            defense = plan_defense_line(
+                from_xy,
+                to_xy,
+                turret=turret,
+                wall=wall,
+                spacing=spacing,
+                ammo_chest=ammo_chest,
+                inserter=inserter,
+            )
+            entities, warnings = defense["entities"], defense["warnings"]
+        return self._submit_planned(entities, clear=clear, warnings=warnings)
+
 
     def mine(self, targets: list[dict[str, Any]], **options: Any) -> Any:
         return self.submit_action("mine", {"targets": targets}, **options)
@@ -1289,6 +2274,51 @@ def run(argv: list[str]) -> int:
             response = request("POST", "/api/agent/observe/placement", {"placements": placements})
             truncated = response["truncated"] if isinstance(response, dict) and "truncated" in response else MISSING
             return output(data_value(response), truncated=truncated)
+        if cmd == "observe-production":
+            return output(data_value(request("POST", "/api/agent/observe/production", {})))
+        if cmd == "observe-fluids":
+            return output(data_value(request("POST", "/api/agent/observe/fluids", {
+                "x": parse_number(flag("center-x")),
+                "y": parse_number(flag("center-y")),
+                "radius": parse_number(flag("radius"), 32),
+            })))
+        if cmd == "observe-combat":
+            return output(data_value(request("POST", "/api/agent/observe/combat", {
+                "x": parse_number(flag("center-x")),
+                "y": parse_number(flag("center-y")),
+                "radius": parse_number(flag("radius"), 64),
+            })))
+        if cmd == "observe-area":
+            types = [part.strip() for part in (flag("types") or "").split(",") if part.strip()]
+            filters = [part.strip() for part in (flag("filters") or "").split(",") if part.strip()]
+            response = request("POST", "/api/agent/observe/area", {
+                "window": {
+                    "x": parse_number(flag("center-x"), 0),
+                    "y": parse_number(flag("center-y"), 0),
+                    "radius": parse_number(flag("radius"), 64),
+                },
+                "limit": parse_number(flag("limit")),
+                "types": types or None,
+                "filters": filters or None,
+                "player_only": bool(flag("player-only")),
+            })
+            truncated = response["truncated"] if isinstance(response, dict) and "truncated" in response else MISSING
+            return output(data_value(response), truncated=truncated)
+        if cmd == "observe-snapshot":
+            snapshot = FactorioClient(parsed.base).observe_snapshot(
+                x=parse_number(flag("center-x")),
+                y=parse_number(flag("center-y")),
+                radius=parse_number(flag("radius"), 64),
+            )
+            return output(snapshot, ok=bool(snapshot.get("ok", True)))
+        if cmd == "observe-copy-settings":
+            targets = (json.loads(flag("targets-json")) if flag("targets-json")
+                       else parse_copy_targets(flags.get("target", [])))
+            if not targets:
+                raise ValueError("Missing --target or --targets-json")
+            response = FactorioClient(parsed.base).copy_settings_check(targets)
+            result = data_value(response)
+            return output(result, ok=bool(result.get("ok", True)) if isinstance(result, dict) else True)
 
         if cmd == "act-build":
             entities = json.loads(flag("entities-json")) if flag("entities-json") else parse_entities(flags.get("entity", []))
@@ -1340,6 +2370,93 @@ def run(argv: list[str]) -> int:
                 clear=not bool(flag("no-clear")),
             )
             return output(blueprint_result, ok=bool(blueprint_result.get("ok", True)))
+        elif cmd == "act-copy-settings":
+            targets = (json.loads(flag("targets-json")) if flag("targets-json")
+                       else parse_copy_targets(flags.get("target", [])))
+            if not targets:
+                raise ValueError("Missing --target or --targets-json")
+            response = FactorioClient(parsed.base).copy_settings(
+                targets, dry_run=bool(flag("dry-run")))
+            result = data_value(response)
+            return output(result, ok=bool(result.get("ok", True)) if isinstance(result, dict) else True)
+        elif cmd == "build-pipe-line":
+            from_value, to_value = flag("from"), flag("to")
+            if not from_value or not to_value:
+                raise ValueError("Missing --from or --to")
+            planner_result = FactorioClient(parsed.base).build_pipe_line(
+                parse_targets([from_value], False)[0],
+                parse_targets([to_value], False)[0],
+                name=flag("name") or "pipe",
+                clear=not bool(flag("no-clear")),
+            )
+            return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "build-power-network":
+            if flag("area"):
+                power_targets: Any = _parse_area_flag(flag("area"))
+            else:
+                power_targets = _parse_sized_points(flags.get("target", []), "--target")
+                if not power_targets:
+                    raise ValueError("Missing --target or --area")
+            planner_result = FactorioClient(parsed.base).build_power_network(
+                power_targets,
+                pole=flag("pole") or "small-electric-pole",
+                big_pole_every=parse_number(flag("big-pole-every"), 0),
+                clear=not bool(flag("no-clear")),
+            )
+            return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "build-inserter-pairs":
+            machines = (json.loads(flag("entities-json")) if flag("entities-json")
+                        else _parse_sized_points(flags.get("entity", []), "--entity"))
+            if not machines:
+                raise ValueError("Missing --entity or --entities-json")
+            planner_result = FactorioClient(parsed.base).build_inserter_pairs(
+                machines,
+                direction=flag("direction") or "east",
+                inserter=flag("name") or "inserter",
+                clear=not bool(flag("no-clear")),
+            )
+            return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "build-mining-outpost":
+            if flag("area"):
+                ore_source: Any = _parse_area_flag(flag("area"))
+            else:
+                ore_source = parse_targets(flags.get("ore", []), False)
+                if not ore_source:
+                    raise ValueError("Missing --ore or --area")
+            drill_grid = None
+            drill_size_value = flag("drill-size")
+            if drill_size_value:
+                size_parts = [part.strip() for part in drill_size_value.split(",")]
+                if len(size_parts) != 2:
+                    raise ValueError("Invalid --drill-size, expected width,height")
+                drill_width = parse_number(size_parts[0], None)
+                drill_height = parse_number(size_parts[1], None)
+                if drill_width is None or drill_height is None:
+                    raise ValueError("Invalid --drill-size, expected width,height")
+                drill_grid = (drill_width, drill_height)
+            planner_result = FactorioClient(parsed.base).build_mining_outpost(
+                ore_source,
+                drill=flag("drill") or "electric-mining-drill",
+                drill_grid=drill_grid,
+                output=flag("output") or "iron-chest",
+                clear=not bool(flag("no-clear")),
+            )
+            return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "build-defense-line":
+            from_value, to_value = flag("from"), flag("to")
+            if not from_value or not to_value:
+                raise ValueError("Missing --from or --to")
+            wall: str | None = None if flag("no-wall") else (flag("wall") or "stone-wall")
+            planner_result = FactorioClient(parsed.base).build_defense_line(
+                parse_targets([from_value], False)[0],
+                parse_targets([to_value], False)[0],
+                turret=flag("turret") or "gun-turret",
+                wall=wall,
+                spacing=parse_number(flag("spacing"), 8),
+                ammo_chest=flag("ammo-chest"),
+                clear=not bool(flag("no-clear")),
+            )
+            return output(planner_result, ok=bool(planner_result.get("ok", True)))
         elif cmd in ("act-mine", "act-rotate", "act-move", "act-set-recipe", "act-launch-rocket"):
             require_recipe = cmd == "act-set-recipe"
             targets = json.loads(flag("targets-json")) if flag("targets-json") else parse_targets(flags.get("target", []), require_recipe)
