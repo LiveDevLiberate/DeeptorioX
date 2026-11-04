@@ -323,8 +323,12 @@ test("decision detection, mini bars and telemetry helpers", async () => {
   assert.equal(model.isDecisionText("The belt moved then the items got stuck."), false);
   assert.equal(model.isDecisionText("Items should move east once the belt is full."), false);
   assert.equal(model.isDecisionText("下一步建造熔炉。"), true);
-  assert.deepEqual(model.miniBars([0, 5, 10]), [0, 50, 100]);
+  assert.deepEqual(model.miniBars([0, 5, 10]), [10, 55, 100]);
+  assert.deepEqual(model.miniBars([5, 5, 5]), [50, 50, 50]);
   assert.deepEqual(model.miniBars([]), []);
+  assert.deepEqual(model.sparkTrend([10, 10, 10]), { direction: "flat", percent: 0 });
+  assert.deepEqual(model.sparkTrend([10, 20, 40]), { direction: "up", percent: 75 });
+  assert.deepEqual(model.sparkTrend([40, 20, 10]), { direction: "down", percent: 75 });
   const lines = [
     JSON.stringify({ production_per_game_minute: { "iron-plate": 12, wood: 0 } }),
     "not json",
@@ -335,11 +339,13 @@ test("decision detection, mini bars and telemetry helpers", async () => {
   assert.deepEqual(model.telemetryRates(samples), [{ name: "iron-plate", rate: 12 }]);
   assert.deepEqual(model.telemetrySeries(samples, "iron-plate", 4), [12]);
   assert.equal(model.telemetryResearch(samples), "automation 42%");
+  assert.deepEqual(model.telemetryResearchDetail(samples), { name: "automation", progress: 0.42 });
   assert.equal(model.telemetryPower(samples), null);
   const withPower = model.parseTelemetryLines(
     JSON.stringify({ power: { networks: 2, satisfaction: 0.98 }, current_research: "automation" }),
   );
   assert.equal(model.telemetryPower(withPower), "power 98%");
+  assert.equal(model.telemetryPowerSatisfaction(withPower), 0.98);
 });
 
 test("telemetryMarkers reports research, production starts and rockets", async () => {

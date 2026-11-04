@@ -279,21 +279,39 @@ test("recording page renders summaries, loops, turns and unread updates", async 
       false,
     );
 
-    // Status metrics come from telemetry: top rate, sparkline bars and research progress.
-    const metrics = nodes.statusMetrics.children.map((node) => node.textContent);
+    // Status metrics are a compact table: production/rate/trend, research, power.
+    const nodeText = (node) =>
+      [node.textContent, ...(node.children || []).map(nodeText)].filter(Boolean).join(" ");
+    const metricsTable = nodes.statusMetrics.children[0];
+    assert.equal(metricsTable.tagName, "table");
+    const metricRows = metricsTable.children[0].children;
+    const metrics = metricRows.map(nodeText);
     assert.ok(
       metrics.some((text) => /iron-plate 12\/min/.test(text)),
       `metrics: ${metrics.join(" | ")}`,
     );
     assert.ok(
-      metrics.some((text) => /research automation 42%/.test(text)),
+      metrics.some((text) => /research automation 42%/i.test(text)),
       `metrics: ${metrics.join(" | ")}`,
     );
-    assert.ok(nodes.statusMetrics.children.some((node) => node.className.includes("metric-spark")));
     assert.ok(
-      metrics.some((text) => /power 98%/.test(text)),
+      metrics.some((text) => /power 98%/i.test(text)),
       `metrics: ${metrics.join(" | ")}`,
     );
+    const metricClass = (name) => {
+      const walk = (node) => {
+        if (String(node.className || "").includes(name)) return node;
+        for (const child of node.children || []) {
+          const hit = walk(child);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      return walk(metricsTable);
+    };
+    assert.ok(metricClass("metric-spark"), "missing sparkline in production row");
+    assert.ok(metricClass("metric-delta"), "missing trend label in production row");
+    assert.ok(metricClass("metric-progress"), "missing research progress");
     const findClass = (root, name) => {
       if (String(root.className || "").includes(name)) return root;
       for (const child of root.children || []) {

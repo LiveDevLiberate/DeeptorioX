@@ -2761,3 +2761,156 @@ body.recording .metric.error .icon {
 #codexOutput .commands-summary.cat-other .icon {
   color: #7fb8e6;
 }
+
+/* ---- Status metrics as a compact table ---------------------------------- */
+.status-metrics {
+  margin-top: 4px;
+}
+.metrics-table {
+  border-collapse: collapse;
+  font:
+    10.5px/1.55 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: var(--body);
+}
+.metrics-table .metric,
+.metrics-table .metric-label,
+.metrics-table .metric-value,
+.metrics-table .metric-trend {
+  padding: 1px 14px 1px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+.metrics-table tr + tr > * {
+  border-top: 1px solid #17242a;
+}
+.metrics-table .metric-label {
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+.metric-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.metric-value .icon {
+  margin-right: 0;
+}
+.metric-trend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.metric-trend:empty {
+  padding-right: 0;
+}
+.metric-delta {
+  font-size: 10px;
+  color: var(--dim);
+}
+.metric-delta.up {
+  color: var(--green);
+}
+.metric-delta.down {
+  color: var(--amber);
+}
+.metric-delta.flat {
+  color: var(--dim);
+}
+.metric-spark {
+  width: 56px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.metric-spark .metric-bar {
+  border-radius: 1px;
+  background: #46605a;
+}
+.metric-production .metric-spark .metric-bar {
+  background: #5f9c82;
+}
+.metric-progress {
+  display: inline-block;
+  width: 56px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #1a262c;
+}
+.metric-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #c0a8f0;
+}
+.metric.muted .metric-label,
+.metric.muted .metric-value {
+  color: var(--dim);
+}
+.metric.error .metric-value {
+  color: var(--red);
+}
+
+/* status plan line: target icon instead of the ▶ prefix */
+#agentStatus .status-current {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#agentStatus .status-current .icon {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  color: #7fd8e8;
+}
+.icon-target {
+  --gi-icon: url("/icons/target.svg");
+}
+
+/* Keep the metrics table compact (flex containers would stretch it). */
+body.recording .status-metrics:not([hidden]) {
+  display: block;
+}
+.metrics-table {
+  width: max-content;
+  max-width: 100%;
+}
+.metrics-table .metric-label {
+  width: 1%;
+}
+
+/* Table cells must stay table-cell (display:flex breaks row/column layout). */
+.metrics-table td.metric-value,
+.metrics-table td.metric-trend {
+  display: table-cell;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.metrics-table .metric-value .icon {
+  vertical-align: -2px;
+  margin-right: 5px;
+}
+.metrics-table .metric-spark {
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.metrics-table .metric-progress {
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.metrics-table .metric-delta {
+  vertical-align: middle;
+}

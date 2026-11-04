@@ -30,6 +30,7 @@ used as CSS masks (`background-color: currentColor`) in the recording window.
 | `siren.svg` | skoll | `siren` | https://game-icons.net/1x1/skoll/siren.html |
 | `sliders.svg` | delapouite | `settings-knobs` | https://game-icons.net/1x1/delapouite/settings-knobs.html |
 | `stack.svg` | delapouite | `stack` | https://game-icons.net/1x1/delapouite/stack.html |
+| `target.svg` | lorc | `on-target` | https://game-icons.net/1x1/lorc/on-target.html |
 | `trash.svg` | delapouite | `trash-can` | https://game-icons.net/1x1/delapouite/trash-can.html |
 | `wrench.svg` | sbed | `wrench` | https://game-icons.net/1x1/sbed/wrench.html |
 

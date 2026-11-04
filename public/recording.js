@@ -16,8 +16,11 @@ import {
   telemetryRates,
   telemetrySeries,
   telemetryResearch,
-  telemetryMarkers,
+  telemetryResearchDetail,
   telemetryPower,
+  telemetryPowerSatisfaction,
+  telemetryMarkers,
+  sparkTrend,
   formatDurationText,
 } from "./transcript-view-model.js";
 const output = document.getElementById("codexOutput");
@@ -120,6 +123,45 @@ const I18N = {
     researchLabel: "research",
     trimmed: "earlier entries trimmed",
     noEntries: "No entries for this filter",
+    documentTitle: "Agent transcript",
+    loading: "loading",
+    stale: "stale",
+    failed: "failed",
+    running: "running",
+    ranCommands: "Ran {count} commands",
+    metrics: {
+      production: "Production",
+      research: "Research",
+      power: "Power",
+      telemetry: "Telemetry",
+      error: "Error",
+    },
+    sparkStable: "stable",
+    sparkUp: "+{percent}%",
+    sparkDown: "-{percent}%",
+    sparkHint: "Relative trend over the last 8 telemetry samples (normalized per item), not absolute output.",
+    badges: {
+      build: "build",
+      mine: "mine",
+      deconstruct: "remove",
+      move: "move",
+      rotate: "rotate",
+      recipe: "recipe",
+      craft: "craft",
+      research: "research",
+      insert: "insert",
+      extract: "extract",
+      rocket: "rocket",
+      settings: "settings",
+      observe: "observe",
+      job: "job",
+      wait: "wait",
+      server: "server",
+      run: "run",
+      script: "script",
+      action: "act",
+      other: "cmd",
+    },
     expand: "Expand status details",
     collapse: "Collapse status details",
     filters: {
@@ -173,6 +215,45 @@ const I18N = {
     researchLabel: "研究",
     trimmed: "更早记录已裁剪",
     noEntries: "当前过滤下没有内容",
+    documentTitle: "Agent 记录",
+    loading: "加载中",
+    stale: "已过期",
+    failed: "失败",
+    running: "运行中",
+    ranCommands: "执行了 {count} 个命令",
+    metrics: {
+      production: "产量",
+      research: "研究",
+      power: "电力",
+      telemetry: "遥测",
+      error: "错误",
+    },
+    sparkStable: "稳定",
+    sparkUp: "+{percent}%",
+    sparkDown: "-{percent}%",
+    sparkHint: "最近 8 个遥测采样的相对趋势（按该项自身范围归一化），不是绝对产量。",
+    badges: {
+      build: "建造",
+      mine: "采矿",
+      deconstruct: "拆除",
+      move: "移动",
+      rotate: "旋转",
+      recipe: "配方",
+      craft: "制作",
+      research: "研究",
+      insert: "输入",
+      extract: "取出",
+      rocket: "火箭",
+      settings: "设置",
+      observe: "观察",
+      job: "任务",
+      wait: "等待",
+      server: "服务器",
+      run: "运行",
+      script: "脚本",
+      action: "动作",
+      other: "命令",
+    },
     expand: "展开状态详情",
     collapse: "收起状态详情",
     filters: {
@@ -221,6 +302,16 @@ function element(tag, text, className) {
   if (text) node.textContent = text;
   if (className) node.className = className;
   return node;
+}
+function setStatusCurrent(label) {
+  if (!statusCurrent) return;
+  if (!label) {
+    statusCurrent.replaceChildren();
+    statusCurrent.hidden = true;
+    return;
+  }
+  statusCurrent.replaceChildren(icon("target"), element("span", label, "status-current-text"));
+  statusCurrent.hidden = false;
 }
 const BADGE_ICONS = {
   build: "hammer",
@@ -325,17 +416,14 @@ function renderStatus(run) {
     ? Date.now() - Date.parse(run.state_updated_at) > 10 * 60 * 1000
     : false;
   if (planStale) {
-    statusCurrent.textContent = `⚠ ${strings.plan} stale${research ? ` · ${research}` : ""}`;
-    statusCurrent.hidden = false;
+    setStatusCurrent(`⚠ ${strings.plan} ${strings.stale}${research ? ` · ${research}` : ""}`);
     statusDone.textContent = "";
     statusDone.hidden = true;
     statusHeader?.classList.add("stale-plan");
   } else {
     // Do not advertise a file the agent has not written: with no STATE.md and no
     // research progress there is nothing useful to show, so hide the line.
-    const planLine = current ? `▶ ${current}` : research || "";
-    statusCurrent.textContent = planLine;
-    statusCurrent.hidden = !planLine;
+    setStatusCurrent(current ? `${current}` : research || "");
     statusDone.textContent = done ? `${strings.done}: ${done}` : "";
     statusDone.hidden = !done;
     statusHeader?.classList.remove("stale-plan");
@@ -412,7 +500,13 @@ function ensureCommandGroup() {
 }
 function refreshCommandGroup(group) {
   const items = [...group.items.values()];
-  const stats = summarizeCommandGroup(items);
+  const text = strings();
+  const stats = summarizeCommandGroup(items, {
+    labels: text.badges,
+    failed: text.failed,
+    running: text.running,
+    ran: (count) => String(text.ranCommands || "Ran {count} commands").replace("{count}", String(count)),
+  });
   const loopPrefix = group.loop ? `⚠ ${strings().loop} ×${group.loop} · ` : "";
   group.summary.textContent = `${loopPrefix}${stats.text}`;
   // Let the group icon reflect its dominant action category instead of every
@@ -439,7 +533,11 @@ function renderCommand(item) {
     entry = { node, loopCounted: false };
     entries.set(item.id, entry);
   }
-  const badge = element("span", summary.label, `action-badge ${summary.category}`);
+  const badge = element(
+    "span",
+    strings().badges?.[summary.category] || summary.label,
+    `action-badge ${summary.category}`,
+  );
   if (summary.failed) badge.classList.add("failed");
   prependIcon(badge, badgeIcon(summary.category));
   const main = element("span", "", "action-main");
@@ -606,6 +704,7 @@ function updateTranscriptTools(text) {
     button.setAttribute("aria-pressed", button.classList.contains("active") ? "true" : "false");
   }
   if (transcriptSearch) transcriptSearch.placeholder = uiLang === "zh" ? "过滤内容…" : "Filter…";
+  document.title = text.documentTitle || "Agent transcript";
   updateStatusToggleLabel();
 }
 function nodeMatchesFilter(node) {
@@ -684,53 +783,100 @@ function renderEventMarker(text) {
   prependIcon(node, "flag");
   output.append(node);
 }
+function metricValue(iconName, value) {
+  const cell = element("td", "", "metric-value");
+  cell.append(icon(iconName), element("span", value, "metric-text"));
+  return cell;
+}
 function renderMetrics() {
   if (!statusMetrics) return;
   const text = strings();
-  const children = [];
+  const rows = [];
   if (telemetrySamples.length) {
     const rates = telemetryRates(telemetrySamples, { limit: 2 });
     const top = rates[0];
     if (top) {
-      const metric = element(
-        "span",
-        `${top.name} ${Math.round(top.rate)}${text.rateSuffix}`,
-        "metric metric-production",
+      const row = element("tr", "", "metric metric-production");
+      row.append(
+        element("th", text.metrics.production, "metric-label"),
+        metricValue("factory", `${top.name} ${Math.round(top.rate)}${text.rateSuffix}`),
       );
-      prependIcon(metric, "factory");
-      children.push(metric);
+      const series = telemetrySeries(telemetrySamples, top.name, 8);
+      const trend = sparkTrend(series);
+      const trendCell = element("td", "", "metric-trend");
       const spark = element("span", "", "metric-spark");
-      for (const width of miniBars(telemetrySeries(telemetrySamples, top.name, 8))) {
+      spark.title = text.sparkHint;
+      for (const width of miniBars(series)) {
         const bar = element("span", "", "metric-bar");
-        bar.style.width = `${Math.max(8, width)}%`;
+        bar.style.width = `${Math.max(6, width)}%`;
         spark.append(bar);
       }
-      children.push(spark);
+      const delta =
+        trend.direction === "flat"
+          ? text.sparkStable
+          : (trend.direction === "up" ? text.sparkUp : text.sparkDown).replace(
+              "{percent}",
+              String(trend.percent),
+            );
+      trendCell.append(spark, element("span", delta, `metric-delta ${trend.direction}`));
+      row.append(trendCell);
+      rows.push(row);
     }
-    const research = telemetryResearch(telemetrySamples);
+    const research = telemetryResearchDetail(telemetrySamples);
     if (research) {
-      const metric = element("span", `${text.researchLabel} ${research}`, "metric metric-research");
-      prependIcon(metric, "flask");
-      children.push(metric);
+      const row = element("tr", "", "metric metric-research");
+      row.append(element("th", text.metrics.research, "metric-label"), metricValue("flask", research.name));
+      const trendCell = element("td", "", "metric-trend");
+      if (research.progress !== null) {
+        const percent = Math.round(research.progress * 100);
+        const track = element("span", "", "metric-progress");
+        const fill = element("span", "", "metric-progress-fill");
+        fill.style.width = `${percent}%`;
+        track.append(fill);
+        trendCell.append(track, element("span", `${percent}%`, "metric-delta"));
+      }
+      row.append(trendCell);
+      rows.push(row);
     }
-    const power = telemetryPower(telemetrySamples);
-    if (power) {
-      const metric = element("span", power, "metric metric-power");
-      prependIcon(metric, "bolt");
-      children.push(metric);
+    const power = telemetryPowerSatisfaction(telemetrySamples);
+    if (power !== null) {
+      const row = element("tr", "", "metric metric-power");
+      row.append(
+        element("th", text.metrics.power, "metric-label"),
+        metricValue("bolt", `${Math.round(power * 100)}%`),
+        element("td", "", "metric-trend"),
+      );
+      rows.push(row);
     }
   } else {
-    const metric = element("span", text.noTelemetry, "metric muted");
-    prependIcon(metric, "cog");
-    children.push(metric);
+    const row = element("tr", "", "metric muted");
+    row.append(
+      element("th", text.metrics.telemetry, "metric-label"),
+      metricValue("cog", text.noTelemetry),
+      element("td", "", "metric-trend"),
+    );
+    rows.push(row);
   }
   if (lastErrorText) {
-    const metric = element("span", `⚠ ${lastErrorText}`, "metric error");
-    prependIcon(metric, "siren");
-    children.push(metric);
+    const row = element("tr", "", "metric error");
+    row.append(
+      element("th", text.metrics.error, "metric-label"),
+      metricValue("siren", lastErrorText),
+      element("td", "", "metric-trend"),
+    );
+    rows.push(row);
   }
-  statusMetrics.replaceChildren(...children);
-  statusMetrics.hidden = children.length === 0;
+  if (!rows.length) {
+    statusMetrics.replaceChildren();
+    statusMetrics.hidden = true;
+    return;
+  }
+  const table = element("table", "", "metrics-table");
+  const tbody = element("tbody");
+  tbody.append(...rows);
+  table.append(tbody);
+  statusMetrics.replaceChildren(table);
+  statusMetrics.hidden = false;
 }
 async function pollTelemetry() {
   if (!id || mode !== "events") return;

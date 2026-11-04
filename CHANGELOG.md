@@ -9,6 +9,26 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Status metrics are a compact table now.** Production, research and power are
+  rendered as aligned `label | value | trend` rows instead of a loose row of
+  pills; the production trend keeps the sparkline, shows a `stable`/`+N%`/`-N%`
+  delta and explains itself on hover. The sparkline samples the last 8 telemetry
+  readings and is normalized per item (a flat series renders mid-height, a
+  changing series amplifies its shape); it is a relative trend, not cumulative
+  output. Added `telemetryResearchDetail`, `telemetryPowerSatisfaction` and
+  `sparkTrend` helpers plus tests for the new sparkline semantics.
+- **The plan line uses a target icon instead of `▶`.** The game-icons.net
+  `on-target` glyph (new `public/icons/target.svg`, attributed) is coloured cyan
+  and precedes the current subtask; `▶` is gone.
+- **Recording UI text localization extended.** Action badge and command-group
+  labels (`build`/`建造`, `cmd`/`命令`, …), metric labels, the document title,
+  `stale`/`failed`/`running`/`ran N commands`, loading placeholder and the metrics
+  table headers now follow the run language; identifiers (item names, tech names,
+  paths) stay unchanged.
+
+## [0.13.0] - 2026-11-04
 ## [0.13.0] - 2026-11-04
 
 ### Added

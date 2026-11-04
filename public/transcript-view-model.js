@@ -379,9 +379,8 @@ function summarizeRawOutput(item) {
   return clean.length > 120 ? `${clean.slice(0, 119)}…` : clean;
 }
 
-/** Aggregate a command group: "12 build · 3 mine · 1 failed". */ export function summarizeCommandGroup(
-  items,
-) {
+/** Aggregate a command group: "12 build · 3 mine · 1 failed". */
+export function summarizeCommandGroup(items, options = {}) {
   const counts = new Map();
   let failed = 0;
   let running = false;
@@ -403,16 +402,17 @@ function summarizeRawOutput(item) {
     "script",
     "other",
   ];
+  const labels = options.labels || {};
   const parts = [...counts.entries()]
     .sort((left, right) => order.indexOf(left[0]) - order.indexOf(right[0]))
-    .map(([category, count]) => `${count} ${BADGE_LABELS[category] || category}`);
-  if (failed) parts.push(`${failed} failed`);
-  if (running) parts.push(`${running} running`);
-  return {
-    text: parts.length ? parts.join(" · ") : `Ran ${items.length} command${items.length === 1 ? "" : "s"}`,
-    failed,
-    running,
-  };
+    .map(([category, count]) => `${count} ${labels[category] || BADGE_LABELS[category] || category}`);
+  if (failed) parts.push(`${failed} ${options.failed || "failed"}`);
+  if (running) parts.push(`${running} ${options.running || "running"}`);
+  const fallback =
+    typeof options.ran === "function"
+      ? options.ran(items.length)
+      : `Ran ${items.length} command${items.length === 1 ? "" : "s"}`;
+  return { text: parts.length ? parts.join(" · ") : fallback, failed, running };
 }
 
 /** Describe a non-command transcript item for the collapsed tool row. */
@@ -475,8 +475,29 @@ export function miniBars(values, segments = 8) {
     .map((value) => Number(value) || 0)
     .slice(-Math.max(1, segments));
   if (!numeric.length) return [];
-  const max = Math.max(1, ...numeric);
-  return numeric.map((value) => Math.round((value / max) * 100));
+  const max = Math.max(...numeric);
+  const min = Math.min(...numeric);
+  // A flat series (or tiny noise) reads as a flat mid-height sparkline instead
+  // of a wall of near-full bars.
+  if (max <= 0 || max - min <= Math.max(0.000001, max * 0.02)) {
+    return numeric.map(() => 50);
+  }
+  return numeric.map((value) => Math.round(10 + ((value - min) / (max - min)) * 90));
+}
+
+/**
+ * Relative change across the sampled series (last value vs first), rounded to a
+ * percentage. `flat` when the change is within rounding noise.
+ */
+export function sparkTrend(values) {
+  const numeric = (Array.isArray(values) ? values : []).map((value) => Number(value) || 0);
+  if (numeric.length < 2) return { direction: "flat", percent: 0 };
+  const first = numeric[0];
+  const last = numeric.at(-1);
+  const scale = Math.max(Math.abs(first), Math.abs(last), 1);
+  const percent = Math.round(((last - first) / scale) * 100);
+  if (Math.abs(percent) < 3) return { direction: "flat", percent };
+  return { direction: percent > 0 ? "up" : "down", percent: Math.abs(percent) };
 }
 
 /** Parse JSONL telemetry samples (raw text → objects, skipping malformed lines). */
@@ -522,24 +543,39 @@ export function telemetrySeries(samples, item, segments = 8) {
 }
 
 /** Research label from the latest sample with research data: "automation 42%". */
-export function telemetryResearch(samples) {
+/** Latest research name + normalized progress (or null when absent). */
+export function telemetryResearchDetail(samples) {
   const withResearch = (Array.isArray(samples) ? samples : [])
     .filter((sample) => sample?.current_research)
     .at(-1);
   if (!withResearch) return null;
-  const name = withResearch.current_research;
-  const progress = Number(withResearch.research_progress);
-  return Number.isFinite(progress) ? `${name} ${Math.round(progress * 100)}%` : String(name);
+  const raw = Number(withResearch.research_progress);
+  return {
+    name: String(withResearch.current_research),
+    progress: Number.isFinite(raw) ? Math.max(0, Math.min(1, raw)) : null,
+  };
 }
 
-/** Power satisfaction label from the latest telemetry sample: "power 98%". */
-export function telemetryPower(samples) {
+export function telemetryResearch(samples) {
+  const detail = telemetryResearchDetail(samples);
+  if (!detail) return null;
+  return detail.progress === null ? detail.name : `${detail.name} ${Math.round(detail.progress * 100)}%`;
+}
+
+/** Latest power satisfaction in the 0..1 range, or null. */
+export function telemetryPowerSatisfaction(samples) {
   const withPower = (Array.isArray(samples) ? samples : [])
     .filter((sample) => sample?.power && typeof sample.power === "object")
     .at(-1);
   const satisfaction = withPower?.power?.satisfaction;
   if (typeof satisfaction !== "number" || !Number.isFinite(satisfaction)) return null;
-  return `power ${Math.round(Math.max(0, Math.min(1, satisfaction)) * 100)}%`;
+  return Math.max(0, Math.min(1, satisfaction));
+}
+
+/** Power satisfaction label from the latest telemetry sample: "power 98%". */
+export function telemetryPower(samples) {
+  const satisfaction = telemetryPowerSatisfaction(samples);
+  return satisfaction === null ? null : `power ${Math.round(satisfaction * 100)}%`;
 }
 
 /**
