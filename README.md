@@ -118,14 +118,25 @@ native CLI, `AUTORIO_WSL_DISTRO`/`AUTORIO_WSL_OPENCODE` select the WSL CLI.
 With `--agent codex`, the runner instead uses `codex exec` with
 `--ignore-user-config` and the configured sandbox.
 
-Agent runs open the web recording view by default. It displays agent messages and
-available reasoning summaries, with consecutive commands grouped into collapsed
-“Ran N commands” rows. Expand a row to inspect commands and their full output;
-failed commands are marked in the summary. Words come from structured agent
-events (`opencode run --format json`, or Codex's `codex exec --json`). No
-dashboard panels, setup messages, or shell prompt are added. Reasoning summaries
-appear only when emitted by the selected model.
-It follows new output unless you scroll up. The standalone recording window
+Agent runs open the web recording view by default. It shows agent messages and
+reasoning as collapsed blocks with a one-line summary (only the newest two stay
+expanded; identical consecutive thoughts collapse into a “repeated ×N” badge).
+Commands are summarized as action rows (category badge, target and result, e.g.
+`mine (129,-26) · 2/2 ok · mined 2 · +2 wood`), grouped with category counters
+(`12 build · 3 mine · 1 failed`); repeated identical actions raise a “loop? ×N”
+warning. Raw command and output stay behind an expandable row, and other tools
+are shown as a label + detail instead of raw JSON. Turn separators, relative
+timestamps for live events, and a floating “N new ↓” button (auto-follow pauses
+when you scroll up) make long runs easier to follow. A toolbar filters by
+Thinking/Actions/Messages/Errors/Decisions and searches the transcript; the
+choice is remembered. The header also shows production rates from telemetry
+(with a mini sparkline), research progress, the latest failure, elapsed time and
+tokens, the current subtask with its done condition, and six subtask scores from
+`STATE.md`. Labels switch between English and Simplified Chinese from the run's
+language, and the header collapses for narrow windows. Add `&overlay=1` to the
+recording URL for an OBS-friendly transparent/large-text overlay (hides the
+filter bar, scores and raw rows).
+The standalone recording window
 automatically closes two seconds after completion, failure, stop, timeout, or interruption.
 The manager opens a dedicated window containing the web recording view (a native
 window on macOS, an Edge/Chrome app window on Windows), with no browser tabs or
@@ -193,8 +204,10 @@ OpenCode is launched with `--thinking`, so its reasoning is saved as a plain
 stream in the run directory:
 
 ```text
-.autorio/runs/<run-id>/thoughts.log   # one reasoning text per line
-.autorio/runs/<run-id>/thoughts.txt   # latest thought, useful for an OBS text source
+.autorio/runs/<run-id>/thoughts.log          # one reasoning text per line
+.autorio/runs/<run-id>/thoughts.txt          # latest thought, useful for an OBS text source
+.autorio/runs/<run-id>/thoughts.digest.log   # one condensed line per reasoning chunk (TTS-friendly)
+.autorio/runs/<run-id>/thoughts.digest.txt   # latest digest line
 ```
 
 Windows can speak those lines with the built-in System.Speech voices:
@@ -203,10 +216,18 @@ Windows can speak those lines with the built-in System.Speech voices:
 cd C:\Users\Roger\autorio
 .\scripts\narrate.ps1 -ListVoices
 .\scripts\narrate.ps1                                # newest run, new thoughts only
+.\scripts\narrate.ps1 -Digest                         # condensed decision-oriented lines
+.\scripts\narrate.ps1 -Digest -MinChars 8             # short CJK digests
 .\scripts\narrate.ps1 -RunId RUN_ID -Voice "Microsoft Zira Desktop"
 .\scripts\narrate.ps1 -IncludeMessages                 # also speak agent messages
 .\scripts\narrate.ps1 -FromStart -DryRun -Once          # test without audio
 ```
+
+`-Digest` follows `thoughts.digest.log`: the manager emits one summarized line per
+reasoning chunk (preferring plan/decision sentences, capped at 200 chars, skipping
+consecutive duplicates). `-Dedupe` is on by default and skips repeated lines; use
+`-NoDedupe` on hosts that cannot bind `-Dedupe:$false`. Older runs recorded before
+the digest stream need the default raw mode.
 
 The narrated text is also written to `narration.txt` for a subtitle overlay. If
 agents write Chinese messages but reason in English, use

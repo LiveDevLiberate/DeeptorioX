@@ -22,7 +22,7 @@
 - `src/obs-client.ts`, `src/obs.ts`: authenticated localhost OBS v5 control and run-owned two-window capture.
 - `native/timelapse.swift`, `src/timelapse.ts`: 5 fps → 30 fps silent MP4 conversion via AVFoundation (macOS) or FFmpeg (Windows).
 - `src/run-labels.ts`: Pacific local run timestamps and combined model/thinking labels.
-- `scripts/narrate.ps1`, run `thoughts.log`/`thoughts.txt`: Windows TTS narration of OpenCode reasoning for livestreams.
+- `scripts/narrate.ps1`, run `thoughts.log`/`thoughts.txt`/`thoughts.digest.log`: Windows TTS narration of OpenCode reasoning for livestreams (`-Digest` reads the condensed digest stream).
 - `src/token-usage.ts`: session-scoped Codex token-log fallback; counters may be last-reported rather than final.
 - `public/production-chart.js`: production graphs and science research annotations in the dashboard.
 - `src/run-cli.ts`, `autorio`: run CLI and Node discovery/build wrapper.
@@ -40,7 +40,7 @@
 - `scripts/coverage-gate.mjs`, `scripts/release.mjs`, `scripts/install-hooks.mjs`, `.githooks/pre-commit`: coverage thresholds, semver/CHANGELOG/tag automation, and the fast pre-commit hook.
 - `.github/workflows/live-selftest.yml`, `scripts/ci-live-selftest.ps1`: manual self-hosted Windows live selftest (Steam + real game required).
 - `scripts/check-repo.mjs`, `scripts/package.mjs`: repository hygiene gate and reproducible release packaging.
-- `public/recording.html`, `public/runs.css`: recording page and shared styling; `public/recording.js`, `public/codex-transcript.js` render structured Codex events as messages and collapsed command groups; `public/codex-output.js` supports older native logs.
+- `public/recording.html`, `public/runs.css`: recording page and shared styling; `public/recording.js`, `public/transcript-view-model.js` render the live transcript (collapsed reasoning summaries, action/result rows, loop badges, turn dividers, unread pill, filters/search, telemetry metrics/markers, `?overlay=1`), `public/codex-transcript.js` groups structured Codex events; `public/codex-output.js` supports older native logs.
 - `.autorio/`: ignored baselines, profiles, saves, run results, logs, and credentials.
 - Default game: Steam `factorio.app/Contents/MacOS/factorio` (macOS) or `...\steamapps\common\Factorio\bin\x64\factorio.exe` (Windows, auto-detected across Steam libraries).
 - `dist/`: Build output (including `dist/server.js`, `dist/run-cli.js`).
@@ -103,6 +103,7 @@
 - The API is a cooperative evaluation interface, not isolation against hostile agents.
 - Quota-exhausted runs become paused and can resume manually from their checkpoint and Codex session. Segments retain separate saves/videos; active time and scoring accumulate, excluding quota waits and game loading. Forced interruptions are not automatically resumed. One active game/run at a time.
 - Tests should verify lifecycle and scoring behavior, not require real Codex or Factorio launches.
+- Thinking-window changes stay in `public/`: keep heuristics in the DOM-free `public/transcript-view-model.js` and test them with `node:test` (`tests/transcript-view-model.test.mjs`, `tests/recording-page.test.mjs`). Both the events mode and the legacy native log mode must keep rendering. The manager also writes `thoughts.digest.log` for TTS; raw `thoughts.log` must stay byte-identical.
 
 ## Local assumptions
 - Windows support: process statistics use `Get-Process` via PowerShell; macOS uses `ps`. Keep platform branches in `src/platform.ts`.

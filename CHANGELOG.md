@@ -3,11 +3,33 @@
 All notable changes to autorio are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project aims to follow [Semantic Versioning](https://semver.org/). The
-package is still versioned `0.1.0` and has no release tags yet; history before
-commit `9e4e677` predates this file.
+and this project aims to follow [Semantic Versioning](https://semver.org/). Released
+versions are tracked by annotated git tags; history before commit `9e4e677` predates
+this file.
 
 ## [Unreleased]
+
+### Added
+
+- **Thinking-window readability.** The live transcript now renders reasoning as
+  collapsed blocks with one-line summaries (newest two expanded; repeated thoughts
+  collapse into `repeated ×N`), commands as action rows with category badge,
+  target and result plus category counters (`12 build · 3 mine · 1 failed`) and a
+  `loop? ×N` warning for repeated actions, non-command tools as label+detail, and
+  turn dividers with relative timestamps for live events. A floating unread
+  (`N new ↓`) pill pauses auto-follow when scrolled up. The status bar gains
+  telemetry metrics (top production rate with a mini sparkline, research progress,
+  latest failure), and telemetry deltas insert event markers (research completed,
+  item starts producing, rocket launched). A toolbar filters by
+  Thinking/Actions/Messages/Errors/Decisions and searches the transcript
+  (persisted); long runs keep a bounded DOM with a trimmed-note. `?overlay=1`
+  switches to a transparent, large-text OBS overlay. New
+  `public/transcript-view-model.js` keeps the heuristics DOM-free and unit-tested.
+- **Condensed reasoning digest for TTS.** `runs/<id>/thoughts.digest.log` /
+  `thoughts.digest.txt` receive one summarized reasoning line per chunk (keyword
+  sentence preferred, 200-char cap, consecutive duplicates skipped; raw
+  `thoughts.log` unchanged). `scripts/narrate.ps1` adds `-Digest` (follow the
+  digest stream), default-on `-Dedupe`/`-NoDedupe` and updated help/examples.
 
 ## [0.5.0] - 2026-11-04
 
