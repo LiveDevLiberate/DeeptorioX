@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.25.2] - 2026-11-04
+
 ### Fixed
 
 - Regenerated `public/tool-manifest.json` after adding `/api/map-config`, so the
@@ -705,7 +707,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.25.1...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.25.2...HEAD
+[0.25.2]: https://github.com/ryanmadden/autorio/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/ryanmadden/autorio/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/ryanmadden/autorio/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/ryanmadden/autorio/compare/v0.23.0...v0.24.0
