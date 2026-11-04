@@ -54,6 +54,8 @@ __all__ = [
     "plan_mining_outpost",
     "plan_pipe_line",
     "plan_power_network",
+    "plan_underground_belt_line",
+    "plan_underground_pipe_line",
     "submit_action_job",
     "belt_line_entities",
     "loader_entity",
@@ -91,6 +93,8 @@ Commands:
   act-build-blueprint (--blueprint-file <path>|--blueprint <string>) [--anchor x,y] [--dry-run] [--no-clear]
   act-copy-settings --target sx,sy,tx,ty [--target ...] [--dry-run]
   build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]
+  build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]
+  build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]
   build-power-network (--target x,y[,w,h] [--target ...] | --area x,y,radius) [--pole name] [--big-pole-every n] [--no-clear]
   build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--no-clear]
   build-mining-outpost (--ore x,y [--ore ...] | --area x,y,radius) [--drill name] [--drill-size w,h] [--output name] [--no-clear]
@@ -150,9 +154,11 @@ COMMAND_USAGE = {
     "observe-snapshot": "observe-snapshot: One call returning player, factory, research and production observations.\nUsage: factorio.py observe-snapshot --center-x <n> --center-y <n> --radius <n>\nNote: sequential requests; saves round trips and prompt tokens versus four separate calls.\n",
     "observe-copy-settings": "observe-copy-settings: Dry-run source/target compatibility and reach report for settings copy.\nUsage: factorio.py observe-copy-settings --target source-x,source-y,target-x,target-y [--target ...]\n   or: factorio.py observe-copy-settings --targets-json <json>\nNote: The character must be in reach of both entities; move first.\n",
     "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]\n   or: factorio.py act-build --entities-json <json> [--no-clear]\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding. Trees and rocks in the\nfootprint are mined before placement unless --no-clear is given.\n",
-    "act-build-blueprint": "act-build-blueprint: Expand a Factorio blueprint string and build it in batches of at most 50 entities.\nUsage: factorio.py act-build-blueprint --blueprint-file <path> [--anchor x,y] [--dry-run] [--no-clear]\n   or: factorio.py act-build-blueprint --blueprint <string> [--anchor x,y] [--dry-run] [--no-clear]\nPosition: blueprint positions are map coordinates; --anchor moves the whole plan so its top-left tile lands there.\nDirections: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nDry run: prints the expanded entities, placement analysis, and missing items without building.\nNote: Recipes, filters and module settings inside the blueprint are NOT applied; set them with\nact-set-recipe afterwards. The character walks between entities, so a large plan takes many minutes.\n",
+    "act-build-blueprint": "act-build-blueprint: Expand a Factorio blueprint string and build it in batches of at most 50 entities.\nUsage: factorio.py act-build-blueprint --blueprint-file <path> [--anchor x,y] [--dry-run] [--no-clear]\n   or: factorio.py act-build-blueprint --blueprint <string> [--anchor x,y] [--dry-run] [--no-clear]\nPosition: blueprint positions are map coordinates; --anchor moves the whole plan so its top-left tile lands there.\nDirections: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nUnderground: underground-belt/pipe-to-ground input/output subtypes are preserved as underground_type.\nDry run: prints the expanded entities, placement analysis, and missing items without building.\nNote: Recipes, filters and module settings inside the blueprint are NOT applied; set them with\nact-set-recipe afterwards. The character walks between entities, so a large plan takes many minutes.\n",
     "act-copy-settings": "act-copy-settings: Copy settings from source to target entities (synchronous, reach-checked).\nUsage: factorio.py act-copy-settings --target source-x,source-y,target-x,target-y [--target ...] [--dry-run]\n   or: factorio.py act-copy-settings --targets-json <json> [--dry-run]\nNote: Not a walking job; move the character into reach of every source and target first.\nUnreachable or incompatible pairs are reported and never mutated.\n",
-    "build-pipe-line": "build-pipe-line: Lay an L-shaped surface pipe line (x first, then y).\nUsage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]\nNote: surface pipes only: underground pipe pairs are not supported by the native build path.\n",
+    "build-pipe-line": "build-pipe-line: Lay an L-shaped surface pipe line (x first, then y).\nUsage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]\nNote: surface pipes only; for straight runs under obstacles use build-underground-pipe.\n",
+    "build-underground-belt": "build-underground-belt: Lay a straight underground-belt line (input/output pairs + surface belt connectors).\nUsage: factorio.py build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]\nName: transport-belt/fast-transport-belt/express-transport-belt (default distance 4/6/8); pass --max-distance to override.\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface belt\nconnector after each pair, surface belts for tails shorter than a pair. Straight horizontal/vertical only.\n",
+    "build-underground-pipe": "build-underground-pipe: Lay a straight pipe-to-ground line (input/output pairs + surface pipe connectors).\nUsage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface pipe\nconnector after each pair, surface pipes for tails shorter than a pair (default distance 10). Straight only.\n",
     "build-power-network": "build-power-network: Place a pole grid covering entity targets or a scan area.\nUsage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]\n   or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear]\nCoverage: small pole supply area 5x5, 5-tile grid so adjacent poles are within wire reach.\n",
     "build-inserter-pairs": "build-inserter-pairs: Place input+output inserters around rows of machines.\nUsage: factorio.py build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--name inserter] [--no-clear]\n   or: factorio.py build-inserter-pairs --entities-json <json> [--direction ...] [--no-clear]\nFootprints default to 3x3; pass w,h for other machine sizes. Shared machine-to-machine inserters are deduped.\n",
     "build-mining-outpost": "build-mining-outpost: Place mining drills on a grid over ore tiles with belt rows and an output chest.\nUsage: factorio.py build-mining-outpost --ore x,y [--ore ...] [--drill name] [--drill-size w,h] [--output name] [--no-clear]\n   or: factorio.py build-mining-outpost --area x,y,radius [--drill name] [--drill-size w,h] [--output name]\nWarning: one output-belt row between drill rows is not mined; electric drills need a power network.\n",
@@ -513,6 +519,22 @@ def _prototype_size(prototype_sizes: dict[str, Any] | None, name: str) -> tuple[
     return size if size[0] > 0 and size[1] > 0 else None
 
 
+def _blueprint_underground_type(entity: dict[str, Any], index: int) -> str | None:
+    """Validate the blueprint input/output subtype for underground entities."""
+    name = entity.get("name")
+    if not isinstance(name, str):
+        return None
+    # Vanilla tiers end with "underground-belt"; pipe-to-ground is the pipe pair.
+    if not (name == UNDERGROUND_PIPE_NAME or name.endswith("underground-belt")):
+        return None
+    subtype = entity.get("type")
+    if subtype not in ("input", "output"):
+        raise ValueError(
+            f"blueprint entity {index} ({name}) needs type 'input' or 'output', got {subtype!r}"
+        )
+    return subtype
+
+
 def expand_blueprint(
     blueprint: Any,
     *,
@@ -539,6 +561,12 @@ def expand_blueprint(
     ``anchor`` (``{"x","y"}`` or ``(x, y)``) moves the plan so its top-left
     anchor lands there; ``offset`` is then added to every anchor. Results are
     sorted deterministically by (y, x, entity_number).
+
+    Underground belt/pipe-to-ground blueprint entities carry a ``type`` of
+    ``"input"`` or ``"output"``; that subtype is validated and emitted as
+    ``underground_type`` so the manager build action can create the explicit
+    piece (unknown/missing subtypes raise ``ValueError``). Non-underground
+    entities' fields are unchanged.
     """
     entities = _blueprint_entities(_coerce_blueprint(blueprint))
     anchor_point = _blueprint_point(anchor, "anchor") if anchor is not None else None
@@ -561,6 +589,7 @@ def expand_blueprint(
                 raise ValueError(f"blueprint entity {index} has an invalid direction") from error
             if direction_value not in range(16):
                 raise ValueError(f"blueprint entity {index} direction must be 0-15")
+        underground_type = _blueprint_underground_type(entity, index)
         size = _prototype_size(prototype_sizes, name)
         if size is not None:
             width, height = size
@@ -577,6 +606,8 @@ def expand_blueprint(
         }
         if direction_value is not None:
             item["direction"] = direction_value
+        if underground_type is not None:
+            item["underground_type"] = underground_type
         number = entity.get("entity_number")
         expanded.append(item)
         entity_numbers.append(number if isinstance(number, int) else index)
@@ -646,9 +677,10 @@ def blueprint_required_items(
 
 # Construction-planner conventions. All planners return entities for the
 # existing build API (`name`, `anchor` top-left tile, optional `direction`) and
-# use integer tile coordinates. Surface belts/pipes only: Factorio 2.1 native
-# build (`LuaPlayer.build_from_cursor`) has no input/output subtype parameter,
-# so underground belt/pipe pairs cannot be placed reliably and are NOT planned.
+# use integer tile coordinates. Underground belt/pipe pairs are planned
+# explicitly: each pair entity carries `underground_type: "input" | "output"`,
+# which the manager build action consumes with that subtype (item consumption,
+# reach and collision checks are server-side).
 POWER_POLE_DEFAULT = "small-electric-pole"
 POWER_POLE_BIG = "big-electric-pole"
 POWER_POLE_NAMES = frozenset(
@@ -656,6 +688,16 @@ POWER_POLE_NAMES = frozenset(
 )
 POWER_SUPPLY_HALF = 2  # small pole supply area is 5x5 centred on the pole tile
 POWER_TILE_STEP = POWER_SUPPLY_HALF * 2 + 1
+
+# Surface belt tier -> (underground entity, standard max underground distance).
+# The manager/game remains authoritative and rejects over-distance pairs.
+UNDERGROUND_BELT_TIERS = {
+    "transport-belt": ("underground-belt", 4),
+    "fast-transport-belt": ("fast-underground-belt", 6),
+    "express-transport-belt": ("express-underground-belt", 8),
+}
+UNDERGROUND_PIPE_NAME = "pipe-to-ground"
+UNDERGROUND_PIPE_DEFAULT_DISTANCE = 10
 
 
 def _planner_point(value: Any, label: str, *, integer: bool = True) -> tuple[float, float]:
@@ -781,8 +823,8 @@ def plan_pipe_line(from_xy: Any, to_xy: Any, *, name: str = "pipe") -> list[dict
 
     One pipe per tile including both endpoints, direction 0 (pipes are not
     directional), deterministic x-then-y corner. Returns [] for identical
-    endpoints. Underground pipes are not planned: the native build path cannot
-    express the input/output subtype.
+    endpoints. Straight underground pipe runs are planned by
+    :func:`plan_underground_pipe_line` (explicit input/output subtype).
     """
     start_x, start_y = _planner_point(from_xy, "from")
     end_x, end_y = _planner_point(to_xy, "to")
@@ -804,6 +846,186 @@ def plan_pipe_line(from_xy: Any, to_xy: Any, *, name: str = "pipe") -> list[dict
         y += step
         entities.append(pipe(x2, y))
     return entities
+
+
+def _underground_axis(
+    from_xy: Any, to_xy: Any, label: str
+) -> tuple[tuple[int, int], tuple[int, int], int, int]:
+    """Start tile, unit step, flow direction and tile span for a straight line."""
+    start_x, start_y = _planner_point(from_xy, f"{label} from")
+    end_x, end_y = _planner_point(to_xy, f"{label} to")
+    x1, y1, x2, y2 = int(start_x), int(start_y), int(end_x), int(end_y)
+    if (x1, y1) == (x2, y2):
+        raise ValueError(f"{label} needs distinct endpoints (zero-length line is not valid)")
+    if x1 != x2 and y1 != y2:
+        raise ValueError(
+            f"{label} only supports straight horizontal or vertical lines; "
+            "diagonal routing is not supported"
+        )
+    if y1 == y2:
+        step_x = 1 if x2 > x1 else -1
+        return (x1, y1), (step_x, 0), (4 if step_x > 0 else 12), abs(x2 - x1)
+    step_y = 1 if y2 > y1 else -1
+    return (x1, y1), (0, step_y), (8 if step_y > 0 else 0), abs(y2 - y1)
+
+
+def _underground_distance(value: Any, *, default: int | None = None) -> int:
+    if value is None:
+        if default is None:
+            raise ValueError("max_distance must be a positive integer")
+        return default
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError("max_distance must be a positive integer") from error
+    if not math.isfinite(number) or number < 1 or not number.is_integer():
+        raise ValueError("max_distance must be a positive integer")
+    return int(number)
+
+
+def _underground_layout(length: int, distance: int) -> list[tuple[int, str]]:
+    """Offsets/roles for one straight underground run.
+
+    Pairs are input at ``offset`` and output at ``offset + distance`` (both on
+    the line), followed by one surface connector tile when the line continues.
+    Items flow from the pair output into that surface tile and then into the
+    next pair, so consecutive pairs never overlap and the run stays continuous.
+    Tails shorter than a pair are laid with surface tiles.
+    """
+    layout: list[tuple[int, str]] = []
+    offset = 0
+    while offset <= length:
+        if length - offset >= distance:
+            layout.append((offset, "input"))
+            output_offset = offset + distance
+            layout.append((output_offset, "output"))
+            offset = output_offset + 1
+            if offset <= length:
+                layout.append((offset, "surface"))
+                offset += 1
+        else:
+            layout.append((offset, "surface"))
+            offset += 1
+    return layout
+
+
+def _plan_underground_run(
+    from_xy: Any,
+    to_xy: Any,
+    *,
+    distance: int,
+    pair_name: str,
+    surface_name: str,
+    surface_direction: str,
+    label: str,
+) -> list[dict[str, Any]]:
+    start, step, direction, length = _underground_axis(from_xy, to_xy, label)
+    entities: list[dict[str, Any]] = []
+    for offset, role in _underground_layout(length, distance):
+        x = start[0] + step[0] * offset
+        y = start[1] + step[1] * offset
+        if role == "surface":
+            entity: dict[str, Any] = {
+                "name": surface_name,
+                "anchor": {"x": x, "y": y},
+                "direction": direction if surface_direction == "flow" else 0,
+            }
+        else:
+            entity = {
+                "name": pair_name,
+                "anchor": {"x": x, "y": y},
+                "direction": direction,
+                "underground_type": role,
+            }
+        entities.append(entity)
+    return entities
+
+
+def _underground_belt_names(name: str) -> tuple[str, str, int]:
+    """(surface belt, underground belt, default distance) for a belt tier."""
+    if not isinstance(name, str) or not name:
+        raise ValueError("name must be a belt entity name")
+    if name in UNDERGROUND_BELT_TIERS:
+        pair_name, distance = UNDERGROUND_BELT_TIERS[name]
+        return name, pair_name, distance
+    for surface_name, (pair_name, distance) in UNDERGROUND_BELT_TIERS.items():
+        if name == pair_name:
+            return surface_name, pair_name, distance
+    # Modded/unknown tier: keep the requested surface name and the base
+    # underground belt so the plan still builds something the API knows.
+    return name, "underground-belt", UNDERGROUND_BELT_TIERS["transport-belt"][1]
+
+
+def plan_underground_belt_line(
+    from_xy: Any,
+    to_xy: Any,
+    *,
+    name: str = "transport-belt",
+    max_distance: Any = None,
+) -> list[dict[str, Any]]:
+    """Straight underground-belt line from `from_xy` to `to_xy`.
+
+    Layout convention: every pair is an input at the current tile and an output
+    at input + ``distance`` tiles along the flow direction (both pieces face the
+    flow direction); the pair is followed by one surface ``name`` belt tile when
+    the line continues, and tails shorter than a pair are surface belts. Items
+    flow continuously: pair output -> surface tile -> next pair input. Pairs are
+    laid from `from` toward `to`, so a reverse call mirrors directions (result
+    stays in path order; no tile repeats).
+
+    ``distance`` is the tile offset between input and output anchors. With
+    ``max_distance=None`` the standard tier distance is inferred from ``name``:
+    transport-belt 4, fast-transport-belt 6, express-transport-belt 8 (the
+    manager/game is authoritative and rejects over-distance pairs). Unknown or
+    modded tiers keep the requested surface name with the base underground belt
+    and distance 4; pass ``max_distance`` for those. Underground entity names can
+    also be passed as ``name`` (for example "fast-underground-belt").
+
+    Returns entities for the build API with ``underground_type: "input" |
+    "output"`` on pair pieces. Straight lines only; diagonal routing raises
+    ValueError.
+    """
+    surface_name, pair_name, tier_distance = _underground_belt_names(name)
+    distance = _underground_distance(max_distance, default=tier_distance)
+    return _plan_underground_run(
+        from_xy,
+        to_xy,
+        distance=distance,
+        pair_name=pair_name,
+        surface_name=surface_name,
+        surface_direction="flow",
+        label="underground belt line",
+    )
+
+
+def plan_underground_pipe_line(
+    from_xy: Any,
+    to_xy: Any,
+    *,
+    max_distance: Any = UNDERGROUND_PIPE_DEFAULT_DISTANCE,
+) -> list[dict[str, Any]]:
+    """Straight pipe-to-ground line from `from_xy` to `to_xy`.
+
+    Same pair layout as :func:`plan_underground_belt_line`: a ``pipe-to-ground``
+    input at the current tile and output at input + ``max_distance`` tiles along
+    the flow direction, separated by one surface ``pipe`` connector tile while
+    the line continues, with surface pipes for tails shorter than a pair. Items
+    flow pair output -> surface pipe -> next pair input. ``max_distance``
+    defaults to 10 (the standard pipe-to-ground distance) and must be a positive
+    integer; the manager/game remains authoritative for the real limit. Returns
+    entities with ``underground_type: "input" | "output"`` on pair pieces.
+    Straight lines only; diagonal routing raises ValueError.
+    """
+    distance = _underground_distance(max_distance, default=UNDERGROUND_PIPE_DEFAULT_DISTANCE)
+    return _plan_underground_run(
+        from_xy,
+        to_xy,
+        distance=distance,
+        pair_name=UNDERGROUND_PIPE_NAME,
+        surface_name="pipe",
+        surface_direction="none",
+        label="underground pipe line",
+    )
 
 
 def plan_power_network(
@@ -1670,13 +1892,6 @@ class FactorioClient:
                     )
         entities = expand_blueprint(payload, anchor=anchor, offset=offset, prototype_sizes=sizes)
         required = blueprint_required_items(payload)
-        for entity in raw_entities:
-            subtype = entity.get("type")
-            if subtype in ("input", "output"):
-                warnings.append(
-                    f"entity {entity.get('name')} is an underground {subtype}; the build API has "
-                    "no input/output subtype, so underground pairs may not place correctly"
-                )
         if dry_run:
             placement_results: list[Any] = []
             placement_truncated = False
@@ -1923,6 +2138,46 @@ class FactorioClient:
             if from_xy is None or to_xy is None:
                 raise ValueError("build_pipe_line needs from/to points or a plan")
             entities, warnings = plan_pipe_line(from_xy, to_xy, name=name), []
+        return self._submit_planned(entities, clear=clear, warnings=warnings)
+
+    def build_underground_belt_line(self, from_xy: Any = None, to_xy: Any = None, *,
+                                    plan: Any = None, name: str = "transport-belt",
+                                    max_distance: Any = None,
+                                    clear: bool = True) -> dict[str, Any]:
+        """Plan (or accept) a straight underground-belt line and build it in chunks.
+
+        Pair entities carry ``underground_type`` for the manager build action;
+        per-entity errors such as ``unknown_entity``/``invalid_underground_type``/
+        ``missing_item`` are returned unchanged in ``results`` (aggregate ``ok``
+        becomes false). See :func:`plan_underground_belt_line` for the layout.
+        """
+        if plan is not None:
+            entities, warnings = self._resolve_plan(plan)
+        else:
+            if from_xy is None or to_xy is None:
+                raise ValueError("build_underground_belt_line needs from/to points or a plan")
+            entities = plan_underground_belt_line(
+                from_xy, to_xy, name=name, max_distance=max_distance)
+            warnings = []
+        return self._submit_planned(entities, clear=clear, warnings=warnings)
+
+    def build_underground_pipe_line(self, from_xy: Any = None, to_xy: Any = None, *,
+                                    plan: Any = None,
+                                    max_distance: Any = UNDERGROUND_PIPE_DEFAULT_DISTANCE,
+                                    clear: bool = True) -> dict[str, Any]:
+        """Plan (or accept) a straight pipe-to-ground line and build it in chunks.
+
+        Pair entities carry ``underground_type``; server-side placement errors are
+        surfaced unchanged in ``results``. See :func:`plan_underground_pipe_line`
+        for the layout.
+        """
+        if plan is not None:
+            entities, warnings = self._resolve_plan(plan)
+        else:
+            if from_xy is None or to_xy is None:
+                raise ValueError("build_underground_pipe_line needs from/to points or a plan")
+            entities = plan_underground_pipe_line(from_xy, to_xy, max_distance=max_distance)
+            warnings = []
         return self._submit_planned(entities, clear=clear, warnings=warnings)
 
     def build_power_network(self, targets_or_area: Any = None, *, plan: Any = None,
@@ -2387,6 +2642,29 @@ def run(argv: list[str]) -> int:
                 parse_targets([from_value], False)[0],
                 parse_targets([to_value], False)[0],
                 name=flag("name") or "pipe",
+                clear=not bool(flag("no-clear")),
+            )
+            return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "build-underground-belt":
+            from_value, to_value = flag("from"), flag("to")
+            if not from_value or not to_value:
+                raise ValueError("Missing --from or --to")
+            planner_result = FactorioClient(parsed.base).build_underground_belt_line(
+                parse_targets([from_value], False)[0],
+                parse_targets([to_value], False)[0],
+                name=flag("name") or "transport-belt",
+                max_distance=parse_number(flag("max-distance")),
+                clear=not bool(flag("no-clear")),
+            )
+            return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "build-underground-pipe":
+            from_value, to_value = flag("from"), flag("to")
+            if not from_value or not to_value:
+                raise ValueError("Missing --from or --to")
+            planner_result = FactorioClient(parsed.base).build_underground_pipe_line(
+                parse_targets([from_value], False)[0],
+                parse_targets([to_value], False)[0],
+                max_distance=parse_number(flag("max-distance"), UNDERGROUND_PIPE_DEFAULT_DISTANCE),
                 clear=not bool(flag("no-clear")),
             )
             return output(planner_result, ok=bool(planner_result.get("ok", True)))

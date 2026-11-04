@@ -339,6 +339,49 @@ class BlueprintCodecTests(unittest.TestCase):
             factorio.expand_blueprint({"item": "blueprint"})
         self.assertEqual(factorio.expand_blueprint(blueprint_payload([])), [])
 
+    def test_expand_blueprint_preserves_underground_subtypes(self):
+        payload = blueprint_payload([
+            {"entity_number": 1, "name": "underground-belt", "type": "input",
+             "position": {"x": 0.5, "y": 0.5}, "direction": 4},
+            {"entity_number": 2, "name": "underground-belt", "type": "output",
+             "position": {"x": 4.5, "y": 0.5}, "direction": 4},
+            {"entity_number": 3, "name": "pipe-to-ground", "type": "input",
+             "position": {"x": 0.5, "y": 3.5}, "direction": 0},
+            {"entity_number": 4, "name": "pipe-to-ground", "type": "output",
+             "position": {"x": 0.5, "y": 13.5}, "direction": 0},
+            {"entity_number": 5, "name": "inserter",
+             "position": {"x": 6.5, "y": 0.5}, "direction": 12},
+        ])
+        sizes = {"underground-belt": (1, 1), "pipe-to-ground": (1, 1), "inserter": (1, 1)}
+        self.assertEqual(factorio.expand_blueprint(payload, prototype_sizes=sizes), [
+            {"name": "underground-belt", "anchor": {"x": 0, "y": 0},
+             "direction": 4, "underground_type": "input"},
+            {"name": "underground-belt", "anchor": {"x": 4, "y": 0},
+             "direction": 4, "underground_type": "output"},
+            {"name": "inserter", "anchor": {"x": 6, "y": 0}, "direction": 12},
+            {"name": "pipe-to-ground", "anchor": {"x": 0, "y": 3},
+             "direction": 0, "underground_type": "input"},
+            {"name": "pipe-to-ground", "anchor": {"x": 0, "y": 13},
+             "direction": 0, "underground_type": "output"},
+        ])
+        # Non-underground prototypes ignore a stray blueprint "type" field.
+        stray = factorio.expand_blueprint(blueprint_payload([
+            {"name": "stone-furnace", "type": "input",
+             "position": {"x": 5, "y": 5}},
+        ]), prototype_sizes={"stone-furnace": (2, 2)})
+        self.assertEqual(stray, [{"name": "stone-furnace", "anchor": {"x": 4, "y": 4}}])
+
+    def test_expand_blueprint_rejects_invalid_underground_types(self):
+        with self.assertRaisesRegex(ValueError, "input.*output"):
+            factorio.expand_blueprint(blueprint_payload([
+                {"name": "underground-belt", "type": "sideways",
+                 "position": {"x": 0.5, "y": 0.5}},
+            ]))
+        with self.assertRaisesRegex(ValueError, "input.*output"):
+            factorio.expand_blueprint(blueprint_payload([
+                {"name": "pipe-to-ground", "position": {"x": 0.5, "y": 0.5}},
+            ]))
+
     def test_blueprint_required_items_counts_placeables_and_contents(self):
         payload = blueprint_payload([
             {"name": "transport-belt", "position": {"x": 0.5, "y": 0.5}},
@@ -536,21 +579,38 @@ class BlueprintClientTests(unittest.TestCase):
         self.assertTrue(any("prototype lookup failed" in warning for warning in result["warnings"]))
         self.assertTrue(any("assuming 1x1" in warning for warning in result["warnings"]))
 
-    def test_build_blueprint_warns_about_underground_subtypes(self):
+    def test_build_blueprint_passes_underground_subtypes_to_chunks(self):
         client = factorio.FactorioClient(poll_interval=0)
         blueprint = blueprint_text([
             {"entity_number": 1, "name": "underground-belt", "type": "input",
              "position": {"x": 0.5, "y": 0.5}, "direction": 4},
             {"entity_number": 2, "name": "underground-belt", "type": "output",
-             "position": {"x": 4.5, "y": 0.5}, "direction": 8},
+             "position": {"x": 4.5, "y": 0.5}, "direction": 4},
         ])
-        with patch.object(client, "build", return_value={
-            "status": "completed", "results": [{"ok": True}, {"ok": True}],
-        }):
+        chunks = []
+
+        def fake_build(entities, *, clear=True):
+            chunks.append([dict(entity) for entity in entities])
+            return {"status": "completed",
+                    "results": [{"ok": True} for _ in entities]}
+
+        with patch.object(client, "build", side_effect=fake_build):
             result = client.build_blueprint(
                 blueprint, prototype_sizes={"underground-belt": (1, 1)})
-        self.assertTrue(any("underground input" in warning for warning in result["warnings"]))
-        self.assertTrue(any("underground output" in warning for warning in result["warnings"]))
+        self.assertTrue(result["ok"])
+        self.assertEqual([entity.get("underground_type") for entity in chunks[0]],
+                         ["input", "output"])
+        self.assertFalse(any("underground" in warning for warning in result["warnings"]))
+
+        invalid = blueprint_text([
+            {"name": "underground-belt", "type": "sideways",
+             "position": {"x": 0.5, "y": 0.5}},
+        ])
+        with patch.object(client, "build") as build:
+            with self.assertRaisesRegex(ValueError, "input.*output"):
+                client.build_blueprint(
+                    invalid, prototype_sizes={"underground-belt": (1, 1)})
+        build.assert_not_called()
 
     def test_build_blueprint_rejects_empty_blueprint_and_bad_limits(self):
         client = factorio.FactorioClient(poll_interval=0)
@@ -794,6 +854,141 @@ class PlannerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "integer"):
             factorio.plan_pipe_line({"x": 0.5, "y": 0}, (1, 0))
 
+    def test_plan_underground_belt_line_pairs_all_directions(self):
+        def layout(entities):
+            return [
+                (entity["name"], entity["anchor"]["x"], entity["anchor"]["y"],
+                 entity.get("direction"), entity.get("underground_type"))
+                for entity in entities
+            ]
+
+        east = layout(factorio.plan_underground_belt_line((0, 0), (10, 0)))
+        self.assertEqual(east, [
+            ("underground-belt", 0, 0, 4, "input"),
+            ("underground-belt", 4, 0, 4, "output"),
+            ("transport-belt", 5, 0, 4, None),
+            ("underground-belt", 6, 0, 4, "input"),
+            ("underground-belt", 10, 0, 4, "output"),
+        ])
+        west = layout(factorio.plan_underground_belt_line((10, 0), (0, 0)))
+        self.assertEqual(west, [
+            ("underground-belt", 10, 0, 12, "input"),
+            ("underground-belt", 6, 0, 12, "output"),
+            ("transport-belt", 5, 0, 12, None),
+            ("underground-belt", 4, 0, 12, "input"),
+            ("underground-belt", 0, 0, 12, "output"),
+        ])
+        south = layout(factorio.plan_underground_belt_line((0, 0), (0, 10)))
+        self.assertEqual(south, [
+            ("underground-belt", 0, 0, 8, "input"),
+            ("underground-belt", 0, 4, 8, "output"),
+            ("transport-belt", 0, 5, 8, None),
+            ("underground-belt", 0, 6, 8, "input"),
+            ("underground-belt", 0, 10, 8, "output"),
+        ])
+        north = layout(factorio.plan_underground_belt_line((0, 10), (0, 0)))
+        self.assertEqual(north, [
+            ("underground-belt", 0, 10, 0, "input"),
+            ("underground-belt", 0, 6, 0, "output"),
+            ("transport-belt", 0, 5, 0, None),
+            ("underground-belt", 0, 4, 0, "input"),
+            ("underground-belt", 0, 0, 0, "output"),
+        ])
+        anchors = [(entity["anchor"]["x"], entity["anchor"]["y"])
+                   for entity in factorio.plan_underground_belt_line((0, 0), (10, 0))]
+        self.assertEqual(len(anchors), len(set(anchors)))
+        self.assertEqual(factorio.plan_underground_belt_line((0, 0), (0, 10))[0]
+                         ["underground_type"], "input")
+
+    def test_plan_underground_belt_line_tiers_and_distances(self):
+        fast = factorio.plan_underground_belt_line((0, 0), (13, 0), name="fast-transport-belt")
+        self.assertEqual([entity["name"] for entity in fast],
+                         ["fast-underground-belt"] * 2 + ["fast-transport-belt"] * 7)
+        self.assertEqual(fast[1]["anchor"]["x"], 6)
+
+        express = factorio.plan_underground_belt_line(
+            (0, 0), (20, 0), name="express-transport-belt")
+        self.assertEqual(
+            [(entity["anchor"]["x"], entity.get("underground_type")) for entity in express],
+            [(0, "input"), (8, "output"), (9, None),
+             (10, "input"), (18, "output"), (19, None), (20, None)],
+        )
+
+        # Underground entity names are accepted as the tier argument too.
+        via_underground = factorio.plan_underground_belt_line(
+            (0, 0), (6, 0), name="fast-underground-belt")
+        self.assertEqual(via_underground[0]["name"], "fast-underground-belt")
+        self.assertEqual([entity["anchor"]["x"] for entity in via_underground], [0, 6])
+
+        custom = factorio.plan_underground_belt_line((0, 0), (5, 0), max_distance=2)
+        self.assertEqual(
+            [(entity["name"], entity["anchor"]["x"], entity.get("underground_type"))
+             for entity in custom],
+            [("underground-belt", 0, "input"), ("underground-belt", 2, "output"),
+             ("transport-belt", 3, None), ("transport-belt", 4, None),
+             ("transport-belt", 5, None)],
+        )
+
+        # Lines shorter than a pair and tails fall back to surface belts.
+        short = factorio.plan_underground_belt_line((0, 0), (2, 0))
+        self.assertTrue(all(entity["name"] == "transport-belt" for entity in short))
+        tail = factorio.plan_underground_belt_line((0, 0), (8, 0))
+        self.assertEqual(
+            [(entity["name"], entity["anchor"]["x"]) for entity in tail],
+            [("underground-belt", 0), ("underground-belt", 4),
+             ("transport-belt", 5), ("transport-belt", 6),
+             ("transport-belt", 7), ("transport-belt", 8)],
+        )
+
+        # Modded tiers keep the requested surface name with the base underground
+        # belt and the conservative distance 4.
+        modded = factorio.plan_underground_belt_line((0, 0), (4, 0), name="modded-belt")
+        self.assertEqual(
+            [(entity["name"], entity["anchor"]["x"], entity.get("underground_type"))
+             for entity in modded],
+            [("underground-belt", 0, "input"), ("underground-belt", 4, "output")],
+        )
+
+        for bad_distance in (0, -1, 2.5):
+            with self.assertRaisesRegex(ValueError, "positive integer"):
+                factorio.plan_underground_belt_line((0, 0), (10, 0), max_distance=bad_distance)
+        with self.assertRaisesRegex(ValueError, "straight"):
+            factorio.plan_underground_belt_line((0, 0), (5, 5))
+        with self.assertRaisesRegex(ValueError, "distinct"):
+            factorio.plan_underground_belt_line((2, 2), (2, 2))
+
+    def test_plan_underground_pipe_line_layout(self):
+        pipes = factorio.plan_underground_pipe_line((0, 0), (12, 0))
+        self.assertEqual(
+            [(entity["name"], entity["anchor"]["x"], entity["anchor"]["y"],
+              entity.get("direction"), entity.get("underground_type"))
+             for entity in pipes],
+            [("pipe-to-ground", 0, 0, 4, "input"),
+             ("pipe-to-ground", 10, 0, 4, "output"),
+             ("pipe", 11, 0, 0, None),
+             ("pipe", 12, 0, 0, None)],
+        )
+        custom = factorio.plan_underground_pipe_line((0, 0), (4, 0), max_distance=3)
+        self.assertEqual(
+            [(entity["name"], entity["anchor"]["x"], entity.get("underground_type"))
+             for entity in custom],
+            [("pipe-to-ground", 0, "input"), ("pipe-to-ground", 3, "output"),
+             ("pipe", 4, None)],
+        )
+        vertical = factorio.plan_underground_pipe_line((0, 0), (0, 11))
+        self.assertEqual(
+            [(entity["name"], entity["anchor"]["y"], entity.get("direction"))
+             for entity in vertical],
+            [("pipe-to-ground", 0, 8), ("pipe-to-ground", 10, 8), ("pipe", 11, 0)],
+        )
+        for bad_distance in (0, 1.5, "x"):
+            with self.assertRaisesRegex(ValueError, "positive integer"):
+                factorio.plan_underground_pipe_line((0, 0), (10, 0), max_distance=bad_distance)
+        with self.assertRaisesRegex(ValueError, "straight"):
+            factorio.plan_underground_pipe_line((0, 0), (3, 3))
+        with self.assertRaisesRegex(ValueError, "distinct"):
+            factorio.plan_underground_pipe_line((1, 1), (1, 1))
+
     def test_plan_power_network_covers_area_and_targets(self):
         poles = factorio.plan_power_network({"x": 0, "y": 0, "radius": 4})
         self.assertEqual(
@@ -1023,6 +1218,75 @@ class PlanBuildAndBuilderTests(unittest.TestCase):
         self.assertIn("queue unavailable", failed["error"])
 
 
+    def test_build_underground_lines_use_shared_executor(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        chunks = []
+
+        def fake_build(entities, *, clear=True):
+            chunks.append(([dict(entity) for entity in entities], clear))
+            return {"job_id": f"job-{len(chunks)}", "status": "completed",
+                    "results": [{"ok": True} for _ in entities]}
+
+        with patch.object(client, "build", side_effect=fake_build):
+            result = client.build_underground_belt_line((0, 0), (10, 0), clear=False)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["chunks"], 1)
+        built, clear = chunks[0]
+        self.assertFalse(clear)
+        self.assertEqual([entity.get("underground_type") for entity in built],
+                         ["input", "output", None, "input", "output"])
+        self.assertEqual(
+            [(entity["anchor"]["x"], entity["anchor"]["y"]) for entity in built],
+            [(0, 0), (4, 0), (5, 0), (6, 0), (10, 0)],
+        )
+
+        plan = [{"name": "underground-belt", "anchor": {"x": 3, "y": 3},
+                 "direction": 4, "underground_type": "input"}]
+        with patch.object(client, "build", return_value={
+            "status": "completed", "results": [{"ok": True}],
+        }) as build:
+            planned = client.build_underground_belt_line(plan=plan)
+        build.assert_called_once_with(plan, clear=True)
+        self.assertEqual(planned["entities"], plan)
+
+        chunks.clear()
+        with patch.object(client, "build", side_effect=fake_build):
+            pipe_result = client.build_underground_pipe_line((10, 0), (0, 0))
+        self.assertTrue(pipe_result["ok"])
+        # Distance 10 over a 10-tile span: one pair reaches the end, no connector.
+        self.assertEqual([entity.get("underground_type") for entity in chunks[0][0]],
+                         ["input", "output"])
+        self.assertTrue(all(entity["direction"] == 12 for entity in chunks[0][0]))
+
+        with patch.object(client, "build") as build:
+            empty = client.build_underground_pipe_line(plan=[])
+        build.assert_not_called()
+        self.assertTrue(empty["ok"])
+        self.assertEqual(empty["chunks"], 0)
+
+        # Server-side subtype/item errors are surfaced unchanged in results.
+        with patch.object(client, "build", return_value={
+            "status": "completed",
+            "results": [{"ok": False, "error": "invalid_underground_type"}],
+        }):
+            failed = client.build_underground_belt_line((0, 0), (4, 0))
+        self.assertFalse(failed["ok"])
+        self.assertEqual(failed["results"][0]["error"], "invalid_underground_type")
+
+        # Fatal chunk failures stop the remaining chunks and report failed_chunk.
+        many = [{"name": "transport-belt", "anchor": {"x": index, "y": 0},
+                 "direction": 4} for index in range(60)]
+        with patch.object(client, "build", side_effect=[
+            {"status": "completed", "results": [{"ok": True}] * 50},
+            RuntimeError("queue down"),
+        ]):
+            stopped = client.build_underground_belt_line(plan=many)
+        self.assertFalse(stopped["ok"])
+        self.assertEqual(stopped["failed_chunk"], 1)
+        self.assertIn("queue down", stopped["error"])
+        self.assertEqual(len(stopped["job_ids"]), 1)
+
+
 class ConstructionCliTests(unittest.TestCase):
     def test_new_observe_commands_forward_to_http(self):
         with patch("factorio.http_request",
@@ -1173,12 +1437,55 @@ class ConstructionCliTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Missing --from or --to", json.loads(stdout.getvalue())["error"])
 
+    def test_build_underground_commands_forward(self):
+        with patch("factorio.FactorioClient.build_underground_belt_line",
+                   return_value={"ok": True, "chunks": 1}) as build, \
+                redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run([
+                "build-underground-belt", "--from", "0,0", "--to", "10,0",
+                "--name", "fast-transport-belt", "--max-distance", "5", "--no-clear"])
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(stdout.getvalue())["ok"])
+        build.assert_called_once_with(
+            {"x": 0, "y": 0}, {"x": 10, "y": 0},
+            name="fast-transport-belt", max_distance=5, clear=False,
+        )
+
+        with patch("factorio.FactorioClient.build_underground_pipe_line",
+                   return_value={"ok": True}) as build, redirect_stdout(io.StringIO()):
+            factorio.run(["build-underground-pipe", "--from", "0,0", "--to", "12,0"])
+        build.assert_called_once_with(
+            {"x": 0, "y": 0}, {"x": 12, "y": 0}, max_distance=10, clear=True,
+        )
+
+        with patch("factorio.FactorioClient.build_underground_belt_line",
+                   return_value={"ok": True}) as build, redirect_stdout(io.StringIO()):
+            factorio.run(["build-underground-belt", "--from", "0,0", "--to", "4,0"])
+        build.assert_called_once_with(
+            {"x": 0, "y": 0}, {"x": 4, "y": 0},
+            name="transport-belt", max_distance=None, clear=True,
+        )
+
+        with redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run(["build-underground-belt", "--from", "0,0"])
+        self.assertEqual(code, 1)
+        self.assertIn("Missing --from or --to", json.loads(stdout.getvalue())["error"])
+
+        self.assertIn("underground_type", factorio.COMMAND_USAGE["act-build-blueprint"])
+        self.assertIn("build-underground-pipe", factorio.COMMAND_USAGE)
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = factorio.run(["build-underground-pipe", "--help"])
+        self.assertEqual(code, 0)
+        self.assertIn("--max-distance", stderr.getvalue())
+
     def test_help_lists_all_new_commands(self):
         commands = [
             "observe-production", "observe-fluids", "observe-combat", "observe-area",
             "observe-snapshot", "observe-copy-settings", "act-copy-settings",
             "build-pipe-line", "build-power-network", "build-mining-outpost",
             "build-defense-line", "build-inserter-pairs",
+            "build-underground-belt", "build-underground-pipe",
         ]
         for command in commands:
             self.assertIn(command, factorio.COMMAND_USAGE)
