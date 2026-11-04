@@ -34,7 +34,9 @@ this file.
   and internal blank lines left by the edits were compacted, for a final
   4,469 lines with identical stable screenshots. Removed the obsolete score-bar
   UI rules (the page uses the radar now) and orphaned grouped selectors, bringing
-  modules to 4,377 lines with pixel-identical screenshots.
+  modules to 4,377 lines with pixel-identical screenshots. Removed obsolete base
+  telemetry wrappers, unused icon-sprite rules and unused custom properties,
+  bringing the modules to 4,288 lines while keeping stable screenshots identical.
 
 ### Added
 

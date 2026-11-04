@@ -7,12 +7,7 @@
    structure. This is the implementation pass for the 2026-11-05 ui-review.
    ========================================================================= */
 body.recording {
-  --ui-card: #070b0e;
-  --ui-card-soft: #0b1115;
-  --ui-card-border: #1b2930;
-  --ui-kicker: #728880;
   --ui-control-border: #26373f;
-  --ui-control-bg: #0a1115;
 }
 
 body.recording .status-tools {
@@ -1102,7 +1097,6 @@ html[data-theme="light"] body.recording .connection-notice button {
 body.recording {
   --icon-sm: 12px;
   --icon-md: 14px;
-  --icon-lg: 18px;
 }
 html[data-theme="light"] body.recording {
   --muted: #50656c;
@@ -1200,9 +1194,11 @@ body.recording .status-telemetry .status-data {
 body.recording .status-scores {
   display: flex;
   align-items: stretch;
+  min-width: 0;
   justify-content: center;
   align-self: stretch;
   gap: 3px 14px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   margin-left: 0;
 }
 body.recording .status-scores .score-radar {
@@ -1247,4 +1243,26 @@ html[data-theme="light"] body.recording #agentStatus .status-current .icon {
 }
 html[data-theme="light"] body.recording #agentStatus.stale-plan .status-current .icon {
   color: var(--danger);
+}
+
+/* Preserve telemetry geometry that used to be supplied by base.css. */
+body.recording .status-metrics {
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 10px;
+  color: #cfdad8;
+}
+body.recording .metric-spark {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+}
+body.recording .metric-bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+}
+
+body.recording .metric {
+  white-space: nowrap;
 }

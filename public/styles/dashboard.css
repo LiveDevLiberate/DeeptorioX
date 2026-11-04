@@ -132,8 +132,6 @@ html:not([data-theme="light"]) body {
   background: #000000;
 }
 html:not([data-theme="light"]) body.recording {
-  --rec-bg: #000000;
-  --rec-bg-deep: #000000;
   --bg: #000000;
   background: #000000;
 }

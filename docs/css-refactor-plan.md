@@ -186,3 +186,14 @@ Use one authoritative rule per property; retire earlier passes. Do not add new
 - Also removed the orphaned grouped selectors left by earlier membership edits.
 - Modules: **4,469 → 4,377 lines**; all six stable screenshots remain
   pixel-identical.
+
+### Phase 3 progress (round 12)
+
+- Removed the base telemetry wrapper block (79 lines) and moved its still-effective
+  sparkline/status-metrics geometry into the final readout rules.
+- Removed the base score-grid/media block (42 lines) and preserved the computed
+  min-width/grid values in the final status-scores rule.
+- Removed the unused icon sprite class and 24 unused custom-property definitions
+  (the four dynamically used metric/theme icon masks were restored).
+- Modules: **4,377 → 4,288 lines**, now under the 4,300 target; six stable
+  screenshots remain pixel-identical.

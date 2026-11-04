@@ -639,12 +639,6 @@ body.recording .status-activity:empty {
 }
 
 /* ---- Icon system (inline SVG sprite) ------------------------------------- */
-.icon-sprite {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-}
 .icon {
   width: 14px;
   fill: none;
@@ -711,9 +705,6 @@ body.recording .metric .icon {
 /* Softer decision frame tint (reasoning segment boxes). */
 
 /* ---- game-icons.net mask icons ------------------------------------------- */
-.icon-sprite {
-  display: none;
-}
 .icon {
   display: inline-block;
   width: 14px;
@@ -767,14 +758,8 @@ body.recording .metric .icon {
   --gi-icon: url("/icons/arrow-right.svg");
   transform: rotate(90deg);
 }
-.icon-cog {
-  --gi-icon: url("/icons/cog.svg");
-}
 .icon-flask {
   --gi-icon: url("/icons/flask.svg");
-}
-.icon-bolt {
-  --gi-icon: url("/icons/bolt.svg");
 }
 .icon-eye {
   --gi-icon: url("/icons/eye.svg");
@@ -811,9 +796,6 @@ body.recording .metric .icon {
 }
 .icon-server {
   --gi-icon: url("/icons/server.svg");
-}
-.icon-factory {
-  --gi-icon: url("/icons/factory.svg");
 }
 
 /* Slightly larger masks for the filled game-icons silhouettes. */
@@ -878,7 +860,6 @@ body.recording {
   --green: #8fd6a8;
   --amber: #e0b072;
   --red: #ff8f85;
-  --violet: #c0a8f0;
   min-height: 100vh;
   background: linear-gradient(180deg, #0c1014 0%, #0b0e11 42%, #090c0f 100%);
 }
@@ -1909,6 +1890,18 @@ body.recording .status-inner.ui-grid-12 > .status-telemetry.ui-col-8-12 {
 }
 
 /* Map info button and dialog ------------------------------------------------ */
+.icon-bolt {
+  --gi-icon: url("/icons/bolt.svg");
+}
+.icon-cog {
+  --gi-icon: url("/icons/cog.svg");
+}
+.icon-factory {
+  --gi-icon: url("/icons/factory.svg");
+}
+.icon-moon {
+  --gi-icon: url("/icons/moon.svg");
+}
 .icon-map {
   --gi-icon: url("/icons/map.svg");
 }
@@ -2128,9 +2121,6 @@ body.recording main.transcript-pane > #codexOutput {
 .icon-sun {
   --gi-icon: url("/icons/sun.svg");
 }
-.icon-moon {
-  --gi-icon: url("/icons/moon.svg");
-}
 body.recording .status-theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -2177,26 +2167,11 @@ html[data-theme="light"] {
   color-scheme: light;
 }
 html[data-theme="light"] body.recording {
-  --rec-bg: #f3f7f5;
-  --rec-bg-deep: #e9f0ed;
-  --rec-surface: #ffffff;
-  --rec-surface-strong: #ffffff;
-  --rec-border: #d8e3de;
-  --rec-border-strong: #c1d1ca;
   --rec-text: #1d2b26;
   --rec-text-body: #3c4d46;
   --rec-text-muted: #62766e;
   --rec-text-dim: #85978f;
-  --rec-accent: #2f7f5f;
   --rec-accent-strong: #1d664b;
-  --rec-accent-soft: rgba(47, 127, 95, 0.12);
-  --rec-warm: #8a641c;
-  --rec-warm-soft: rgba(176, 128, 42, 0.11);
-  --rec-blue: #2f6f9e;
-  --rec-blue-soft: rgba(47, 111, 158, 0.1);
-  --rec-violet: #6b57a3;
-  --rec-danger: #b23f35;
-  --rec-danger-soft: rgba(178, 63, 53, 0.09);
   --bg: #f3f7f5;
   --panel: #ffffff;
   --panel-2: #f8fbf9;
@@ -2211,7 +2186,6 @@ html[data-theme="light"] body.recording {
   --green: #1f7a52;
   --amber: #8a641c;
   --red: #b23f35;
-  --violet: #6b57a3;
   background:
     radial-gradient(1100px 500px at 8% -12%, rgba(153, 196, 178, 0.2), transparent 60%),
     radial-gradient(900px 440px at 94% -8%, rgba(166, 190, 214, 0.16), transparent 58%), #f3f7f5;
