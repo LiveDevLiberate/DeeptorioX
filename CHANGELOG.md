@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-04
+
 ### Fixed
 
 - **DSH final answers now reach the transcript and the Messages filter.**
@@ -376,7 +378,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/ryanmadden/autorio/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/ryanmadden/autorio/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/ryanmadden/autorio/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/ryanmadden/autorio/compare/v0.10.6...v0.11.0
