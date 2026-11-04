@@ -9,6 +9,18 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Recording colour system v2.** The transcript palette is now a cool slate
+  base (`#0a0f13` → `#080d11`) with a mint primary accent, blue for messages,
+  amber reserved for decisions/warnings and red for failures; the green cast on
+  the background/text is gone, card surfaces and action badges are desaturated,
+  and the header gets a subtle mint→blue top rule. Contrast was raised for body
+  text, timestamps and raw toggles. Decision frames are now limited by a
+  stricter imperative-plan heuristic (`next step`, `I need to …`, `let's …`,
+  `下一步`/`计划` …), so ordinary narrative about belts/furnaces stays neutral
+  instead of lighting up every paragraph amber.
+
 ## [0.10.1] - 2026-11-04
 
 ### Fixed

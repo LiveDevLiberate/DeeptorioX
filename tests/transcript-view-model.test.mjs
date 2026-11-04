@@ -318,6 +318,11 @@ test("decision detection, mini bars and telemetry helpers", async () => {
   const model = await import("../public/transcript-view-model.js");
   assert.equal(model.isDecisionText("Next step: mine coal"), true);
   assert.equal(model.isDecisionText("The map looks calm."), false);
+  assert.equal(model.isDecisionText("I need to build two furnaces."), true);
+  assert.equal(model.isDecisionText("Let's check the ore patch first."), true);
+  assert.equal(model.isDecisionText("The belt moved then the items got stuck."), false);
+  assert.equal(model.isDecisionText("Items should move east once the belt is full."), false);
+  assert.equal(model.isDecisionText("下一步建造熔炉。"), true);
   assert.deepEqual(model.miniBars([0, 5, 10]), [0, 50, 100]);
   assert.deepEqual(model.miniBars([]), []);
   const lines = [

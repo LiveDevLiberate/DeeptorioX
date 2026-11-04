@@ -62,6 +62,13 @@ export function splitReasoning(text) {
 
 const PLAN_WORDS =
   /(next|plan|build|mine|research|craft|need|should|will|then|step|goal|todo|next step|下一步|计划|需要|然后|先|目标|建造|挖|研究)/i;
+/**
+ * Stricter decision detection for the amber "plan" frames: only imperative /
+ * forward-looking plans count, not narrative sentences that happen to mention
+ * building or moving something.
+ */
+const DECISION_WORDS =
+  /(next step|next,? i|my plan|the plan is|goal is|i (need|should|will|'ll) (to )?(build|mine|craft|place|check|run|try|research|make|fix|move|do)|now i(?:'ll| will)|let's |let me (now )?(try|build|mine|check|run|place|make|fix|move)|下一步|接下来|计划|目标|先建|先做|先挖|然后我|我需要|我先)/i;
 
 /** Prefer the first keyword-bearing sentence, otherwise a representative one. */
 function summarizeSegment(body) {
@@ -459,7 +466,7 @@ export class LoopDetector {
 
 /** True when a reasoning block contains a plan/decision keyword (filter mode). */
 export function isDecisionText(text) {
-  return PLAN_WORDS.test(normalizeReasoning(text));
+  return DECISION_WORDS.test(normalizeReasoning(text));
 }
 
 /** Normalize a numeric series into bar widths 0..100 (sparkline via div bars). */
