@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-11-04
+
 ### Changed
 
 - **Icons now have distinct hues instead of one shared tint.** Filter chips get
@@ -391,7 +393,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.12.2...HEAD
+[0.12.2]: https://github.com/ryanmadden/autorio/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/ryanmadden/autorio/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/ryanmadden/autorio/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/ryanmadden/autorio/compare/v0.11.0...v0.11.1
