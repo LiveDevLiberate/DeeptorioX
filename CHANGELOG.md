@@ -91,9 +91,10 @@ grouped by theme.
   `saves.ts`, `server.ts`, `manager.ts`) now registers through an injected
   `ApiContext` — 43/43 routes preserved, live manager smoke verified. Remaining
   `any` usages outside the API handlers were replaced with `unknown` +
-  `src/validation.ts` guards and typed domain interfaces (178 → 143
-  `no-explicit-any` warnings; the 118 in `src/api/agent.ts` are the next target).
-  Node suite is now 210 tests with the coverage gate at 88.1/84.7/89.2.
+  `src/validation.ts` guards and typed domain interfaces. The API handlers were then typed
+  as well (explicit request/response interfaces + `parseBuildRequests`/`normalize*` helpers),
+  taking the repo from 178 to **0** `no-explicit-any` warnings; Node suite is now 221 tests
+  with the coverage gate at ~83.7/84.7/87.3 (thresholds 82/78/84).
 - **UI and recording.** A compact, English/Simplified-Chinese transcript
   status bar (state/activity/time/tokens, current subtask and done condition,
   six subtask scores, collapse for narrow windows); OpenCode reasoning

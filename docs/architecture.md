@@ -239,19 +239,18 @@ manually.
 
 ## 9. Known debt and limitations
 
-- **`src/server.ts` monolith** — resolved in two steps: pure Lua builders, the action-job queue,
-  agent backends/launch specs and the HTTP plumbing/route groups were extracted, leaving `server.ts`
-  as bootstrap + game/RCON lifecycle (~680 lines). The next targets are the remaining dynamic
-  payloads in `src/api/agent.ts` (the bulk of the ~143 `: any` warnings) and any stateful glue
-  still mixed into `server.ts`.
+- **`src/server.ts` monolith** — resolved: pure Lua builders, the action-job queue, agent
+  backends/launch specs, HTTP plumbing/route groups and the API handlers were extracted, leaving
+  `server.ts` as bootstrap + game/RCON lifecycle (~680 lines). Remaining glue is intentional
+  (RCON bridge, lifecycle, wiring) but can still be split further if it grows.
 - **Operational tooling gaps** — structured logs and `/api/health` exist, but there are still no
   metrics endpoint, log rotation or alerting; the CI matrix runs build/tests/hygiene/formatting/
   lint/coverage but no automatic live Factorio integration (the `Live selftest` workflow is manual
   and self-hosted).
-- **`any` leakage at JSON boundaries** — 143 explicit `: any` warnings remain, concentrated
-  in `src/api/agent.ts` (118); the other modules were migrated to `unknown` + `src/validation.ts`
-  guards and typed domain interfaces (action jobs, OBS payloads, run hooks, CLI responses).
-  `src/validation.ts` is the migration path; ESLint reports remaining spots as warnings.
+- **`any` leakage at JSON boundaries** — resolved: the API handler layer now parses request
+  bodies and RCON/Lua replies through explicit interfaces and `src/validation.ts` guards, so
+  the repo has **0** `no-explicit-any` warnings. Keep new dynamic boundaries typed and promote
+  the ESLint rule from warning to error once the guard helpers stabilize.
 - **No authentication** — the HTTP API and RCON are loopback-only; the internal
   job header is a random per-process UUID, not authorization. The API assumes a
   trusted local operator/agent: run workspaces ask agents to use only the Python
