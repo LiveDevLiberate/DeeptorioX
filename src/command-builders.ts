@@ -550,7 +550,7 @@ export function agentRecipesCommand(params: { limit: number; unlockedOnly: boole
   return parts.join(" ");
 }
 
-export function agentRotateCommand(targets: Array<{ x: number; y: number }>): string {
+export function agentRotateCommand(targets: Array<{ x: number; y: number; direction?: number }>): string {
   const parts = [
     "/sc",
     "local s=game.surfaces[1]",
@@ -558,12 +558,12 @@ export function agentRotateCommand(targets: Array<{ x: number; y: number }>): st
     "local function esc(v)",
     "if v==nil then return 'null' end",
     "local t=type(v)",
-    'if t==\"string\" then',
-    "return '\"'..v:gsub('\\\\','\\\\\\\\'):gsub('\"','\\\\\"')..'\"'",
-    'elseif t==\"number\" or t==\"boolean\" then',
+    'if t=="string" then',
+    "return '\"'..v:gsub('\\\\','\\\\\\\\'):gsub('\"','\\\"')..'\"'",
+    'elseif t=="number" or t=="boolean" then',
     "return tostring(v)",
     "else",
-    "return '\"'..tostring(v):gsub('\\\\','\\\\\\\\'):gsub('\"','\\\\\"')..'\"'",
+    "return '\"'..tostring(v):gsub('\\\\','\\\\\\\\'):gsub('\"','\\\"')..'\"'",
     "end",
     "end",
     "local function ensure_reach(entity)",
@@ -572,18 +572,30 @@ export function agentRotateCommand(targets: Array<{ x: number; y: number }>): st
     "return false,'out_of_reach'",
     "end",
     "local results={}",
-    "local function rotate(x,y)",
+    "local function rotate(x,y,want)",
     "local ents=s.find_entities_filtered{area={{x,y},{x+1,y+1}}} or {} local candidates={} for _,cand in pairs(ents) do if cand and cand.valid and cand.type~='character' and cand.type~='resource' and cand.type~='item-entity' and cand.type~='corpse' then table.insert(candidates,{entity=cand,key=cand.name..':'..cand.position.x..':'..cand.position.y}) end end table.sort(candidates,function(a,b) return a.key<b.key end) local e=candidates[1] and candidates[1].entity or nil",
     "if not e then return {x=x,y=y,ok=false,error='no_entity'} end",
     "local can_reach,reach_err=ensure_reach(e)",
     "if not can_reach then return {x=x,y=y,name=e.name,ok=false,error=reach_err or 'out_of_reach'} end",
+    "if want ~= nil then",
+    "local steps=0",
+    "for _=1,4 do",
+    "if e.direction==want then break end",
+    "local called,rotated=pcall(function() return e.rotate() end)",
+    "if not called or rotated~=true then return {x=x,y=y,name=e.name,ok=false,error='rotation_rejected',direction=e.direction,steps=steps} end",
+    "steps=steps+1",
+    "end",
+    "if e.direction~=want then return {x=x,y=y,name=e.name,ok=false,error='direction_not_reached',direction=e.direction,steps=steps} end",
+    "return {x=x,y=y,name=e.name,ok=true,direction=e.direction,steps=steps}",
+    "end",
     "local called,rotated=pcall(function() return e.rotate() end) local ok=called and rotated==true local err=not called and rotated or (not ok and 'rotation_rejected' or nil)",
     "if ok then return {x=x,y=y,name=e.name,ok=true,direction=e.direction} end",
     "return {x=x,y=y,name=e.name,ok=false,error=tostring(err)}",
     "end",
   ];
   for (const target of targets) {
-    parts.push(`table.insert(results,rotate(${target.x},${target.y}))`);
+    const direction = Number.isInteger(target.direction) ? target.direction : "nil";
+    parts.push(`table.insert(results,rotate(${target.x},${target.y},${direction}))`);
   }
   parts.push(
     "local out={}",
@@ -592,6 +604,7 @@ export function agentRotateCommand(targets: Array<{ x: number; y: number }>): st
     "local entry='{\"x\":'..r.x..',\"y\":'..r.y..',\"ok\":'..tostring(r.ok)",
     "if r.name then entry=entry..',\"name\":'..esc(r.name) end",
     "if r.direction then entry=entry..',\"direction\":'..esc(r.direction) end",
+    "if r.steps then entry=entry..',\"steps\":'..r.steps end",
     "if r.error then entry=entry..',\"error\":'..esc(r.error) end",
     "entry=entry..'}'",
     "table.insert(out,entry)",

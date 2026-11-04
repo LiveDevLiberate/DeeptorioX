@@ -161,6 +161,11 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 - Player-built things: `player_only=True` (default) uses the `last_user` heuristic; leave it false
   and set `types` to sweep trees/rocks (`["tree","simple-entity"]`) or ore (`["resource"]`).
 - Use it to clear a build site, remove mistakes, or collect wood/stone; prefer mining a few
+- Rotate in place instead of rebuilding: `rotate([{"x": x, "y": y}], direction=4)` sets the
+  final facing (0/4/8/12; CLI `act-rotate --target x,y --direction 4`). One entity per call.
+- Remove a single misplaced building with `mine([{"x": x, "y": y}])` (CLI `act-mine`); use
+  `deconstruct_area` for batches. Manager-created entities may lack `last_user`, so pass
+  `player_only=False` with explicit `types` for your own buildings.
   targets at a time near the character (long radius runs take real time and can fail per entity
   when unreachable).
 

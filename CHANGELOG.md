@@ -9,6 +9,19 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Rotate to an exact facing and remove old buildings safely.** `rotate` targets
+  may now carry an optional `direction` (0=north, 4=east, 8=south, 12=west):
+  the API/Lua rotates the entity up to four steps until it faces that direction
+  and reports the resulting direction and step count. Supported from the Python
+  client (`rotate(targets, direction=4)`), CLI (`act-rotate --direction 4`),
+  action jobs and the MCP `rotate` tool. `mine` removes a single existing
+  building and `deconstruct_area(..., player_only=False, types=[...])` batches
+  cleanup; the playbook, cookbook and task prompt now explicitly allow/models
+  rotating, removing and rebuilding your own layouts instead of building around
+  a mistake.
+
 ## [0.11.1] - 2026-11-04
 
 ### Fixed

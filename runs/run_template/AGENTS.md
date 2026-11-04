@@ -104,6 +104,22 @@ Next candidate: research (50) or armed exploration (25) when idle
 ```
 
 
+### Fixing layouts: rotate and remove
+
+- You may rotate, mine or deconstruct your own buildings; never build around a wrong layout.
+- `rotate([{"x": x, "y": y}], direction=4)` sets the final facing (0=north, 4=east,
+  8=south, 12=west) in one call; CLI: `act-rotate --target x,y --direction 4`. Without
+  `direction` it turns the first entity under the tile by one step (90°).
+- `mine([{"x": x, "y": y}])` / CLI `act-mine` removes one entity or resource with the
+  normal native miner. `deconstruct_area(x, y, radius, player_only=False, types=[...],
+  dry_run=True)` plans and removes batches; always dry-run a larger cleanup first.
+- `player_only=True` matches entities with `last_user`, which manager-created buildings
+  may not have; pass `player_only=False` with explicit `types` when cleaning up your own
+  builds.
+- Re-observe after repairs (entity status, belt/pipe direction, power) before continuing.
+  Rotating or reusing an entity is cheaper and faster than rebuilding it.
+
+
 ## Available interface
 
 - Follow the output language requested by the run prompt for every message and

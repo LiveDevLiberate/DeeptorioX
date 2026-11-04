@@ -245,11 +245,12 @@ test("agentInsertCommand and agentExtractCommand emit item transfers with explic
 test("agentRotateCommand and agentSetRecipeCommand emit one action call per target", () => {
   const rotate = agentRotateCommand([
     { x: 3, y: 4 },
-    { x: 5, y: 6 },
+    { x: 5, y: 6, direction: 4 },
   ]);
   assert.ok(rotate.startsWith("/sc "));
-  assert.ok(rotate.includes("table.insert(results,rotate(3,4))"));
-  assert.ok(rotate.includes("table.insert(results,rotate(5,6))"));
+  assert.ok(rotate.includes("table.insert(results,rotate(3,4,nil))"));
+  assert.ok(rotate.includes("table.insert(results,rotate(5,6,4))"));
+  assert.ok(rotate.includes("r.steps"));
   assert.ok(rotate.includes(`rcon.print('{"results":'..results_json..'}')`));
   const setRecipe = agentSetRecipeCommand([{ x: 3, y: 4, recipe: "iron-gear-wheel" }]);
   assert.ok(setRecipe.includes("table.insert(results,set_recipe(3,4," + luaString("iron-gear-wheel") + "))"));

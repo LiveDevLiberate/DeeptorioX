@@ -812,7 +812,15 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       const targets = arrayOrEmpty(body.targets);
       const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
-      const trimmed = parsePositionTargets(targets, max);
+      const trimmed = parsePositionTargets(targets, max).map((target) => {
+        const record = asRecord(target);
+        const direction = Number(record?.direction);
+        return {
+          x: Number(target.x),
+          y: Number(target.y),
+          ...([0, 4, 8, 12].includes(direction) ? { direction } : {}),
+        };
+      });
       try {
         const results: Record<string, unknown>[] = [];
         for (const target of trimmed) {
@@ -824,21 +832,21 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             results.push({
               x: Number(target.x),
               y: Number(target.y),
+              ...(target.direction !== undefined ? { direction: target.direction } : {}),
               ok: false,
               error: movement?.error || "movement_failed",
               movement: movement?.movement,
             });
             continue;
           }
-          const response = await rconCommand(
-            agentRotateCommand([{ x: Number(target.x), y: Number(target.y) }]),
-          );
+          const response = await rconCommand(agentRotateCommand([target]));
           const data = parseRconJson<CommandResultsReply>(response, "RCON rotate returned invalid JSON");
           const entry = data?.results?.[0];
           if (!entry) {
             results.push({
               x: Number(target.x),
               y: Number(target.y),
+              ...(target.direction !== undefined ? { direction: target.direction } : {}),
               ok: false,
               error: "rotate_failed",
             });

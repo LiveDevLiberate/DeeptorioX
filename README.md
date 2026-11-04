@@ -443,8 +443,12 @@ Python client adds `observe_snapshot`, `wait_for_production`, blueprint support
 construction planners (pipe lines, power networks, inserter pairs, mining outposts, defense lines,
 underground belt/pipe runs). It also adds `deconstruct_area` (observe an area, then remove the
 targets with the normal native miner in <=50-target jobs; `dry_run` returns the plan first) and the
-matching `deconstruct-area` CLI. Build requests may carry `underground_type: "input"|"output"` for
-`underground-belt`/`pipe-to-ground`; the manager creates the explicit subtype and consumes the item.
+matching `deconstruct-area` CLI. Buildings can be repaired in place: `rotate(targets, direction=4)`
+(or `act-rotate --direction 4`) turns an entity to a final facing (0/4/8/12) in one call, `mine`
+removes a single building/resource, and `deconstruct_area(..., player_only=False)` batches cleanup
+(manager-created entities may not have a `last_user`). Build requests may carry
+`underground_type: "input"|"output"` for `underground-belt`/`pipe-to-ground`; the manager creates
+the explicit subtype and consumes the item.
 
 Run endpoints:
 

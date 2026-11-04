@@ -108,6 +108,33 @@ class ClientTests(unittest.TestCase):
             client.launch_rocket(targets, detach=True, idempotency_key="launch-1")
         submit.assert_called_once_with("launch-rocket", {"targets": targets}, detach=True, idempotency_key="launch-1")
 
+    def test_rotate_accepts_final_direction(self):
+        client = factorio.FactorioClient()
+        targets = [{"x": 1, "y": 2}]
+        with patch.object(client, "submit_action", return_value={"job_id": "rotate"}) as submit:
+            client.rotate(targets, direction=4)
+            client.rotate(targets)
+        self.assertEqual(submit.call_args_list, [
+            unittest.mock.call("rotate", {"targets": [{"x": 1, "y": 2, "direction": 4}]}),
+            unittest.mock.call("rotate", {"targets": targets}),
+        ])
+        with self.assertRaises(ValueError):
+            client.rotate(targets, direction=2)
+
+    def test_rotate_cli_passes_direction(self):
+        stdout = io.StringIO()
+        job = {"status": "completed", "results": [{"ok": True}]}
+        with patch("factorio.submit_action_job", return_value=job) as submit, redirect_stdout(stdout):
+            code = factorio.run(["act-rotate", "--target", "3,4", "--direction", "8"])
+        self.assertEqual(code, 0)
+        submit.assert_called_once_with(
+            factorio.DEFAULT_BASE,
+            "rotate",
+            {"targets": [{"x": 3, "y": 4, "direction": 8}]},
+            detach=False,
+            idempotency_key=None,
+        )
+
     def test_build_clears_obstacles_by_default(self):
         client = factorio.FactorioClient()
         entities = [{"name": "stone-furnace", "anchor": {"x": 1, "y": 2}}]

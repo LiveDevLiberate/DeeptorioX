@@ -293,6 +293,35 @@ function buildEntitySchema(): JsonObject {
   };
 }
 
+function rotatePointSchema(description: string): JsonObject {
+  return {
+    type: "object",
+    description,
+    properties: {
+      x: { type: "number", description: "Map x coordinate in tiles." },
+      y: { type: "number", description: "Map y coordinate in tiles." },
+      direction: {
+        type: "integer",
+        enum: [0, 4, 8, 12],
+        description: "Optional final direction (0=north, 4=east, 8=south, 12=west).",
+      },
+    },
+    required: ["x", "y"],
+    additionalProperties: false,
+  };
+}
+
+function requireRotatePoints(args: JsonObject, key: string): JsonObject[] {
+  return requireObjectArray(args, key).map((point, index) => {
+    const base = requirePoint(point, `${key}[${index}]`);
+    if (point.direction === undefined) return base;
+    if (![0, 4, 8, 12].includes(point.direction as number)) {
+      throw new ToolArgumentError(`${key}[${index}].direction must be one of 0, 4, 8, 12`);
+    }
+    return { ...base, direction: point.direction };
+  });
+}
+
 function targetArraySchema(description: string, items: JsonObject): JsonObject {
   return { type: "array", description, items, minItems: 1 };
 }
@@ -689,11 +718,14 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "rotate",
     description:
-      "Queue a rotate job that rotates entities under the given tile targets. Returns the job immediately; poll job_status for results.",
+      "Queue a rotate job for entities under the given tile targets. Without direction each entity is rotated 90 degrees; with direction (0/4/8/12) it is rotated to that final facing. Returns the job immediately; poll job_status for results.",
     inputSchema: jobToolSchema(["targets"], {
-      targets: targetArraySchema("Entities to rotate.", pointSchema("Entity tile.")),
+      targets: targetArraySchema(
+        "Entities to rotate.",
+        rotatePointSchema("Entity tile and optional final direction."),
+      ),
     }),
-    request: (args) => jobRequest("rotate", { targets: requirePoints(args, "targets") }, args),
+    request: (args) => jobRequest("rotate", { targets: requireRotatePoints(args, "targets") }, args),
   },
   {
     name: "set_recipe",
