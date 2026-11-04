@@ -265,6 +265,8 @@ function assertNormalAudit(theme, width, audit, baseline) {
   if (baseline) {
     check(`${theme}-${width}: computed styles match baseline`, () => {
       compareStyleTrees(`${theme}-${width} main`, audit.visualStyles, baseline.styles);
+      compareStyleTrees(`${theme}-${width} collapsed`, audit.collapsedStyles, baseline.collapsedStyles);
+      compareStyleTrees(`${theme}-${width} overlay`, audit.overlayStyles, baseline.overlayStyles);
       compareStyleTrees(`${theme}-${width} dialog`, audit.dialogStyles, baseline.dialogStyles);
     });
   }
@@ -366,13 +368,15 @@ async function main() {
         if (UPDATE_BASELINE) {
           baseline.normal[`${theme}-${width}`] = {
             styles: audit.visualStyles,
+            collapsedStyles: audit.collapsedStyles,
+            overlayStyles: audit.overlayStyles,
             dialogStyles: audit.dialogStyles,
           };
         }
         assertNormalAudit(theme, width, audit, UPDATE_BASELINE ? null : baseline.normal[`${theme}-${width}`]);
         if (ARTIFACT_ENABLED) {
           const screenshot = join(ARTIFACTS, `recording-${theme}-${width}.png`);
-          await runBrowser(browser, url, { width, height, screenshot, profile });
+          await runBrowser(browser, `${url}&noaudit=1`, { width, height, screenshot, profile });
           const size = pngSize(screenshot);
           check(`${theme}-${width}: screenshot`, () => {
             assert.equal(size.width, width);

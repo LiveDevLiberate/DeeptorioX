@@ -115,6 +115,10 @@ const AUDIT_SCRIPT = String.raw`
   const params = new URLSearchParams(location.search);
   const fail = params.get("fail") === "1";
   const wantDialog = params.get("dialog") === "1";
+  if (params.get("noaudit") === "1") {
+    window.addEventListener("load", () => setTimeout(() => document.activeElement?.blur?.(), 800));
+    return;
+  }
   const root = document.documentElement;
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const round = (n) => Math.round(n * 100) / 100;
@@ -266,6 +270,18 @@ const AUDIT_SCRIPT = String.raw`
     "#codexOutput .msg-time",
     ".jump-latest",
   ];
+  const stateStyleSelectors = [
+    "#agentStatus",
+    ".status-plan",
+    ".status-telemetry",
+    ".section-kicker",
+    "#statusCurrent",
+    "#statusMeta",
+    ".status-tools",
+    "#transcriptTools",
+    "#codexOutput",
+    ".jump-latest",
+  ];
   const dialogStyleSelectors = [
     ".map-info-overlay",
     ".map-info-dialog",
@@ -337,6 +353,13 @@ const AUDIT_SCRIPT = String.raw`
         }
       }
       const visualStyles = styleSnapshot(mainStyleSelectors);
+      const statusHeader = document.getElementById("agentStatus");
+      statusHeader.classList.add("collapsed");
+      const collapsedStyles = styleSnapshot(stateStyleSelectors);
+      statusHeader.classList.remove("collapsed");
+      document.body.classList.add("overlay");
+      const overlayStyles = styleSnapshot(stateStyleSelectors);
+      document.body.classList.remove("overlay");
       const overflow = [...document.querySelectorAll("body *")]
         .filter((el) => {
           const style = getComputedStyle(el);
@@ -401,6 +424,8 @@ const AUDIT_SCRIPT = String.raw`
           allAriaHidden: icons.every((el) => el.getAttribute("aria-hidden") === "true"),
         },
         visualStyles,
+        collapsedStyles,
+        overlayStyles,
         dialogStyles,
         dialog: {
           opened,

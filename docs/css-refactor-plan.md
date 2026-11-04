@@ -121,3 +121,15 @@ Use one authoritative rule per property; retire earlier passes. Do not add new
 - Added `#statusCurrent .icon`, `#statusMeta` and `.status-readout` to the
   computed-style baseline after finding that the meta line's letter-spacing and
   icon margin were not covered by the previous fingerprint.
+
+### Regression coverage (round 6)
+
+- Added collapsed-status and overlay captures to the computed-style baseline
+  (fonts, colors, borders, layout, ordering, overflow), so legacy cleanup cannot
+  silently break compact/OBS states.
+- Screenshot runs now use a `noaudit=1` fixture mode and blur transient focus,
+  so artifacts capture the page rather than the end state of the keyboard/focus
+  audit.
+- Largest remaining legacy candidate: `base.css`'s old transcript block
+  (~294 lines). A trial removal required moving several fallback properties to
+  the final rules; it is deferred until the screenshot path itself is stable.

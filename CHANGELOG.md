@@ -35,6 +35,8 @@ this file.
   regenerate deliberately with `AUTORIO_UI_UPDATE_BASELINE=1 npm run test:ui`.
   The status line, its icon/readouts and the error notice are included after
   catching a meta letter-spacing/icon-margin drift during consolidation.
+  Collapsed-status and overlay states are covered too; screenshot artifacts use
+  a no-audit fixture mode so transient focus/dialog state cannot mask layout.
   Windows CI requires the check.
 
 ## [0.27.2] - 2026-11-04
