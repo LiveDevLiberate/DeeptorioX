@@ -3,10 +3,18 @@
 #   .\scripts\narrate.ps1 -ListVoices
 #   .\scripts\narrate.ps1 -RunId 2026-11-02_17-06-40_PST-e48c5498
 #   .\scripts\narrate.ps1 -IncludeMessages -Voice "Microsoft Guy Online (Natural)"
+#   .\scripts\narrate.ps1 -Digest                    # low-noise condensed digest stream
+#   .\scripts\narrate.ps1 -Digest -MinChars 8        # short CJK digest lines
+#   .\scripts\narrate.ps1 -Digest -Dedupe:$false     # speak repeated digest lines too
 #
 # By default it follows the newest run's thoughts.log and starts at the current
 # end, so only new reasoning is spoken. Ctrl-C stops narration; the game keeps
 # running. Use -DryRun to print without speaking.
+#
+# -Digest reads thoughts.digest.log (one condensed line per reasoning chunk)
+# instead of the raw thoughts.log; it is ignored with -IncludeMessages.
+# -Dedupe (on by default) skips a line identical to the previously spoken line.
+# Disable it with -Dedupe:$false inside PowerShell, or -NoDedupe from cmd/CI.
 param(
   [string]$Root = (Split-Path -Parent $PSScriptRoot),
   [string]$RunId,
@@ -17,6 +25,9 @@ param(
   [int]$MaxChars = 420,
   [switch]$IncludeMessages,
   [switch]$MessagesOnly,
+  [switch]$Digest,
+  [switch]$Dedupe = $true,
+  [switch]$NoDedupe,
   [switch]$FromStart,
   [switch]$ListVoices,
   [switch]$DryRun,
@@ -53,10 +64,19 @@ if (-not $RunDir) {
 }
 if (-not (Test-Path -LiteralPath $RunDir)) { Write-Error "Run directory not found: $RunDir"; exit 1 }
 
-$source = if ($IncludeMessages) { Join-Path $RunDir "agent.events.jsonl" } else { Join-Path $RunDir "thoughts.log" }
+$source = if ($IncludeMessages) {
+  Join-Path $RunDir "agent.events.jsonl"
+} elseif ($Digest) {
+  Join-Path $RunDir "thoughts.digest.log"
+} else {
+  Join-Path $RunDir "thoughts.log"
+}
 $runFile = Join-Path $RunDir "run.json"
 Write-Host "Narrating $source"
 Write-Host "Voice: $($synth.Voice.VoiceInfo.Name) · rate=$Rate · Ctrl-C to stop"
+if ($Digest -and -not $IncludeMessages) {
+  Write-Host "Digest mode: condensed one-line thoughts (use -MinChars 8 for short CJK lines)."
+}
 if ($DryRun) { Write-Host "Dry run: text is printed, not spoken." }
 
 function Clean-Text([string]$text) {
@@ -78,6 +98,7 @@ function Should-Speak([string]$text) {
 while (-not (Test-Path -LiteralPath $source)) { Start-Sleep -Milliseconds 300 }
 $offset = if ($FromStart) { 0 } else { (Get-Item -LiteralPath $source).Length }
 $remainder = ""
+$lastSpoken = ""
 
 while ($true) {
   if (Test-Path -LiteralPath $source) {
@@ -113,6 +134,8 @@ while ($true) {
           $cut = $text.LastIndexOf(" ")
           if ($cut -gt 0) { $text = $text.Substring(0, $cut) }
         }
+        if ($Dedupe -and -not $NoDedupe -and $text -eq $lastSpoken) { continue }
+        $lastSpoken = $text
         if ($DryRun) { Write-Host "[$((Get-Date).ToString('HH:mm:ss'))] $text" }
         else { $synth.Speak($text) }
         try { Set-Content -LiteralPath (Join-Path $RunDir "narration.txt") -Value $text -Encoding UTF8 } catch { }

@@ -207,6 +207,41 @@ export function failureCount(results: readonly unknown[]): number {
   return results.filter((result) => asRecord(result)?.ok === false).length;
 }
 
+// --- TTS/overlay reasoning digest -------------------------------------------
+// The digest is deliberately simple and dependency-free (no imports from
+// public/): the front-end transcript summary and the manager-side narration
+// stream are independent heuristics.
+
+/** Keywords that make a reasoning sentence a likely plan/decision line (English + Chinese). */
+const DIGEST_KEYWORDS =
+  /next|plan|build|mine|research|craft|need|should|will|then|goal|下一步|计划|需要|然后|先|目标|建造/i;
+/** Hard cap for one digest line handed to TTS/overlay. */
+export const DIGEST_MAX_CHARS = 200;
+/** Sentence splitter that keeps CJK terminators (。！？) as sentence ends. */
+const DIGEST_SENTENCE = /[^.!?。！？]+[.!?。！？]?/g;
+
+/**
+ * Condenses one reasoning chunk into a single narration line: drops code,
+ * normalizes whitespace, prefers the first sentence containing a plan/decision
+ * keyword and falls back to the first sentence, capped at DIGEST_MAX_CHARS.
+ * Returns "" for empty or code-only chunks. `thought()` keeps the raw
+ * `thoughts.log` stream unchanged and only mirrors this digest alongside it.
+ */
+export function digestThought(text: string): string {
+  const clean = text
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`]*`/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "";
+  const sentences = (clean.match(DIGEST_SENTENCE) ?? []).map((sentence) => sentence.trim()).filter(Boolean);
+  const chosen = sentences.find((sentence) => DIGEST_KEYWORDS.test(sentence)) ?? sentences[0] ?? clean;
+  if (chosen.length <= DIGEST_MAX_CHARS) return chosen;
+  const cut = chosen.slice(0, DIGEST_MAX_CHARS);
+  const lastSpace = cut.lastIndexOf(" ");
+  return lastSpace > 0 ? cut.slice(0, lastSpace).trimEnd() : cut;
+}
+
 export class RunManager {
   readonly benchmarks = loadBenchmarks(ROOT);
   readonly root = path.join(DATA_DIR, "runs");
@@ -226,6 +261,8 @@ export class RunManager {
   private telemetryErrors = 0;
   private stopRequested = false;
   private videoRecorder?: { stop(): Promise<string> };
+  /** Last digest per run for consecutive-duplicate suppression (recovered from disk). */
+  private digestTail = new Map<string, string | null>();
 
   constructor(private hooks: Hooks) {
     fs.mkdirSync(this.root, { recursive: true });
@@ -319,8 +356,33 @@ export class RunManager {
       .replace(/\s+/g, " ")
       .trim();
     if (!clean) return;
-    fs.appendFileSync(path.join(this.dir(run), "thoughts.log"), clean + "\n");
-    fs.writeFileSync(path.join(this.dir(run), "thoughts.txt"), clean + "\n");
+    const dir = this.dir(run);
+    // Raw stream: unchanged byte-for-byte behavior for existing consumers.
+    fs.appendFileSync(path.join(dir, "thoughts.log"), clean + "\n");
+    fs.writeFileSync(path.join(dir, "thoughts.txt"), clean + "\n");
+    // Condensed one-line digest for TTS/overlay; never alters thoughts.log.
+    const digest = digestThought(clean);
+    if (!digest || digest === this.lastDigest(run)) return;
+    this.digestTail.set(run.id, digest);
+    fs.appendFileSync(path.join(dir, "thoughts.digest.log"), digest + "\n");
+    fs.writeFileSync(path.join(dir, "thoughts.digest.txt"), digest + "\n");
+  }
+
+  /** Previous digest for a run; recovered from disk so restarts don't duplicate lines. */
+  private lastDigest(run: Run): string | null {
+    if (this.digestTail.has(run.id)) return this.digestTail.get(run.id) ?? null;
+    let last: string | null = null;
+    try {
+      const lines = fs
+        .readFileSync(path.join(this.dir(run), "thoughts.digest.log"), "utf8")
+        .split("\n")
+        .filter((line) => line.length > 0);
+      last = lines.length > 0 ? lines[lines.length - 1] : null;
+    } catch {
+      /* the run has no digest yet */
+    }
+    this.digestTail.set(run.id, last);
+    return last;
   }
   list() {
     return [...this.runs.values()]
