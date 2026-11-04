@@ -96,3 +96,21 @@ covers the button/dialog hooks.
   `(100% - --ui-max) / 2 + --ui-gutter` inset as the status container. Measured
   at 1200px: status content, top bar buttons, filter group and card left edges
   are all x=67; status/search/right content edge x=1103.
+
+## Modern recording refactor (v0.26.0)
+
+Skills used: `arla6ka/ui-review` (findings and criteria), `ibelick/baseline-ui`
+(transferable constraints) and `pbakaus/polish` (refinement order: functional,
+states, hierarchy, visual, cleanup). The UI review report is
+`.ui-review/2026-11-05-recording.md`.
+
+- Grouped the three display controls into `.status-tools`; increased all header
+  and filter hit areas to 30 px.
+- Split the header into labelled **Plan** and **Live telemetry** cards on a
+  6/6 grid; the token/context meta now aligns to the far edge.
+- Replaced individual filter pills with a segmented group; kept every filter
+  icon and label.
+- Fixed light-theme stale-plan contrast (1.48:1 → 6.86:1), microcopy contrast in
+  both themes (≥5.13:1), restored Done-when at 390 px, added a modal focus trap,
+  and added an inline connection-lost banner with Retry.
+- Verified at 1280 and 390 in dark/light; see `.ui-review/2026-11-05-modern/`.

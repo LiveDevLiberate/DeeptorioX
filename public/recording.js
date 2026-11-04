@@ -182,6 +182,11 @@ const I18N = {
     searchLabel: "Filter transcript",
     filtersLabel: "Transcript filters",
     filterGroupLabel: "Filter by category",
+    planKicker: "Plan",
+    telemetryKicker: "Live telemetry",
+    displayOptionsLabel: "Display options",
+    connectionLost: "Manager connection lost. The transcript may be stale.",
+    connectionRetry: "Retry",
     map: "Map",
     mapTitle: "Map settings",
     mapClose: "Close map settings",
@@ -313,6 +318,11 @@ const I18N = {
     searchLabel: "过滤记录",
     filtersLabel: "记录过滤",
     filterGroupLabel: "按类别过滤",
+    planKicker: "当前计划",
+    telemetryKicker: "实时遥测",
+    displayOptionsLabel: "显示选项",
+    connectionLost: "与 manager 的连接中断，记录可能已停止更新。",
+    connectionRetry: "重试",
     map: "地图",
     mapTitle: "地图设置",
     mapClose: "关闭地图设置",
@@ -352,6 +362,12 @@ let lastStatusAt = 0,
   currentRun = null,
   mapAutoOpened = false;
 const statusHeader = document.getElementById("agentStatus");
+const statusTools = document.querySelector?.(".status-tools") ?? null;
+const planKicker = document.getElementById("planKicker");
+const telemetryKicker = document.getElementById("telemetryKicker");
+const connectionNotice = document.getElementById("connectionNotice");
+const connectionNoticeText = document.getElementById("connectionNoticeText");
+const connectionRetry = document.getElementById("connectionRetry");
 const statusToggle = document.getElementById("statusToggle");
 const mapInfoToggle = document.getElementById("mapInfoToggle");
 const mapInfoOverlay = document.getElementById("mapInfoOverlay");
@@ -362,6 +378,42 @@ const mapInfoNote = document.getElementById("mapInfoNote");
 const themeToggle = document.getElementById("themeToggle");
 const stateTimer = document.getElementById("stateTimer");
 const STATUS_COLLAPSED_KEY = "autorio.statusCollapsed";
+let lastFocusedElement = null;
+function updateSectionLabels(text) {
+  if (planKicker) planKicker.textContent = text.planKicker || "Plan";
+  if (telemetryKicker) telemetryKicker.textContent = text.telemetryKicker || "Live telemetry";
+  statusTools?.setAttribute("aria-label", text.displayOptionsLabel || "Display options");
+  if (connectionNotice && !connectionNotice.hidden) {
+    if (connectionNoticeText) connectionNoticeText.textContent = text.connectionLost;
+    if (connectionRetry) connectionRetry.textContent = text.connectionRetry || "Retry";
+  }
+}
+function showConnectionNotice() {
+  if (!connectionNotice) return;
+  const text = strings();
+  if (connectionNoticeText) connectionNoticeText.textContent = text.connectionLost;
+  if (connectionRetry) connectionRetry.textContent = text.connectionRetry || "Retry";
+  connectionNotice.hidden = false;
+}
+function hideConnectionNotice() {
+  if (connectionNotice) connectionNotice.hidden = true;
+}
+connectionRetry?.addEventListener("click", () => {
+  hideConnectionNotice();
+  void poll();
+});
+function setModalBackgroundInert(inert) {
+  for (const node of [statusHeader, document.querySelector?.("main.transcript-pane"), jumpButton]) {
+    if (!node) continue;
+    if (inert) {
+      node.inert = true;
+      node.setAttribute("aria-hidden", "true");
+    } else {
+      node.inert = false;
+      node.removeAttribute("aria-hidden");
+    }
+  }
+}
 function updateStatusToggleLabel() {
   if (!statusToggle || !statusHeader) return;
   const collapsed = statusHeader.classList.contains("collapsed");
@@ -475,6 +527,8 @@ function renderMapInfo() {
 }
 function openMapInfo() {
   if (!mapInfoOverlay) return;
+  lastFocusedElement = document.activeElement;
+  setModalBackgroundInert(true);
   renderMapInfo();
   mapInfoOverlay.hidden = false;
   mapInfoToggle?.setAttribute("aria-expanded", "true");
@@ -484,7 +538,10 @@ function closeMapInfo() {
   if (!mapInfoOverlay) return;
   mapInfoOverlay.hidden = true;
   mapInfoToggle?.setAttribute("aria-expanded", "false");
-  mapInfoToggle?.focus?.();
+  setModalBackgroundInert(false);
+  const target = lastFocusedElement?.isConnected ? lastFocusedElement : mapInfoToggle;
+  target?.focus?.();
+  lastFocusedElement = null;
 }
 function setStatusCollapsed(collapsed, persist = false) {
   if (!statusHeader) return;
@@ -510,7 +567,31 @@ mapInfoOverlay?.addEventListener("click", (event) => {
   if (event.target === mapInfoOverlay) closeMapInfo();
 });
 document.addEventListener?.("keydown", (event) => {
-  if (event.key === "Escape" && mapInfoOverlay && !mapInfoOverlay.hidden) closeMapInfo();
+  if (!mapInfoOverlay || mapInfoOverlay.hidden) return;
+  if (event.key === "Escape") {
+    closeMapInfo();
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusable = [
+    ...(document
+      .getElementById("mapInfoDialog")
+      ?.querySelectorAll(
+        'button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])',
+      ) || []),
+  ].filter((node) => !node.disabled && node.getClientRects().length > 0);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+  const inDialog = active && document.getElementById("mapInfoDialog")?.contains(active);
+  if (event.shiftKey && (active === first || !inDialog)) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (active === last || !inDialog)) {
+    event.preventDefault();
+    first.focus();
+  }
 });
 updateThemeToggleLabel();
 document.title = "Agent transcript";
@@ -1016,6 +1097,7 @@ function updateTranscriptTools(text) {
   document
     .getElementById("filterGroup")
     ?.setAttribute("aria-label", text.filterGroupLabel || "Filter by category");
+  updateSectionLabels(text);
   document.title = text.documentTitle || "Agent transcript";
   updateStatusToggleLabel();
 }
@@ -1335,7 +1417,10 @@ async function poll() {
       if (Date.now() - lastStatusAt > 1000) {
         lastStatusAt = Date.now();
         const statusResponse = await fetch(`/api/runs/${encodeURIComponent(id)}`);
-        if (statusResponse.ok) renderStatus(await statusResponse.json());
+        if (statusResponse.ok) {
+          hideConnectionNotice();
+          renderStatus(await statusResponse.json());
+        }
       }
       const response = await fetch(`/api/runs/${encodeURIComponent(id)}/log?source=${mode}&offset=${offset}`);
       if (!response.ok) throw new Error("Output unavailable");
@@ -1392,6 +1477,7 @@ async function poll() {
     }
     document.title = "Agent transcript";
   } catch {
+    showConnectionNotice();
     document.title = "Agent transcript";
   } finally {
     setTimeout(poll, 250);

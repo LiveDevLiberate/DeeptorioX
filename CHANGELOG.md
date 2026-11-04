@@ -9,6 +9,25 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Modern recording-window refactor.** Guided by the ui-skills `arla6ka/ui-review`
+  findings, `ibelick/baseline-ui` constraints and `pbakaus/polish` pass: display
+  controls are grouped, the header is split into labelled **Plan** and
+  **Live telemetry** cards, the filter bar is a segmented control, and the
+  transcript rhythm is tightened. Information, icons, dark/light themes and the
+  12-column grid are preserved.
+- **Review findings addressed:** light-theme stale-plan text now 6.86:1
+  (was 1.48:1); `.msg-time`/map-note contrast now ≥5.13:1 in both themes;
+  header/filter hit areas are 30 px; Done-when remains visible at 390 px; the
+  map dialog traps focus and restores it on Escape; API failures show an inline
+  connection banner with Retry instead of looking like an empty run.
+
+### Added
+
+- `#connectionNotice` alert with retry and localized messaging.
+
+## [0.25.2] - 2026-11-05
 ## [0.25.2] - 2026-11-04
 
 ### Fixed

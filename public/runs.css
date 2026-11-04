@@ -4354,3 +4354,391 @@ html:not([data-theme="light"]) body.overlay {
 html:not([data-theme="light"]) body.overlay #agentStatus {
   background: #000000;
 }
+
+/* ============================================================================
+   Modern recording UI v4
+   A restrained dashboard surface: grouped display tools, labelled plan and live
+   telemetry cards, a segmented filter bar and calmer typography. The information
+   set and icon language stay unchanged; dark/light themes both use the same
+   structure. This is the implementation pass for the 2026-11-05 ui-review.
+   ========================================================================= */
+body.recording {
+  --ui-card: #070b0e;
+  --ui-card-soft: #0b1115;
+  --ui-card-border: #1b2930;
+  --ui-kicker: #728880;
+  --ui-control-border: #26373f;
+  --ui-control-bg: #0a1115;
+}
+body.recording .status-inner {
+  gap: 12px 20px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+body.recording .status-line {
+  align-items: center;
+  gap: 9px;
+}
+body.recording .status-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+body.recording .status-tools .status-toggle,
+body.recording .status-tools .status-map-toggle,
+body.recording .status-tools .status-theme-toggle {
+  min-height: 30px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border-color: var(--ui-control-border);
+  background: var(--ui-control-bg);
+  font-size: 11px;
+  font-weight: 500;
+}
+body.recording .status-tools .status-toggle .icon,
+body.recording .status-tools .status-map-toggle .icon,
+body.recording .status-tools .status-theme-toggle .icon {
+  width: 14px;
+  height: 14px;
+}
+body.recording .status-badge {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 11px;
+  font-size: 10.5px;
+}
+body.recording .status-activity {
+  font-size: 12px;
+}
+body.recording .status-meta {
+  margin-left: auto;
+  font-size: 11px;
+  line-height: 1.45;
+}
+body.recording .status-plan,
+body.recording .status-telemetry {
+  min-width: 0;
+  padding: 11px 13px 12px;
+  border: 1px solid var(--ui-card-border);
+  border-radius: 12px;
+  background: var(--ui-card);
+}
+body.recording .status-plan {
+  gap: 6px;
+}
+body.recording .status-telemetry {
+  justify-self: stretch;
+}
+body.recording .section-kicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 7px;
+  color: var(--ui-kicker);
+  font:
+    600 9px/1.2 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+body.recording .section-kicker::before {
+  content: "";
+  width: 13px;
+  height: 1px;
+  flex: 0 0 auto;
+  background: currentColor;
+  opacity: 0.75;
+}
+body.recording .status-current {
+  gap: 7px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--rec-text);
+}
+body.recording .status-current .icon {
+  width: 14px;
+  height: 14px;
+}
+body.recording .status-done {
+  display: block;
+  margin-top: 1px;
+  color: var(--rec-text-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+body.recording #agentStatus.stale-plan .status-plan {
+  border-color: rgba(232, 201, 138, 0.42);
+}
+body.recording .status-telemetry .status-data {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+body.recording .status-scores {
+  margin-left: auto;
+}
+body.recording .metrics-table {
+  font-size: 11px;
+}
+body.recording .metrics-table .metric,
+body.recording .metrics-table .metric-label,
+body.recording .metrics-table .metric-value,
+body.recording .metrics-table .metric-trend {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+body.recording .status-telemetry .score-radar {
+  width: 88px;
+  height: 88px;
+}
+body.recording .status-telemetry .radar-label {
+  font-size: 8.5px;
+}
+
+/* Segmented filter bar. */
+body.recording .transcript-pane > #transcriptTools {
+  gap: 12px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+body.recording #transcriptTools .filter-group {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--ui-control-border);
+  border-radius: 10px;
+  background: var(--ui-control-bg);
+}
+body.recording #transcriptTools .chip {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 500;
+}
+body.recording #transcriptTools .chip:hover {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.045);
+}
+body.recording #transcriptTools .chip.active {
+  border-color: rgba(111, 216, 178, 0.25);
+  background: var(--rec-accent-soft);
+  color: var(--rec-accent-strong);
+}
+body.recording #transcriptTools .search-field {
+  min-height: 30px;
+  border-radius: 9px;
+}
+body.recording #transcriptTools .search-field #transcriptSearch {
+  min-height: 24px;
+}
+
+/* Transcript cards: keep the existing language, tighten the rhythm. */
+body.recording #codexOutput {
+  gap: 11px;
+}
+body.recording #codexOutput .reasoning,
+body.recording #codexOutput .commands,
+body.recording #codexOutput .message,
+body.recording #codexOutput .tool-details {
+  border-radius: 10px;
+}
+
+/* Connection notice, aligned to the same page inset as the header. */
+body.recording .connection-notice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: min(calc(100% - 44px), 1036px);
+  margin: 10px auto 0;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 143, 133, 0.42);
+  border-radius: 10px;
+  background: rgba(74, 31, 28, 0.55);
+  color: #ffb0a6;
+  font:
+    500 12px/1.45 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+body.recording .connection-notice[hidden] {
+  display: none;
+}
+body.recording .connection-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #ff9d92;
+  box-shadow: 0 0 0 3px rgba(255, 157, 146, 0.12);
+}
+body.recording .connection-notice button {
+  min-height: 28px;
+  margin-left: auto;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 157, 146, 0.4);
+  border-radius: 7px;
+  background: rgba(255, 157, 146, 0.1);
+  color: #ffd4ce;
+  font: inherit;
+  cursor: pointer;
+}
+body.recording .connection-notice button:hover {
+  background: rgba(255, 157, 146, 0.18);
+}
+body.recording .map-info-close {
+  min-width: 30px;
+  min-height: 30px;
+}
+
+/* Wide plan/telemetry split stays balanced; both cards are 6 columns. */
+@media (min-width: 901px) {
+  body.recording .status-inner.ui-grid-12 > .status-plan.ui-col-1-7 {
+    grid-column: 1 / span 6;
+  }
+  body.recording .status-inner.ui-grid-12 > .status-telemetry.ui-col-8-12 {
+    grid-column: 7 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  body.recording .status-plan,
+  body.recording .status-telemetry {
+    padding: 10px 12px 11px;
+  }
+  body.recording .status-current {
+    font-size: 13.5px;
+  }
+  body.recording .status-telemetry .status-data {
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
+  body.recording .status-scores {
+    margin-left: 0;
+  }
+  body.recording .status-meta {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+  body.recording .connection-notice {
+    width: calc(100% - 28px);
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 560px) {
+  body.recording .status-tools .status-map-toggle,
+  body.recording .status-tools .status-theme-toggle {
+    min-width: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+  body.recording #transcriptTools .filter-group {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  body.recording .status-meta {
+    font-size: 10.5px;
+  }
+  body.recording .connection-notice {
+    width: calc(100% - 22px);
+    font-size: 11.5px;
+  }
+}
+
+/* Light theme surfaces and contrast fixes for this pass. */
+html[data-theme="light"] body.recording {
+  --ui-card: #ffffff;
+  --ui-card-soft: #f8fbf9;
+  --ui-card-border: #d8e3de;
+  --ui-kicker: #667a72;
+  --ui-control-border: #d8e3de;
+  --ui-control-bg: #ffffff;
+}
+html[data-theme="light"] body.recording .status-plan,
+html[data-theme="light"] body.recording .status-telemetry {
+  box-shadow: 0 4px 18px rgba(26, 50, 41, 0.045);
+}
+html[data-theme="light"] body.recording #transcriptTools .filter-group {
+  background: #f6faf8;
+}
+html[data-theme="light"] body.recording #transcriptTools .chip:hover {
+  background: rgba(29, 84, 124, 0.06);
+}
+html[data-theme="light"] body.recording #transcriptTools .chip.active {
+  border-color: rgba(47, 111, 158, 0.25);
+}
+html[data-theme="light"] body.recording #agentStatus.stale-plan .status-current {
+  color: #76540d;
+}
+html[data-theme="light"] body.recording #agentStatus.stale-plan .status-plan {
+  border-color: #dbc58e;
+}
+html[data-theme="light"] body.recording .status-meta {
+  color: #52655e;
+}
+html[data-theme="light"] body.recording .status-done {
+  color: #52655e;
+}
+html[data-theme="light"] body.recording .section-kicker {
+  color: #5f7269;
+}
+html[data-theme="light"] body.recording .connection-notice {
+  border-color: #e5b6ae;
+  background: #fdf0ee;
+  color: #8b342a;
+}
+html[data-theme="light"] body.recording .connection-notice button {
+  border-color: #d98d84;
+  background: #fbe3df;
+  color: #7a2b23;
+}
+html[data-theme="light"] body.recording #codexOutput .msg-time {
+  color: #5f7269;
+}
+html[data-theme="light"] body.recording .map-info-note {
+  color: #5f7269;
+}
+html[data-theme="light"] body.recording .map-info-close {
+  background: #f6faf8;
+}
+
+/* Keep secondary microcopy readable on the black surfaces as well. */
+html:not([data-theme="light"]) body.recording #codexOutput .msg-time {
+  color: #93a8a2;
+}
+html:not([data-theme="light"]) body.recording .map-info-note {
+  color: #93a8a2;
+}
+
+/* Header line uses the full card width so the token/context meta can sit at the
+   far edge instead of hugging the display controls. */
+body.recording .status-head {
+  display: block;
+  width: 100%;
+}
+body.recording .status-head .status-line {
+  width: 100%;
+}
+
+/* Give panels a readable surface over the pure-black page. */
+body.recording {
+  --ui-card: #0b1115;
+  --ui-card-border: #26373f;
+}
+body.recording .status-plan,
+body.recording .status-telemetry {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+}
+html[data-theme="light"] body.recording {
+  --ui-card: #f8fbf9;
+  --ui-card-border: #d5e2dc;
+}
