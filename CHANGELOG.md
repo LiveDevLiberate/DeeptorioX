@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-11-04
+
 ### Fixed
 
 - Added the missing `docs/ui-skills-audit.md` referenced by the v0.19.1 UI-skills
@@ -561,7 +563,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.19.1...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.19.2...HEAD
+[0.19.2]: https://github.com/ryanmadden/autorio/compare/v0.19.1...v0.19.2
 [0.19.1]: https://github.com/ryanmadden/autorio/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/ryanmadden/autorio/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/ryanmadden/autorio/compare/v0.17.0...v0.18.0
