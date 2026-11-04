@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-11-04
+
 ### Changed
 
 - **Recording theme v3 (clean neutral dark).** Replaced the teal/indigo glow
@@ -280,7 +282,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.10.3...HEAD
+[0.10.3]: https://github.com/ryanmadden/autorio/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/ryanmadden/autorio/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/ryanmadden/autorio/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/ryanmadden/autorio/compare/v0.9.0...v0.10.0
