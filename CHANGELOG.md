@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-04
+
 ### Fixed
 
 - Transcript auto-expansion: the newest two reasoning blocks are expanded again (and the
@@ -204,7 +206,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/ryanmadden/autorio/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/ryanmadden/autorio/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ryanmadden/autorio/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ryanmadden/autorio/compare/v0.4.0...v0.5.0
