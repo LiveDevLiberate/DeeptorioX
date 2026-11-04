@@ -9,6 +9,11 @@ this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Added the missing `docs/ui-skills-audit.md` referenced by the v0.19.1 UI-skills
+  polish note (the documented applicability matrix and fetch instructions).
+
 ## [0.19.1] - 2026-11-04
 
 ### Changed
