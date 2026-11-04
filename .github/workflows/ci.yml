@@ -54,6 +54,12 @@ jobs:
       - name: Python client tests
         run: npm run test:python
 
+      - name: Browser UI regression
+        if: matrix.os == 'windows-latest'
+        run: npm run test:ui
+        env:
+          AUTORIO_UI_REQUIRED: "1"
+
       - name: Repository hygiene
         run: npm run check:repo
 

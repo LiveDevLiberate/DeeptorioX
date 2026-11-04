@@ -38,6 +38,15 @@ allowed) against mocked manager responses so no game is needed:
 
 The check must be runnable on Windows and CI. Until this exists, do not move CSS.
 
+Implemented in `scripts/ui-regression.mjs` + `scripts/ui-regression-fixture.mjs`:
+
+- serves the real recording page and mocked run/event/telemetry responses;
+- runs system Edge/Chrome headless, no game or manager;
+- asserts metric/radar geometry, contrast, 30px targets, icon scale,
+  dialog focus trap/return, connection-alert state, no horizontal overflow;
+- writes screenshots to ignored `.ui-review/ui-regression/`;
+- `npm run test:ui`; CI runs it on Windows with `AUTORIO_UI_REQUIRED=1`.
+
 ## Phase 2 — extract modules
 
 Replace the single file with ordered imports so the cascade stays equivalent:

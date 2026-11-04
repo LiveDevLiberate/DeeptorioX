@@ -17,6 +17,7 @@
     "test": "npm run build && npm run test:node && npm run test:python",
     "test:node": "node --test tests/*.test.mjs",
     "test:python": "node scripts/run-python-tests.mjs",
+    "test:ui": "node scripts/ui-regression.mjs",
     "test:coverage": "npm run coverage",
     "coverage": "npm run build && node scripts/coverage-gate.mjs",
     "lint": "eslint .",

@@ -9,6 +9,15 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- Dependency-free browser UI regression (`npm run test:ui`): serves the real
+  recording page with mocked run/event/telemetry responses, runs system
+  Edge/Chrome headless and asserts metrics/radar geometry, contrast, 30px
+  targets, icon scale, map-dialog focus trap/return, no overflow and the
+  connection-error state. Screenshots land in ignored `.ui-review/ui-regression/`;
+  Windows CI requires the check.
+
 ## [0.27.2] - 2026-11-04
 
 ### Fixed
