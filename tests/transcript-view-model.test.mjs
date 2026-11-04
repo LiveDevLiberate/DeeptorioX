@@ -53,6 +53,23 @@ test("formatRelativeMs renders +m:ss", () => {
   assert.equal(formatRelativeMs(-50), "+0:00");
 });
 
+test("formatDurationText and summarizeCommand durations", async () => {
+  const model = await import("../public/transcript-view-model.js");
+  assert.equal(model.formatDurationText(450), "450ms");
+  assert.equal(model.formatDurationText(1420), "1.4s");
+  assert.equal(model.formatDurationText(65_000), "1m 05s");
+  assert.equal(model.formatDurationText(undefined), "");
+  const summary = summarizeCommand({
+    type: "command_execution",
+    command: "python3 factorio.py act-mine --target 1,2",
+    status: "completed",
+    duration_ms: 1420,
+    aggregated_output: '{"ok":true,"data":{"results":[{"ok":true}]}}',
+  });
+  assert.equal(summary.durationMs, 1420);
+  assert.equal(model.formatDurationText(summary.durationMs), "1.4s");
+});
+
 test("classifyActivity maps transcript item types to status activity", () => {
   assert.equal(classifyActivity({ type: "reasoning" }), "thinking");
   assert.equal(classifyActivity({ type: "agent_message" }), "reporting");
@@ -313,6 +330,11 @@ test("decision detection, mini bars and telemetry helpers", async () => {
   assert.deepEqual(model.telemetryRates(samples), [{ name: "iron-plate", rate: 12 }]);
   assert.deepEqual(model.telemetrySeries(samples, "iron-plate", 4), [12]);
   assert.equal(model.telemetryResearch(samples), "automation 42%");
+  assert.equal(model.telemetryPower(samples), null);
+  const withPower = model.parseTelemetryLines(
+    JSON.stringify({ power: { networks: 2, satisfaction: 0.98 }, current_research: "automation" }),
+  );
+  assert.equal(model.telemetryPower(withPower), "power 98%");
 });
 
 test("telemetryMarkers reports research, production starts and rockets", async () => {

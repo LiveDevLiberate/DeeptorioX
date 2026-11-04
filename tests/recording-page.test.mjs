@@ -128,6 +128,7 @@ test("recording page renders summaries, loops, turns and unread updates", async 
         command: "python3 factorio.py act-mine --target 129,-26",
         status: "completed",
         exit_code: 0,
+        duration_ms: 1420,
         aggregated_output:
           'job done\n{"schema_version":2,"ok":true,"data":{"results":[{"ok":true,"mined_count":2,"items":{"wood":2}}]}}',
       },
@@ -211,6 +212,13 @@ test("recording page renders summaries, loops, turns and unread updates", async 
           production_per_game_minute: { "iron-plate": 12, "copper-plate": 4 },
           current_research: "automation",
           research_progress: 0.42,
+          power: {
+            networks: 2,
+            maximum_production: 900,
+            maximum_consumption: 800,
+            total_transfer: 784,
+            satisfaction: 0.98,
+          },
         },
       ];
       return {
@@ -282,6 +290,22 @@ test("recording page renders summaries, loops, turns and unread updates", async 
       `metrics: ${metrics.join(" | ")}`,
     );
     assert.ok(nodes.statusMetrics.children.some((node) => node.className.includes("metric-spark")));
+    assert.ok(
+      metrics.some((text) => /power 98%/.test(text)),
+      `metrics: ${metrics.join(" | ")}`,
+    );
+    const findClass = (root, name) => {
+      if (String(root.className || "").includes(name)) return root;
+      for (const child of root.children || []) {
+        const hit = findClass(child, name);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    const commandGroup = output.children.find((node) => node.className.includes("commands"));
+    const durationNode = findClass(commandGroup, "action-duration");
+    assert.ok(durationNode, "missing action duration");
+    assert.equal(durationNode.textContent, "1.4s");
 
     // Filter chips hide non-matching transcript entries and persist the choice.
     nodes.filterThinking.fire("click");

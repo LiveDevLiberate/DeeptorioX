@@ -569,6 +569,11 @@ body.recording main {
   margin-left: 6px;
   color: #8fa09d;
 }
+#codexOutput .action-duration {
+  margin-left: 6px;
+  color: #60716e;
+  font-size: 9px;
+}
 #codexOutput .action-flag {
   margin-left: 6px;
   color: #9fd0ff;

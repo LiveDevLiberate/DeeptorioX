@@ -103,6 +103,16 @@ export function formatRelativeMs(ms) {
   return `+${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+/** Compact action duration: `450ms`, `1.4s`, `1m 05s`. */
+export function formatDurationText(ms) {
+  const value = Number(ms);
+  if (!Number.isFinite(value) || value < 0) return "";
+  if (value < 1000) return `${Math.round(value)}ms`;
+  if (value < 60_000) return `${(value / 1000).toFixed(1)}s`;
+  const seconds = Math.round(value / 1000);
+  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
+}
+
 /** Classify a transcript item for the status bar activity label. */
 export function classifyActivity(item) {
   if (!item) return "output";
@@ -183,6 +193,7 @@ export function summarizeCommand(item) {
     (Array.isArray(data.envelope?.data?.results) &&
       data.envelope.data.results.some((result) => result?.ok === false) === true);
   const key = `${category}:${action ?? ""}:${target ?? ""}:${commandHash(command)}`;
+  const durationMs = Number(item?.duration_ms ?? item?.wall_duration_ms ?? item?.duration);
   return {
     category,
     label: BADGE_LABELS[category] || category,
@@ -191,6 +202,7 @@ export function summarizeCommand(item) {
     outcome,
     failed,
     running: item?.status === "in_progress",
+    durationMs: Number.isFinite(durationMs) && durationMs >= 0 ? durationMs : null,
     key,
   };
 }
@@ -511,6 +523,16 @@ export function telemetryResearch(samples) {
   const name = withResearch.current_research;
   const progress = Number(withResearch.research_progress);
   return Number.isFinite(progress) ? `${name} ${Math.round(progress * 100)}%` : String(name);
+}
+
+/** Power satisfaction label from the latest telemetry sample: "power 98%". */
+export function telemetryPower(samples) {
+  const withPower = (Array.isArray(samples) ? samples : [])
+    .filter((sample) => sample?.power && typeof sample.power === "object")
+    .at(-1);
+  const satisfaction = withPower?.power?.satisfaction;
+  if (typeof satisfaction !== "number" || !Number.isFinite(satisfaction)) return null;
+  return `power ${Math.round(Math.max(0, Math.min(1, satisfaction)) * 100)}%`;
 }
 
 /**

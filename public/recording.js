@@ -17,6 +17,8 @@ import {
   telemetrySeries,
   telemetryResearch,
   telemetryMarkers,
+  telemetryPower,
+  formatDurationText,
 } from "./transcript-view-model.js";
 const output = document.getElementById("codexOutput");
 const params = new URLSearchParams(location.search);
@@ -339,6 +341,8 @@ function renderCommand(item) {
   const main = element("span", "", "action-main");
   if (summary.target) main.append(element("span", summary.target, "action-target"));
   if (summary.outcome) main.append(element("span", summary.outcome, "action-outcome"));
+  if (summary.durationMs != null)
+    main.append(element("span", formatDurationText(summary.durationMs), "action-duration"));
   if (summary.running) main.append(element("span", strings().activity.acting, "action-flag"));
   const raw = element("details", "", "action-raw");
   raw.append(
@@ -563,6 +567,8 @@ function renderMetrics() {
     }
     const research = telemetryResearch(telemetrySamples);
     if (research) children.push(element("span", `${text.researchLabel} ${research}`, "metric"));
+    const power = telemetryPower(telemetrySamples);
+    if (power) children.push(element("span", power, "metric"));
   } else {
     children.push(element("span", text.noTelemetry, "metric muted"));
   }
