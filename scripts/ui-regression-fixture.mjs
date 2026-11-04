@@ -176,6 +176,86 @@ const AUDIT_SCRIPT = String.raw`
     }
     return false;
   };
+  const styleProps = [
+    "display",
+    "position",
+    "backgroundColor",
+    "backgroundImage",
+    "color",
+    "borderTopColor",
+    "borderTopWidth",
+    "borderBottomColor",
+    "borderBottomWidth",
+    "borderLeftColor",
+    "borderLeftWidth",
+    "borderRadius",
+    "padding",
+    "margin",
+    "fontFamily",
+    "fontSize",
+    "fontWeight",
+    "lineHeight",
+    "letterSpacing",
+    "textTransform",
+    "boxShadow",
+    "opacity",
+    "gap",
+    "gridTemplateColumns",
+    "alignItems",
+    "justifyContent",
+    "flexWrap",
+  ];
+  const styleSnapshot = (selectors) => {
+    const out = {};
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (!el) {
+        out[selector] = null;
+        continue;
+      }
+      const computed = getComputedStyle(el);
+      out[selector] = Object.fromEntries(styleProps.map((prop) => [prop, computed[prop]]));
+    }
+    return out;
+  };
+  const mainStyleSelectors = [
+    "body",
+    "#agentStatus",
+    ".status-plan",
+    ".status-telemetry",
+    ".section-kicker",
+    "#statusCurrent",
+    "#statusDone",
+    ".status-data",
+    ".metrics-table",
+    ".metrics-table tr",
+    ".metrics-table .metric-value",
+    "#statusScores",
+    "#statusScores .score-radar",
+    "#transcriptTools",
+    "#transcriptTools .filter-group",
+    "#transcriptTools .chip.active",
+    "#transcriptTools .search-field",
+    "#codexOutput",
+    "#codexOutput .reasoning",
+    "#codexOutput .reasoning-summary",
+    "#codexOutput .commands",
+    "#codexOutput .commands-summary",
+    "#codexOutput .action-badge",
+    "#codexOutput .message",
+    "#codexOutput .msg-time",
+    ".jump-latest",
+  ];
+  const dialogStyleSelectors = [
+    ".map-info-overlay",
+    ".map-info-dialog",
+    ".map-info-head h2",
+    ".map-info-close",
+    ".map-info-seed",
+    ".map-info-section-title",
+    ".map-resource-table th",
+  ];
+  const noticeStyleSelectors = ["#connectionNotice", "#connectionNotice button"];
   const finish = (result) => {
     const json = JSON.stringify(result);
     root.dataset.audit = btoa(unescape(encodeURIComponent(json)));
@@ -193,6 +273,7 @@ const AUDIT_SCRIPT = String.raw`
           theme: root.dataset.theme || "dark",
           viewportWidth: innerWidth,
           notice: measure("#connectionNotice"),
+          noticeStyles: styleSnapshot(noticeStyleSelectors),
           alert: document.querySelector('[role="alert"]')?.innerText || "",
         });
         return;
@@ -235,6 +316,7 @@ const AUDIT_SCRIPT = String.raw`
           targets[selector] = { w: round(r.width), h: round(r.height) };
         }
       }
+      const visualStyles = styleSnapshot(mainStyleSelectors);
       const overflow = [...document.querySelectorAll("body *")]
         .filter((el) => {
           const style = getComputedStyle(el);
@@ -254,6 +336,7 @@ const AUDIT_SCRIPT = String.raw`
       const close = document.getElementById("mapInfoClose");
       const opened = !overlay.hidden;
       const focusedClose = document.activeElement === close;
+      const dialogStyles = styleSnapshot(dialogStyleSelectors);
       const focusables = [...dialog.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')].filter(
         (el) => !el.disabled && el.getClientRects().length > 0,
       );
@@ -297,6 +380,8 @@ const AUDIT_SCRIPT = String.raw`
           heroFont: round(heroFont),
           allAriaHidden: icons.every((el) => el.getAttribute("aria-hidden") === "true"),
         },
+        visualStyles,
+        dialogStyles,
         dialog: {
           opened,
           backgroundInert,

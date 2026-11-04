@@ -15,7 +15,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,7 +25,9 @@ import { buildFixtureHtml, EVENT_LOG, RUN_FIXTURE, TELEMETRY_LOG } from "./ui-re
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const PUBLIC = join(ROOT, "public");
 const ARTIFACTS = join(ROOT, ".ui-review", "ui-regression");
+const STYLE_BASELINE = join(ROOT, "tests", "ui-style-baseline.json");
 const ARTIFACT_ENABLED = process.env.AUTORIO_UI_SCREENSHOTS !== "0";
+const UPDATE_BASELINE = process.env.AUTORIO_UI_UPDATE_BASELINE === "1";
 
 const MIME = {
   ".css": "text/css; charset=utf-8",
@@ -237,11 +239,35 @@ function check(name, fn) {
   }
 }
 
-function assertNormalAudit(theme, width, audit) {
+function compareStyleTrees(label, actual, expected) {
+  if (!actual || !expected) throw new Error(`${label}: missing computed-style snapshot`);
+  const selectors = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+  for (const selector of selectors) {
+    const expectedStyles = expected[selector];
+    const actualStyles = actual[selector];
+    if (expectedStyles === null && actualStyles === null) continue;
+    if (!expectedStyles || !actualStyles) throw new Error(`${label} ${selector}: selector presence changed`);
+    const properties = new Set([...Object.keys(expectedStyles), ...Object.keys(actualStyles)]);
+    for (const property of properties) {
+      if (expectedStyles[property] === actualStyles[property]) continue;
+      throw new Error(
+        `${label} ${selector}.${property}: expected ${JSON.stringify(expectedStyles[property])}, got ${JSON.stringify(actualStyles[property])}`,
+      );
+    }
+  }
+}
+
+function assertNormalAudit(theme, width, audit, baseline) {
   check(`${theme}-${width}: audit completed`, () => {
     assert.equal(audit.mode, "normal");
     assert.ok(audit.ready, "recording page did not finish rendering");
   });
+  if (baseline) {
+    check(`${theme}-${width}: computed styles match baseline`, () => {
+      compareStyleTrees(`${theme}-${width} main`, audit.visualStyles, baseline.styles);
+      compareStyleTrees(`${theme}-${width} dialog`, audit.dialogStyles, baseline.dialogStyles);
+    });
+  }
   check(`${theme}-${width}: no horizontal overflow`, () => {
     assert.deepEqual(audit.overflow, []);
   });
@@ -295,7 +321,7 @@ function assertNormalAudit(theme, width, audit) {
   });
 }
 
-function assertErrorAudit(audit) {
+function assertErrorAudit(audit, baseline) {
   check("error: connection notice is visible", () => {
     assert.equal(audit.mode, "error");
     assert.ok(audit.notice && audit.notice.text, "connection notice missing");
@@ -304,6 +330,11 @@ function assertErrorAudit(audit) {
   check("error: notice contrast", () => {
     assert.ok(audit.notice.contrast >= 4.5, `notice contrast ${audit.notice.contrast}`);
   });
+  if (baseline) {
+    check("error: computed styles match baseline", () => {
+      compareStyleTrees("error notice", audit.noticeStyles, baseline.noticeStyles);
+    });
+  }
 }
 
 async function main() {
@@ -316,6 +347,10 @@ async function main() {
   }
   if (ARTIFACT_ENABLED) mkdirSync(ARTIFACTS, { recursive: true });
   console.log(`ui regression browser: ${browser}`);
+  const baseline = UPDATE_BASELINE
+    ? { normal: {}, error: null }
+    : JSON.parse(readFileSync(STYLE_BASELINE, "utf8"));
+  if (!UPDATE_BASELINE && !baseline) throw new Error(`missing ${STYLE_BASELINE}`);
   const { server, port } = await startServer();
   const base = `http://127.0.0.1:${port}/recording.html`;
   const profile = mkdtempSync(join(tmpdir(), "autorio-ui-"));
@@ -328,7 +363,13 @@ async function main() {
         const url = `${base}?theme=${theme}&status=expanded`;
         const { dom } = await runBrowser(browser, url, { width, height, profile });
         const audit = decodeAudit(dom);
-        assertNormalAudit(theme, width, audit);
+        if (UPDATE_BASELINE) {
+          baseline.normal[`${theme}-${width}`] = {
+            styles: audit.visualStyles,
+            dialogStyles: audit.dialogStyles,
+          };
+        }
+        assertNormalAudit(theme, width, audit, UPDATE_BASELINE ? null : baseline.normal[`${theme}-${width}`]);
         if (ARTIFACT_ENABLED) {
           const screenshot = join(ARTIFACTS, `recording-${theme}-${width}.png`);
           await runBrowser(browser, url, { width, height, screenshot, profile });
@@ -356,7 +397,11 @@ async function main() {
 
     const errorUrl = `${base}?theme=dark&status=expanded&fail=1`;
     const errorDom = (await runBrowser(browser, errorUrl, { width: 1280, height: 900, profile })).dom;
-    assertErrorAudit(decodeAudit(errorDom));
+    const errorAudit = decodeAudit(errorDom);
+    if (UPDATE_BASELINE) {
+      baseline.error = { noticeStyles: errorAudit.noticeStyles };
+    }
+    assertErrorAudit(errorAudit, UPDATE_BASELINE ? null : baseline.error);
     if (ARTIFACT_ENABLED) {
       const screenshot = join(ARTIFACTS, "recording-dark-1280-error.png");
       await runBrowser(browser, errorUrl, { width: 1280, height: 900, screenshot, profile });
@@ -370,6 +415,11 @@ async function main() {
       console.log(`ui screenshots: ${ARTIFACTS}`);
     }
     if (!isWindowsBinary(browser)) rmSync(profile, { recursive: true, force: true });
+  }
+
+  if (UPDATE_BASELINE) {
+    writeFileSync(STYLE_BASELINE, `${JSON.stringify(baseline, null, 2)}\n`, "utf8");
+    console.log(`style baseline updated: ${STYLE_BASELINE}`);
   }
 
   if (failures.length) {

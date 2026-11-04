@@ -19,6 +19,7 @@ this file.
   Base `:root` tokens now live in `tokens.css`. Removed 221 fully-shadowed
   legacy rules (822 lines) whose declarations were all re-declared later for the
   same selector/context; the browser screenshots remain pixel-identical.
+  Also removed the superseded 120-line colour-system-v2 pass.
 
 ### Added
 
@@ -26,7 +27,10 @@ this file.
   recording page with mocked run/event/telemetry responses, runs system
   Edge/Chrome headless and asserts metrics/radar geometry, contrast, 30px
   targets, icon scale, map-dialog focus trap/return, no overflow and the
-  connection-error state. Screenshots land in ignored `.ui-review/ui-regression/`;
+  connection-error state. Screenshots land in ignored `.ui-review/ui-regression/`.
+  A committed computed-style baseline (`tests/ui-style-baseline.json`) covers
+  colors, borders, fonts, spacing and layout for main/dialog/error surfaces;
+  regenerate deliberately with `AUTORIO_UI_UPDATE_BASELINE=1 npm run test:ui`.
   Windows CI requires the check.
 
 ## [0.27.2] - 2026-11-04

@@ -81,6 +81,14 @@ Replace the single file with ordered imports so the cascade stays equivalent:
   pre-split baseline.
 - No fully-shadowed rules remain; further cleanup needs context-aware
   consolidation of the remaining repeated selectors/declarations.
+- Removed the superseded **colour system v2** block (120 lines); pixel test
+  remains byte-identical.
+- Added **computed-style regression**: `tests/ui-style-baseline.json` records
+  colors, backgrounds, borders, fonts, spacing and layout properties for 27
+  main selectors + dialog/error surfaces per theme/width. It caught the tentative
+  removal of the modern-v4 pass (e.g. section-kicker line-height, plan border
+  colour). Update deliberately with
+  `AUTORIO_UI_UPDATE_BASELINE=1 npm run test:ui`.
 
 ## Phase 3 — remove duplicates
 
