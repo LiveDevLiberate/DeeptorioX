@@ -272,3 +272,4 @@ manually.
 - `README.md` (user manual), `CONTRIBUTING.md` (setup, gates, tests, style, recipes).
 - `CHANGELOG.md` (current batch); `AGENTS.md` and `runs/run_template/AGENTS.md`
   (agent summaries and the run playbook).
+- `docs/agent-capability-plan.md` (agent capability gaps, blueprint/telemetry/planner roadmap).
