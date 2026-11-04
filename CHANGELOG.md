@@ -9,6 +9,20 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Agent prompt starts with a mandatory STATE.md step.** The task prompt now
+  begins with `STEP 0`: the first tool call must write `STATE.md` from a filled
+  template (`Updated`/`Objective`/`Scores`/`Current`/`Done when`/`Next`), and it
+  is updated whenever the subtask or its done-when condition changes. Verified
+  against the real DSH backend: with the previous prompt the file never appeared;
+  with the new prompt the model's first tool call writes `STATE.md` (Chinese
+  values included).
+- The prompt also requires a short progress message in the configured language
+  after each subtask (and at least every ~10 tool calls), so the `消息` filter and
+  TTS narration get Chinese content even when the model's internal chain of
+  thought stays English.
+
 ## [0.10.6] - 2026-11-04
 
 ### Changed

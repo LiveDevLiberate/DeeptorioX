@@ -168,8 +168,15 @@ test("OpenCode WSL launch spec plans the launcher script and pid polling", () =>
   );
   assert.equal(lines[4], `echo $$ > ${shellQuote(toWslPath(pidFile))}`);
   assert.ok(lines[5].startsWith("exec '$HOME/.opencode/bin/opencode' 'run' '--format' 'json'"));
-  assert.ok(lines[5].endsWith(shellQuote(agentPrompt({ resume: false, restart: false }))));
-  assert.equal(lines[6], "");
+  // The prompt may contain newlines (STATE.md template), so compare the joined tail.
+  assert.ok(
+    lines
+      .slice(5)
+      .join("\n")
+      .endsWith(`${shellQuote(agentPrompt({ resume: false, restart: false }))}\n`),
+  );
+  assert.equal(lines[6], "# STATE");
+  assert.equal(lines.at(-1), "");
   // The launcher exports its own PATH; the child environment must stay native.
   assert.equal(spec.env.PATH, baseEnv.PATH);
 });
