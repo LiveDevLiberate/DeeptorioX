@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-11-04
+
 ### Fixed
 
 - **Readout alignment and hero-icon scale.** The metrics table and radar now
@@ -763,7 +765,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.27.1...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.27.2...HEAD
+[0.27.2]: https://github.com/ryanmadden/autorio/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/ryanmadden/autorio/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/ryanmadden/autorio/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/ryanmadden/autorio/compare/v0.25.2...v0.26.0
