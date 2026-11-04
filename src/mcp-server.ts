@@ -23,6 +23,7 @@ const INSTRUCTIONS = [
   "This server exposes the autorio Factorio manager. Observation tools are read-only.",
   "Game-changing tools submit a serialized action job and return immediately with a job_id;",
   "poll job_status until status is completed, failed, or cancelled (cancel_job requests cancellation).",
+  "copy_settings is the exception: it mutates synchronously after reach checks and returns per-target results.",
   "Coordinates are Factorio map tiles; build anchors are top-left tile positions.",
 ].join(" ");
 
@@ -152,6 +153,30 @@ function requireBuildEntities(args: JsonObject, key: string): JsonObject[] {
       throw new ToolArgumentError(`${key}[${index}].direction must be an integer`);
     }
     return entity;
+  });
+}
+
+function copyOptionalBoolean(source: JsonObject, key: string, target: JsonObject): void {
+  const value = source[key];
+  if (value === undefined) return;
+  if (typeof value !== "boolean") throw new ToolArgumentError(`${key} must be a boolean`);
+  target[key] = value;
+}
+
+function copyOptionalStringArray(source: JsonObject, key: string, target: JsonObject): void {
+  const value = source[key];
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new ToolArgumentError(`${key} must be an array of strings`);
+  }
+  target[key] = value;
+}
+
+function requireCopyTargets(args: JsonObject): JsonObject[] {
+  return requireObjectArray(args, "targets").map((entry, index) => {
+    requirePoint(entry.source, `targets[${index}].source`);
+    requirePoint(entry.target, `targets[${index}].target`);
+    return entry;
   });
 }
 
@@ -310,6 +335,22 @@ const TARGET_SCHEMA: JsonObject = {
   },
   required: ["x", "y"],
   additionalProperties: false,
+};
+
+const COPY_TARGETS_SCHEMA: JsonObject = {
+  type: "array",
+  description: "Source/target entity pairs to copy settings between (at most 50 per call).",
+  items: {
+    type: "object",
+    properties: {
+      source: pointSchema("Source entity tile (its settings are copied from)."),
+      target: pointSchema("Target entity tile (its settings are overwritten)."),
+    },
+    required: ["source", "target"],
+    additionalProperties: false,
+  },
+  minItems: 1,
+  maxItems: 50,
 };
 
 // ---------------------------------------------------------------------------
@@ -494,6 +535,105 @@ const TOOLS: ToolDefinition[] = [
       path: "/api/agent/observe/resources",
       body: { window: windowArgs(args) },
     }),
+  },
+  {
+    name: "observe_production",
+    description:
+      "Read-only. Observe manager-collected production telemetry from the independent sampler (default 5 s): production_per_minute, deltas, research, rockets, and the sample window. Use it to verify that automation actually produces a target item; returns 409 until a live sample exists.",
+    inputSchema: objectSchema({}),
+    request: () => ({ method: "POST", path: "/api/agent/observe/production", body: {} }),
+  },
+  {
+    name: "observe_fluids",
+    description:
+      "Read-only. Observe fluid networks and levels around a map position: fluid types, amounts, capacities, networks, and connected entities.",
+    inputSchema: windowSchema("Fluid scan radius in tiles (default 32, max 128)."),
+    request: (args) => ({
+      method: "POST",
+      path: "/api/agent/observe/fluids",
+      body: { window: windowArgs(args) },
+    }),
+  },
+  {
+    name: "observe_combat",
+    description:
+      "Read-only. Observe enemy nests and units, turrets and their ammo, and player health in an area. Recent damage is not derivable from one reply: compare player.health across calls.",
+    inputSchema: windowSchema("Combat scan radius in tiles (default 64, max 256)."),
+    request: (args) => ({
+      method: "POST",
+      path: "/api/agent/observe/combat",
+      body: { window: windowArgs(args) },
+    }),
+  },
+  {
+    name: "observe_area",
+    description:
+      "Read-only. List deconstruct-planning candidates in an area with name, type, tile, health, and player_created, filterable by entity type or name. Deconstruction is client-driven: mine the returned entities with mine jobs. Use before acting on an area.",
+    inputSchema: windowSchema("Scan radius in tiles (default 64, max 128).", {
+      limit: {
+        type: "integer",
+        minimum: 1,
+        maximum: 1000,
+        description: "Maximum entities to return (default 300).",
+      },
+      types: {
+        type: "array",
+        items: { type: "string" },
+        maxItems: 100,
+        description: 'Keep only these entity types, e.g. ["assembling-machine"].',
+      },
+      filters: {
+        type: "array",
+        items: { type: "string" },
+        maxItems: 100,
+        description:
+          "Keep entities whose prototype name or type matches one of these (deconstruction-planner filters).",
+      },
+      player_only: {
+        type: "boolean",
+        description: "Only entities last built or changed by a player.",
+      },
+    }),
+    request: (args) => {
+      const body: JsonObject = { window: windowArgs(args) };
+      copyOptionalInteger(args, "limit", body, 1, 1000);
+      copyOptionalStringArray(args, "types", body);
+      copyOptionalStringArray(args, "filters", body);
+      copyOptionalBoolean(args, "player_only", body);
+      return { method: "POST", path: "/api/agent/observe/area", body };
+    },
+  },
+  {
+    name: "copy_settings_check",
+    description:
+      "Read-only dry-run. Check reach and compatibility for copying settings (recipe, filters, splitter priority, combinator) between source/target entity pairs without mutating anything. Use before copy_settings; both entities must be within the character's reach, so move first.",
+    inputSchema: objectSchema({ targets: COPY_TARGETS_SCHEMA }, ["targets"]),
+    request: (args) => ({
+      method: "POST",
+      path: "/api/agent/observe/copy-settings",
+      body: { targets: requireCopyTargets(args) },
+    }),
+  },
+  {
+    name: "copy_settings",
+    description:
+      "Action (mutates entity settings). Synchronously copy settings (recipe, filters, splitter priority, combinator) from each source entity onto its target. NOT a queued action job: per-target results return immediately. Both entities must be within reach (move first); unreachable or incompatible pairs are reported and never mutated. Use copy_settings_check first to preview.",
+    inputSchema: objectSchema(
+      {
+        targets: COPY_TARGETS_SCHEMA,
+        dry_run: {
+          type: "boolean",
+          description:
+            "Preview only: report reach/compatibility without mutating (same as copy_settings_check).",
+        },
+      },
+      ["targets"],
+    ),
+    request: (args) => {
+      const body: JsonObject = { targets: requireCopyTargets(args) };
+      copyOptionalBoolean(args, "dry_run", body);
+      return { method: "POST", path: "/api/agent/act/copy-settings", body };
+    },
   },
   {
     name: "build",

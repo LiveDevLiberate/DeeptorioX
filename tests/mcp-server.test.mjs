@@ -161,6 +161,12 @@ test("tools/list exposes the autorio gameplay tools with input schemas", async (
     "observe_connections",
     "observe_placement",
     "observe_resources",
+    "observe_production",
+    "observe_fluids",
+    "observe_combat",
+    "observe_area",
+    "copy_settings_check",
+    "copy_settings",
     "build",
     "mine",
     "move",
@@ -189,6 +195,27 @@ test("tools/list exposes the autorio gameplay tools with input schemas", async (
   assert.deepEqual(build.inputSchema.required, ["entities"]);
   assert.equal(build.inputSchema.properties.entities.type, "array");
   assert.match(build.description, /job_status/);
+
+  const production = tools.find((tool) => tool.name === "observe_production");
+  assert.deepEqual(production.inputSchema.properties, {});
+  assert.equal(production.inputSchema.required, undefined);
+  const fluids = tools.find((tool) => tool.name === "observe_fluids");
+  assert.equal(fluids.inputSchema.properties.radius.type, "number");
+  const area = tools.find((tool) => tool.name === "observe_area");
+  assert.equal(area.inputSchema.properties.player_only.type, "boolean");
+  assert.equal(area.inputSchema.properties.filters.type, "array");
+  const check = tools.find((tool) => tool.name === "copy_settings_check");
+  assert.deepEqual(check.inputSchema.required, ["targets"]);
+  assert.equal(check.inputSchema.properties.targets.type, "array");
+  assert.equal(check.inputSchema.properties.targets.maxItems, 50);
+  assert.deepEqual(check.inputSchema.properties.targets.items.required, ["source", "target"]);
+  assert.match(check.description, /Use before copy_settings/);
+  assert.match(check.description, /Read-only/);
+  const copy = tools.find((tool) => tool.name === "copy_settings");
+  assert.deepEqual(copy.inputSchema.required, ["targets"]);
+  assert.equal(copy.inputSchema.properties.dry_run.type, "boolean");
+  assert.match(copy.description, /NOT a queued action job/);
+  assert.match(copy.description, /mutates entity settings/);
 });
 
 test("tools/call maps observe_world to POST /api/agent/observe/world", async () => {
@@ -324,6 +351,186 @@ test("action tools map payloads and job action names", async () => {
     { action: "research", payload: { technology: "automation" } },
     { action: "launch-rocket", payload: { targets: [{ x: 10, y: 12 }] } },
   ]);
+});
+
+test("telemetry observation tools map to production, fluids and combat endpoints", async () => {
+  const production = {
+    ok: true,
+    data: {
+      window_seconds: 300,
+      production_per_minute: { "iron-plate": 30 },
+      deltas: {},
+      research: {},
+      rockets: {},
+      samples: 12,
+    },
+  };
+  const fluids = {
+    ok: true,
+    data: {
+      window: { x: 1, y: 2, radius: 48 },
+      counts: {},
+      fluids: {},
+      entities: [],
+      scanned: 4,
+      truncated: false,
+    },
+  };
+  const combat = {
+    ok: true,
+    data: {
+      window: { x: 3, y: 4, radius: 64 },
+      counts: { enemy_total: 2, turrets: 1, by_force: {}, by_type: {} },
+      nests: [],
+      turrets: [],
+      player: { health: 100 },
+      scanned: 6,
+    },
+  };
+  fake.route("POST", "/api/agent/observe/production", () => ({ status: 200, body: production }));
+  fake.route("POST", "/api/agent/observe/fluids", () => ({ status: 200, body: fluids }));
+  fake.route("POST", "/api/agent/observe/combat", () => ({ status: 200, body: combat }));
+
+  const prod = await mcp.request("tools/call", { name: "observe_production", arguments: {} });
+  const fluid = await mcp.request("tools/call", {
+    name: "observe_fluids",
+    arguments: { x: 1, y: 2, radius: 48 },
+  });
+  const fight = await mcp.request("tools/call", {
+    name: "observe_combat",
+    arguments: { x: 3, y: 4, radius: 64 },
+  });
+
+  assert.equal(prod.result.isError, undefined);
+  assert.deepEqual(prod.result.structuredContent, production);
+  assert.deepEqual(fluid.result.structuredContent, fluids);
+  assert.deepEqual(fight.result.structuredContent, combat);
+  const lastBody = (pathname) => fake.requests.filter((entry) => entry.path === pathname).at(-1).body;
+  assert.deepEqual(lastBody("/api/agent/observe/production"), {});
+  assert.deepEqual(lastBody("/api/agent/observe/fluids"), { window: { x: 1, y: 2, radius: 48 } });
+  assert.deepEqual(lastBody("/api/agent/observe/combat"), { window: { x: 3, y: 4, radius: 64 } });
+});
+
+test("observe_area passes window, limit and planner filters through", async () => {
+  const body = {
+    ok: true,
+    data: {
+      area: { x: 0, y: 0, radius: 40 },
+      counts: { total: 3, matched: 1, included: 1 },
+      entities: [{ name: "stone-furnace", type: "furnace", x: 0, y: 0 }],
+      truncated: false,
+    },
+  };
+  fake.route("POST", "/api/agent/observe/area", () => ({ status: 200, body }));
+  const response = await mcp.request("tools/call", {
+    name: "observe_area",
+    arguments: {
+      x: 0,
+      y: 0,
+      radius: 40,
+      limit: 25,
+      types: ["assembling-machine"],
+      filters: ["stone-furnace"],
+      player_only: true,
+    },
+  });
+  assert.deepEqual(response.result.structuredContent, body);
+  const request = fake.requests.filter((entry) => entry.path === "/api/agent/observe/area").at(-1);
+  assert.equal(request.method, "POST");
+  assert.deepEqual(request.body, {
+    window: { x: 0, y: 0, radius: 40 },
+    limit: 25,
+    types: ["assembling-machine"],
+    filters: ["stone-furnace"],
+    player_only: true,
+  });
+});
+
+test("copy-settings tools map dry-run and synchronous copy bodies", async () => {
+  const report = {
+    ok: true,
+    data: {
+      ok: true,
+      dry_run: true,
+      counts: { total: 1, ok: 1, failed: 0 },
+      results: [{ ok: true, dry_run: true, reach: { source: true, target: true } }],
+    },
+    truncated: false,
+  };
+  const applied = {
+    ok: true,
+    data: {
+      ok: true,
+      dry_run: false,
+      counts: { total: 1, ok: 1, failed: 0 },
+      results: [{ ok: true, reach: { source: true, target: true } }],
+    },
+    truncated: false,
+  };
+  fake.route("POST", "/api/agent/observe/copy-settings", () => ({ status: 200, body: report }));
+  fake.route("POST", "/api/agent/act/copy-settings", () => ({ status: 200, body: applied }));
+  const targets = [{ source: { x: 10, y: 10 }, target: { x: 12, y: 10 } }];
+
+  const check = await mcp.request("tools/call", { name: "copy_settings_check", arguments: { targets } });
+  const copy = await mcp.request("tools/call", {
+    name: "copy_settings",
+    arguments: { targets, dry_run: false },
+  });
+
+  assert.equal(check.result.isError, undefined);
+  assert.deepEqual(check.result.structuredContent, report);
+  assert.equal(copy.result.isError, undefined);
+  assert.deepEqual(copy.result.structuredContent, applied);
+  const lastBody = (pathname) => fake.requests.filter((entry) => entry.path === pathname).at(-1).body;
+  assert.deepEqual(lastBody("/api/agent/observe/copy-settings"), { targets });
+  assert.deepEqual(lastBody("/api/agent/act/copy-settings"), { targets, dry_run: false });
+});
+
+test("new capability tools surface 409 and 400 HTTP errors as isError results", async () => {
+  fake.route("POST", "/api/agent/observe/production", () => ({
+    status: 409,
+    body: { error: "telemetry not ready" },
+  }));
+  fake.route("POST", "/api/agent/observe/fluids", () => ({
+    status: 409,
+    body: { error: "RCON not configured" },
+  }));
+  fake.route("POST", "/api/agent/act/copy-settings", () => ({
+    status: 400,
+    body: { error: "Missing targets" },
+  }));
+
+  const notReady = await mcp.request("tools/call", { name: "observe_production", arguments: {} });
+  assert.equal(notReady.result.isError, true);
+  assert.match(notReady.result.content[0].text, /HTTP 409: telemetry not ready/);
+
+  const rcon = await mcp.request("tools/call", { name: "observe_fluids", arguments: {} });
+  assert.equal(rcon.result.isError, true);
+  assert.match(rcon.result.content[0].text, /HTTP 409: RCON not configured/);
+
+  const malformed = await mcp.request("tools/call", {
+    name: "copy_settings",
+    arguments: { targets: [{ source: { x: 1, y: 1 }, target: { x: 2, y: 2 } }] },
+  });
+  assert.equal(malformed.result.isError, true);
+  assert.match(malformed.result.content[0].text, /HTTP 400: Missing targets/);
+  assert.deepEqual(malformed.result.structuredContent, { error: "Missing targets" });
+});
+
+test("copy-settings tools reject malformed targets before calling the manager", async () => {
+  const beforeCount = fake.requests.length;
+  const missing = await mcp.request("tools/call", { name: "copy_settings", arguments: {} });
+  assert.equal(missing.result, undefined);
+  assert.equal(missing.error.code, -32602);
+  assert.match(missing.error.message, /targets/);
+
+  const malformed = await mcp.request("tools/call", {
+    name: "copy_settings_check",
+    arguments: { targets: [{ source: { x: 1, y: 2 } }] },
+  });
+  assert.equal(malformed.error.code, -32602);
+  assert.match(malformed.error.message, /targets\[0\]\.target/);
+  assert.equal(fake.requests.length, beforeCount, "malformed arguments must not reach the manager");
 });
 
 test("HTTP failures become isError tool results, not protocol errors", async () => {
