@@ -314,6 +314,19 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     assert.equal(storage.get("autorio.filter"), "thinking");
     nodes.filterAll.fire("click");
     assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, false);
+    nodes.filterActions.fire("click");
+    const commandsAfterFilter = output.children.find((node) => node.className.includes("commands"));
+    assert.equal(commandsAfterFilter.hidden, false, "action filter must keep command groups visible");
+    assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, true);
+    // A filter with no matching entries shows an explicit empty-state note.
+    nodes.filterErrors.fire("click");
+    const emptyNote = output.children.find((node) => node.className.includes("filter-empty"));
+    assert.ok(emptyNote, "missing filter empty-state note");
+    assert.equal(emptyNote.hidden, false);
+    assert.match(emptyNote.textContent, /No entries/);
+    nodes.filterAll.fire("click");
+    assert.equal(emptyNote.hidden, true);
+    nodes.filterAll.fire("click");
 
     // User scrolled up; the next live batch shows the unread pill and clicking jumps down.
     output.scrollHeight = 1000;

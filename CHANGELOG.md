@@ -9,6 +9,22 @@ this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Actions filter showed a blank transcript.** Command groups are rendered as a
+  single top-level `<details>` node, but the `kind` tag was only set on the rows
+  inside it, so the Actions chip hid everything. The group node is now tagged
+  `commands` and the filter keeps it visible (with a `?filter=actions` deep link
+  for testing).
+- **Filtered-out nodes could stay visible.** Author `display` rules (e.g. the
+  flex turn divider) overrode the `hidden` attribute; a global
+  `#codexOutput [hidden] { display: none !important }` now keeps filtered
+  content hidden.
+- **Empty filters now say so.** When a filter has no matching entries the
+  transcript shows a dashed “No entries for this filter / 当前过滤下没有内容”
+  note instead of an empty page (e.g. the Messages filter before the model emits
+  its first progress message).
+
 ## [0.10.4] - 2026-11-04
 
 ## [0.10.3] - 2026-11-04

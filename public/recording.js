@@ -48,6 +48,7 @@ let filterMode = "all";
 let searchQuery = "";
 let trimmedCount = 0;
 let trimNote = null;
+let emptyFilterNote = null;
 let lastMarkerSample = null;
 const overlayMode = params.get("overlay") === "1";
 if (overlayMode) document.body.classList.add("overlay");
@@ -119,6 +120,7 @@ const I18N = {
     noTelemetry: "no telemetry",
     researchLabel: "research",
     trimmed: "earlier entries trimmed",
+    noEntries: "No entries for this filter",
     expand: "Expand status details",
     collapse: "Collapse status details",
     filters: {
@@ -172,6 +174,7 @@ const I18N = {
     noTelemetry: "无遥测数据",
     researchLabel: "研究",
     trimmed: "更早记录已裁剪",
+    noEntries: "当前过滤下没有内容",
     expand: "展开状态详情",
     collapse: "收起状态详情",
     filters: {
@@ -378,6 +381,7 @@ function timeLabel(item) {
 function ensureCommandGroup() {
   if (!commandGroup) {
     const details = element("details", "", "commands");
+    details._kind = "commands";
     const summary = element("summary", "", "commands-summary");
     details.append(summary);
     if (openCommandGroup && openCommandGroup !== details) setDetailsOpen(openCommandGroup, false);
@@ -594,9 +598,23 @@ function nodeMatchesFilter(node) {
 }
 function applyFilters() {
   if (!output) return;
+  let visible = 0;
   for (const node of [...output.children]) {
-    if (node === trimNote) continue;
-    node.hidden = !nodeMatchesFilter(node);
+    if (node === trimNote || node === emptyFilterNote) continue;
+    const match = nodeMatchesFilter(node);
+    node.hidden = !match;
+    if (match) visible += 1;
+  }
+  if (filterMode !== "all" && visible === 0) {
+    if (!emptyFilterNote) {
+      emptyFilterNote = element("div", "", "filter-empty");
+      emptyFilterNote._kind = "empty";
+      output.append(emptyFilterNote);
+    }
+    emptyFilterNote.textContent = strings().noEntries;
+    emptyFilterNote.hidden = false;
+  } else if (emptyFilterNote) {
+    emptyFilterNote.hidden = true;
   }
 }
 function setFilter(mode) {
@@ -710,6 +728,8 @@ function restorePreferences() {
   try {
     const stored = localStorage.getItem("autorio.filter");
     if (stored) filterMode = stored;
+    const requested = params.get("filter");
+    if (requested && FILTER_BUTTONS[requested]) filterMode = requested;
     const query = localStorage.getItem("autorio.search");
     if (query && transcriptSearch) {
       searchQuery = query.toLowerCase();

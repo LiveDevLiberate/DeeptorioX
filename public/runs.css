@@ -2571,3 +2571,20 @@ body.overlay {
 body.overlay #agentStatus {
   background: rgba(9, 12, 15, 0.82);
 }
+
+/* Filter empty-state note (e.g. Actions filter with no commands yet). */
+#codexOutput .filter-empty {
+  align-self: center;
+  margin-top: 18px;
+  padding: 8px 16px;
+  border: 1px dashed #26313a;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+/* Author display rules must not resurrect filtered-out nodes. */
+#codexOutput [hidden],
+body.recording [hidden] {
+  display: none !important;
+}
