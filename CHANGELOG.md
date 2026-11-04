@@ -9,6 +9,20 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **The game starts in the run's language.** A new `src/locale.ts` maps the
+  agent language to an installed Factorio locale (`Chinese`→`zh-CN`,
+  `Traditional Chinese`→`zh-TW`, `English`→`en`, `Deutsch`→`de`,
+  `日本語`→`ja`, …) and the manager writes `locale=<id>` into the run profile's
+  `config.ini` before launching the game. It is re-applied on resume, so a
+  paused Chinese run restarts with a Chinese in-game UI. Unknown languages fall
+  back to English; explicit IDs such as `zh-CN` pass through unchanged.
+  Factorio has no voice track — this controls text/UI language only.
+- `tests/locale.test.mjs` covers the language→locale mapping and config safety;
+  the DSH run test asserts a Chinese run starts the game with `locale=zh-CN`.
+
+## [0.12.3] - 2026-11-04
 ## [0.12.3] - 2026-11-04
 
 ### Added

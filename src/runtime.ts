@@ -51,8 +51,9 @@ export function controlModHash() {
     .update(fs.readFileSync(path.join(dir, "control.lua")))
     .digest("hex");
 }
-export async function prepareProfile(dir: string) {
+export async function prepareProfile(dir: string, locale = "en") {
   // Inherit only interface scaling; keep personal paths and credentials isolated.
+  const gameLocale = /^[a-z]{2}(?:-[A-Z]{2})?$/.test(locale) ? locale : "en";
   const personalConfig = personalFactorioConfig();
   const interfaceScale: string[] = [];
   try {
@@ -98,7 +99,7 @@ export async function prepareProfile(dir: string) {
       `read-data=${FACTORIO_DATA}`,
       `write-data=${dir}`,
       "[general]",
-      "locale=en",
+      `locale=${gameLocale}`,
       "[other]",
       `port=${GAME_PORT}`,
       `local-rcon-socket=127.0.0.1:${RCON_PORT}`,

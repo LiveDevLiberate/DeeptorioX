@@ -13,6 +13,7 @@ import {
   factorioVersion,
   execFileAsync,
 } from "./runtime.js";
+import { factorioLocale } from "./locale.js";
 import {
   Benchmark,
   Snapshot,
@@ -171,7 +172,7 @@ type Hooks = {
   openRecording?(dir: string): Promise<void>;
   startVideo?(dir: string): Promise<{ stop(): Promise<string> }>;
   renderVideo?(source: string, dir: string): Promise<VideoRenderResult>;
-  start(save: string, profile: string, logFile: string): Promise<void>;
+  start(save: string, profile: string, logFile: string, options?: { locale?: string }): Promise<void>;
   stop(): Promise<void>;
   command(lua: string, timeout?: number): Promise<string>;
   connect(): Promise<void>;
@@ -702,6 +703,7 @@ export class RunManager {
       resuming ? path.join(dir, run.checkpoint!.file) : path.join(dir, "game.zip"),
       path.join(dir, "profile"),
       path.join(dir, "factorio.log"),
+      { locale: factorioLocale(run.language) },
     );
     this.checkCancelled();
     const deadline = performance.now() + Number(process.env.AUTORIO_STARTUP_SECONDS || 180) * 1000;

@@ -115,13 +115,15 @@ function setup(overrides = {}) {
     produced = false,
     researched = false,
     stopCount = 0,
-    profile;
+    profile,
+    startLocale;
   const hooks = {
     running: () => game,
     openRecording: async () => {},
-    start: async (_save, dir) => {
+    start: async (_save, dir, _log, options) => {
       game = true;
       profile = dir;
+      startLocale = options?.locale;
       fs.mkdirSync(path.join(dir, "saves"), { recursive: true });
     },
     stop: async () => {
@@ -149,6 +151,7 @@ function setup(overrides = {}) {
   return {
     manager,
     hooks,
+    startLocale: () => startLocale,
     reload: () => new RunManager(hooks),
     unlock: () => {
       researched = true;
@@ -248,7 +251,7 @@ test("dsh agent runs headless, translates its event stream, and records usage", 
   process.env.DSH_HOME = path.join(temp, "dsh-home");
   process.env.DEEPSEEK_API_KEY = "sk-test-key";
   process.env.AUTORIO_DSH_TEST_DIR = working;
-  const { manager } = setup();
+  const { manager, startLocale } = setup();
   try {
     const run = manager.start({
       benchmark: "smoke",
@@ -261,6 +264,7 @@ test("dsh agent runs headless, translates its event stream, and records usage", 
     assert.match(result.reason, /before the objective/);
     assert.equal(result.session_id, "dsh-test-session");
     assert.equal(result.model, "deepseek-official/deepseek-flash");
+    assert.equal(startLocale(), "zh-CN", "Chinese runs must start Factorio in zh-CN");
     assert.deepEqual(result.usage, {
       input_tokens: 100,
       output_tokens: 20,

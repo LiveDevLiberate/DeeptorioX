@@ -312,7 +312,7 @@ Optional `.env` settings (process environment takes precedence):
 | `AUTORIO_CONTEXT_LIMIT` | Optional agent context limit in tokens; when reached, the agent session is restarted (game/workspace preserved) |
 | `AUTORIO_MAX_MOVE_TILES` | `64`; the Python client rejects longer single moves so callers use waypoints and observe the route |
 | `AUTORIO_TERMINAL` | Set to `1` to use the optional terminal viewer instead of web recording view |
-| `AUTORIO_AGENT_LANGUAGE` | Optional language for agent messages/reasoning summaries, e.g. `Chinese`; code and commands stay unchanged |
+| `AUTORIO_AGENT_LANGUAGE` | Optional language for agent messages/reasoning summaries and the game locale, e.g. `Chinese` → game `zh-CN`; code and commands stay unchanged |
 | `AUTORIO_BROWSER` | Windows/macOS: optional path to the Edge/Chrome executable used for the recording window |
 | `AUTORIO_OPENCODE_MODEL` | Default OpenCode model, `opencode-go/deepseek-v4.1-flash` |
 | `OPENCODE_BIN` | Optional native OpenCode executable; otherwise `opencode` on PATH |
@@ -749,6 +749,14 @@ agent to write its messages and reasoning summaries in that language. Code,
 commands, paths, and identifiers remain unchanged. The model may still reason in
 English; for TTS, choose a voice matching the produced text or add a translation
 step.
+
+The same setting also selects the **game locale**: the manager writes the
+matching Factorio `locale` into each run's isolated profile (`zh-CN` for Chinese,
+`zh-TW` for Traditional Chinese, `en` for English, and the closest installed
+locale for other languages). It is applied when the game starts and again when a
+paused run is resumed, so the in-game UI/text matches the run language. Factorio
+has no voice-over track; this affects text/UI only (the Windows TTS narration has
+its own voice selection in `scripts/narrate.ps1`).
 
 ### Codex as an optional agent
 

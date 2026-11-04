@@ -461,13 +461,13 @@ setInterval(() => {
 }, RCON_CHECK_MS);
 
 let launchingGame = false;
-async function startGame(savePath: string, profile: string, logFile?: string) {
+async function startGame(savePath: string, profile: string, logFile?: string, options?: { locale?: string }) {
   if (launchingGame || getRunningPid()) throw new Error("Game already running or launching");
   launchingGame = true;
   try {
     await factorioVersion();
     await requireSteam();
-    await prepareProfile(profile);
+    await prepareProfile(profile, options?.locale);
     // Refuse to attach to a different game's RCON port.
     await new Promise<void>((resolve, reject) => {
       const probe = net.createServer();
