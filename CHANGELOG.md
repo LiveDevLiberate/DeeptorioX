@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-04
+
 ### Added
 
 - **The game starts in the run's language.** A new `src/locale.ts` maps the
@@ -421,7 +423,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.12.3...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/ryanmadden/autorio/compare/v0.12.3...v0.13.0
 [0.12.3]: https://github.com/ryanmadden/autorio/compare/v0.12.2...v0.12.3
 [0.12.2]: https://github.com/ryanmadden/autorio/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/ryanmadden/autorio/compare/v0.12.0...v0.12.1
