@@ -3318,3 +3318,103 @@ body.recording .status-done {
   text-overflow: clip;
   overflow-wrap: anywhere;
 }
+
+/* ============================================================================
+   Shared 12-column grid system
+   One max width + gutter for status, toolbar and transcript; status uses
+   columns 1–7 for the plan and 8–12 for telemetry (left-aligned inside its area,
+   not flushed to the right edge).
+   ========================================================================= */
+body.recording {
+  --ui-max: 1080px;
+  --ui-gutter: 22px;
+  --ui-grid-gap: 24px;
+}
+.ui-grid-12 {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--ui-grid-gap);
+  align-items: start;
+}
+.ui-col-1-7 {
+  grid-column: 1 / span 7;
+}
+.ui-col-8-12 {
+  grid-column: 8 / -1;
+}
+
+/* The three page bands share the same container math. */
+body.recording .status-inner.ui-grid-12 {
+  grid-template-areas: none;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+body.recording .status-head {
+  grid-column: 1 / -1;
+}
+body.recording .status-plan.ui-col-1-7 {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+body.recording .status-telemetry.ui-col-8-12 {
+  justify-self: stretch;
+  min-width: 0;
+}
+body.recording .status-telemetry .status-data {
+  justify-content: flex-start;
+}
+body.recording .transcript-pane > #transcriptTools {
+  padding-left: max(var(--ui-gutter), calc((100vw - var(--ui-max)) / 2));
+  padding-right: max(var(--ui-gutter), calc((100vw - var(--ui-max)) / 2));
+}
+body.recording .transcript-pane > #codexOutput {
+  padding-left: max(var(--ui-gutter), calc((100% - var(--ui-max)) / 2));
+  padding-right: max(var(--ui-gutter), calc((100% - var(--ui-max)) / 2));
+}
+@media (max-width: 900px) {
+  body.recording .status-inner.ui-grid-12 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body.recording .status-plan.ui-col-1-7,
+  body.recording .status-telemetry.ui-col-8-12 {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Explicit placement: reset the earlier named-area grid rules so the 12-col
+   classes win with the expected specificity. */
+body.recording .status-inner.ui-grid-12 {
+  grid-template-areas: none;
+}
+body.recording .status-inner.ui-grid-12 > .status-head {
+  grid-area: auto;
+  grid-column: 1 / -1;
+}
+body.recording .status-inner.ui-grid-12 > .status-plan.ui-col-1-7 {
+  grid-area: auto;
+  grid-column: 1 / span 7;
+}
+body.recording .status-inner.ui-grid-12 > .status-telemetry.ui-col-8-12 {
+  grid-area: auto;
+  grid-column: 8 / -1;
+  justify-self: stretch;
+}
+
+/* Responsive reset must come after the explicit 12-col placements. */
+@media (max-width: 900px) {
+  body.recording .status-inner.ui-grid-12 {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+  }
+  body.recording .status-inner.ui-grid-12 > .status-plan.ui-col-1-7,
+  body.recording .status-inner.ui-grid-12 > .status-telemetry.ui-col-8-12 {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-self: stretch;
+  }
+  body.recording .status-telemetry .status-data {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

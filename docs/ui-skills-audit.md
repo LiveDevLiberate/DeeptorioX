@@ -55,3 +55,20 @@ recording surface without removing any information or icon:
 
 Before/after evidence was captured at 1200px and 600px widths; the structural
 contract is covered by `tests/recording-structure.test.mjs`.
+
+## Grid-system follow-up (v0.22.0)
+
+After the first structure pass the telemetry band was right-flushed by a
+`justify-self:end` and the status/toolbar/transcript bands used different max
+widths (1080 vs 1000). Added a shared, recording-scoped 12-column grid:
+
+- `--ui-max: 1080px`, `--ui-gutter: 22px`, `--ui-grid-gap: 24px`
+- `.ui-grid-12` / `.ui-col-1-7` (plan) / `.ui-col-8-12` (telemetry)
+- Telemetry starts at column 8 and is left-aligned inside its area instead of
+  being flushed to the right edge.
+- Toolbar and transcript padding now use the same `--ui-max`/`--ui-gutter` math.
+- Below 900px the grid collapses to one column and both bands span `1 / -1`.
+
+The responsive reset is declared after the explicit placements so the narrow
+layout cannot fall back into implicit columns. `tests/recording-structure.test.mjs`
+locks the HTML classes and CSS tokens.

@@ -4,18 +4,28 @@ import fs from "node:fs";
 import path from "node:path";
 
 const html = fs.readFileSync(path.join(process.cwd(), "public", "recording.html"), "utf8");
+const css = fs.readFileSync(path.join(process.cwd(), "public", "runs.css"), "utf8");
 
 test("recording page keeps its semantic structure and information surfaces", () => {
-  // Semantic grouping for the status header.
+  // Semantic grouping for the status header and the shared 12-column grid.
+  assert.match(html, /<div class="status-inner ui-grid-12">/);
   assert.match(html, /<header class="status-head" aria-label="Run status">/);
-  assert.match(html, /<section id="planPanel" class="status-plan" aria-label="Current plan">/);
-  assert.match(html, /<section id="telemetryPanel" class="status-telemetry" aria-label="Live telemetry">/);
+  assert.match(html, /<section id="planPanel" class="status-plan ui-col-1-7" aria-label="Current plan">/);
+  assert.match(
+    html,
+    /<section id="telemetryPanel" class="status-telemetry ui-col-8-12" aria-label="Live telemetry">/,
+  );
   // Transcript pane + labelled toolbar groups.
   assert.match(html, /<main class="transcript-pane">/);
   assert.match(html, /id="transcriptTools"[^>]*role="toolbar"[^>]*aria-label="Transcript filters"/);
   assert.match(html, /id="filterGroup"[^>]*role="group"[^>]*aria-label="Filter by category"/);
   assert.match(html, /class="icon icon-search"/);
   // Existing information + icon hooks must survive the structural refactor.
+  // The shared grid tokens and helpers exist and are reused by the page bands.
+  assert.match(css, /--ui-max: 1080px/);
+  assert.match(css, /\.ui-grid-12 \{/);
+  assert.match(css, /\.ui-col-1-7 \{/);
+  assert.match(css, /\.ui-col-8-12 \{/);
   for (const id of [
     "agentStatus",
     "statusToggle",

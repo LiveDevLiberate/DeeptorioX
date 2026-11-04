@@ -9,6 +9,18 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Shared 12-column grid for the recording window.** The wide layout now uses
+  `--ui-max: 1080px`, `--ui-gutter: 22px` and `.ui-grid-12` with
+  `.ui-col-1-7` (plan) / `.ui-col-8-12` (metrics + radar). Telemetry starts at
+  column 8 and is left-aligned inside its area instead of being flushed to the
+  right edge; toolbar and transcript padding use the same container math. The
+  grid collapses to one column at 900px with a late responsive reset so narrow
+  layouts cannot inherit implicit grid columns. Structure test covers the HTML
+  grid classes and CSS tokens.
+
+## [0.21.0] - 2026-11-05
 ## [0.21.0] - 2026-11-04
 
 ### Changed

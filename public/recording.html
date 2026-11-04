@@ -3,15 +3,15 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Agent transcript</title><link rel="stylesheet" href="/runs.css"></head>
 <body class="recording">
 <div id="agentStatus">
-  <div class="status-inner">
+  <div class="status-inner ui-grid-12">
     <header class="status-head" aria-label="Run status">
       <div class="status-line"><button id="statusToggle" class="status-toggle" type="button" aria-label="Toggle status details" aria-expanded="true"><span class="status-toggle-label">Stats</span></button><span id="statusState" class="status-badge">…</span><span id="statusActivity" class="status-activity">—</span><span id="stateTimer" class="state-timer" hidden></span><span id="statusMeta" class="status-meta"></span></div>
     </header>
-    <section id="planPanel" class="status-plan" aria-label="Current plan">
+    <section id="planPanel" class="status-plan ui-col-1-7" aria-label="Current plan">
       <div id="statusCurrent" class="status-current" hidden></div>
       <div id="statusDone" class="status-done"></div>
     </section>
-    <section id="telemetryPanel" class="status-telemetry" aria-label="Live telemetry">
+    <section id="telemetryPanel" class="status-telemetry ui-col-8-12" aria-label="Live telemetry">
       <div class="status-data">
         <div id="statusMetrics" class="status-metrics"></div>
         <div id="statusScores" class="status-scores"></div>
