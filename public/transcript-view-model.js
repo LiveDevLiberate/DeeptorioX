@@ -500,6 +500,55 @@ export function sparkTrend(values) {
   return { direction: percent > 0 ? "up" : "down", percent: Math.abs(percent) };
 }
 
+/** Six scored subtasks used by the STATE.md radar chart. */
+export const SCORE_AXES = ["production", "logistics", "mining", "research", "defense", "exploration"];
+
+/**
+ * Geometry for a compact hexagonal score radar. Coordinates are an SVG
+ * viewBox of `size` x `size`; the polygon uses each score clamped to 0..100.
+ */
+export function radarGeometry(scores, options = {}) {
+  const size = Math.max(40, Number(options.size) || 96);
+  const center = size / 2;
+  const radius = Math.max(10, Number(options.radius) || size * 0.32);
+  const labelRadius = radius + Math.max(7, size * 0.1);
+  const max = Number(options.max) > 0 ? Number(options.max) : 100;
+  const active = String(options.active || "");
+  const ring = (fraction) =>
+    SCORE_AXES.map((_, index) => {
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / SCORE_AXES.length;
+      return `${(center + Math.cos(angle) * radius * fraction).toFixed(2)},${(
+        center +
+        Math.sin(angle) * radius * fraction
+      ).toFixed(2)}`;
+    }).join(" ");
+  const axes = SCORE_AXES.map((key, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI * 2) / SCORE_AXES.length;
+    const raw = Number(scores?.[key]);
+    const value = Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 0;
+    return {
+      key,
+      value,
+      active: key === active,
+      x: center + Math.cos(angle) * radius * (value / max),
+      y: center + Math.sin(angle) * radius * (value / max),
+      axisX: center + Math.cos(angle) * radius,
+      axisY: center + Math.sin(angle) * radius,
+      labelX: center + Math.cos(angle) * labelRadius,
+      labelY: center + Math.sin(angle) * labelRadius,
+      labelAnchor: Math.abs(Math.cos(angle)) < 0.25 ? "middle" : Math.cos(angle) > 0 ? "start" : "end",
+    };
+  });
+  return {
+    size,
+    center,
+    radius,
+    rings: [0.25, 0.5, 0.75, 1].map(ring),
+    axes,
+    polygon: axes.map((axis) => `${axis.x.toFixed(2)},${axis.y.toFixed(2)}`).join(" "),
+  };
+}
+
 /** Parse JSONL telemetry samples (raw text → objects, skipping malformed lines). */
 export function parseTelemetryLines(text) {
   const samples = [];

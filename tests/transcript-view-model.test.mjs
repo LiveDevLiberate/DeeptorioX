@@ -348,6 +348,23 @@ test("decision detection, mini bars and telemetry helpers", async () => {
   assert.equal(model.telemetryPowerSatisfaction(withPower), 0.98);
 });
 
+test("radarGeometry builds six clamped axes for the score radar", async () => {
+  const model = await import("../public/transcript-view-model.js");
+  const geometry = model.radarGeometry(
+    { production: 50, logistics: 150, mining: -20, research: 40, defense: 0, exploration: 60 },
+    { size: 96, radius: 30, active: "production" },
+  );
+  assert.equal(geometry.axes.length, 6);
+  assert.equal(geometry.rings.length, 4);
+  assert.equal(geometry.polygon.split(" ").length, 6);
+  assert.deepEqual(
+    geometry.axes.map((axis) => axis.value),
+    [50, 100, 0, 40, 0, 60],
+  );
+  assert.equal(geometry.axes.find((axis) => axis.key === "production")?.active, true);
+  assert.equal(geometry.axes.filter((axis) => axis.active).length, 1);
+});
+
 test("telemetryMarkers reports research, production starts and rockets", async () => {
   const model = await import("../public/transcript-view-model.js");
   const previous = {

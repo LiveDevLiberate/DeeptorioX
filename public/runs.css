@@ -3029,3 +3029,71 @@ body.recording .status-line .status-toggle[aria-expanded="true"] {
 .penalty-details .penalty-state {
   color: var(--amber);
 }
+
+/* Compact score radar for STATE.md subtask tendencies. */
+.status-scores {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+}
+.score-radar {
+  display: block;
+  width: 96px;
+  height: 96px;
+  overflow: visible;
+}
+.score-radar .radar-ring {
+  fill: none;
+  stroke: #22333a;
+  stroke-width: 1;
+}
+.score-radar .radar-axis {
+  stroke: #1d2a30;
+  stroke-width: 1;
+}
+.score-radar .score-polygon {
+  fill: rgba(122, 162, 247, 0.16);
+  stroke: #7aa2f7;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.score-radar .score-dot {
+  fill: #7aa2f7;
+}
+.score-radar .score-dot.active {
+  fill: #a8c4ff;
+  stroke: #dbe7ff;
+  stroke-width: 0.8;
+}
+.score-radar .radar-label {
+  fill: #8fa5a0;
+  font-size: 8.5px;
+  font-family: -apple-system, "Segoe UI", sans-serif;
+}
+.score-radar .radar-label.active {
+  fill: #a8c4ff;
+  font-weight: 600;
+}
+
+/* Metrics table and score radar share one compact data row. */
+.status-data {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  min-width: 0;
+}
+.status-data > .status-metrics {
+  margin-top: 0;
+}
+.status-data > .status-scores {
+  margin-top: 2px;
+}
+#agentStatus.collapsed .status-data {
+  display: none;
+}
+@media (max-width: 560px) {
+  .status-data {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

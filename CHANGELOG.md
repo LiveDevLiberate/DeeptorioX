@@ -9,6 +9,17 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **STATE.md score tendencies use a compact radar chart.** The six horizontal
+  score bars were replaced by a 96 px hexagonal SVG radar (production, logistics,
+  mining, research, defense, exploration) placed beside the metrics table, so the
+  status header does not grow taller. Labels follow the run language, the active
+  subtask's axis is highlighted, each point has a score tooltip, and the polygon
+  is clamped to 0–100. Geometry is a DOM-free `radarGeometry()` helper covered by
+  tests.
+
+## [0.17.0] - 2026-11-05
 ## [0.17.0] - 2026-11-04
 
 ### Added

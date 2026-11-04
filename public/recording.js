@@ -21,6 +21,8 @@ import {
   telemetryPowerSatisfaction,
   telemetryMarkers,
   sparkTrend,
+  SCORE_AXES,
+  radarGeometry,
   formatDurationText,
 } from "./transcript-view-model.js";
 const output = document.getElementById("codexOutput");
@@ -430,6 +432,59 @@ function updateStateTimer(run) {
   stateTimer.title = text.stateTimerTitle;
   stateTimer.hidden = false;
 }
+function svgElement(tag, attributes = {}) {
+  if (typeof document.createElementNS !== "function") return null;
+  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, String(value));
+  return node;
+}
+/** Compact hexagonal radar for the six STATE.md scores. */
+function renderScoreRadar(scores, activeKey) {
+  if (!SCORE_AXES.some((key) => scores[key] != null)) return null;
+  const geometry = radarGeometry(scores, { size: 96, radius: 30, active: activeKey });
+  const svg = svgElement("svg", {
+    viewBox: `0 0 ${geometry.size} ${geometry.size}`,
+    class: "score-radar",
+    role: "img",
+    "aria-label": SCORE_AXES.map((key) => `${key} ${scores[key] ?? 0}`).join(", "),
+  });
+  if (!svg) return null;
+  for (const points of geometry.rings) {
+    svg.append(svgElement("polygon", { points, class: "radar-ring" }));
+  }
+  for (const axis of geometry.axes) {
+    svg.append(
+      svgElement("line", {
+        x1: geometry.center,
+        y1: geometry.center,
+        x2: axis.axisX.toFixed(2),
+        y2: axis.axisY.toFixed(2),
+        class: "radar-axis",
+      }),
+    );
+  }
+  svg.append(svgElement("polygon", { points: geometry.polygon, class: "score-polygon" }));
+  for (const axis of geometry.axes) {
+    svg.append(
+      svgElement("circle", {
+        cx: axis.x.toFixed(2),
+        cy: axis.y.toFixed(2),
+        r: axis.active ? 2.4 : 1.6,
+        class: axis.active ? "score-dot active" : "score-dot",
+      }),
+    );
+    const label = svgElement("text", {
+      x: axis.labelX.toFixed(2),
+      y: (axis.labelY + 2.5).toFixed(2),
+      "text-anchor": axis.labelAnchor,
+      class: axis.active ? "radar-label active" : "radar-label",
+    });
+    label.textContent = strings().subtasks[axis.key] || axis.key;
+    label.setAttribute("title", `${axis.key}: ${axis.value}`);
+    svg.append(label);
+  }
+  return svg;
+}
 function renderStatus(run) {
   if (!statusState || !statusScores) return;
   currentRun = run;
@@ -492,25 +547,15 @@ function renderStatus(run) {
     statusScores.replaceChildren();
     return;
   }
-  statusScores.replaceChildren(
-    ...SUBTASKS.map((key) => {
-      const row = element("div", "", "score");
-      const label = element("span", strings.subtasks[key] || key, "score-label");
-      label.title = key;
-      if (
+  const activeSubtask =
+    SUBTASKS.find(
+      (key) =>
         current.toLowerCase().includes(key) ||
-        (strings.subtasks[key] && current.includes(strings.subtasks[key]))
-      )
-        row.classList.add("active");
-      row.append(label);
-      const track = element("div", "", "score-track");
-      const fill = element("div", "", "score-fill");
-      fill.style.width = `${Math.max(0, Math.min(100, scores[key] || 0))}%`;
-      track.append(fill);
-      row.append(track, element("span", scores[key] == null ? "—" : String(scores[key]), "score-value"));
-      return row;
-    }),
-  );
+        (strings.subtasks[key] && current.includes(strings.subtasks[key])),
+    ) || "";
+  const radar = renderScoreRadar(scores, activeSubtask);
+  if (radar) statusScores.replaceChildren(radar);
+  else statusScores.replaceChildren(element("span", "", "score-radar-fallback"));
 }
 function strings() {
   return I18N[uiLang || "en"] || I18N.en;
