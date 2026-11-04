@@ -74,6 +74,8 @@ and `AUTORIO_DATA_DIR` (README "Parallel evaluation cluster").
 | Transport | `src/http/router.ts`, `src/http/static.ts` | Method/path/regex route matcher with params, and static UI serving (content types, `/runs.html` redirect, path safety, no-store caching). |
 | Transport | `src/api/{context,shared,agent,jobs,runs,server,saves,manager}.ts` | `ApiContext` wiring plus endpoint groups (agent observe/action, action jobs, runs, server/RCON/saves, manager/shutdown, health); handlers preserve the exact envelopes/status codes. |
 | Transport | `src/action-jobs.ts` | Serialized action-job queue: statuses/progress, ordered one-at-a-time execution, idempotency keys, one-hour retention, internal loopback dispatch with a 30-minute safety timeout. Injected into `src/api/jobs.ts`. |
+| Observe | `src/telemetry-sampler.ts`, `src/observation-builders.ts`, `src/api/telemetry.ts` | Manager-side production ring buffer (sampled every 5 s independently of benchmark runs, unref'd timer, fail-soft) with per-minute rates, plus read-only `observe/production`, `observe/fluids` and `observe/combat` endpoints (pure Lua builders in `observation-builders.ts`). |
+| Operate | `src/area-edit.ts`, `src/api/area-edit.ts` | `observe/area` deconstruction planning scans and reach-checked `copy-settings` (dry-run + synchronous paste via the verified `LuaEntity:copy_settings` API, native reach enforced; client moves first). |
 | Transport | `src/command-builders.ts` | Pure `/sc` Lua builders for builds, clearing, destinations, observations, crafting/research and map queries; unit-tested without a manager or game. |
 | Boundaries | `src/validation.ts` | Zero-dependency `unknown` guards for RCON/Lua replies, HTTP bodies and agent events (`asRecord`, `parseJson`, `arrayOf`, `invalidFields`, …); the typed-boundary layer replacing `: any` incrementally. |
 | Operate | `src/logger.ts`, `src/health.ts` | Zero-dependency structured logger (JSONL `manager.log` + stderr mirror, secret redaction, child context) and the `GET /api/health` payload/status-code builder. |
@@ -94,7 +96,7 @@ and `AUTORIO_DATA_DIR` (README "Parallel evaluation cluster").
 | Observe | `src/vision.ts`, `scripts/capture-window.ps1` | Windows-only screenshot observation; `POST /api/agent/observe/visual` returns validated PNG base64. |
 | Record | `src/obs-client.ts`, `src/obs.ts` | Localhost OBS v5 control, run-owned profile/scene, two-window composition, safe restore (`ObsRunRecorder`). |
 | Record | `src/timelapse.ts`, `native/timelapse.swift`, `scripts/narrate.ps1` | 5 fps → silent 30 fps H.264 MP4 (6×) via AVFoundation/FFmpeg with metadata verification; Windows TTS narration. |
-| Interfaces | `factorio.py` | Importable Python client + CLI: `FactorioClient`, action/job helpers, `wait_for_*`, belt/loader builders, `argparse` surface. |
+| Interfaces | `factorio.py` | Importable Python client + CLI: `FactorioClient`, action/job helpers, condition waits, belt/loader builders, blueprint-string codec + `build_blueprint` (chunked jobs, dry-run preflight), `observe_snapshot`/`observe_production`/`observe_fluids`/`observe_combat`/`observe_area`, copy-settings and pure construction planners (pipe/power/inserter/mining/defense). |
 | Interfaces | `autorio_types.py`, `autorio_gym.py`, `autorio_trajectory.py` | Typed observation dataclasses; dependency-free Gym-style `FactorioEnv`; SQLite (WAL) episode/step store. |
 | Interfaces | `public/` | Operator UI: `index`+`runs.js` (launch/history), `run`+`run.js` (details), `compare`, `recording`+`recording.js` (transcript/status bar), renderers, `production-chart.js`, `runs.css`. |
 | Interfaces | `scripts/cluster.mjs`, `scripts/cluster-lib.mjs` | Cluster supervisor and side-effect-free helpers for instance planning, env, metadata, run requests. |
@@ -225,8 +227,7 @@ manually.
   method and CLI subcommand, cover it in `scripts/api-selftest.py`, and add an MCP
   tool or Gym action if it belongs there.
 - **New MCP tool** — add a `ToolDefinition` to `TOOLS` in `src/mcp-server.ts`
-  (`inputSchema` + `request()`, `jobRequest()` for actions). stdout stays
-  protocol-only; diagnostics go to stderr; test it in
+  (`inputSchema` + `request()`, `jobRequest()` for actions). stdout stays  protocol-only; diagnostics go to stderr; test it in
   `tests/mcp-server.test.mjs` against its fake HTTP server.
 - **New agent backend** — extend the `Run["agent"]` union, CLI/UI presets, add a
   `checkAgent()` version probe and a launch method emitting the shared transcript

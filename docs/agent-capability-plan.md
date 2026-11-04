@@ -65,6 +65,38 @@ build clearing, condition waits, batch arrays (up to 50 entities/targets per job
 Effort in engineer-days, parallelizable across two agents.
 
 ### P0 — next batch (≈ 7–9 days)
+
+Implementation status (2026-11-04, current batch):
+- P0-1 blueprint pipeline: **done** in the Python client (`decode_blueprint_string`,
+  `encode_blueprint_string`, `expand_blueprint`, `FactorioClient.build_blueprint` with chunked
+  jobs, dry-run placement and missing-items preflight, CLI `act-build-blueprint`). Server-side
+  blueprint endpoint, recipes/filters/modules/quality and MCP/Gym wrappers remain follow-ups.
+- P0-2 telemetry/snapshot: **done**. Server side: `src/telemetry-sampler.ts` (independent 5 s
+  sampler, unref'd timer, RCON-connected gate) + `/api/agent/observe/production|fluids|combat`.
+  Client side: `observe_snapshot` (player+factory+research+production with per-part errors),
+  `observe_fluids/combat/area`, `wait_for_production`, `wait_for_fluid`. `recent_damage` deltas
+  remain client-computed. Live-validated on a real Windows game (production rates, 85-pipe fluid
+  scan, combat scan, area scan).
+- P0-3 planners: **done (surface plan)** in the Python client — `plan_pipe_line`/`build_pipe_line`,
+  `plan_power_network`/`build_power_network`, `plan_inserter_pairs`, `plan_mining_outpost`,
+  `plan_defense_line`, plus `plan_build` dry-run placement/missing-item preflight. Underground
+  belt/pipe-to-ground pairs are **deferred**: Factorio 2.1 `LuaPlayer.build_from_cursor` has no
+  input/output subtype parameter, so the native build path cannot place them reliably (documented
+  limitation; needs a blueprint-paste/ghost-based build path first). Planners place geometry only,
+  recipes/filters follow with `act-set-recipe`.
+- P0-4 area edit: **done** server-side (`/api/agent/observe/area`, copy-settings dry-run +
+  synchronous reach-checked `act/copy-settings` using the verified `LuaEntity:copy_settings`
+  API). Deconstruction stays client-driven (observe area -> act-mine batch).
+- P0-5 cookbook: **done** (`runs/run_template/COOKBOOK.md` copied into every run workspace and
+  referenced from the agent prompt/playbook).
+
+Live validation (2026-11-04, Windows test copy, real graphical Factorio 2.1 + RCON): started the
+compiled manager, hosted `clear-test.zip`, unpaused via RCON, then exercised the new endpoints on a
+live save — `observe/production` returned a real 26–28-sample window/research state, `observe/fluids`
+scanned 85 pipes, `observe/combat` returned the player (health 250) with no enemies/peaceful map,
+`observe/area` matched 239 of 240 entities, `copy-settings` correctly refused out-of-reach pipes and
+succeeded (with `removed_items`) after a native `act-move`; the Python client's `observe_snapshot`,
+blueprint dry-run and planners also ran against the live manager. Manager/game shut down cleanly.
 1. **Blueprint pipeline** (≈2–3 d)
    - Python: `decode_blueprint(str)` / `encode_blueprint(dict)` using stdlib `base64+zlib+json`
      (Factorio 2.x blueprint string format), `FactorioClient.build_blueprint(str, *, clear=True,

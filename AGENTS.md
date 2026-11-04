@@ -87,6 +87,7 @@
   - `GET /api/health`: 200 when all probes pass, 503 `degraded` with a `problems` list otherwise
   - `GET /api/saves`, `GET /api/server/logs`, `POST /api/rcon/command`
   - Agent endpoints under `/api/agent/...` for observe/actions (world, player, research, recipes, build, mine, rotate, set-recipe, craft, insert, extract, resources, entity-prototype).
+  - Agent capability endpoints: `POST /api/agent/observe/production` (per-minute rates from the manager's independent sampler), `/observe/fluids`, `/observe/combat`, `/observe/area` (deconstruction planning), `/observe/copy-settings` (dry-run) and `/act/copy-settings` (synchronous reach-checked settings paste). The telemetry sampler runs every 5 s while RCON is connected and is independent of benchmark runs.
 - CLI mirrors these as commands like `server-status`, `observe-world`, `act-build`, etc. See `python3 factorio.py --help` for commands.
 
 ## Notes and known gaps

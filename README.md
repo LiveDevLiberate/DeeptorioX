@@ -409,7 +409,14 @@ overridable via the `save` dispatch input), unpauses the game through RCON and r
 `npm run selftest`, always stopping the manager afterwards; the runner needs Steam
 signed in, the game installed and Node 24. Logs are uploaded as workflow artifacts.
 
-Agent observation endpoints include `/api/agent/observe/factory` (power/fuel/status summary).
+Agent observation endpoints include `/api/agent/observe/factory` (power/fuel/status summary),
+`/observe/production` (per-minute mined/produced/consumed rates from the manager's 5 s sampler,
+independent of runs), `/observe/fluids` (tank/pipe/refinery fluid amounts), `/observe/combat`
+(enemy nests/units, turret ammo, player health), `/observe/area` (deconstruct-planning entity list)
+and `/observe/copy-settings` + `/act/copy-settings` (dry-run/reach-checked settings paste). The
+Python client adds `observe_snapshot`, `wait_for_production`, blueprint support
+(`build_blueprint`/`decode_blueprint_string`) and construction planners (pipe lines, power
+networks, inserter pairs, mining outposts, defense lines).
 
 Run endpoints:
 

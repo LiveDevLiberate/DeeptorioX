@@ -97,6 +97,20 @@ grouped by theme.
   as well (explicit request/response interfaces + `parseBuildRequests`/`normalize*` helpers),
   taking the repo from 178 to **0** `no-explicit-any` warnings; Node suite is now 221 tests
   with the coverage gate at ~83.7/84.7/87.3 (thresholds 82/78/84).
+- **Agent capability P0 (interfaces).** The manager now samples production every 5 s independently
+  of benchmark runs and exposes `/api/agent/observe/production` (per-minute rates/deltas/research/
+  rockets), `/observe/fluids` (tank/pipe/refinery fluid amounts), `/observe/combat` (enemy
+  nests/units, turret ammo, player health) and `/observe/area` (deconstruction planning). Area
+  editing adds `/observe/copy-settings` (dry-run reach/compat) and `/act/copy-settings`
+  (synchronous, reach-checked `LuaEntity:copy_settings` paste) registered ahead of the action-job
+  guard. The Python client gains Factorio blueprint-string support (`decode/encode_blueprint_string`,
+  `expand_blueprint`, `FactorioClient.build_blueprint` with chunked jobs + dry-run/missing-items
+  preflight and CLI `act-build-blueprint`), `observe_snapshot`/`wait_for_production` and pure
+  construction planners (pipe lines, power networks, inserter pairs, mining outposts, defense
+  lines). A design cookbook (`runs/run_template/COOKBOOK.md`: bootstrap/smelting/power/assembler/
+  science/oil/defense layouts, observation checklists, error-recovery matrix) is copied into every
+  run workspace and referenced by the agent prompt. Underground belt/pipe pairs remain deferred
+  because the native `build_from_cursor` API has no input/output subtype parameter.
 - **UI and recording.** A compact, English/Simplified-Chinese transcript
   status bar (state/activity/time/tokens, current subtask and done condition,
   six subtask scores, collapse for narrow windows); OpenCode reasoning
