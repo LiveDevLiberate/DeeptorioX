@@ -148,7 +148,8 @@ States (`RunState` in `src/runs.ts`): `preparing`, `launching`, `running`, `savi
 1. **Start** — `POST /api/runs` (dashboard, CLI, cluster) calls
    `RunManager.start()`, which allocates a run id/name and writes `run.json`.
 2. **Prepare** — `workspace/` gets a frozen `factorio.py` and the playbook from
-   `runs/run_template/AGENTS.md`, plus `TASK.md`/`benchmark.json`; versions and
+   `runs/run_template/AGENTS.md`, plus `TASK.md`/`benchmark.json` and the design
+  cookbook `COOKBOOK.md`; versions and
    SHA-256 hashes are recorded. The fixed-seed baseline is cached under
    `.autorio/baselines/<hash>/baseline.zip` (keyed by Factorio version + map
    settings + mod hash), generated once with `createMap()`, and copied per run as
@@ -162,7 +163,7 @@ States (`RunState` in `src/runs.ts`): `preparing`, `launching`, `running`, `savi
    optional OBS capture start, the game is unpaused (`game.speed = 1`), baseline
    research milestones are marked `initial`, and the agent is spawned.
 4. **Agent** — the backend runs in the workspace with `FACTORIO_API_BASE` and
-   `PYTHONPATH`; its prompt points at `AGENTS.md`/`TASK.md` and the Python client.
+   `PYTHONPATH`; its prompt points at `AGENTS.md`/`COOKBOOK.md`/`TASK.md` and the Python client.
    stdout is parsed into transcript events (`agent.events.jsonl`, `codex.log`);
    session id, token/context counters, and quota errors update `run.json`.
 5. **Telemetry and scoring** — a monitor samples every `sample_seconds`, appends
@@ -270,6 +271,6 @@ manually.
 ## 10. Further reading
 
 - `README.md` (user manual), `CONTRIBUTING.md` (setup, gates, tests, style, recipes).
-- `CHANGELOG.md` (current batch); `AGENTS.md` and `runs/run_template/AGENTS.md`
-  (agent summaries and the run playbook).
+- `CHANGELOG.md` (current batch); `AGENTS.md`, `runs/run_template/AGENTS.md` and
+  `runs/run_template/COOKBOOK.md` (agent summaries, the run playbook and the design cookbook).
 - `docs/agent-capability-plan.md` (agent capability gaps, blueprint/telemetry/planner roadmap).

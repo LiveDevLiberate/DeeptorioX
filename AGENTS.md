@@ -29,6 +29,7 @@
 - `native/recording-window.swift`, `src/recording-window.ts`: standalone recording window (WKWebView via Swift on macOS, Chromium app mode on Windows) that watches run.json and closes two seconds after a terminal run state; no Accessibility permission or automatic window arrangement.
 - `src/run-terminal.ts`, `src/terminal-view.ts`: Terminal (macOS) or a dedicated console window (Windows) running a direct viewer of native `codex exec` output, with no custom banner or interactive shell.
 - `benchmarks/*.json`: versioned seed, task, inventory, limits and milestone definitions.
+- `runs/run_template/{AGENTS.md,COOKBOOK.md}`: the run playbook (subtask loop, scoring, discipline) and the design cookbook (layouts, observation checklists, error-recovery matrix), copied into every run workspace and referenced by the agent prompt.
 - `docs/architecture.md`, `CONTRIBUTING.md`, `CHANGELOG.md`: architecture, contribution workflow/quality gates, and release history.
 - `.github/workflows/ci.yml`: CI matrix (Ubuntu Node 20, Windows Node 24) running build, Node/Python tests, repo hygiene and Prettier check.
 - `src/logger.ts`, `src/health.ts`: structured JSONL logging + `GET /api/health`.

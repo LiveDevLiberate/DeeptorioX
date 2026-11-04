@@ -280,7 +280,8 @@ test("dsh agent runs headless, translates its event stream, and records usage", 
     const args = JSON.parse(fs.readFileSync(path.join(working, "dsh-args.json"), "utf8"));
     assert.deepEqual(args.slice(0, 2), ["--profile", "headless"]);
     const stdinText = fs.readFileSync(path.join(working, "dsh-stdin.txt"), "utf8");
-    assert.match(stdinText, /Read AGENTS\.md and TASK\.md/);
+    assert.match(stdinText, /Read AGENTS\.md, COOKBOOK\.md and TASK\.md/);
+    assert.ok(fs.existsSync(path.join(folder, "workspace", "COOKBOOK.md")));
     assert.match(stdinText, process.platform === "win32" ? /play\.(cmd|ps1)/ : /play\.sh/);
     assert.match(stdinText, /never sleep longer than 10 seconds/i);
     const childEnv = JSON.parse(fs.readFileSync(path.join(working, "dsh-env.json"), "utf8"));

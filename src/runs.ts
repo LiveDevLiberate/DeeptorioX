@@ -581,9 +581,11 @@ export class RunManager {
     this.checkCancelled();
     const client = fs.readFileSync(path.join(ROOT, "factorio.py"));
     const instructions = fs.readFileSync(path.join(ROOT, "runs/run_template/AGENTS.md"));
+    const cookbook = fs.readFileSync(path.join(ROOT, "runs/run_template/COOKBOOK.md"));
     if (!resuming) {
       fs.writeFileSync(path.join(workspace, "factorio.py"), client);
       fs.writeFileSync(path.join(workspace, "AGENTS.md"), instructions);
+      fs.writeFileSync(path.join(workspace, "COOKBOOK.md"), cookbook);
     }
     fs.writeFileSync(
       path.join(workspace, "TASK.md"),
@@ -603,6 +605,7 @@ export class RunManager {
       run.hashes = {
         client: sha256(client),
         instructions: sha256(instructions),
+        cookbook: sha256(cookbook),
         benchmark: sha256(JSON.stringify(run.benchmark)),
         harness: sha256(
           ["server.ts", "runtime.ts", "runs.ts", "benchmarks.ts"]

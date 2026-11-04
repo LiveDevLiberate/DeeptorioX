@@ -68,7 +68,8 @@ const RESUME_PROMPT =
 const RESTART_PROMPT =
   "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. ";
 const BASE_TASK_PROMPT =
-  "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
+  "Read AGENTS.md, COOKBOOK.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
+  "The cookbook has proven layouts and the error-recovery matrix; follow it before inventing new designs. " +
   "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
 
 /** Optional output-language instruction; empty when the run uses the default. */

@@ -10,6 +10,8 @@ Read `TASK.md` and complete the objective in the running Factorio game as quickl
 
 Prioritize useful in-game progress and the critical path to the objective. Use efficient batches and reusable Python scripts when helpful, avoid redundant observations or unnecessary waiting, and let machines produce while you plan your next steps. Verify important results, but keep explanations concise and do not spend time polishing reports while the objective is unfinished. Do not stop until the objective is actually complete. Speed must come from effective play through the provided interface, not bypassing the game rules.
 
+Before building more than a single machine, read `COOKBOOK.md` in this workspace: it contains proven layouts (mining/smelting rows, power block, assembler patterns, green science, oil, defense), per-subtask observation checklists, and the error-recovery matrix. Reuse those patterns instead of re-deriving them.
+
 ## Core subtask loop
 
 The game reduces to six repeating subtasks. Do not wander: score them, choose

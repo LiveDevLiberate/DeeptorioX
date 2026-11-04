@@ -40,7 +40,11 @@ test("agentPrompt composes language, discipline and base instructions", () => {
   const fresh = agentPrompt({ resume: false, restart: false });
   assert.match(fresh, /Never run a shell `sleep` longer than 10 seconds\./);
   assert.match(fresh, /Batch at least five related actions or observations per tool call/);
-  assert.match(fresh, /Read AGENTS\.md and TASK\.md, then play Factorio through the Python library/);
+  assert.match(
+    fresh,
+    /Read AGENTS\.md, COOKBOOK\.md and TASK\.md, then play Factorio through the Python library/,
+  );
+  assert.match(fresh, /proven layouts and the error-recovery matrix/);
   assert.match(fresh, /Do not manage game processes or access raw RCON\.$/);
   assert.doesNotMatch(fresh, /Continue the same benchmark/);
 
