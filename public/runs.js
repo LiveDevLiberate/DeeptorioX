@@ -54,6 +54,12 @@ async function refresh() {
       $("detailsLink").href = detailsUrl(current.id);
       $("detailsLink").hidden = false;
     }
+    const active = Boolean(current && activeStates.includes(current.state));
+    $("pause").disabled = !current || current.state !== "running";
+    $("pause").hidden = !active;
+    $("stop").disabled = !active;
+    $("resume").hidden = !current || current.state !== "paused" || !current.resumable;
+    $("resume").disabled = !current?.resumable || current?.video?.state === "rendering";
     $("error").textContent = "";
   } catch (error) {
     $("error").textContent = error.message;
@@ -84,6 +90,28 @@ $("launchForm").onsubmit = async (event) => {
   } catch (error) {
     $("error").textContent = error.message;
     $("launch").disabled = false;
+  }
+};
+$("pause").onclick = async () => {
+  if (!currentId) return;
+  $("pause").disabled = true;
+  try {
+    await api(`/api/runs/${encodeURIComponent(currentId)}/pause`, {});
+    await refresh();
+  } catch (error) {
+    $("error").textContent = error.message;
+    $("pause").disabled = false;
+  }
+};
+$("resume").onclick = async () => {
+  if (!currentId) return;
+  $("resume").disabled = true;
+  try {
+    await api(`/api/runs/${encodeURIComponent(currentId)}/resume`, {});
+    await refresh();
+  } catch (error) {
+    $("error").textContent = error.message;
+    $("resume").disabled = false;
   }
 };
 $("stop").onclick = async () => {

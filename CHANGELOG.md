@@ -9,6 +9,18 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Save & resume from the web UI.** The dashboard and run-details pages now have
+  a **Pause & save** button for active runs and a **Resume** button for paused,
+  resumable runs (with checkpoint/segment info on the run page); **Stop** is back
+  to being the terminal action. `pause` saves a checkpoint, stops the agent/game
+  and keeps the run resumable across a manager restart; `resume` reloads the same
+  save, workspace and agent session as a new segment. Verified live on the rocket
+  run: paused at 125m40s, manager restarted, resumed in segment 2, and the
+  continuation prompt created STATE.md (Chinese plan/scores) immediately.
+
+## [0.12.2] - 2026-11-04
 ## [0.12.2] - 2026-11-04
 
 ### Changed

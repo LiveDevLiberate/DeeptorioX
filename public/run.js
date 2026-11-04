@@ -41,6 +41,8 @@ async function refresh() {
     $("resume").hidden = run.state !== "paused";
     $("resume").disabled = !run.resumable || run.video?.state === "rendering";
     $("resume").textContent = run.video?.state === "rendering" ? "Finishing recording…" : "Resume run";
+    $("pause").hidden = run.state !== "running";
+    $("pause").disabled = run.state !== "running";
     $("segmentsPanel").hidden = !run.segments?.length;
     $("checkpoint").textContent = run.checkpoint
       ? `Saved game: ${run.checkpoint.file} · ${new Date(run.checkpoint.saved_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" })}`
@@ -160,6 +162,16 @@ async function refresh() {
   }
 }
 $("activity").textContent = "";
+$("pause").onclick = async () => {
+  $("pause").disabled = true;
+  try {
+    await api(`/api/runs/${encodeURIComponent(id)}/pause`, {});
+    await refresh();
+  } catch (error) {
+    $("error").textContent = error.message;
+    $("pause").disabled = false;
+  }
+};
 $("stop").onclick = async () => {
   $("stop").disabled = true;
   try {

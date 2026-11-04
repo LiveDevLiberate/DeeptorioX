@@ -879,6 +879,12 @@ scripts and notes), and agent session. It also re-copies the managed profile, so
 control-mod changes take effect. A normal `stop` is terminal; use `pause` when
 you want to restart the game and continue the same run.
 
+The dashboard and run-details pages expose the same controls: **Pause & save**
+while a run is active and **Resume** (plus the saved checkpoint/segment info) for
+a paused run. Pause also stops Factorio and the recording window; resume reopens
+the game, starts a new run segment, and closes the recording window only after the
+run reaches a terminal state. A paused run survives a manager restart.
+
 ## Context limit and session restart
 
 Set `AUTORIO_CONTEXT_LIMIT=300000` (or another token count) to bound agent context.
