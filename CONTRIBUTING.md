@@ -47,13 +47,65 @@ repository hygiene + Prettier check, exactly what CI runs.
 | Command | What it checks |
 | --- | --- |
 | `npm run build` / `npm run typecheck` | TypeScript compiles to `dist/` (strict, NodeNext ESM); `typecheck` skips emit |
-| `npm run test:node` | `node --test tests/*.test.mjs` — 117 Node tests (lifecycle, agent translators, command builders, cluster, MCP, vision, observability, UI helpers, …) |
+| `npm run test:node` | `node --test tests/*.test.mjs` — 189 Node tests (lifecycle, agent translators, command builders, cluster, MCP, vision, observability, UI helpers, …) |
 | `npm run test:python` | `node scripts/run-python-tests.mjs` — unittest discovery, 59 Python client/env tests |
 | `npm test` | Build, then `test:node`, then `test:python` |
-| `npm run test:coverage` | Build, then Node's built-in `--experimental-test-coverage` (current baseline 83.88 % lines / 80.20 % branches / 86.18 % functions; no threshold enforced yet) |
+| `npm run test:coverage` / `npm run coverage` | Builds, then runs the Node suite with Node's built-in coverage through `scripts/coverage-gate.mjs`; fails below 82 % lines / 78 % branches / 84 % functions (CLI/env overrides, `--json`) |
+| `npm run lint` / `npm run lint:fix` | Type-aware ESLint (`eslint.config.mjs`): `no-floating-promises`, `no-misused-promises`, unused vars and JS recommended rules as errors; `no-explicit-any` is a warning while dynamic RCON/Lua/agent boundaries are typed incrementally |
 | `npm run check:repo` | Zero-dependency hygiene gate: required scripts/engines, strict TS + NodeNext, required files (including `docs/architecture.md`, `CONTRIBUTING.md`, `CHANGELOG.md`), no tracked build artifacts/secrets/local state, LF endings, no focused tests (`.only(`), no stray `console.log` in `src/` (logger and run CLI excepted), reproducible package script |
 | `npm run format` / `format:check` | Prettier over `src/**/*.ts`, `public/**/*.{js,css}`, `tests/**/*.mjs`, `scripts/**/*.mjs`, `package.json`, `tsconfig.json`, `.github/**/*.yml`; Markdown, HTML, Lua and generated dirs are excluded via `.prettierignore` |
 | `npm run package` / `selftest` / `doctor` | Cumulative-patch + `git archive` source zip packaging with sha256; live read-only API check against a running game; environment diagnostics |
+
+`verify` runs build + Node tests + Python tests + check:repo + format:check + lint. The
+coverage gate is a separate CI step because it re-runs the Node suite with coverage.
+
+### Git hooks
+
+Install the fast pre-commit gate once per checkout:
+
+```bash
+npm run hooks:install
+npm run hooks:check   # verify core.hooksPath points at .githooks
+```
+
+The hook runs `npm run check:repo`, `npm run format:check` and `npm run typecheck`
+(the full suite stays in `npm run verify` and CI). Bypass a WIP commit with
+`AUTORIO_SKIP_HOOKS=1 git commit ...`; the hook text explains the bypass after a
+failure.
+
+### Coverage gate
+
+`npm run coverage` runs the Node suite with Node's built-in coverage (no external
+coverage dependency) and fails below 82 % lines / 78 % branches / 84 % functions
+on the `all files` row. Override per run with
+`node scripts/coverage-gate.mjs --lines 85 --branches 80 --functions 88` or
+`AUTORIO_COVERAGE_LINES` / `AUTORIO_COVERAGE_BRANCHES` /
+`AUTORIO_COVERAGE_FUNCTIONS`; `--json` prints a machine-readable summary. `dist/`
+must exist (`npm run build`) before the gate runs.
+
+### Releases
+
+```bash
+node scripts/release.mjs patch --dry-run   # print the plan only
+node scripts/release.mjs patch             # bump, changelog, commit, tag
+```
+
+Releases require a clean tracked tree on `main`/`master` (or `--allow-branch`),
+refuse an existing tag, bump `package.json` + `package-lock.json`, move the
+CHANGELOG `[Unreleased]` body into a dated section (keeping an empty Unreleased
+section and rewriting compare links), commit `chore(release): vX.Y.Z` and create
+an annotated tag. Use `--no-commit` to review the edits first and `--tag-prefix`
+to change the tag prefix. Never rewrite a published release.
+
+### Live selftest (self-hosted Windows)
+
+`.github/workflows/live-selftest.yml` is a manual workflow for a
+`[self-hosted, windows, factorio]` runner. It hosts a baseline save, unpauses the
+game via RCON and runs the read-only `npm run selftest`, always stopping the
+manager afterwards (logs uploaded as artifacts). The runner needs Steam signed in,
+Factorio installed, Node 24 and a save under `.autorio/saves` (default
+`clear-test.zip`, overridable via the `save` dispatch input). Uncomment the cron
+and set the repository variable `AUTORIO_LIVE_SELFTEST=true` to run it nightly.
 
 ## Continuous integration
 

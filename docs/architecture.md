@@ -69,13 +69,17 @@ and `AUTORIO_DATA_DIR` (README "Parallel evaluation cluster").
 
 | Layer | File(s) | Responsibility |
 | --- | --- | --- |
-| Transport | `src/server.ts` | HTTP server (API + static files), Factorio lifecycle, RCON bridge, action job queue, native-control plumbing, `RunManager` wiring. The main monolith; pure Lua command builders are extracted to `src/command-builders.ts`. |
+| Transport | `src/server.ts` | HTTP server (API + static files + route dispatch), Factorio lifecycle, RCON bridge, native-control plumbing, `RunManager` wiring. Remaining monolith: the route table/handlers are the next extraction target. |
+| Transport | `src/action-jobs.ts` | Serialized action-job queue: statuses/progress, ordered one-at-a-time execution, idempotency keys, one-hour retention, internal loopback dispatch with a 30-minute safety timeout. Injected into `server.ts`. |
 | Transport | `src/command-builders.ts` | Pure `/sc` Lua builders for builds, clearing, destinations, observations, crafting/research and map queries; unit-tested without a manager or game. |
+| Boundaries | `src/validation.ts` | Zero-dependency `unknown` guards for RCON/Lua replies, HTTP bodies and agent events (`asRecord`, `parseJson`, `arrayOf`, `invalidFields`, …); the typed-boundary layer replacing `: any` incrementally. |
 | Operate | `src/logger.ts`, `src/health.ts` | Zero-dependency structured logger (JSONL `manager.log` + stderr mirror, secret redaction, child context) and the `GET /api/health` payload/status-code builder. |
 | Transport | `src/run-cli.ts`, `autorio`, `autorio.cmd`, `autorio.ps1` | Operator CLI and Node-finding/rebuild launchers (`start/list/show/watch/stop/pause/resume/compare`). |
 | Transport | `src/mcp-server.ts` | Dependency-free MCP stdio server: 25 tools (observations, action jobs, job status/cancel, runs/benchmarks/server status). |
 | Transport | `src/run-terminal.ts`, `src/terminal-view.ts`, `src/recording-window.ts`, `native/recording-window.swift` | Optional terminal viewer and standalone recording window (WKWebView on macOS, Edge/Chrome app window on Windows); closes 2 s after a terminal run state. |
-| Runs | `src/runs.ts` | `RunManager`: state machine, workspace prep, baseline cache, agent launch and event translation, token/context accounting, telemetry and scoring, recording hooks, save/checkpoint/resume. |
+| Runs | `src/runs.ts` | `RunManager`: state machine, workspace prep, baseline cache, spawn/close/lifecycle, token/context accounting, telemetry and scoring, recording hooks, save/checkpoint/resume. Provider specifics live in `src/agents/`. |
+| Runs | `src/agents/opencode-events.ts`, `src/agents/codex-events.ts` | Pure JSONL → transcript translators (thread/message/reasoning/command/usage/error ops) with typed appliers and reasoning dedup. |
+| Runs | `src/agents/*-launch.ts` | Pure launch specifications (prompt, args, env allow/deny list, WSL script, DSH model patch and play wrappers) for the OpenCode/Codex/DSH backends; `runs.ts` writes the files and spawns. |
 | Runs | `src/benchmarks.ts` | Loads/validates `benchmarks/*.json`; RCON telemetry command; `Snapshot` parsing and milestone `reached()` checks. |
 | Runs | `src/run-labels.ts`, `src/token-usage.ts`, `src/quota.ts` | Pacific-local labels; Codex token fallback (`last_reported`); quota detection that pauses a run. |
 | Game | `src/runtime.ts` | Paths, ports, config, isolated game profile (mod, `config.ini`, `server-settings.json`), map creation, version/Steam checks, mod hash. |
@@ -93,6 +97,8 @@ and `AUTORIO_DATA_DIR` (README "Parallel evaluation cluster").
 | Interfaces | `scripts/cluster.mjs`, `scripts/cluster-lib.mjs` | Cluster supervisor and side-effect-free helpers for instance planning, env, metadata, run requests. |
 | Tooling | `scripts/api-selftest.py`, `scripts/game-status.py`, `scripts/doctor.mjs` | Read-only live API self-test, live game helper, environment doctor. |
 | Tooling | `tests/`, `scripts/check-repo.mjs`, `scripts/package.mjs`, `.github/workflows/ci.yml` | Node/Python suites (no real game needed), repo hygiene gate, reproducible packaging, CI matrix. |
+| Tooling | `eslint.config.mjs`, `scripts/coverage-gate.mjs`, `.githooks/pre-commit`, `scripts/install-hooks.mjs` | Type-aware ESLint (`no-floating-promises`/`no-misused-promises` errors, `no-explicit-any` warning), coverage thresholds (82/78/84 via Node's built-in report), and the fast pre-commit hook (check:repo + format:check + typecheck). |
+| Tooling | `scripts/release.mjs`, `.github/workflows/live-selftest.yml`, `scripts/ci-live-selftest.ps1` | Semver/CHANGELOG/annotated-tag release automation and the manual self-hosted Windows live selftest (Steam + real game required). |
 
 ## 4. Manager ↔ game bridge
 
@@ -114,7 +120,9 @@ internal per-process header (the queue dispatches over loopback `node:http`, avo
 abort). One job runs at a time so clients can't race the player; items are split (one entity/target
 per internal request), idempotency keys are kept for an hour, and cancellation happens between
 atomic actions. Builds pre-clear reachable trees/rocks in their footprint and retry once on
-`cannot_build`.
+`cannot_build`. The queue itself lives in `src/action-jobs.ts` behind a small `ActionJobQueue`
+interface (injected logging/native-stop/run-busy hooks); the HTTP handlers in `server.ts` are thin
+delegates.
 
 **Observations and telemetry.** Read-only endpoints
 `/api/agent/observe/{world,map,player,research,recipes,connections,layout,factory,placement,resources,entity,entity-prototype}`
@@ -227,15 +235,17 @@ manually.
 
 ## 9. Known debt and limitations
 
-- **`src/server.ts` monolith** — routes, RCON bridge, action queue and game lifecycle still
-  share one module; the pure Lua builders were extracted to `src/command-builders.ts` and the
-  next natural splits are the job queue and the HTTP route table.
+- **`src/server.ts` monolith** — pure Lua builders, the action-job queue and the
+  logger/health wiring are extracted; the HTTP route table and per-endpoint handlers
+  (plus RCON bridge glue) are the next split. `src/runs.ts` keeps lifecycle/state
+  while provider translation and launch specifications live in `src/agents/`.
 - **Operational tooling gaps** — structured logs and `/api/health` exist, but there are still no
-  metrics endpoint, log rotation or alerting; CI covers build/tests/hygiene/formatting but no live
-  Factorio integration run.
-- **`any` leakage at JSON boundaries** — ~140 explicit `: any` annotations in
-  `src/` (~130 in `server.ts`); strict mode catches internal mistakes, but
-  RCON/Lua and agent-event payloads remain dynamically typed.
+  metrics endpoint, log rotation or alerting; the CI matrix runs build/tests/hygiene/formatting/
+  lint/coverage but no automatic live Factorio integration (the `Live selftest` workflow is manual
+  and self-hosted).
+- **`any` leakage at JSON boundaries** — about 180 explicit `: any` annotations remain in
+  `src/` (mostly `server.ts`); `src/validation.ts` guards are the migration path and ESLint
+  reports remaining spots as warnings rather than blocking the build.
 - **No authentication** — the HTTP API and RCON are loopback-only; the internal
   job header is a random per-process UUID, not authorization. The API assumes a
   trusted local operator/agent: run workspaces ask agents to use only the Python

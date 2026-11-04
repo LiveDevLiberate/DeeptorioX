@@ -73,6 +73,16 @@ grouped by theme.
   (`verify`, `check:repo`, `format`, `format:check`, `test:coverage`, `package`),
   the GitHub Actions CI matrix, EditorConfig/Prettier configuration, and this
   architecture/CONTRIBUTING/CHANGELOG set with a README table of contents.
+- **Engineering hardening (P2/P3).** The serialized action-job queue moved out of
+  `server.ts` into `src/action-jobs.ts`; OpenCode/Codex event translation and the
+  provider launch specifications moved into `src/agents/*` with typed op
+  appliers; a zero-dependency `src/validation.ts` boundary guard set for
+  RCON/Lua/HTTP/agent payloads; type-aware ESLint with a fast versioned
+  pre-commit hook (`npm run hooks:install`); a coverage threshold gate
+  (`npm run coverage`, 82 % lines / 78 % branches / 84 % functions) wired into
+  CI; a manual self-hosted Windows `Live selftest` workflow; and semver release
+  automation (`npm run release`, CHANGELOG section + compare links + annotated
+  tag).
 - **UI and recording.** A compact, English/Simplified-Chinese transcript
   status bar (state/activity/time/tokens, current subtask and done condition,
   six subtask scores, collapse for narrow windows); OpenCode reasoning

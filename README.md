@@ -382,14 +382,32 @@ open no recording window by default (`--no-recording`); use the printed URLs.
 
 ```bash
 npm run dev
-npm test
+npm run verify        # build + Node/Python tests + repo hygiene + Prettier + ESLint
+npm run lint          # type-aware ESLint for src/, scripts, tests and browser JS
+npm run coverage      # Node suite with built-in coverage; fails below the thresholds
 npm run selftest      # read-only 2.1 API check against a live game
+npm run release -- patch --dry-run   # preview a version bump + CHANGELOG + tag
 ```
 
 `npm test` builds TypeScript, exercises run lifecycle/independent scoring with
 fake game/agent processes, and runs the Python client tests. Actual graphical
 integration requires the installed game and Steam. `npm run dev` restarts on edits,
 which stops an active run; use a compiled manager for recordings.
+
+Formatting, hooks and releases:
+
+- `npm run format` / `npm run format:check` — Prettier for `src`, browser JS/CSS, tests, scripts and CI/config files (Markdown, HTML and Lua are excluded).
+- `npm run check:repo` — zero-dependency hygiene gate (scripts/engines, strict TS, LF endings, no focused tests, no stray `console.log`, no tracked build artifacts/secrets).
+- `npm run hooks:install` — point `core.hooksPath` at the versioned `.githooks/pre-commit`, which runs check:repo, format:check and typecheck on every commit; bypass a WIP commit with `AUTORIO_SKIP_HOOKS=1`. `npm run hooks:check` verifies the setup.
+- `npm run coverage` — Node's built-in coverage across the Node suite; the gate fails below 82% lines / 78% branches / 84% functions (override with `--lines/--branches/--functions` on `scripts/coverage-gate.mjs` or `AUTORIO_COVERAGE_*` env vars).
+- `npm run release -- <major|minor|patch|X.Y.Z>` — bumps `package.json`/`package-lock.json`, moves the CHANGELOG `[Unreleased]` section into a dated release (rewriting compare links), commits and creates an annotated tag. Use `--dry-run` first; the tree must be clean on `main`/`master`.
+
+Live selftest (self-hosted Windows): `.github/workflows/live-selftest.yml` is a
+manual workflow for a `[self-hosted, windows, factorio]` runner. It starts the
+compiled manager, hosts a save from `.autorio/saves` (default `clear-test.zip`,
+overridable via the `save` dispatch input), unpauses the game through RCON and runs
+`npm run selftest`, always stopping the manager afterwards; the runner needs Steam
+signed in, the game installed and Node 24. Logs are uploaded as workflow artifacts.
 
 Agent observation endpoints include `/api/agent/observe/factory` (power/fuel/status summary).
 

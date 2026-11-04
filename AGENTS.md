@@ -32,6 +32,12 @@
 - `docs/architecture.md`, `CONTRIBUTING.md`, `CHANGELOG.md`: architecture, contribution workflow/quality gates, and release history.
 - `.github/workflows/ci.yml`: CI matrix (Ubuntu Node 20, Windows Node 24) running build, Node/Python tests, repo hygiene and Prettier check.
 - `src/logger.ts`, `src/health.ts`: structured JSONL logging + `GET /api/health`.
+- `src/action-jobs.ts`: serialized action-job queue (statuses, progress, idempotency keys, one-hour retention, internal loopback dispatch) extracted from `server.ts`.
+- `src/agents/opencode-events.ts`, `src/agents/codex-events.ts`: pure agent-JSONL → transcript translators and applier types (no fs/net); launch specifications live in `src/agents/*-launch.ts`.
+- `src/validation.ts`: zero-dependency guards for RCON/Lua/HTTP/agent `unknown` payloads (`asRecord`, `parseJsonObject`, `arrayOf`, `invalidFields`, …); use these at dynamic boundaries instead of `: any`.
+- `eslint.config.mjs`: type-aware ESLint config (`no-floating-promises`/`no-misused-promises` as errors, `no-explicit-any` as warning).
+- `scripts/coverage-gate.mjs`, `scripts/release.mjs`, `scripts/install-hooks.mjs`, `.githooks/pre-commit`: coverage thresholds, semver/CHANGELOG/tag automation, and the fast pre-commit hook.
+- `.github/workflows/live-selftest.yml`, `scripts/ci-live-selftest.ps1`: manual self-hosted Windows live selftest (Steam + real game required).
 - `scripts/check-repo.mjs`, `scripts/package.mjs`: repository hygiene gate and reproducible release packaging.
 - `public/recording.html`, `public/runs.css`: recording page and shared styling; `public/recording.js`, `public/codex-transcript.js` render structured Codex events as messages and collapsed command groups; `public/codex-output.js` supports older native logs.
 - `.autorio/`: ignored baselines, profiles, saves, run results, logs, and credentials.
@@ -42,10 +48,14 @@
 ## Common commands
 - `npm run dev`: Run the server in watch mode (tsx).
 - `npm run build`: Compile TypeScript to `dist/`.
-- `npm run verify`: Full local gate — build, Node tests, Python client tests, repository hygiene, Prettier check. Run this before committing.
+- `npm run verify`: Full local gate — build, Node tests, Python client tests, repository hygiene, Prettier and ESLint. Run this before committing (the coverage gate is a separate CI step).
 - `npm test`: Build, Node lifecycle tests with fake processes, and Python client tests.
 - `npm run test:node` / `npm run test:python`: Run one half of the suite.
 - `npm run test:coverage`: Node's built-in coverage report for the Node tests.
+- `npm run coverage`: coverage gate — fails below 82% lines / 78% branches / 84% functions (`scripts/coverage-gate.mjs`; `--lines/--branches/--functions` or `AUTORIO_COVERAGE_*` override).
+- `npm run lint` / `npm run lint:fix`: type-aware ESLint across `src`, tests, scripts and browser JS; `no-explicit-any` is a warning until the dynamic boundaries are fully typed.
+- `npm run hooks:install` / `npm run hooks:check`: install/verify the fast pre-commit gate (`.githooks/pre-commit` runs check:repo, format:check, typecheck; `AUTORIO_SKIP_HOOKS=1` bypasses).
+- `npm run release -- <major|minor|patch|X.Y.Z>`: bump package + lock versions, move the CHANGELOG Unreleased section into a dated release, commit and create an annotated tag (`--dry-run` first; clean tree required).
 - `npm run format` / `npm run format:check`: Prettier write/check over `src`, `public` JS/CSS, `tests`, `scripts`, package metadata and CI files (markdown/HTML/Lua are excluded).
 - `npm run check:repo`: Zero-dependency repository hygiene gate (scripts/engines, strict TS, LF endings, no focused tests, no stray `console.log`, no tracked build artifacts/secrets).
 - `npm run package`: Reproducible release artifacts (cumulative patch + `git archive` zip + sha256) into the repo parent directory; `--out`, `--base`, `--name` override the defaults.
