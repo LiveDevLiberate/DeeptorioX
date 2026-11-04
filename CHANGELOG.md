@@ -9,7 +9,33 @@ commit `9e4e677` predates this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Underground belt / pipe-to-ground support.** The build action accepts a per-entity
+  `underground_type: "input" | "output"`; the manager creates the explicit subtype through a
+  dedicated Lua path (`create_entity` + item consumption, reach/collision checks) instead of the
+  native cursor path, which cannot select underground variants. The Python client expands
+  blueprint `input`/`output` subtypes into `underground_type`, ships them in every chunk, and adds
+  `plan_underground_belt_line` / `plan_underground_pipe_line` (straight axis-aligned input/output
+  pairs at tier distances 4/6/8 for belts, 10 for pipes, with surface connectors) plus
+  `build-underground-belt` / `build-underground-pipe` CLI commands. Live-validated on a real
+  Windows-hosted Factorio: pairs were created with the correct `belt_to_ground_type` subtypes and
+  the standard belt build path stayed intact.
+
 ## [0.3.0] - 2026-11-04
+
+### Added
+
+- **Agent capability P0.** Manager-side production telemetry sampler (5 s, independent of
+  benchmark runs) with `observe/production` (per-minute rates/deltas/research/rockets),
+  `observe/fluids`, `observe/combat` and `observe/area`; area editing with copy-settings
+  dry-run + synchronous reach-checked `act/copy-settings`; MCP tools for all new observations
+  (25 -> 31). Python client: Factorio blueprint-string codec + `build_blueprint` (chunked jobs,
+  dry-run placement and missing-items preflight, CLI `act-build-blueprint`),
+  `observe_snapshot`/`wait_for_production`/`wait_for_fluid`, and pure construction planners
+  (pipe lines, power networks, inserter pairs, mining outposts, defense lines) with build
+  wrappers. A design cookbook (`runs/run_template/COOKBOOK.md`) is copied into every run
+  workspace and referenced by the agent prompt.
 
 ## [0.2.1] - 2026-11-04
 
@@ -99,20 +125,6 @@ grouped by theme.
   as well (explicit request/response interfaces + `parseBuildRequests`/`normalize*` helpers),
   taking the repo from 178 to **0** `no-explicit-any` warnings; Node suite is now 221 tests
   with the coverage gate at ~83.7/84.7/87.3 (thresholds 82/78/84).
-- **Agent capability P0 (interfaces).** The manager now samples production every 5 s independently
-  of benchmark runs and exposes `/api/agent/observe/production` (per-minute rates/deltas/research/
-  rockets), `/observe/fluids` (tank/pipe/refinery fluid amounts), `/observe/combat` (enemy
-  nests/units, turret ammo, player health) and `/observe/area` (deconstruction planning). Area
-  editing adds `/observe/copy-settings` (dry-run reach/compat) and `/act/copy-settings`
-  (synchronous, reach-checked `LuaEntity:copy_settings` paste) registered ahead of the action-job
-  guard. The Python client gains Factorio blueprint-string support (`decode/encode_blueprint_string`,
-  `expand_blueprint`, `FactorioClient.build_blueprint` with chunked jobs + dry-run/missing-items
-  preflight and CLI `act-build-blueprint`), `observe_snapshot`/`wait_for_production` and pure
-  construction planners (pipe lines, power networks, inserter pairs, mining outposts, defense
-  lines). A design cookbook (`runs/run_template/COOKBOOK.md`: bootstrap/smelting/power/assembler/
-  science/oil/defense layouts, observation checklists, error-recovery matrix) is copied into every
-  run workspace and referenced by the agent prompt. Underground belt/pipe pairs remain deferred
-  because the native `build_from_cursor` API has no input/output subtype parameter.
 - **UI and recording.** A compact, English/Simplified-Chinese transcript
   status bar (state/activity/time/tokens, current subtask and done condition,
   six subtask scores, collapse for narrow windows); OpenCode reasoning

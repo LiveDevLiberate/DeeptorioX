@@ -39,6 +39,10 @@ Belt direction = the direction items move. A compact smelting row:
 
 - Belt anchors are single tiles; `build_belt_line(from, to)` builds a straight line
   (auto direction), or place `transport-belt` tiles with explicit directions.
+- Long or obstructed runs: `build_underground_belt_line(from, to, name=...)` emits
+  input/output `underground-belt` pairs (subtypes handled by the manager) with surface
+  connector tiles between pairs; tiers span 4/6/8 tiles (yellow/red/blue). Straight
+  axis-aligned lines only — chain two calls around corners.
 - Insertion is not needed between belt ends and machines: a belt pointing into a furnace feeds
   it; a belt under the furnace output picks the plate up.
 - Furnace output tile is the tile in front (direction) of the furnace; leave it empty.
@@ -96,9 +100,10 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 - `pumpjack` (3x3) on `crude-oil` tiles; pipe crude to `oil-refinery` (5x5).
 - Basic oil processing yields petroleum gas in 2.x; pipe it to `chemical-plant` for
   `plastic-bar` (petroleum + coal) and later `sulfuric-acid` (for batteries/processing units).
-- Pipes connect adjacent fluid boxes; use `pipe` + `pipe-to-ground` (underground pipe) to cross
-  belts. Verify fluid connections with `observe-connections`/`observe-entity`.
-- Store surplus petroleum in `storage-tank`; measure with `observe-fluids` when available.
+- Pipes connect adjacent fluid boxes; use `pipe` + `build_underground_pipe_line(from, to)` to cross
+  belts (input/output `pipe-to-ground` pairs with surface connectors; 10-tile spans, straight
+  axis-aligned only). Verify fluid connections with `observe-connections`/`observe-entity`.
+- Store surplus petroleum in `storage-tank`; measure with `observe-fluids`.
 
 ## 8. Defense (only when enemies exist)
 
@@ -136,14 +141,16 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 | `item inventory full` | build/inserter item shortage | craft/obtain item, check inventory counts |
 | movement timeout / `action_timeout` | long walk or stuck | move in waypoints, clear obstacles, retry once |
 
-## 11. Blueprint workflow (when the capability build is available)
+## 11. Blueprint workflow
 
 - `decode_blueprint_string(text)` / `encode_blueprint_string(dict)` for inspection.
 - `build_blueprint(text, anchor=(x,y), dry_run=True)` returns expanded entities, placement
   diagnostics and missing items; fix those first.
 - `build_blueprint(text, anchor=(x,y))` executes in <=50-entity chunks and aggregates results.
-  Prefer proven community blueprints for smelting arrays, green/red science, and oil processing
-  before inventing a layout; then adapt to available resources.
+  Underground belt / pipe-to-ground input/output subtypes are preserved (the manager creates
+  the explicit subtype and consumes the item); recipes/filters/modules still need a follow-up
+  `act-set-recipe`/manual edit. Prefer proven community blueprints for smelting arrays,
+  green/red science, and oil processing before inventing a layout; then adapt to resources.
 
 ## 12. Token and time discipline
 

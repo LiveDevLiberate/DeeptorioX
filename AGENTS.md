@@ -93,6 +93,12 @@
 ## Notes and known gaps
 - `RUN_REPORT.md` is historical; many listed gaps have already been addressed.
 - Milestones use polling (first-observed timestamps); production includes handcrafting and machines.
+- Native `/sc` build commands take `{name, anchor, direction?}` per entity; `underground-belt` and
+  `pipe-to-ground` additionally accept `underground_type: "input" | "output"`. The regular path uses
+  the player cursor (`build_from_cursor`); the underground path validates reach/collision, creates
+  the entity with the explicit subtype and consumes the place item (`create_entity` +
+  `remove_item`). Pure builders live in `src/command-builders.ts`; keep the cursor path for
+  normal entities so items/costs behave exactly like a player build.
 - `factorio-mod/autorio-control` drives native walking/pathfinding and mining each tick. Keep action cancellation, a short heartbeat lease, neutral controls on save reload, sidestep avoidance, and tree/rock clearing when the character is blocked. No teleport or fixed-delay fallback.
 - The API is a cooperative evaluation interface, not isolation against hostile agents.
 - Quota-exhausted runs become paused and can resume manually from their checkpoint and Codex session. Segments retain separate saves/videos; active time and scoring accumulate, excluding quota waits and game loading. Forced interruptions are not automatically resumed. One active game/run at a time.

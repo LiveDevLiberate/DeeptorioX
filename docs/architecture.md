@@ -125,16 +125,22 @@ internal per-process header (the queue dispatches over loopback `node:http`, avo
 abort). One job runs at a time so clients can't race the player; items are split (one entity/target
 per internal request), idempotency keys are kept for an hour, and cancellation happens between
 atomic actions. Builds pre-clear reachable trees/rocks in their footprint and retry once on
-`cannot_build`. The queue itself lives in `src/action-jobs.ts` behind a small `ActionJobQueue`
-interface (injected logging/native-stop/run-busy hooks); the HTTP handlers in `src/api/jobs.ts` are thin
-delegates.
+`cannot_build`. Underground belts and pipe-to-ground take a dedicated path: the manager creates
+the entity with an explicit `type` (`input`/`output`) and consumes the place item, because the
+player-cursor path cannot choose the variant. The queue itself lives in `src/action-jobs.ts`
+behind a small `ActionJobQueue` interface (injected logging/native-stop/run-busy hooks); the HTTP
+handlers in `src/api/jobs.ts` are thin delegates.
 
 **Observations and telemetry.** Read-only endpoints
 `/api/agent/observe/{world,map,player,research,recipes,connections,layout,factory,placement,resources,entity,entity-prototype}`
-build Lua returning normalized JSON. The pure Lua builders live in `src/command-builders.ts`
-(unit-tested in `tests/command-builders.test.mjs`); route registration/handlers live in `src/api/`,
-while RCON dispatch and shared state stay in `src/server.ts`. Telemetry is one `/sc` snapshot per
-sample (`TELEMETRY_COMMAND`: tick, production, research, rockets) parsed by `benchmarks.ts`.
+build Lua returning normalized JSON, alongside the capability observations
+`/observe/{production,fluids,combat,area}` (production rates come from the independent
+`src/telemetry-sampler.ts` ring buffer; fluids/combat/area are bounded Lua area scans). The pure
+Lua builders live in `src/command-builders.ts` and `src/observation-builders.ts` /
+`src/area-edit.ts` (unit-tested without a game); route registration/handlers live in `src/api/`,
+while RCON dispatch and shared state stay in `src/server.ts`. Benchmark telemetry is one `/sc`
+snapshot per sample (`TELEMETRY_COMMAND`: tick, production, research, rockets) parsed by
+`benchmarks.ts`; the sampler reuses that parser outside runs.
 
 **Health and operational logs.** `GET /api/health` returns 200 when every probe passes and 503
 `degraded` (with a `problems` list) when a probe throws; an idle manager is healthy. The structured

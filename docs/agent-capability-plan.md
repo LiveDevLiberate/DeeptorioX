@@ -77,13 +77,16 @@ Implementation status (2026-11-04, current batch):
   `observe_fluids/combat/area`, `wait_for_production`, `wait_for_fluid`. `recent_damage` deltas
   remain client-computed. Live-validated on a real Windows game (production rates, 85-pipe fluid
   scan, combat scan, area scan).
-- P0-3 planners: **done (surface plan)** in the Python client — `plan_pipe_line`/`build_pipe_line`,
-  `plan_power_network`/`build_power_network`, `plan_inserter_pairs`, `plan_mining_outpost`,
-  `plan_defense_line`, plus `plan_build` dry-run placement/missing-item preflight. Underground
-  belt/pipe-to-ground pairs are **deferred**: Factorio 2.1 `LuaPlayer.build_from_cursor` has no
-  input/output subtype parameter, so the native build path cannot place them reliably (documented
-  limitation; needs a blueprint-paste/ghost-based build path first). Planners place geometry only,
-  recipes/filters follow with `act-set-recipe`.
+- P0-3 planners: **done**, including underground belt / pipe-to-ground. The manager build
+  action now accepts `underground_type: "input"|"output"` for those entities and creates them
+  through a dedicated Lua path (`create_entity` with the explicit subtype + place-item
+  consumption + reach/collision checks) because the native `build_from_cursor` path cannot
+  select underground variants. Python adds `plan_underground_belt_line` /
+  `plan_underground_pipe_line` (straight axis-aligned pairs at tier distances 4/6/8 for belts,
+  10 for pipes, with surface connectors), build wrappers and CLI commands; blueprints preserve
+  the input/output subtype. Diagonal/corner underground routing stays a follow-up (chain two
+  axis-aligned plans). Planners place geometry only; recipes/filters follow with
+  `act-set-recipe`.
 - P0-4 area edit: **done** server-side (`/api/agent/observe/area`, copy-settings dry-run +
   synchronous reach-checked `act/copy-settings` using the verified `LuaEntity:copy_settings`
   API). Deconstruction stays client-driven (observe area -> act-mine batch).
@@ -96,7 +99,10 @@ live save — `observe/production` returned a real 26–28-sample window/researc
 scanned 85 pipes, `observe/combat` returned the player (health 250) with no enemies/peaceful map,
 `observe/area` matched 239 of 240 entities, `copy-settings` correctly refused out-of-reach pipes and
 succeeded (with `removed_items`) after a native `act-move`; the Python client's `observe_snapshot`,
-blueprint dry-run and planners also ran against the live manager. Manager/game shut down cleanly.
+blueprint dry-run and planners also ran against the live manager. Underground validation: after
+inserting items via RCON, the build job created an `underground-belt` input/output pair (verified in
+Lua: `belt_to_ground_type` = input at x, output at x+4, direction 4) and a `pipe-to-ground` pair,
+and a normal `transport-belt` build still succeeded. Manager/game shut down cleanly.
 1. **Blueprint pipeline** (≈2–3 d)
    - Python: `decode_blueprint(str)` / `encode_blueprint(dict)` using stdlib `base64+zlib+json`
      (Factorio 2.x blueprint string format), `FactorioClient.build_blueprint(str, *, clear=True,
