@@ -2235,3 +2235,339 @@ body.overlay {
 body.overlay #agentStatus {
   background: rgba(7, 11, 14, 0.78);
 }
+
+/* ============================================================================
+   Recording transcript — theme v3 "clean editor dark"
+   Neutral surface, one blue accent, semantic status colours only, no glows.
+   ========================================================================= */
+html {
+  background: #0b0e11;
+}
+body.recording {
+  --bg: #0b0e11;
+  --panel: #11161b;
+  --panel-2: #0e1317;
+  --border: #222b33;
+  --border-soft: #1a2229;
+  --text: #dbe3ea;
+  --body: #b7c3ce;
+  --muted: #8b98a5;
+  --dim: #66737f;
+  --accent: #7aa2f7;
+  --accent-strong: #a8c4ff;
+  --accent-soft: rgba(122, 162, 247, 0.14);
+  --green: #8fd6a8;
+  --amber: #e0b072;
+  --red: #ff8f85;
+  --violet: #c0a8f0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #0c1014 0%, #0b0e11 42%, #090c0f 100%);
+  color: var(--body);
+}
+body.recording #agentStatus {
+  background: rgba(9, 12, 15, 0.94);
+  border-bottom: 1px solid var(--border-soft);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+}
+body.recording #agentStatus::before {
+  display: none;
+}
+body.recording .status-badge {
+  border-color: #26313a;
+  background: #151b21;
+  color: var(--muted);
+}
+body.recording .status-badge.running {
+  border-color: rgba(122, 162, 247, 0.4);
+  background: rgba(28, 40, 66, 0.6);
+  color: var(--accent-strong);
+}
+body.recording .status-badge.paused {
+  border-color: rgba(224, 176, 114, 0.36);
+  background: rgba(58, 46, 24, 0.55);
+  color: #ecc78f;
+}
+body.recording .status-badge.completed {
+  border-color: rgba(143, 214, 168, 0.36);
+  background: rgba(26, 48, 36, 0.55);
+  color: #a8e6bf;
+}
+body.recording .status-badge.failed,
+body.recording .status-badge.timed_out,
+body.recording .status-badge.interrupted {
+  border-color: rgba(255, 143, 133, 0.4);
+  background: rgba(64, 26, 23, 0.6);
+  color: #ffaea6;
+}
+body.recording .status-activity {
+  color: var(--text);
+}
+body.recording .status-activity::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+body.recording .status-meta {
+  color: var(--muted);
+}
+body.recording .status-current {
+  color: var(--text);
+}
+body.recording .status-done {
+  color: var(--muted);
+}
+body.recording .metric {
+  border-color: var(--border);
+  background: var(--panel-2);
+  color: var(--body);
+}
+body.recording .metric .icon {
+  color: var(--accent);
+}
+body.recording .metric.muted {
+  color: var(--dim);
+}
+body.recording .metric.muted .icon {
+  color: var(--dim);
+}
+body.recording .metric.error {
+  border-color: rgba(255, 143, 133, 0.3);
+  background: rgba(56, 22, 20, 0.4);
+  color: #ffaea6;
+}
+body.recording .metric.error .icon {
+  color: var(--red);
+}
+body.recording .metric-spark {
+  border-color: var(--border);
+  background: #0a1014;
+}
+body.recording .metric-bar {
+  background: var(--accent);
+}
+body.recording .score-track {
+  background: #172026;
+}
+body.recording .score-fill {
+  background: #4f74b8;
+}
+body.recording .score.active .score-fill {
+  background: var(--accent);
+}
+body.recording .score-label,
+body.recording .score-value {
+  color: var(--muted);
+}
+
+/* Toolbar */
+#transcriptTools {
+  background: rgba(10, 13, 16, 0.94);
+  border-bottom: 1px solid var(--border-soft);
+}
+#transcriptTools .chip {
+  border-color: #26313a;
+  background: #12181d;
+  color: var(--muted);
+}
+#transcriptTools .chip:hover {
+  border-color: #34424c;
+  background: #172028;
+  color: var(--text);
+}
+#transcriptTools .chip.active {
+  border-color: rgba(122, 162, 247, 0.55);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+#transcriptTools .chip.active .icon {
+  color: var(--accent-strong);
+}
+#transcriptSearch {
+  border-color: #26313a;
+  background: #0c1216;
+  color: var(--text);
+}
+#transcriptSearch::placeholder {
+  color: var(--dim);
+}
+#transcriptSearch:focus {
+  border-color: rgba(122, 162, 247, 0.55);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Transcript */
+#codexOutput {
+  flex: 1 1 0;
+  color: var(--body);
+}
+#codexOutput .msg-time {
+  color: var(--dim);
+}
+#codexOutput .reasoning {
+  border: 1px solid var(--border);
+  border-left: 3px solid #2b3d49;
+  background: var(--panel);
+  color: var(--body);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset;
+}
+#codexOutput .reasoning:hover {
+  border-color: #2c3740;
+  border-left-color: #3c5463;
+}
+#codexOutput .reasoning-summary {
+  color: var(--text);
+}
+#codexOutput .reasoning-summary .icon {
+  color: var(--accent);
+}
+#codexOutput .reasoning-segment {
+  border: 1px solid #1d262d;
+  border-left: 2px solid #26333c;
+  border-radius: 6px;
+  background: #0f1519;
+}
+#codexOutput .reasoning-segment.decision {
+  border-left-color: rgba(224, 176, 114, 0.7);
+  background: rgba(224, 176, 114, 0.06);
+}
+#codexOutput .reasoning-segment-text {
+  color: #b3c0cb;
+}
+#codexOutput .reasoning-segment.decision .reasoning-segment-text {
+  color: #cfc6b3;
+}
+#codexOutput .commands {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--body);
+}
+#codexOutput .commands:hover {
+  border-color: #2c3740;
+}
+#codexOutput .commands-summary {
+  color: var(--text);
+}
+#codexOutput .commands-summary .icon {
+  color: var(--accent);
+}
+#codexOutput .commands[open] > .commands-summary {
+  border-bottom: 1px solid var(--border-soft);
+  background: #141a20;
+}
+#codexOutput .command {
+  border-top: 1px solid var(--border-soft);
+}
+#codexOutput .command:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+#codexOutput .action-target {
+  color: #d8e2eb;
+}
+#codexOutput .action-outcome {
+  color: #96a3b0;
+}
+#codexOutput .action-duration {
+  color: var(--dim);
+}
+#codexOutput .action-raw summary {
+  border-color: #26313a;
+  color: var(--muted);
+}
+#codexOutput .action-raw pre,
+#codexOutput .tool-raw {
+  border-color: #1d262d;
+  background: #080d10;
+  color: #94a3b1;
+}
+#codexOutput .tool-details {
+  border-color: var(--border);
+  background: var(--panel);
+}
+#codexOutput .tool-details summary {
+  color: #c4d0db;
+}
+#codexOutput .message {
+  border: 1px solid var(--border);
+  border-left: 3px solid #4f74b8;
+  background: var(--panel);
+  color: #c3cfd9;
+}
+#codexOutput .message.error {
+  border-color: rgba(255, 143, 133, 0.24);
+  border-left-color: #c95d54;
+  background: rgba(48, 20, 18, 0.32);
+  color: #ffd1cc;
+}
+#codexOutput .turn-separator {
+  color: var(--dim);
+}
+#codexOutput .turn-separator::before,
+#codexOutput .turn-separator::after {
+  background: linear-gradient(90deg, transparent, #26313a);
+}
+#codexOutput .trimmed-note {
+  border-color: var(--border);
+  background: #0c1216;
+  color: var(--dim);
+}
+
+/* Action badges: neutral pills, one coloured icon. */
+#codexOutput .action-badge {
+  border: 1px solid #26313a;
+  background: #141b21;
+  color: #a3b1be;
+}
+#codexOutput .action-badge .icon {
+  color: #8b98a5;
+}
+#codexOutput .action-badge.build .icon,
+#codexOutput .action-badge.craft .icon {
+  color: var(--green);
+}
+#codexOutput .action-badge.mine .icon,
+#codexOutput .action-badge.deconstruct .icon,
+#codexOutput .action-badge.wait .icon {
+  color: var(--amber);
+}
+#codexOutput .action-badge.observe .icon,
+#codexOutput .action-badge.job .icon {
+  color: var(--accent);
+}
+#codexOutput .action-badge.recipe .icon,
+#codexOutput .action-badge.research .icon,
+#codexOutput .action-badge.insert .icon,
+#codexOutput .action-badge.extract .icon,
+#codexOutput .action-badge.rocket .icon {
+  color: var(--violet);
+}
+#codexOutput .action-badge.failed {
+  border-color: rgba(255, 143, 133, 0.36);
+  background: rgba(56, 22, 20, 0.45);
+  color: #ffaea6;
+}
+#codexOutput .action-badge.failed .icon {
+  color: var(--red);
+}
+#codexOutput .dedupe-badge,
+#codexOutput .loop-badge {
+  border-color: rgba(224, 176, 114, 0.32);
+  background: rgba(58, 46, 22, 0.4);
+  color: #ecc78f;
+}
+
+/* Jump pill */
+.jump-latest {
+  border-color: rgba(122, 162, 247, 0.4);
+  background: rgba(17, 23, 33, 0.95);
+  color: var(--accent-strong);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.jump-latest:hover {
+  border-color: rgba(122, 162, 247, 0.65);
+  background: rgba(24, 33, 48, 0.96);
+}
+body.overlay {
+  background: #0b0e11;
+}
+body.overlay #agentStatus {
+  background: rgba(9, 12, 15, 0.82);
+}

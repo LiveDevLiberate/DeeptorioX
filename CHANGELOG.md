@@ -9,6 +9,16 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Recording theme v3 (clean neutral dark).** Replaced the teal/indigo glow
+  background and multi-hue surfaces with a neutral slate shell (`#0b0e11` →
+  `#090c0f`) and a single blue accent (`#7aa2f7`): running/interactive states are
+  blue, completed green, paused amber, failures red; cards are `#11161b` with
+  `#222b33` borders. Action badges are now neutral pills with only the category
+  icon tinted, decision frames keep just an amber left rule, and the mint
+  header rule/green cast are gone. Overlay mode uses the same flat palette.
+
 ## [0.10.2] - 2026-11-04
 
 ### Changed
