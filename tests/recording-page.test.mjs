@@ -1,0 +1,273 @@
+// DOM smoke test for the live transcript renderer. It drives recording.js with
+// fake elements and a mocked manager API so the P0 readability features
+// (collapsed reasoning, action summaries, turns, loop badges, unread button)
+// are exercised without a browser or a real run.
+import test from "node:test";
+import assert from "node:assert/strict";
+import { setImmediate } from "node:timers";
+
+class FakeNode {
+  constructor(tag = "div") {
+    this.tagName = tag;
+    this.children = [];
+    this.textContent = "";
+    this.className = "";
+    this.hidden = false;
+    this.open = false;
+    this.style = {};
+    this.listeners = new Map();
+    this._classList = new Set();
+    this.scrollHeight = 0;
+    this.scrollTop = 0;
+    this.clientHeight = 0;
+  }
+  get classList() {
+    return {
+      add: (...names) => names.forEach((name) => this._classList.add(name)),
+      remove: (...names) => names.forEach((name) => this._classList.delete(name)),
+      contains: (name) => this._classList.has(name),
+      toggle: (name, force) => {
+        const value = force === undefined ? !this._classList.has(name) : Boolean(force);
+        if (value) this._classList.add(name);
+        else this._classList.delete(name);
+        return value;
+      },
+    };
+  }
+  set className(value) {
+    this._classList = new Set(
+      String(value || "")
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+  }
+  get className() {
+    return [...this._classList].join(" ");
+  }
+  append(...nodes) {
+    for (const node of nodes) this.children.push(node);
+  }
+  replaceChildren(...nodes) {
+    this.children = [...nodes];
+  }
+  addEventListener(type, listener) {
+    this.listeners.set(type, listener);
+  }
+  setAttribute() {}
+  fire(type) {
+    this.listeners.get(type)?.();
+  }
+}
+
+function base64(text) {
+  return Buffer.from(text, "utf8").toString("base64");
+}
+
+function jsonl(items) {
+  return items.map((item) => JSON.stringify(item)).join("\n") + "\n";
+}
+
+test("recording page renders summaries, loops, turns and unread updates", async () => {
+  const ids = [
+    "agentStatus",
+    "statusState",
+    "statusActivity",
+    "statusMeta",
+    "statusCurrent",
+    "statusDone",
+    "statusScores",
+    "statusToggle",
+    "codexOutput",
+  ];
+  const nodes = Object.fromEntries(ids.map((id) => [id, new FakeNode()]));
+  const body = new FakeNode("body");
+  const documentElement = new FakeNode("html");
+  documentElement.lang = "en";
+  const timers = [];
+  const realSetTimeout = globalThis.setTimeout;
+  const hadNavigator = Object.prototype.hasOwnProperty.call(globalThis, "navigator");
+  const realNavigator = globalThis.navigator;
+  const runFixture = {
+    id: "run1",
+    name: "test run",
+    state: "running",
+    language: "English",
+    output_format: "events",
+    elapsed_seconds: 321,
+    max_seconds: 1800,
+    usage: { input_tokens: 1000, output_tokens: 200 },
+    context_tokens: 12000,
+    context_limit: 300000,
+    state_md:
+      "Scores: production 40, logistics 35, mining 60\nCurrent: Mining iron\nDone when: 60 iron plates",
+    latest: { current_research: "automation", research_progress: 0.4 },
+  };
+  const firstBatch = [
+    { type: "thread.started", thread_id: "thread-1" },
+    {
+      type: "item.completed",
+      item: {
+        id: "r1",
+        type: "reasoning",
+        text: "There is coal nearby. Next step: mine coal and build two furnaces for the iron plates.",
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        id: "c1",
+        type: "command_execution",
+        command: "python3 factorio.py act-mine --target 129,-26",
+        status: "completed",
+        exit_code: 0,
+        aggregated_output:
+          'job done\n{"schema_version":2,"ok":true,"data":{"results":[{"ok":true,"mined_count":2,"items":{"wood":2}}]}}',
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        id: "c2",
+        type: "command_execution",
+        command: "python3 factorio.py act-mine --target 129,-26",
+        status: "completed",
+        exit_code: 0,
+        aggregated_output: '{"ok":true,"data":{"results":[{"ok":true,"mined_count":1}]}}',
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        id: "c3",
+        type: "command_execution",
+        command: "python3 factorio.py act-mine --target 129,-26",
+        status: "completed",
+        exit_code: 0,
+        aggregated_output: '{"ok":true,"data":{"results":[{"ok":true,"mined_count":1}]}}',
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        id: "r2",
+        type: "reasoning",
+        text: "There is coal nearby. Next step: mine coal and build two furnaces for the iron plates.",
+      },
+    },
+    {
+      type: "item.completed",
+      item: { id: "m1", type: "agent_message", text: "Mining complete; building furnaces now." },
+    },
+  ];
+  const secondBatch = [
+    {
+      type: "item.completed",
+      item: { id: "m2", type: "agent_message", text: "Furnaces are running." },
+    },
+  ];
+  const fetchCalls = [];
+  globalThis.document = {
+    getElementById: (id) => nodes[id] || null,
+    createElement: (tag) => new FakeNode(tag),
+    body,
+    documentElement,
+    title: "",
+  };
+  globalThis.location = { search: "?run=run1" };
+  globalThis.history = { replaceState() {} };
+  if (hadNavigator) globalThis.navigator = { language: "en-US" };
+  else
+    Object.defineProperty(globalThis, "navigator", {
+      value: { language: "en-US" },
+      configurable: true,
+    });
+  globalThis.setTimeout = (callback) => {
+    timers.push(callback);
+    return timers.length;
+  };
+  let currentBatch = firstBatch;
+  let offset = 0;
+  globalThis.fetch = async (url) => {
+    fetchCalls.push(url);
+    if (url === "/api/runs") return { ok: true, json: async () => ({ runs: [{ id: "run1" }] }) };
+    if (url === "/api/runs/run1") return { ok: true, json: async () => runFixture };
+    if (url.startsWith("/api/runs/run1/log")) {
+      const batch = currentBatch;
+      const data = base64(jsonl(batch));
+      offset += data.length;
+      currentBatch = secondBatch;
+      return { ok: true, json: async () => ({ data, offset }) };
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+  const flush = async () => {
+    for (let index = 0; index < 60; index += 1) await new Promise((resolve) => setImmediate(resolve));
+  };
+  try {
+    await import("../public/recording.js?smoke=1");
+    await flush();
+    const output = nodes.codexOutput;
+    const classes = output.children.map((node) => node.className);
+
+    // Turn divider, then a collapsed reasoning block, a command group and a message.
+    assert.ok(classes.includes("turn-separator"), `missing turn separator in ${classes.join(" | ")}`);
+    const reasoning = output.children.find((node) => node.className.includes("reasoning"));
+    assert.ok(reasoning, "missing reasoning block");
+    assert.match(reasoning.children[0].textContent, /Next step: mine coal/);
+    assert.equal(reasoning.open, true);
+    const commands = output.children.find((node) => node.className.includes("commands"));
+    assert.ok(commands, "missing command group");
+    assert.match(commands.children[0].textContent, /3 mine/);
+    assert.match(commands.children[0].textContent, /loop\? ×3/);
+    assert.equal(commands.classList.contains("loop"), true);
+    const message = output.children.find(
+      (node) =>
+        node.className.includes("message") &&
+        !node.className.includes("reasoning") &&
+        node.children[0]?.className === "message-body",
+    );
+    assert.match(message.children[0].textContent, /Mining complete/);
+
+    // Deduped reasoning: the second identical thought did not add a second block.
+    assert.equal(output.children.filter((node) => node.className.includes("reasoning")).length, 1);
+    const dedupe = reasoning.children[0].children.find((node) => node.className.includes("dedupe-badge"));
+    assert.match(dedupe.textContent, /repeated ×2/);
+
+    // First batch is backfill: no misleading relative timestamps.
+    assert.equal(
+      output.children.some((node) => node.className.includes("msg-time")),
+      false,
+    );
+
+    // User scrolled up; the next live batch shows the unread pill and clicking jumps down.
+    output.scrollHeight = 1000;
+    output.clientHeight = 300;
+    output.scrollTop = 0;
+    timers.shift()();
+    await flush();
+    const jump = body.children.find((node) => node.className.includes("jump-latest"));
+    assert.ok(jump, "missing jump-to-latest button");
+    assert.equal(jump.hidden, false);
+    assert.match(jump.textContent, /1/);
+    jump.fire("click");
+    assert.equal(output.scrollTop, output.scrollHeight);
+    assert.equal(jump.hidden, true);
+    assert.match(
+      output.children.find(
+        (node) =>
+          node.children[0]?.className === "message-body" && node.children[0].textContent.includes("Furnaces"),
+      ).children[0].textContent,
+      /Furnaces are running/,
+    );
+    assert.ok(fetchCalls.filter((url) => url.includes("/log?")).length >= 2);
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    if (hadNavigator) globalThis.navigator = realNavigator;
+    else delete globalThis.navigator;
+    delete globalThis.document;
+    delete globalThis.location;
+    delete globalThis.history;
+    delete globalThis.fetch;
+  }
+});

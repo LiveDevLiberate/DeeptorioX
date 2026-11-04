@@ -452,6 +452,125 @@ body.recording main {
 #codexOutput .error {
   color: #ff9d8e;
 }
+
+/* Transcript readability: collapsed reasoning, action summaries, turns, unread. */
+#codexOutput .message-body {
+  white-space: pre-wrap;
+}
+#codexOutput .reasoning {
+  color: #a7b3b4;
+  font-style: normal;
+  margin: 6px 0 14px;
+}
+#codexOutput .reasoning-summary {
+  color: #c6d3d1;
+  white-space: normal;
+  cursor: pointer;
+}
+#codexOutput .reasoning-body {
+  color: #93a4a2;
+  margin-top: 4px;
+  white-space: pre-wrap;
+}
+#codexOutput .reasoning.repeated {
+  opacity: 0.82;
+}
+#codexOutput .dedupe-badge,
+#codexOutput .loop-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #3a3215;
+  color: #e7d38f;
+  font-size: 9px;
+  font-style: normal;
+}
+#codexOutput .loop-badge {
+  margin-left: 8px;
+}
+#codexOutput .turn-separator {
+  margin: 18px 0 6px;
+  padding-top: 4px;
+  border-top: 1px solid #233038;
+  color: #6f807d;
+  font-size: 9px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+#codexOutput .commands-summary {
+  color: #c6d3d1;
+  cursor: pointer;
+}
+#codexOutput .commands.loop > summary {
+  color: #e7d38f;
+}
+#codexOutput .action-badge {
+  display: inline-block;
+  min-width: 44px;
+  margin-right: 6px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #233038;
+  color: #9fc7bd;
+  font-size: 9px;
+  text-align: center;
+}
+#codexOutput .action-badge.failed {
+  background: #3a1b18;
+  color: #ff9d8e;
+}
+#codexOutput .action-target {
+  color: #dbe5e3;
+}
+#codexOutput .action-outcome {
+  margin-left: 6px;
+  color: #8fa09d;
+}
+#codexOutput .action-flag {
+  margin-left: 6px;
+  color: #9fd0ff;
+}
+#codexOutput .action-raw {
+  margin: 4px 0 8px;
+}
+#codexOutput .action-raw summary {
+  color: #6f807d;
+  font-size: 10px;
+}
+#codexOutput .action-raw pre {
+  margin: 4px 0 0;
+}
+#codexOutput .tool-details summary {
+  color: #9baaa8;
+}
+#codexOutput .tool-raw {
+  color: #7f908d;
+}
+#codexOutput .msg-time {
+  margin-left: 8px;
+  color: #60716e;
+  font-size: 9px;
+  font-style: normal;
+}
+.jump-latest {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  border: 1px solid #3a5a52;
+  border-radius: 14px;
+  background: #1b2a28;
+  color: #cfe9e1;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  padding: 5px 10px;
+}
+.jump-latest:hover {
+  background: #24413b;
+}
 #productionChart {
   width: 100%;
   height: auto;

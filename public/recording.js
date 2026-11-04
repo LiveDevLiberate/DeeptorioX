@@ -1,5 +1,16 @@
 import { CodexOutput } from "./codex-output.js";
-import { CodexTranscript, commandSummary } from "./codex-transcript.js";
+import { CodexTranscript } from "./codex-transcript.js";
+import {
+  summarizeCommand,
+  summarizeCommandGroup,
+  summarizeTool,
+  splitReasoning,
+  reasoningKey,
+  collapseRepeatedSentences,
+  classifyActivity,
+  formatRelativeMs,
+  LoopDetector,
+} from "./transcript-view-model.js";
 const output = document.getElementById("codexOutput");
 const params = new URLSearchParams(location.search);
 let id = params.get("run"),
@@ -10,6 +21,13 @@ const decoder = new TextDecoder(),
   transcript = new CodexTranscript();
 const entries = new Map();
 let commandGroup;
+const loops = new LoopDetector({ threshold: 3, window: 12 });
+const thoughtLoops = new LoopDetector({ threshold: 2, window: 6 });
+const seenThoughts = new Map();
+const openReasoning = [];
+let streamStart = 0;
+let firstBatch = true;
+let unread = 0;
 const statusState = document.getElementById("statusState");
 const statusActivity = document.getElementById("statusActivity");
 const statusMeta = document.getElementById("statusMeta");
@@ -51,6 +69,11 @@ const I18N = {
     pending: "STATE.md pending",
     tokens: "tok",
     plan: "plan",
+    turn: "turn",
+    newEvents: "new",
+    loop: "loop?",
+    repeated: "repeated",
+    raw: "raw",
     expand: "Expand status details",
     collapse: "Collapse status details",
   },
@@ -87,6 +110,11 @@ const I18N = {
     pending: "等待 STATE.md",
     tokens: "令牌",
     plan: "计划",
+    turn: "回合",
+    newEvents: "条新消息",
+    loop: "循环?",
+    repeated: "重复",
+    raw: "原始",
     expand: "展开状态详情",
     collapse: "收起状态详情",
   },
@@ -200,56 +228,178 @@ function renderStatus(run) {
     }),
   );
 }
-function render(item) {
-  lastEventAt = Date.now();
-  if (item.type === "command_execution") activity = item.status === "completed" ? "thinking" : "acting";
-  else if (item.type === "reasoning") activity = "thinking";
-  else if (item.type === "agent_message") activity = "reporting";
-  else if (item.type === "error") activity = "error";
-  else activity = "output";
+function strings() {
+  return I18N[uiLang || "en"] || I18N.en;
+}
+const jumpButton = element("button", "", "jump-latest");
+jumpButton.type = "button";
+jumpButton.hidden = true;
+document.body.append(jumpButton);
+jumpButton.addEventListener("click", () => {
+  unread = 0;
+  jumpButton.hidden = true;
+  output.scrollTop = output.scrollHeight;
+});
+function nearBottom() {
+  return output.scrollHeight - output.scrollTop - output.clientHeight < 50;
+}
+output.addEventListener("scroll", () => {
+  if (!nearBottom()) return;
+  unread = 0;
+  jumpButton.hidden = true;
+});
+function timeLabel(item) {
+  if (!item.receivedAt || item.backfill || !streamStart) return null;
+  return formatRelativeMs(item.receivedAt - streamStart);
+}
+function ensureCommandGroup() {
+  if (!commandGroup) {
+    const details = element("details", "", "commands");
+    const summary = element("summary", "", "commands-summary");
+    details.append(summary);
+    output.append(details);
+    commandGroup = { details, summary, items: new Map(), loop: 0 };
+  }
+  return commandGroup;
+}
+function refreshCommandGroup(group) {
+  const stats = summarizeCommandGroup([...group.items.values()]);
+  const loopPrefix = group.loop ? `⚠ ${strings().loop} ×${group.loop} · ` : "";
+  group.summary.textContent = `${loopPrefix}${stats.text}`;
+  group.details.classList.toggle("failed", stats.failed > 0);
+  group.details.classList.toggle("loop", group.loop > 0);
+}
+function renderCommand(item) {
+  const group = ensureCommandGroup();
+  const summary = summarizeCommand(item);
   let entry = entries.get(item.id);
   if (!entry) {
-    if (item.type === "command_execution") {
-      if (!commandGroup) {
-        const details = element("details", "", "commands"),
-          summary = element("summary");
-        details.append(summary);
-        output.append(details);
-        commandGroup = { details, summary, items: new Map() };
-      }
-      const node = element("div", "", "command");
-      commandGroup.details.append(node);
-      entry = { node, group: commandGroup };
-    } else {
-      commandGroup = null;
-      const node = element("div", "", `message ${item.type === "reasoning" ? "reasoning" : ""}`);
-      output.append(node);
-      entry = { node };
-    }
+    const node = element("div", "", "command");
+    group.details.append(node);
+    entry = { node, loopCounted: false };
     entries.set(item.id, entry);
   }
-  if (item.type === "command_execution") {
-    entry.node.replaceChildren(
-      element("pre", item.command || ""),
-      element("pre", item.aggregated_output || "", "command-output"),
-    );
-    entry.group.items.set(item.id, item);
-    const items = [...entry.group.items.values()];
-    entry.group.summary.textContent = commandSummary(items);
-    entry.group.details.classList.toggle(
-      "failed",
-      items.some((i) => i.status === "failed" || (i.exit_code != null && i.exit_code !== 0)),
-    );
-  } else if (item.type === "agent_message" || item.type === "reasoning" || item.type === "error") {
-    entry.node.textContent = item.text || "";
-    entry.node.classList.toggle("error", item.type === "error");
-  } else {
-    // Other tools remain inspectable without dumping JSON into the recording.
-    const details = element("details"),
-      summary = element("summary", item.type.replaceAll("_", " "));
-    details.append(summary, element("pre", JSON.stringify(item, null, 2)));
-    entry.node.replaceChildren(details);
+  const badge = element("span", summary.label, `action-badge ${summary.category}`);
+  if (summary.failed) badge.classList.add("failed");
+  const main = element("span", "", "action-main");
+  if (summary.target) main.append(element("span", summary.target, "action-target"));
+  if (summary.outcome) main.append(element("span", summary.outcome, "action-outcome"));
+  if (summary.running) main.append(element("span", strings().activity.acting, "action-flag"));
+  const raw = element("details", "", "action-raw");
+  raw.append(
+    element("summary", strings().raw),
+    element("pre", item.command || ""),
+    element("pre", item.aggregated_output || "", "command-output"),
+  );
+  const label = timeLabel(item);
+  entry.node.replaceChildren(...[badge, main, raw].concat(label ? [element("span", label, "msg-time")] : []));
+  if ((item.status === "completed" || item.status === "failed") && !entry.loopCounted) {
+    entry.loopCounted = true;
+    const repeat = loops.push(summary.key);
+    if (repeat.repeated) {
+      entry.node.classList.add("loop");
+      group.loop = Math.max(group.loop, repeat.count);
+      entry.node.append(element("span", `⚠ ${strings().loop} ×${repeat.count}`, "loop-badge"));
+    }
   }
+  group.items.set(item.id, item);
+  refreshCommandGroup(group);
+}
+function renderReasoning(item) {
+  commandGroup = null;
+  const text = item.text || "";
+  const key = reasoningKey(text);
+  const repeat = thoughtLoops.push(key);
+  const previous = key ? seenThoughts.get(key) : null;
+  if (previous) {
+    previous.count += 1;
+    previous.badge.hidden = false;
+    previous.badge.textContent = `↻ ${strings().repeated} ×${repeat.count}`;
+    previous.node.classList.add("repeated");
+    entries.set(item.id, previous);
+    return;
+  }
+  const segments = splitReasoning(text);
+  const node = element("details", "", "message reasoning");
+  node.open = openReasoning.length < 2;
+  const summary = element("summary", "", "reasoning-summary");
+  summary.textContent = segments[0]?.summary || "…";
+  const badge = element("span", "", "dedupe-badge");
+  badge.hidden = true;
+  summary.append(badge);
+  const label = timeLabel(item);
+  if (label) summary.append(element("span", label, "msg-time"));
+  const body = element("div", "", "reasoning-body");
+  body.textContent = collapseRepeatedSentences(text);
+  node.append(summary, body);
+  output.append(node);
+  const entry = { node, badge, count: 1 };
+  entries.set(item.id, entry);
+  if (key) seenThoughts.set(key, entry);
+  openReasoning.push(node);
+  while (openReasoning.length > 2) {
+    const old = openReasoning.shift();
+    if (old) old.open = false;
+  }
+  if (repeat.repeated) {
+    badge.hidden = false;
+    badge.textContent = `↻ ${strings().repeated} ×${repeat.count}`;
+    node.classList.add("repeated");
+  }
+}
+function renderMessage(item) {
+  commandGroup = null;
+  let entry = entries.get(item.id);
+  if (!entry) {
+    const node = element("div", "", "message");
+    const body = element("div", "", "message-body");
+    node.append(body);
+    const label = timeLabel(item);
+    if (label) node.append(element("span", label, "msg-time"));
+    output.append(node);
+    entry = { node, body };
+    entries.set(item.id, entry);
+  }
+  entry.node.classList.toggle("error", item.type === "error");
+  entry.body.textContent = item.text || "";
+}
+function renderTool(item) {
+  commandGroup = null;
+  let entry = entries.get(item.id);
+  if (!entry) {
+    const node = element("div", "", "message tool");
+    const details = element("details", "", "tool-details");
+    const summary = element("summary");
+    const raw = element("pre", "", "tool-raw");
+    details.append(summary, raw);
+    node.append(details);
+    const label = timeLabel(item);
+    if (label) summary.append(element("span", label, "msg-time"));
+    output.append(node);
+    entry = { node, summary, raw, title: "" };
+    entries.set(item.id, entry);
+  }
+  const info = summarizeTool(item);
+  const title = `${info.label}${info.detail ? ` · ${info.detail}` : ""}`;
+  if (entry.title !== title) {
+    entry.title = title;
+    entry.summary.textContent = title;
+    const label = timeLabel(item);
+    if (label) entry.summary.append(element("span", label, "msg-time"));
+  }
+  entry.raw.textContent = JSON.stringify(item, null, 2);
+}
+function render(item) {
+  lastEventAt = Date.now();
+  activity = classifyActivity(item);
+  if (item.type === "command_execution") renderCommand(item);
+  else if (item.type === "reasoning") renderReasoning(item);
+  else if (item.type === "agent_message" || item.type === "error") renderMessage(item);
+  else renderTool(item);
+}
+function appendTurn(generation) {
+  commandGroup = null;
+  output.append(element("div", `${strings().turn} ${generation}`, "turn-separator"));
 }
 async function poll() {
   try {
@@ -281,10 +431,32 @@ async function poll() {
       if (!response.ok) throw new Error("Output unavailable");
       const log = await response.json();
       const bytes = Uint8Array.from(atob(log.data || ""), (c) => c.charCodeAt(0));
-      const follow = output.scrollHeight - output.scrollTop - output.clientHeight < 50;
+      const follow = nearBottom();
       const text = decoder.decode(bytes, { stream: true });
-      if (mode === "events") for (const item of transcript.push(text)) render(item);
-      else
+      if (mode === "events") {
+        const wasFirstBatch = firstBatch;
+        if (!streamStart) streamStart = Date.now();
+        const generation = transcript.generation;
+        const changed = transcript.push(text);
+        if (transcript.generation !== generation) appendTurn(transcript.generation);
+        for (const item of changed) {
+          item.receivedAt = Date.now();
+          item.backfill = wasFirstBatch;
+          render(item);
+        }
+        if (changed.length) {
+          if (follow) {
+            output.scrollTop = output.scrollHeight;
+            unread = 0;
+            jumpButton.hidden = true;
+          } else {
+            unread += changed.length;
+            jumpButton.textContent = `${strings().newEvents} ${unread} ↓`;
+            jumpButton.hidden = false;
+          }
+        }
+        firstBatch = false;
+      } else {
         for (const segment of parser.push(text)) {
           const span = element("span", segment.text);
           Object.assign(span.style, segment.style);
@@ -292,8 +464,15 @@ async function poll() {
           lastEventAt = Date.now();
           activity = "output";
         }
+        if (!streamStart) streamStart = Date.now();
+        if (follow) output.scrollTop = output.scrollHeight;
+        else if (text) {
+          unread += 1;
+          jumpButton.textContent = `${strings().newEvents} ${unread} ↓`;
+          jumpButton.hidden = false;
+        }
+      }
       offset = log.offset;
-      if (follow) output.scrollTop = output.scrollHeight;
     }
     document.title = "Agent transcript";
   } catch {
