@@ -152,10 +152,12 @@ Done-when at 390, focus trap, connection banner) remain. Evidence:
 - Light muted text changed to `#50656c` (5.24:1 on blueprint paper). The stale
   plan now uses the danger colour for both the rule and the line (10.47:1 dark,
   5.6:1 light), so warning colour and warning rule agree.
-- Icon scale tokens: `--icon-sm: 12px`, `--icon-md: 14px`, `--icon-lg: 18px`.
-  Status tools and summary icons use 14; chips, actions, metrics, event and jump
-  icons use 12; the work-order target uses 18. Edge measurement of 761 dark /
-  757 light rendered icons found only 12, 14 and 18 px sizes; no 11/13 px
-  outliers. The icon helper now sets `aria-hidden="true"` on decorative masks.
+- Icon scale: `--icon-sm: 12px` and `--icon-md: 14px` for the UI roles; the
+  work-order icon is `1em` so it scales with its display text (21.8 px at 1280,
+  18 px at 390). Decorative icons set `aria-hidden="true"`.
+- Readout alignment: the metrics table and radar share a stretched CSS grid row
+  and match exactly at 1280 (116.2 px tall, top y=208.5 / bottom y=324.7).
+  `tr.metric` background and the global table margin were removed, so the table
+  sits transparently on the blueprint/graphite surface.
 - Captures and raw audit: `.ui-review/2026-11-05-anthropic/`
   (`factory-*.png`, `icon-color-audit.json`).

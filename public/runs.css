@@ -5781,3 +5781,99 @@ html:not([data-theme="light"]) body.recording #agentStatus.stale-plan .status-cu
 html[data-theme="light"] body.recording #agentStatus.stale-plan .status-current {
   color: var(--danger);
 }
+
+/* ============================================================================
+   Readout alignment + hero icon scale
+   - The metrics table and radar share the same stretched grid row so their top
+     and bottom edges line up; the table no longer carries the global table
+     margin or the old `tr.metric` pill background.
+   - The work-order icon scales with the display type instead of being fixed.
+   ========================================================================= */
+body.recording .metrics-table {
+  margin-top: 0;
+}
+body.recording .metrics-table tr,
+body.recording .metrics-table .metric,
+body.recording .metrics-table th,
+body.recording .metrics-table td {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+body.recording .metrics-table tr + tr > * {
+  border-top: 1px solid var(--rule);
+}
+html[data-theme="light"] body.recording .metrics-table tr,
+html[data-theme="light"] body.recording .metrics-table .metric,
+html[data-theme="light"] body.recording .metrics-table th,
+html[data-theme="light"] body.recording .metrics-table td {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+html[data-theme="light"] body.recording .metrics-table tr + tr > * {
+  border-top: 1px solid var(--rule);
+}
+body.recording .status-telemetry .status-data {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 24px;
+}
+body.recording .status-scores {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  align-self: stretch;
+  margin-left: 0;
+}
+body.recording .status-scores .score-radar {
+  width: auto;
+  height: 100%;
+  aspect-ratio: 1;
+}
+body.recording #agentStatus .status-current .icon {
+  width: 1.05em;
+  height: 1.05em;
+  color: var(--safety);
+}
+body.recording #agentStatus.stale-plan .status-current .icon {
+  color: var(--danger);
+}
+@media (max-width: 900px) {
+  body.recording .status-telemetry .status-data {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+  }
+  body.recording .status-scores {
+    justify-content: flex-start;
+    align-self: auto;
+  }
+  body.recording .status-scores .score-radar {
+    width: 88px;
+    height: 88px;
+  }
+}
+
+/* Final alignment/colour corrections for the readout row and work-order icon. */
+body.recording .status-scores {
+  margin-top: 0;
+}
+body.recording #agentStatus .status-current .icon {
+  width: 1em;
+  height: 1em;
+}
+html:not([data-theme="light"]) body.recording #agentStatus .status-current .icon {
+  color: var(--safety);
+}
+html:not([data-theme="light"]) body.recording #agentStatus.stale-plan .status-current .icon {
+  color: var(--danger);
+}
+html[data-theme="light"] body.recording #agentStatus .status-current .icon {
+  color: var(--safety);
+}
+html[data-theme="light"] body.recording #agentStatus.stale-plan .status-current .icon {
+  color: var(--danger);
+}

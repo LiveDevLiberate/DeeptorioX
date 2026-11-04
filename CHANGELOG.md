@@ -9,7 +9,23 @@ this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Readout alignment and hero-icon scale.** The metrics table and radar now
+  share a stretched grid row and match exactly at 1280 (both 116.2 px tall,
+  top y=208.5, bottom y=324.7). The table is transparent again: the old
+  `tr.metric` fill and global table margin were removed. The work-order icon
+  now scales with the display type (`1em`, 21.8 px at 1280) and uses the safety
+  colour, or danger when the plan is stale, matching its text.
+
 ## [0.27.1] - 2026-11-04
+
+### Changed
+
+- **Palette and icon polish.** Light muted text darkened to `#50656c`
+  (5.24:1); stale-plan warning uses danger for both rule and text (10.47:1 dark,
+  5.6:1 light). One 12 / 14 px icon scale for chips, actions, metrics, event and
+  jump icons; decorative masks got `aria-hidden="true"`.
 
 ## [0.27.0] - 2026-11-04
 
