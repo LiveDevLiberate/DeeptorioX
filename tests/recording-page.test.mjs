@@ -181,7 +181,7 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     documentElement,
     title: "",
   };
-  globalThis.location = { search: "?run=run1" };
+  globalThis.location = { search: "?run=run1&overlay=1" };
   globalThis.history = { replaceState() {} };
   const storage = new Map();
   globalThis.localStorage = {
@@ -239,6 +239,7 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     await flush();
     const output = nodes.codexOutput;
     const classes = output.children.map((node) => node.className);
+    assert.equal(body.classList.contains("overlay"), true);
 
     // Turn divider, then a collapsed reasoning block, a command group and a message.
     assert.ok(classes.includes("turn-separator"), `missing turn separator in ${classes.join(" | ")}`);

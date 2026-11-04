@@ -314,3 +314,26 @@ test("decision detection, mini bars and telemetry helpers", async () => {
   assert.deepEqual(model.telemetrySeries(samples, "iron-plate", 4), [12]);
   assert.equal(model.telemetryResearch(samples), "automation 42%");
 });
+
+test("telemetryMarkers reports research, production starts and rockets", async () => {
+  const model = await import("../public/transcript-view-model.js");
+  const previous = {
+    research: { automation: true },
+    production: { "iron-plate": 10 },
+    rockets: 0,
+  };
+  const next = {
+    research: { automation: true, electronics: true },
+    production: { "iron-plate": 20, "copper-plate": 3 },
+    production_per_game_minute: { "iron-plate": 12, "copper-plate": 3, "automation-science-pack": 1 },
+    rockets: 1,
+  };
+  assert.deepEqual(model.telemetryMarkers(previous, next), [
+    "researched electronics",
+    "copper-plate 3/min",
+    "automation-science-pack 1/min",
+    "rocket launched (1)",
+  ]);
+  assert.deepEqual(model.telemetryMarkers(null, next), []);
+  assert.deepEqual(model.telemetryMarkers(previous, previous), []);
+});

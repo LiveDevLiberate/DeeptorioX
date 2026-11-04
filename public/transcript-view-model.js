@@ -512,3 +512,32 @@ export function telemetryResearch(samples) {
   const progress = Number(withResearch.research_progress);
   return Number.isFinite(progress) ? `${name} ${Math.round(progress * 100)}%` : String(name);
 }
+
+/**
+ * Diff two telemetry samples into transcript event markers: newly researched
+ * technologies, items that start producing, and rockets launched.
+ */
+export function telemetryMarkers(previous, next) {
+  if (!previous || !next) return [];
+  const markers = [];
+  const previousResearch =
+    previous.research && typeof previous.research === "object" ? previous.research : {};
+  const nextResearch = next.research && typeof next.research === "object" ? next.research : {};
+  for (const [name, done] of Object.entries(nextResearch)) {
+    if (done && !previousResearch[name]) markers.push(`researched ${name}`);
+  }
+  const previousProduction =
+    previous.production && typeof previous.production === "object" ? previous.production : {};
+  const rates = next.production_per_game_minute;
+  if (rates && typeof rates === "object") {
+    for (const [item, rate] of Object.entries(rates)) {
+      if (Number(rate) > 0 && !(Number(previousProduction[item]) > 0)) {
+        markers.push(`${item} ${Math.round(Number(rate))}/min`);
+      }
+    }
+  }
+  if ((Number(next.rockets) || 0) > (Number(previous.rockets) || 0)) {
+    markers.push(`rocket launched (${next.rockets})`);
+  }
+  return markers.slice(0, 4);
+}

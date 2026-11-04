@@ -662,6 +662,35 @@ body.recording main {
   font-size: 9px;
   text-align: center;
 }
+#codexOutput .event-marker {
+  margin: 8px 0;
+  padding-left: 8px;
+  border-left: 2px solid #2b5470;
+  color: #9fd0ff;
+  font-size: 10px;
+}
+body.recording.overlay {
+  background: transparent;
+}
+body.overlay #transcriptTools,
+body.overlay .status-scores,
+body.overlay .status-done,
+body.overlay .action-raw,
+body.overlay .tool-raw {
+  display: none;
+}
+body.overlay #agentStatus {
+  background: rgba(12, 18, 20, 0.72);
+}
+body.overlay #codexOutput {
+  font-size: 13px;
+}
+body.overlay #codexOutput .action-badge {
+  min-width: 52px;
+}
+body.overlay #codexOutput .reasoning-summary {
+  color: #e7eeec;
+}
 #productionChart {
   width: 100%;
   height: auto;

@@ -16,6 +16,7 @@ import {
   telemetryRates,
   telemetrySeries,
   telemetryResearch,
+  telemetryMarkers,
 } from "./transcript-view-model.js";
 const output = document.getElementById("codexOutput");
 const params = new URLSearchParams(location.search);
@@ -44,6 +45,9 @@ let filterMode = "all";
 let searchQuery = "";
 let trimmedCount = 0;
 let trimNote = null;
+let lastMarkerSample = null;
+const overlayMode = params.get("overlay") === "1";
+if (overlayMode) document.body.classList.add("overlay");
 const statusState = document.getElementById("statusState");
 const statusActivity = document.getElementById("statusActivity");
 const statusMeta = document.getElementById("statusMeta");
@@ -534,6 +538,12 @@ function trimTranscript() {
   }
   trimNote.textContent = `${trimmedCount} ${strings().trimmed}`;
 }
+function renderEventMarker(text) {
+  commandGroup = null;
+  const node = element("div", `◆ ${text}`, "event-marker");
+  node._kind = "marker";
+  output.append(node);
+}
 function renderMetrics() {
   if (!statusMetrics) return;
   const text = strings();
@@ -574,7 +584,13 @@ async function pollTelemetry() {
     const samples = parseTelemetryLines(new TextDecoder().decode(bytes));
     telemetryOffset = log.offset ?? telemetryOffset;
     if (!samples.length) return;
+    const baseline = lastMarkerSample;
     telemetrySamples = telemetrySamples.concat(samples).slice(-120);
+    const latest = telemetrySamples.at(-1);
+    if (baseline && latest) {
+      for (const marker of telemetryMarkers(baseline, latest)) renderEventMarker(marker);
+    }
+    lastMarkerSample = latest ?? lastMarkerSample;
     renderMetrics();
   } catch {
     /* telemetry is optional */
