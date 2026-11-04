@@ -61,6 +61,42 @@ test("agentNativeBuildCommand anchors the build, derives the intended center and
   assert.ok(dryRun.includes("if dry_run then local can_place="));
 });
 
+test("agentNativeBuildCommand dispatches underground subtype builds through create_entity and item consumption", () => {
+  const lua = agentNativeBuildCommand({
+    name: "underground-belt",
+    anchor: { x: 10, y: 20 },
+    direction: 4,
+    underground_type: "output",
+  });
+  assert.ok(lua.startsWith("/sc "));
+  assert.ok(lua.includes('local underground_type="output"'));
+  assert.ok(lua.includes("if underground_type~='input' and underground_type~='output'"));
+  assert.ok(lua.includes("error='invalid_underground_type'"));
+  assert.ok(lua.includes("name~='underground-belt' and name~='pipe-to-ground'"));
+  assert.ok(
+    lua.includes(
+      "p.surface.create_entity{name=name,position={x=x,y=y},direction=direction,force=p.force,type=underground_type,player=p,raise_built=true}",
+    ),
+  );
+  assert.ok(lua.includes("p.remove_item{name=place_item,count=place_count}"));
+  assert.ok(lua.includes("consumed={name=place_item,count=removed}"));
+  assert.ok(lua.includes("error='out_of_reach'"));
+  assert.ok(lua.includes("error='cannot_build'"));
+  assert.ok(lua.includes("error='missing_item'"));
+  // The regular build path stays untouched (no create_entity, still cursor-based).
+  const normal = agentNativeBuildCommand(BUILD);
+  assert.equal(normal.includes("create_entity"), false);
+  assert.ok(normal.includes("p.build_from_cursor(params)"));
+  // Pipes-to-ground use the same explicit subtype path.
+  const pipe = agentNativeBuildCommand({
+    name: "pipe-to-ground",
+    anchor: { x: 0, y: 0 },
+    underground_type: "input",
+  });
+  assert.ok(pipe.includes('local underground_type="input"'));
+  assert.ok(pipe.includes("type=underground_type"));
+});
+
 test("agentClearBuildFootprintCommand sweeps the footprint area and reports cleared, pending and skipped obstacles", () => {
   const lua = agentClearBuildFootprintCommand({ name: "assembling-machine-1", anchor: { x: 130, y: -42 } });
   assert.ok(lua.startsWith("/sc "));

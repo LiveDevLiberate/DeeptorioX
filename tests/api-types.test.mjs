@@ -126,6 +126,18 @@ test("normalizeEntityData and normalizePrototypeData fill nested lists", () => {
   assert.deepEqual(prototype.fluid_boxes[0].pipe_connections[0].positions, []);
 });
 
+test("parseBuildRequests passes valid underground subtypes and drops invalid ones", () => {
+  const entities = [
+    { name: "underground-belt", anchor: { x: 1, y: 2 }, direction: 4, underground_type: "input" },
+    { name: "pipe-to-ground", anchor: { x: 3, y: 4 }, direction: 0, underground_type: "output" },
+    { name: "underground-belt", anchor: { x: 5, y: 6 }, underground_type: "sideways" },
+    { name: "transport-belt", anchor: { x: 7, y: 8 } },
+  ];
+  const parsed = parseBuildRequests(entities);
+  assert.deepEqual(parsed, [entities[0], entities[1], entities[3]]);
+  assert.equal(parsed[0].underground_type, "input");
+});
+
 test("registerAgentRoutes preserves the full agent route inventory", () => {
   const router = new Router();
   // Registration only stores handlers; the context is dereferenced at call time.

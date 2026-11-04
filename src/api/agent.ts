@@ -75,7 +75,8 @@ export function finiteNumberOrUndefined(value: unknown): number | undefined {
 
 /**
  * Build requests from `{entities:[...]}`: entries need a truthy name and a
- * finite-convertible anchor, exactly like the historical inline filter.
+ * finite-convertible anchor, exactly like the historical inline filter. An
+ * optional `underground_type` must be "input" or "output" when present.
  */
 export function parseBuildRequests(value: unknown, max = AGENT_MAX_ACTIONS): BuildRequest[] {
   return arrayOrEmpty(value)
@@ -83,8 +84,12 @@ export function parseBuildRequests(value: unknown, max = AGENT_MAX_ACTIONS): Bui
     .filter((entity) => {
       const record = asRecord(entity);
       const anchor = asRecord(record?.anchor);
+      const underground = record?.underground_type;
       return (
-        Boolean(record?.name) && Number.isFinite(Number(anchor?.x)) && Number.isFinite(Number(anchor?.y))
+        Boolean(record?.name) &&
+        Number.isFinite(Number(anchor?.x)) &&
+        Number.isFinite(Number(anchor?.y)) &&
+        (underground === undefined || underground === "input" || underground === "output")
       );
     }) as BuildRequest[];
 }

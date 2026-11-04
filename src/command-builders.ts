@@ -12,9 +12,63 @@ export type BuildRequest = {
   name: string;
   anchor: { x: number; y: number };
   direction?: number;
+  /**
+   * Explicit underground subtype for `underground-belt` / `pipe-to-ground`.
+   * The native `build_from_cursor` path cannot choose input/output, so those
+   * entities take a separate Lua path that creates the entity with the subtype
+   * and consumes the place item.
+   */
+  underground_type?: "input" | "output";
 };
 
+/**
+ * Underground belt / pipe-to-ground placement. Unlike `build_from_cursor` this
+ * path can choose the input/output subtype: it validates reach and placement,
+ * creates the entity with the explicit `type`, then consumes the place item
+ * from the player inventory (the native path consumes it as part of the build).
+ */
+export function agentUndergroundBuildCommand(item: BuildRequest, dryRun = false): string {
+  const direction = item.direction ?? 0;
+  return [
+    "/sc",
+    "local p=game.players[1]",
+    "local function done(v) rcon.print(helpers.table_to_json(v)) end",
+    "if not p or not p.character then done{ok=false,error='no_character'} return end",
+    `local name=${luaString(item.name)}`,
+    `local anchor_x=${Number(item.anchor.x)}`,
+    `local anchor_y=${Number(item.anchor.y)}`,
+    `local direction=${Number(direction)}`,
+    `local underground_type=${luaString(item.underground_type ?? "")}`,
+    `local dry_run=${dryRun ? "true" : "false"}`,
+    "if underground_type~='input' and underground_type~='output' then done{ok=false,error='invalid_underground_type',underground_type=underground_type} return end",
+    "if name~='underground-belt' and name~='pipe-to-ground' then done{ok=false,error='invalid_underground_entity',name=name} return end",
+    "local proto=prototypes.entity[name]",
+    "if not proto then done{ok=false,error='unknown_entity',name=name} return end",
+    "local place_item=nil local place_count=1 for _,item in pairs(proto.items_to_place_this or {}) do place_item=item.name place_count=item.count or 1 break end",
+    "if not place_item then done{ok=false,error='not_player_placeable',name=name} return end",
+    "if direction~=0 and direction~=4 and direction~=8 and direction~=12 then done{ok=false,error='invalid_direction',direction=direction} return end",
+    "local width=proto.tile_width or 1 local height=proto.tile_height or 1",
+    "if direction==4 or direction==12 then width,height=height,width end",
+    "local x=anchor_x+width/2 local y=anchor_y+height/2",
+    "local dx=x-p.position.x local dy=y-p.position.y",
+    "local reachable=dx*dx+dy*dy<=p.build_distance*p.build_distance",
+    "local has_item=p.get_item_count(place_item)>=place_count",
+    "local can_place=p.surface.can_place_entity{name=name,position={x,y},direction=direction,force=p.force,build_check_type=defines.build_check_type.manual}",
+    "local function diagnostics() local nearby=p.surface.find_entities_filtered{area={{anchor_x-1,anchor_y-1},{anchor_x+1,anchor_y+1}}} or {} local blockers={} for _,e in pairs(nearby) do if e.valid and e~=p.character then table.insert(blockers,{name=e.name,type=e.type}) end end return {reachable=reachable,has_item=has_item,can_place=can_place,blockers=blockers} end",
+    "if dry_run then done{ok=true,can_place=can_place,reachable=reachable,has_item=has_item,requested_anchor={x=anchor_x,y=anchor_y},intended_center={x=x,y=y},direction=direction,underground_type=underground_type,required_item={name=place_item,count=place_count},diagnostics=diagnostics()} return end",
+    "if not reachable then done{ok=false,error='out_of_reach',requested_anchor={x=anchor_x,y=anchor_y},intended_center={x=x,y=y},diagnostics=diagnostics()} return end",
+    "if not can_place then done{ok=false,error='cannot_build',requested_anchor={x=anchor_x,y=anchor_y},intended_center={x=x,y=y},direction=direction,diagnostics=diagnostics()} return end",
+    "if not has_item then done{ok=false,error='missing_item',name=name,required_item={name=place_item,count=place_count},available=p.get_item_count(place_item)} return end",
+    "local e=p.surface.create_entity{name=name,position={x=x,y=y},direction=direction,force=p.force,type=underground_type,player=p,raise_built=true}",
+    "if not e or not e.valid then done{ok=false,error='build_failed',name=name} return end",
+    "local removed=p.remove_item{name=place_item,count=place_count}",
+    "local subtype=nil pcall(function() subtype=e.belt_to_ground_type end) if subtype==nil then pcall(function() subtype=e.pipe_to_ground_type end) end",
+    "done{ok=true,name=name,underground_type=underground_type,entity_subtype=subtype,placed_with_item=place_item,consumed={name=place_item,count=removed},requested_anchor={x=anchor_x,y=anchor_y},actual_center={x=e.position.x,y=e.position.y},direction=e.direction}",
+  ].join(" ");
+}
+
 export function agentNativeBuildCommand(item: BuildRequest, dryRun = false): string {
+  if (item.underground_type) return agentUndergroundBuildCommand(item, dryRun);
   const direction = item.direction ?? 0;
   const parts = [
     "/sc",
