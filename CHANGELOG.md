@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-04
+
 ### Added
 
 - **Map settings button in the recording header.** A `地图 / Map` button (next
@@ -639,7 +641,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/ryanmadden/autorio/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/ryanmadden/autorio/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/ryanmadden/autorio/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/ryanmadden/autorio/compare/v0.19.2...v0.20.0
