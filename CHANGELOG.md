@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-11-04
+
 ### Changed
 
 - **No more permanent “STATE.md pending” line.** The status bar only shows the
@@ -315,7 +317,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.10.5...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.10.6...HEAD
+[0.10.6]: https://github.com/ryanmadden/autorio/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/ryanmadden/autorio/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/ryanmadden/autorio/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/ryanmadden/autorio/compare/v0.10.2...v0.10.3
