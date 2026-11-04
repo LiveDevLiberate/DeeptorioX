@@ -1,0 +1,2261 @@
+{
+  "cli_commands": [
+    {
+      "command": "act-build",
+      "description": "Place entities using the top-left occupied tile as the anchor.",
+      "help": "Usage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]    or: factorio.py act-build --entities-json <json> [--no-clear] Direction: 0=north (up), 4=east (right), 8=south (down), 12=west (left). Note: The character walks into reach using native pathfinding. Trees and rocks in the footprint are mined before placement unless --no-clear is given.",
+      "usage": "Usage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]"
+    },
+    {
+      "command": "act-build-blueprint",
+      "description": "Expand a Factorio blueprint string and build it in batches of at most 50 entities.",
+      "help": "Usage: factorio.py act-build-blueprint --blueprint-file <path> [--anchor x,y] [--dry-run] [--no-clear]    or: factorio.py act-build-blueprint --blueprint <string> [--anchor x,y] [--dry-run] [--no-clear] Position: blueprint positions are map coordinates; --anchor moves the whole plan so its top-left tile lands there. Directions: 0=north (up), 4=east (right), 8=south (down), 12=west (left). Underground: underground-belt/pipe-to-ground input/output subtypes are preserved as underground_type. Dry run: prints the expanded entities, placement analysis, and missing items without building. Note: Recip",
+      "usage": "Usage: factorio.py act-build-blueprint --blueprint-file <path> [--anchor x,y] [--dry-run] [--no-clear]"
+    },
+    {
+      "command": "act-copy-settings",
+      "description": "Copy settings from source to target entities (synchronous, reach-checked).",
+      "help": "Usage: factorio.py act-copy-settings --target source-x,source-y,target-x,target-y [--target ...] [--dry-run]    or: factorio.py act-copy-settings --targets-json <json> [--dry-run] Note: Not a walking job; move the character into reach of every source and target first. Unreachable or incompatible pairs are reported and never mutated.",
+      "usage": "Usage: factorio.py act-copy-settings --target source-x,source-y,target-x,target-y [--target ...] [--dry-run]"
+    },
+    {
+      "command": "act-craft",
+      "description": "Queue a handcraft and verify its products appear (or use --no-wait).",
+      "help": "Usage: factorio.py act-craft --item <name> --count <n> [--no-wait]",
+      "usage": "Usage: factorio.py act-craft --item <name> --count <n> [--no-wait]"
+    },
+    {
+      "command": "act-extract",
+      "description": "Remove items from an entity at x,y into player inventory.",
+      "help": "Usage: factorio.py act-extract --entity x,y --item <name> --count <n|all> Note: The character walks into reach using native pathfinding.",
+      "usage": "Usage: factorio.py act-extract --entity x,y --item <name> --count <n|all>"
+    },
+    {
+      "command": "act-insert",
+      "description": "Move items from player inventory into an entity at x,y.",
+      "help": "Usage: factorio.py act-insert --entity x,y --item <name> --count <n> Note: The character walks into reach using native pathfinding.",
+      "usage": "Usage: factorio.py act-insert --entity x,y --item <name> --count <n>"
+    },
+    {
+      "command": "act-launch-rocket",
+      "description": "Launch a ready rocket silo at target tile coordinates.",
+      "help": "Usage: factorio.py act-launch-rocket --target x,y [--target ...]    or: factorio.py act-launch-rocket --targets-json <json> Note: Walks into reach. Success means launch initiated; the benchmark waits for an actual launch.",
+      "usage": "Usage: factorio.py act-launch-rocket --target x,y [--target ...]"
+    },
+    {
+      "command": "act-mine",
+      "description": "Mine a resource or entity at target tile coordinates.",
+      "help": "Usage: factorio.py act-mine --target x,y [--target ...] [--resource [name]]    or: factorio.py act-mine --targets-json <json> Resource mode excludes the character and prioritizes the requested resource deterministically. Note: The character walks into reach and performs one native mining cycle per target (one extraction for a resource vein).",
+      "usage": "Usage: factorio.py act-mine --target x,y [--target ...] [--resource [name]]"
+    },
+    {
+      "command": "act-move",
+      "description": "Move the player through paced, collision-checked steps to target tile coordinates.",
+      "help": "Usage: factorio.py act-move --target x,y [--target ...]    or: factorio.py act-move --targets-json <json> Note: Stops and returns partial progress if an intermediate step is blocked.",
+      "usage": "Usage: factorio.py act-move --target x,y [--target ...]"
+    },
+    {
+      "command": "act-research",
+      "description": "Start researching a technology.",
+      "help": "Usage: factorio.py act-research --technology <name>",
+      "usage": "Usage: factorio.py act-research --technology <name>"
+    },
+    {
+      "command": "act-rotate",
+      "description": "Rotate entities at target tile coordinates (first entity at each point).",
+      "help": "Usage: factorio.py act-rotate --target x,y [--target ...] [--direction 0|4|8|12]    or: factorio.py act-rotate --targets-json <json> Direction: 0=north (up), 4=east (right), 8=south (down), 12=west (left). With --direction the entity is rotated until it faces that direction (max 4 steps), so one call sets the final orientation. Note: The character walks into reach using native pathfinding.",
+      "usage": "Usage: factorio.py act-rotate --target x,y [--target ...] [--direction 0|4|8|12]"
+    },
+    {
+      "command": "act-set-recipe",
+      "description": "Set the recipe on assemblers at target tile coordinates.",
+      "help": "Usage: factorio.py act-set-recipe --target x,y,recipe [--target ...]    or: factorio.py act-set-recipe --targets-json <json> Note: The character walks into reach using native pathfinding.",
+      "usage": "Usage: factorio.py act-set-recipe --target x,y,recipe [--target ...]"
+    },
+    {
+      "command": "build-defense-line",
+      "description": "Place 2x2 turrets spaced along a line with a single wall row in front.",
+      "help": "Usage: factorio.py build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear] Front side is +y for horizontal lines and +x for vertical lines; single wall layer, no gates/power.",
+      "usage": "Usage: factorio.py build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear]"
+    },
+    {
+      "command": "build-inserter-pairs",
+      "description": "Place input+output inserters around rows of machines.",
+      "help": "Usage: factorio.py build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--name inserter] [--no-clear]    or: factorio.py build-inserter-pairs --entities-json <json> [--direction ...] [--no-clear] Footprints default to 3x3; pass w,h for other machine sizes. Shared machine-to-machine inserters are deduped.",
+      "usage": "Usage: factorio.py build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--name inserter] [--no-clear]"
+    },
+    {
+      "command": "build-mining-outpost",
+      "description": "Place mining drills on a grid over ore tiles with belt rows and an output chest.",
+      "help": "Usage: factorio.py build-mining-outpost --ore x,y [--ore ...] [--drill name] [--drill-size w,h] [--output name] [--no-clear]    or: factorio.py build-mining-outpost --area x,y,radius [--drill name] [--drill-size w,h] [--output name] Warning: one output-belt row between drill rows is not mined; electric drills need a power network.",
+      "usage": "Usage: factorio.py build-mining-outpost --ore x,y [--ore ...] [--drill name] [--drill-size w,h] [--output name] [--no-clear]"
+    },
+    {
+      "command": "build-pipe-line",
+      "description": "Lay an L-shaped surface pipe line (x first, then y).",
+      "help": "Usage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear] Note: surface pipes only; for straight runs under obstacles use build-underground-pipe.",
+      "usage": "Usage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]"
+    },
+    {
+      "command": "build-power-network",
+      "description": "Place a pole grid covering entity targets or a scan area.",
+      "help": "Usage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]    or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear] Coverage: small pole supply area 5x5, 5-tile grid so adjacent poles are within wire reach.",
+      "usage": "Usage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]"
+    },
+    {
+      "command": "build-underground-belt",
+      "description": "Lay a straight underground-belt line (input/output pairs + surface belt connectors).",
+      "help": "Usage: factorio.py build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear] Name: transport-belt/fast-transport-belt/express-transport-belt (default distance 4/6/8); pass --max-distance to override. Pair layout: input at the segment start, output at start+distance facing the same flow direction, one surface belt connector after each pair, surface belts for tails shorter than a pair. Straight horizontal/vertical only.",
+      "usage": "Usage: factorio.py build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]"
+    },
+    {
+      "command": "build-underground-pipe",
+      "description": "Lay a straight pipe-to-ground line (input/output pairs + surface pipe connectors).",
+      "help": "Usage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear] Pair layout: input at the segment start, output at start+distance facing the same flow direction, one surface pipe connector after each pair, surface pipes for tails shorter than a pair (default distance 10). Straight only.",
+      "usage": "Usage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]"
+    },
+    {
+      "command": "deconstruct-area",
+      "description": "Observe an area and remove the entities with native mining (chunked).",
+      "help": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run] Defaults: radius 64, limit server default (300), player_only=true (last_user heuristic). --include-all sets player_only=false; add --types tree,simple-entity for passability or --types resource for ore. Removal is the normal native miner: the character walks, mining takes real time, and unreachable targets fail per entity. Jobs are split into batches of at most 50 targets (--max-per-job smaller). --dry-run plans only.",
+      "usage": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run]"
+    },
+    {
+      "command": "job-cancel",
+      "description": "Request cancellation after the current atomic action.",
+      "help": "Usage: factorio.py job-cancel --job-id <id>",
+      "usage": "Usage: factorio.py job-cancel --job-id <id>"
+    },
+    {
+      "command": "job-status",
+      "description": "Read action job progress.",
+      "help": "Usage: factorio.py job-status --job-id <id>",
+      "usage": "Usage: factorio.py job-status --job-id <id>"
+    },
+    {
+      "command": "observe-area",
+      "description": "List entities for deconstruction planning in an area (name/type/position/status).",
+      "help": "Usage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only]",
+      "usage": "Usage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only]"
+    },
+    {
+      "command": "observe-combat",
+      "description": "Read enemy nests/units, own turrets (ammo/health) and player health.",
+      "help": "Usage: factorio.py observe-combat --center-x <n> --center-y <n> --radius <n> Defaults: player position, radius 64. Recent damage is not derivable; compare player.health across calls.",
+      "usage": "Usage: factorio.py observe-combat --center-x <n> --center-y <n> --radius <n>"
+    },
+    {
+      "command": "observe-connections",
+      "description": "Audit inserter/belt/machine links and report dead ends or reversed links.",
+      "help": "Usage: factorio.py observe-connections --center-x <n> --center-y <n> --radius <n>",
+      "usage": "Usage: factorio.py observe-connections --center-x <n> --center-y <n> --radius <n>"
+    },
+    {
+      "command": "observe-copy-settings",
+      "description": "Dry-run source/target compatibility and reach report for settings copy.",
+      "help": "Usage: factorio.py observe-copy-settings --target source-x,source-y,target-x,target-y [--target ...]    or: factorio.py observe-copy-settings --targets-json <json> Note: The character must be in reach of both entities; move first.",
+      "usage": "Usage: factorio.py observe-copy-settings --target source-x,source-y,target-x,target-y [--target ...]"
+    },
+    {
+      "command": "observe-entity",
+      "description": "Inspect entity status, fuel, fluids, recipe, inventory.",
+      "help": "Usage: factorio.py observe-entity --target x,y [--target ...]    or: factorio.py observe-entity --targets-json <json>",
+      "usage": "Usage: factorio.py observe-entity --target x,y [--target ...]"
+    },
+    {
+      "command": "observe-entity-prototype",
+      "description": "Look up entity dimensions, fluid connections, energy info.",
+      "help": "Usage: factorio.py observe-entity-prototype --name <entity-name>",
+      "usage": "Usage: factorio.py observe-entity-prototype --name <entity-name>"
+    },
+    {
+      "command": "observe-factory",
+      "description": "Summarize power, fuel, and entity status counts in a window.",
+      "help": "Usage: factorio.py observe-factory --center-x <n> --center-y <n> --radius <n>",
+      "usage": "Usage: factorio.py observe-factory --center-x <n> --center-y <n> --radius <n>"
+    },
+    {
+      "command": "observe-fluids",
+      "description": "List fluid networks, levels and capacities around a window.",
+      "help": "Usage: factorio.py observe-fluids --center-x <n> --center-y <n> --radius <n> Defaults: player position, radius 32.",
+      "usage": "Usage: factorio.py observe-fluids --center-x <n> --center-y <n> --radius <n>"
+    },
+    {
+      "command": "observe-layout",
+      "description": "Render a region as an ASCII map (belts, inserters, machines, terrain).",
+      "help": "Usage: factorio.py observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>",
+      "usage": "Usage: factorio.py observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>"
+    },
+    {
+      "command": "observe-map",
+      "description": "Read a player-charted map window; uncharted chunks are masked.",
+      "help": "Usage: factorio.py observe-map --center-x <n> --center-y <n> --radius <n>",
+      "usage": "Usage: factorio.py observe-map --center-x <n> --center-y <n> --radius <n>"
+    },
+    {
+      "command": "observe-placement",
+      "description": "Analyze buildability without consuming an item.",
+      "help": "Usage: factorio.py observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]",
+      "usage": "Usage: factorio.py observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]"
+    },
+    {
+      "command": "observe-player",
+      "description": "Inspect player position, health, inventories, and equipment.",
+      "help": "Usage: factorio.py observe-player --limit-inventory <n> --limit-equipment <n>",
+      "usage": "Usage: factorio.py observe-player --limit-inventory <n> --limit-equipment <n>"
+    },
+    {
+      "command": "observe-production",
+      "description": "Read per-minute production/consumption rates from the manager's telemetry sampler.",
+      "help": "Usage: factorio.py observe-production",
+      "usage": "Usage: factorio.py observe-production"
+    },
+    {
+      "command": "observe-recipes",
+      "description": "List available recipes and their ingredients/products.",
+      "help": "Usage: factorio.py observe-recipes --limit-recipes <n> [--unlocked-only]",
+      "usage": "Usage: factorio.py observe-recipes --limit-recipes <n> [--unlocked-only]"
+    },
+    {
+      "command": "observe-research",
+      "description": "Get current, queued, available, locked, and completed technologies with costs.",
+      "help": "Usage: factorio.py observe-research --limit-available <n> --limit-locked <n> --limit-completed <n>",
+      "usage": "Usage: factorio.py observe-research --limit-available <n> --limit-locked <n> --limit-completed <n>"
+    },
+    {
+      "command": "observe-resources",
+      "description": "Scan for resource patches in a radius.",
+      "help": "Usage: factorio.py observe-resources --window-x <n> --window-y <n> --radius <n>",
+      "usage": "Usage: factorio.py observe-resources --window-x <n> --window-y <n> --radius <n>"
+    },
+    {
+      "command": "observe-snapshot",
+      "description": "One call returning player, factory, research and production observations.",
+      "help": "Usage: factorio.py observe-snapshot --center-x <n> --center-y <n> --radius <n> Note: sequential requests; saves round trips and prompt tokens versus four separate calls.",
+      "usage": "Usage: factorio.py observe-snapshot --center-x <n> --center-y <n> --radius <n>"
+    },
+    {
+      "command": "observe-world",
+      "description": "Fetch compact RLE terrain and entities in a charted window.",
+      "help": "Usage: factorio.py observe-world --window-x <n> --window-y <n> --radius <n> --include terrain,entities",
+      "usage": "Usage: factorio.py observe-world --window-x <n> --window-y <n> --radius <n> --include terrain,entities"
+    },
+    {
+      "command": "server-saves",
+      "description": "List available save files on the server.",
+      "help": "Usage: factorio.py server-saves",
+      "usage": "Usage: factorio.py server-saves"
+    },
+    {
+      "command": "server-start",
+      "description": "Launch the graphical local host with the given save.",
+      "help": "Usage: factorio.py server-start --save <name>.zip",
+      "usage": "Usage: factorio.py server-start --save <name>.zip"
+    },
+    {
+      "command": "server-status",
+      "description": "Show whether the server is running and RCON is connected.",
+      "help": "Usage: factorio.py server-status",
+      "usage": "Usage: factorio.py server-status"
+    },
+    {
+      "command": "server-stop",
+      "description": "Stop the running server (saves and exits).",
+      "help": "Usage: factorio.py server-stop",
+      "usage": "Usage: factorio.py server-stop"
+    },
+    {
+      "command": "state-show",
+      "description": "Read the active run's STATE.md freshness/status.",
+      "help": "Usage: factorio.py state-show",
+      "usage": "Usage: factorio.py state-show"
+    },
+    {
+      "command": "state-write",
+      "description": "Write/refresh STATE.md (resets the update deadline gate).",
+      "help": "Usage: factorio.py state-write --current <text> [--done-when <text>] [--next <text>] [--scores production=50,logistics=40,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>] Mutating actions are refused with STATE_UPDATE_REQUIRED once STATE.md is too old; call this to continue.",
+      "usage": "Usage: factorio.py state-write --current <text> [--done-when <text>] [--next <text>] [--scores production=50,logistics=40,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]"
+    },
+    {
+      "command": "tools",
+      "description": "Fetch the generated tool manifest (client methods, parameters, CLI usage, manager endpoints).",
+      "help": "Usage: factorio.py tools [--json] [--local] [--query <text>] --json prints the manifest as JSON; --local introspects factorio.py without the manager; --query filters matching commands/methods/endpoints. (The manager also serves GET /api/agent/tools?q=...)",
+      "usage": "Usage: factorio.py tools [--json] [--local] [--query <text>]"
+    },
+    {
+      "command": "wait",
+      "description": "Sleep locally for N milliseconds between actions.",
+      "help": "Usage: factorio.py wait --ms <n>",
+      "usage": "Usage: factorio.py wait --ms <n>"
+    }
+  ],
+  "client_methods": [
+    {
+      "description": "Build entities after mining trees/rocks from their footprints.",
+      "name": "build",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "entities",
+          "required": true
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "build(self, entities: 'list[dict[str, Any]]', *, clear: 'bool' = True, **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "build_belt_line",
+      "parameters": [
+        {
+          "annotation": "dict[str, Any]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "start",
+          "required": true
+        },
+        {
+          "annotation": "dict[str, Any]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "end",
+          "required": true
+        },
+        {
+          "annotation": "str",
+          "default": "'transport-belt'",
+          "kind": "keyword_only",
+          "name": "name",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "build_belt_line(self, start: 'dict[str, Any]', end: 'dict[str, Any]', *, name: 'str' = 'transport-belt', **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "Decode, expand and build a Factorio blueprint string.",
+      "name": "build_blueprint",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "blueprint",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "anchor",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "False",
+          "kind": "keyword_only",
+          "name": "dry_run",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "50",
+          "kind": "keyword_only",
+          "name": "max_per_job",
+          "required": false
+        },
+        {
+          "annotation": "tuple[float, float]",
+          "default": "(0, 0)",
+          "kind": "keyword_only",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "annotation": "dict[str, Any] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "prototype_sizes",
+          "required": false
+        }
+      ],
+      "signature": "build_blueprint(self, blueprint: 'Any', *, anchor: 'Any' = None, dry_run: 'bool' = False, clear: 'bool' = True, max_per_job: 'int' = 50, offset: 'tuple[float, float]' = (0, 0), prototype_sizes: 'dict[str, Any] | None' = None) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Plan (or accept) a defense line and build it in chunks.",
+      "name": "build_defense_line",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "from_xy",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "to_xy",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'gun-turret'",
+          "kind": "keyword_only",
+          "name": "turret",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "'stone-wall'",
+          "kind": "keyword_only",
+          "name": "wall",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "8",
+          "kind": "keyword_only",
+          "name": "spacing",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "ammo_chest",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'inserter'",
+          "kind": "keyword_only",
+          "name": "inserter",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "build_defense_line(self, from_xy: 'Any' = None, to_xy: 'Any' = None, *, plan: 'Any' = None, turret: 'str' = 'gun-turret', wall: 'str | None' = 'stone-wall', spacing: 'int' = 8, ammo_chest: 'str | None' = None, inserter: 'str' = 'inserter', clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Plan (or accept) input/output inserter pairs and build them in chunks.",
+      "name": "build_inserter_pairs",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "machines",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "'east'",
+          "kind": "keyword_only",
+          "name": "direction",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'inserter'",
+          "kind": "keyword_only",
+          "name": "inserter",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "3",
+          "kind": "keyword_only",
+          "name": "width",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "3",
+          "kind": "keyword_only",
+          "name": "height",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "build_inserter_pairs(self, machines: 'Any' = None, *, plan: 'Any' = None, direction: 'Any' = 'east', inserter: 'str' = 'inserter', width: 'int' = 3, height: 'int' = 3, clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "",
+      "name": "build_loader",
+      "parameters": [
+        {
+          "annotation": "dict[str, Any]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "source",
+          "required": true
+        },
+        {
+          "annotation": "dict[str, Any]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "target",
+          "required": true
+        },
+        {
+          "annotation": "str",
+          "default": "'inserter'",
+          "kind": "keyword_only",
+          "name": "name",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "build_loader(self, source: 'dict[str, Any]', target: 'dict[str, Any]', *, name: 'str' = 'inserter', **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "Plan (or accept) a mining outpost and build it in chunks.",
+      "name": "build_mining_outpost",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "patch_area_or_centers",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'electric-mining-drill'",
+          "kind": "keyword_only",
+          "name": "drill",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "drill_grid",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "'iron-chest'",
+          "kind": "keyword_only",
+          "name": "output",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'inserter'",
+          "kind": "keyword_only",
+          "name": "inserter",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "build_mining_outpost(self, patch_area_or_centers: 'Any' = None, *, plan: 'Any' = None, drill: 'str' = 'electric-mining-drill', drill_grid: 'Any' = None, output: 'str | None' = 'iron-chest', inserter: 'str' = 'inserter', clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Plan (or accept) a surface pipe line and build it in chunks.",
+      "name": "build_pipe_line",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "from_xy",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "to_xy",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'pipe'",
+          "kind": "keyword_only",
+          "name": "name",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "build_pipe_line(self, from_xy: 'Any' = None, to_xy: 'Any' = None, *, plan: 'Any' = None, name: 'str' = 'pipe', clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Plan (or accept) a covering pole network and build it in chunks.",
+      "name": "build_power_network",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "targets_or_area",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'small-electric-pole'",
+          "kind": "keyword_only",
+          "name": "pole",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "big_pole_every",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "build_power_network(self, targets_or_area: 'Any' = None, *, plan: 'Any' = None, pole: 'str' = 'small-electric-pole', big_pole_every: 'int' = 0, clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Plan (or accept) a straight underground-belt line and build it in chunks.",
+      "name": "build_underground_belt_line",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "from_xy",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "to_xy",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'transport-belt'",
+          "kind": "keyword_only",
+          "name": "name",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "max_distance",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "build_underground_belt_line(self, from_xy: 'Any' = None, to_xy: 'Any' = None, *, plan: 'Any' = None, name: 'str' = 'transport-belt', max_distance: 'Any' = None, clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Plan (or accept) a straight pipe-to-ground line and build it in chunks.",
+      "name": "build_underground_pipe_line",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "from_xy",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "to_xy",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "10",
+          "kind": "keyword_only",
+          "name": "max_distance",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "build_underground_pipe_line(self, from_xy: 'Any' = None, to_xy: 'Any' = None, *, plan: 'Any' = None, max_distance: 'Any' = 10, clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Copy entity settings between source/target pairs.",
+      "name": "copy_settings",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "targets",
+          "required": true
+        },
+        {
+          "annotation": "bool",
+          "default": "False",
+          "kind": "keyword_only",
+          "name": "dry_run",
+          "required": false
+        }
+      ],
+      "signature": "copy_settings(self, targets: 'list[dict[str, Any]]', *, dry_run: 'bool' = False) -> 'Any'"
+    },
+    {
+      "description": "Dry-run alias of :meth:`copy_settings` (no settings are changed).",
+      "name": "copy_settings_check",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "targets",
+          "required": true
+        }
+      ],
+      "signature": "copy_settings_check(self, targets: 'list[dict[str, Any]]') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "craft",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "item",
+          "required": true
+        },
+        {
+          "annotation": "int",
+          "default": "1",
+          "kind": "positional_or_keyword",
+          "name": "count",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "wait",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "wait_timeout",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "craft(self, item: 'str', count: 'int' = 1, *, wait: 'bool' = True, wait_timeout: 'float | None' = None, **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "create_save",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "name",
+          "required": true
+        }
+      ],
+      "signature": "create_save(self, name: 'str') -> 'Any'"
+    },
+    {
+      "description": "Observe an area and remove the resulting entities with native mining.",
+      "name": "deconstruct_area",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "64",
+          "kind": "positional_or_keyword",
+          "name": "radius",
+          "required": false
+        },
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "annotation": "list[str] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "types",
+          "required": false
+        },
+        {
+          "annotation": "list[str] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "filters",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "player_only",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "50",
+          "kind": "keyword_only",
+          "name": "max_per_job",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "False",
+          "kind": "keyword_only",
+          "name": "dry_run",
+          "required": false
+        }
+      ],
+      "signature": "deconstruct_area(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 64, *, limit: 'int | None' = None, types: 'list[str] | None' = None, filters: 'list[str] | None' = None, player_only: 'bool' = True, max_per_job: 'int' = 50, dry_run: 'bool' = False) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "",
+      "name": "extract",
+      "parameters": [
+        {
+          "annotation": "dict[str, float]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "entity",
+          "required": true
+        },
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "item",
+          "required": true
+        },
+        {
+          "annotation": "int | str",
+          "default": "1",
+          "kind": "positional_or_keyword",
+          "name": "count",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "extract(self, entity: 'dict[str, float]', item: 'str', count: 'int | str' = 1, **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "insert",
+      "parameters": [
+        {
+          "annotation": "dict[str, float]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "entity",
+          "required": true
+        },
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "item",
+          "required": true
+        },
+        {
+          "annotation": "int",
+          "default": "1",
+          "kind": "positional_or_keyword",
+          "name": "count",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "insert(self, entity: 'dict[str, float]', item: 'str', count: 'int' = 1, **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "inventory_counts",
+      "parameters": [],
+      "signature": "inventory_counts(self) -> 'dict[str, int]'"
+    },
+    {
+      "description": "",
+      "name": "job_cancel",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "job_id",
+          "required": true
+        }
+      ],
+      "signature": "job_cancel(self, job_id: 'str') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "job_status",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "job_id",
+          "required": true
+        }
+      ],
+      "signature": "job_status(self, job_id: 'str') -> 'Any'"
+    },
+    {
+      "description": "Launch ready silos; success indicates launch initiation, not flight completion.",
+      "name": "launch_rocket",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "targets",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "launch_rocket(self, targets: 'list[dict[str, Any]]', **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "mine",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "targets",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "mine(self, targets: 'list[dict[str, Any]]', **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "move",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "targets",
+          "required": true
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "max_step",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "move(self, targets: 'list[dict[str, Any]]', *, max_step: 'float | None' = None, **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "Deconstruction-planning entity list for an area (name/type/position).",
+      "name": "observe_area",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "64",
+          "kind": "positional_or_keyword",
+          "name": "radius",
+          "required": false
+        },
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "annotation": "list[str] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "types",
+          "required": false
+        },
+        {
+          "annotation": "list[str] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "filters",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "False",
+          "kind": "keyword_only",
+          "name": "player_only",
+          "required": false
+        }
+      ],
+      "signature": "observe_area(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 64, *, limit: 'int | None' = None, types: 'list[str] | None' = None, filters: 'list[str] | None' = None, player_only: 'bool' = False) -> 'Any'"
+    },
+    {
+      "description": "Read-only enemy nests/units, player turrets, and player health scan.",
+      "name": "observe_combat",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "64",
+          "kind": "positional_or_keyword",
+          "name": "radius",
+          "required": false
+        }
+      ],
+      "signature": "observe_combat(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 64) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_connections",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "120",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        }
+      ],
+      "signature": "observe_connections(self, *, x: 'float | None' = None, y: 'float | None' = None, radius: 'float' = 120) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_entities",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "targets",
+          "required": true
+        }
+      ],
+      "signature": "observe_entities(self, targets: 'list[dict[str, Any]]') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_entity_prototype",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "name",
+          "required": true
+        }
+      ],
+      "signature": "observe_entity_prototype(self, name: 'str') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_factory",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "120",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        }
+      ],
+      "signature": "observe_factory(self, *, x: 'float | None' = None, y: 'float | None' = None, radius: 'float' = 120) -> 'Any'"
+    },
+    {
+      "description": "Fluid networks/levels around a window (defaults to the player position).",
+      "name": "observe_fluids",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "32",
+          "kind": "positional_or_keyword",
+          "name": "radius",
+          "required": false
+        }
+      ],
+      "signature": "observe_fluids(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 32) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_layout",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "35",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "1",
+          "kind": "keyword_only",
+          "name": "step",
+          "required": false
+        }
+      ],
+      "signature": "observe_layout(self, *, x: 'float | None' = None, y: 'float | None' = None, radius: 'float' = 35, step: 'int' = 1) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_map",
+      "parameters": [
+        {
+          "annotation": "float",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "48",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        }
+      ],
+      "signature": "observe_map(self, *, x: 'float' = 0, y: 'float' = 0, radius: 'float' = 48) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_placement",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "placements",
+          "required": true
+        }
+      ],
+      "signature": "observe_placement(self, placements: 'list[dict[str, Any]]') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_player",
+      "parameters": [
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "inventory_slots",
+          "required": false
+        },
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "equipment_slots",
+          "required": false
+        }
+      ],
+      "signature": "observe_player(self, *, inventory_slots: 'int | None' = None, equipment_slots: 'int | None' = None) -> 'Any'"
+    },
+    {
+      "description": "Per-minute production/consumption rates from the manager's sampler.",
+      "name": "observe_production",
+      "parameters": [],
+      "signature": "observe_production(self) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_recipes",
+      "parameters": [
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "recipes",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "False",
+          "kind": "keyword_only",
+          "name": "unlocked_only",
+          "required": false
+        }
+      ],
+      "signature": "observe_recipes(self, *, recipes: 'int | None' = None, unlocked_only: 'bool' = False) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_research",
+      "parameters": [
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "available",
+          "required": false
+        },
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "locked",
+          "required": false
+        },
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "completed",
+          "required": false
+        }
+      ],
+      "signature": "observe_research(self, *, available: 'int | None' = None, locked: 'int | None' = None, completed: 'int | None' = None) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "observe_resources",
+      "parameters": [
+        {
+          "annotation": "float",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "50",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        }
+      ],
+      "signature": "observe_resources(self, *, x: 'float' = 0, y: 'float' = 0, radius: 'float' = 50) -> 'Any'"
+    },
+    {
+      "description": "Player + factory + research + production in one sequential call.",
+      "name": "observe_snapshot",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "64",
+          "kind": "positional_or_keyword",
+          "name": "radius",
+          "required": false
+        }
+      ],
+      "signature": "observe_snapshot(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 64) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "",
+      "name": "observe_world",
+      "parameters": [
+        {
+          "annotation": "float",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "12",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        },
+        {
+          "annotation": "list[str] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "include",
+          "required": false
+        }
+      ],
+      "signature": "observe_world(self, *, x: 'float' = 0, y: 'float' = 0, radius: 'float' = 12, include: 'list[str] | None' = None) -> 'Any'"
+    },
+    {
+      "description": "Dry-run placement analysis for a planned entity list (chunked by 50).",
+      "name": "plan_build",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "entities",
+          "required": true
+        }
+      ],
+      "signature": "plan_build(self, entities: 'list[dict[str, Any]]') -> 'dict[str, Any]'"
+    },
+    {
+      "description": "",
+      "name": "player_position",
+      "parameters": [],
+      "signature": "player_position(self) -> 'dict[str, float]'"
+    },
+    {
+      "description": "",
+      "name": "request",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "method",
+          "required": true
+        },
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "path",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "body",
+          "required": false
+        }
+      ],
+      "signature": "request(self, method: 'str', path: 'str', body: 'Any' = None) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "research",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "technology",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "research(self, technology: 'str', **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "Rotate entities under the target tiles.",
+      "name": "rotate",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "targets",
+          "required": true
+        },
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "direction",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "rotate(self, targets: 'list[dict[str, Any]]', direction: 'int | None' = None, **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "save_active_game",
+      "parameters": [],
+      "signature": "save_active_game(self) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "server_saves",
+      "parameters": [],
+      "signature": "server_saves(self) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "server_start",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "save",
+          "required": true
+        }
+      ],
+      "signature": "server_start(self, save: 'str') -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "server_status",
+      "parameters": [],
+      "signature": "server_status(self) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "server_stop",
+      "parameters": [],
+      "signature": "server_stop(self) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "set_recipe",
+      "parameters": [
+        {
+          "annotation": "list[dict[str, Any]]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "targets",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "set_recipe(self, targets: 'list[dict[str, Any]]', **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "Read the active run's STATE.md freshness/status.",
+      "name": "state",
+      "parameters": [],
+      "signature": "state(self) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "submit_action",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "action",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "payload",
+          "required": true
+        },
+        {
+          "annotation": "bool",
+          "default": "False",
+          "kind": "keyword_only",
+          "name": "detach",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "idempotency_key",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "timeout",
+          "required": false
+        }
+      ],
+      "signature": "submit_action(self, action: 'str', payload: 'Any', *, detach: 'bool' = False, idempotency_key: 'str | None' = None, timeout: 'float | None' = None) -> 'Any'"
+    },
+    {
+      "description": "Fetch the generated tool manifest (signatures, usage, endpoints).",
+      "name": "tools",
+      "parameters": [
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "query",
+          "required": false
+        }
+      ],
+      "signature": "tools(self, query: 'str | None' = None) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "wait_for_factory",
+      "parameters": [
+        {
+          "annotation": "int",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "max_no_fuel",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "max_no_power",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "120",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "300",
+          "kind": "keyword_only",
+          "name": "timeout",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "3.0",
+          "kind": "keyword_only",
+          "name": "interval",
+          "required": false
+        }
+      ],
+      "signature": "wait_for_factory(self, *, max_no_fuel: 'int' = 0, max_no_power: 'int' = 0, radius: 'float' = 120, timeout: 'float' = 300, interval: 'float' = 3.0) -> 'Any'"
+    },
+    {
+      "description": "Wait until the scanned fluid networks hold >= ``amount`` of ``fluid``.",
+      "name": "wait_for_fluid",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "fluid",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "amount",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": "600",
+          "kind": "keyword_only",
+          "name": "timeout",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "5.0",
+          "kind": "keyword_only",
+          "name": "interval",
+          "required": false
+        }
+      ],
+      "signature": "wait_for_fluid(self, fluid: 'str', amount: 'float', *, timeout: 'float' = 600, interval: 'float' = 5.0) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "wait_for_item",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "item",
+          "required": true
+        },
+        {
+          "annotation": "int",
+          "default": "1",
+          "kind": "positional_or_keyword",
+          "name": "count",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "300",
+          "kind": "keyword_only",
+          "name": "timeout",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "1.0",
+          "kind": "keyword_only",
+          "name": "interval",
+          "required": false
+        }
+      ],
+      "signature": "wait_for_item(self, item: 'str', count: 'int' = 1, *, timeout: 'float' = 300, interval: 'float' = 1.0) -> 'dict[str, int]'"
+    },
+    {
+      "description": "",
+      "name": "wait_for_job",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "job_id",
+          "required": true
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "timeout",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "initial",
+          "required": false
+        }
+      ],
+      "signature": "wait_for_job(self, job_id: 'str', *, timeout: 'float | None' = None, initial: 'Any' = None) -> 'Any'"
+    },
+    {
+      "description": "Wait until ``item`` is produced at >= ``rate`` per minute.",
+      "name": "wait_for_production",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "item",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "rate",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": "600",
+          "kind": "keyword_only",
+          "name": "timeout",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "5.0",
+          "kind": "keyword_only",
+          "name": "interval",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "2",
+          "kind": "keyword_only",
+          "name": "stable_polls",
+          "required": false
+        }
+      ],
+      "signature": "wait_for_production(self, item: 'str', rate: 'float', *, timeout: 'float' = 600, interval: 'float' = 5.0, stable_polls: 'int' = 2) -> 'Any'"
+    },
+    {
+      "description": "",
+      "name": "wait_for_research",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "technology",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": "600",
+          "kind": "keyword_only",
+          "name": "timeout",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "2.0",
+          "kind": "keyword_only",
+          "name": "interval",
+          "required": false
+        }
+      ],
+      "signature": "wait_for_research(self, technology: 'str', *, timeout: 'float' = 600, interval: 'float' = 2.0) -> 'Any'"
+    },
+    {
+      "description": "Poll a condition and return as soon as it is truthy.",
+      "name": "wait_until",
+      "parameters": [
+        {
+          "annotation": "Callable[[], Any]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "predicate",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": "300",
+          "kind": "keyword_only",
+          "name": "timeout",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "interval",
+          "required": false
+        }
+      ],
+      "signature": "wait_until(self, predicate: 'Callable[[], Any]', *, timeout: 'float' = 300, interval: 'float | None' = None) -> 'Any'"
+    },
+    {
+      "description": "Write/refresh STATE.md and reset the state-update deadline gate.",
+      "name": "write_state",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "current",
+          "required": true
+        },
+        {
+          "annotation": "dict[str, int] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "scores",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "done_when",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "next",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "objective",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "timebox",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "progress",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "notes",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "markdown",
+          "required": false
+        }
+      ],
+      "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
+    }
+  ],
+  "manager_endpoints": [
+    {
+      "method": "POST",
+      "path": "/api/agent/act/build"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/act/copy-settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/act/craft"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/act/extract"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/act/insert"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/act/launch-rocket"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/act/mine"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/act/move"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/act/research"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/act/rotate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/act/set-recipe"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/jobs"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/area"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/combat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/connections"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/copy-settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/entity"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/entity-prototype"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/factory"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/fluids"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/layout"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/map"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/placement"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/player"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/production"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/recipes"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/research"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/resources"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/visual"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/world"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/state"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/state"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/tools"
+    }
+  ],
+  "notes": [
+    "Generated from factorio.py (client methods + CLI usage) and src/api/agent.ts endpoints.",
+    "Prefer this manifest over reading factorio.py source when choosing a tool.",
+    "Manager endpoint: GET /api/agent/tools; CLI: factorio.py tools --json."
+  ],
+  "schema_version": 1,
+  "sources": {
+    "factorio.py": "9e7018fc585c8dc4df900c6c353b06badff759d5da8d950baf03bfa05a7dc5ac",
+    "src/api/agent.ts": "746614df697473358d98fea7d87555f01098147299df38da9c47e32e0061ca8f",
+    "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
+    "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",
+    "src/api/jobs.ts": "bafe8a5682632bb0d9359a15dfb028358507c9ad8e8ba7eb0aa27a949e53948a",
+    "src/api/manager.ts": "e6bcd846551415382491c67ce7c85ed2f47757fd7c2080b6e56c9a46a59b1642",
+    "src/api/runs.ts": "543a2e7425f5ce2a6d7d911467b46613595c563bf890578128d08a5a83c9f180",
+    "src/api/saves.ts": "8b958dc012a81bbae03e0374769b566b0c5b6ab5c11a75084fb52b1401b4024c",
+    "src/api/server.ts": "31cb22a15706fc375920c27fe7739a25d4b46723a27b3814c3ee92efb825d62a",
+    "src/api/shared.ts": "18ab5d4edec83b31841cbb32b243351f7b7f54876eff1e79e167052c761d70ed",
+    "src/api/state.ts": "55710ab2685e1ad6ac4e81ae9a9c589d01d4130dab3050af1c941449f0a60e96",
+    "src/api/telemetry.ts": "62b2b34ba5448a9e9a75122be59fb7ce58208285428faf4fbcda238bc61c51e0",
+    "src/api/tools.ts": "c55721b4f55466cb5de29448fe91d32d5481da09b1dc44612a5f855554c42bb6"
+  }
+}

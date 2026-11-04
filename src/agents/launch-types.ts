@@ -71,6 +71,7 @@ const BASE_TASK_PROMPT =
   "STEP 0 (mandatory, before any gameplay action): call the state API to write STATE.md (Python: client.write_state(current=..., scores={...}, done_when=..., next=...); CLI: state-write --current ...), or write STATE.md in this workspace with this template:\n" +
   "# STATE\nUpdated: <ISO-8601 timestamp>\nObjective: <from TASK.md>\nScores: production 0, logistics 0, mining 0, research 0, defense 0, exploration 0\nCurrent: <subtask name> (score 0)\nDone when: <quantified completion condition>\nNext: <first action>\n\n" +
   "Refresh STATE.md at least every 5 minutes and whenever the subtask changes. The manager blocks mutating actions with STATE_UPDATE_REQUIRED once STATE.md is older than 10 minutes (or missing after the startup grace period); STATE.md writes reset that deadline. " +
+  "Before inventing a command, read the generated tool manifest (`factorio.py tools --json` or `client.tools()`): it lists every client method signature, parameter, CLI usage and manager endpoint. Do not read factorio.py source to discover the interface. " +
   "Read AGENTS.md, COOKBOOK.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
   "Update STATE.md whenever the current subtask or its done-when condition changes, and after completing a subtask; the operator view and crash recovery rely on it. " +
   "The cookbook has proven layouts and the error-recovery matrix; follow it before inventing new designs. " +

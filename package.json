@@ -31,7 +31,9 @@
     "package": "node scripts/package.mjs",
     "selftest": "npm run build && node scripts/run-python-script.mjs scripts/api-selftest.py",
     "cluster": "node scripts/cluster.mjs",
-    "mcp": "node dist/mcp-server.js"
+    "mcp": "node dist/mcp-server.js",
+    "tools:manifest": "node scripts/tool-manifest.mjs",
+    "tools:manifest:check": "node scripts/tool-manifest.mjs --check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

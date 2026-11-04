@@ -76,6 +76,7 @@ Commands:
   observe-recipes --limit-recipes <n> [--unlocked-only]
   observe-entity --target x,y [--target ...] [--targets-json <json>]
   observe-resources --window-x <n> --window-y <n> --radius <n>
+  tools [--json] [--local] [--query <text>]
   state-show
   state-write --current <text> [--done-when <text>] [--next <text>] [--scores k=v,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]
   observe-factory --center-x <n> --center-y <n> --radius <n>
@@ -146,6 +147,7 @@ COMMAND_USAGE = {
     "observe-entity": "observe-entity: Inspect entity status, fuel, fluids, recipe, inventory.\nUsage: factorio.py observe-entity --target x,y [--target ...]\n   or: factorio.py observe-entity --targets-json <json>\n",
     "observe-resources": "observe-resources: Scan for resource patches in a radius.\nUsage: factorio.py observe-resources --window-x <n> --window-y <n> --radius <n>\n",
     "observe-factory": "observe-factory: Summarize power, fuel, and entity status counts in a window.\nUsage: factorio.py observe-factory --center-x <n> --center-y <n> --radius <n>\n",
+    "tools": "tools: Fetch the generated tool manifest (client methods, parameters, CLI usage, manager endpoints).\nUsage: factorio.py tools [--json] [--local] [--query <text>]\n--json prints the manifest as JSON; --local introspects factorio.py without the manager; --query filters matching commands/methods/endpoints. (The manager also serves GET /api/agent/tools?q=...)\n",
     "state-show": "state-show: Read the active run's STATE.md freshness/status.\nUsage: factorio.py state-show\n",
     "state-write": "state-write: Write/refresh STATE.md (resets the update deadline gate).\nUsage: factorio.py state-write --current <text> [--done-when <text>] [--next <text>] [--scores production=50,logistics=40,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]\nMutating actions are refused with STATE_UPDATE_REQUIRED once STATE.md is too old; call this to continue.\n",
     "observe-layout": "observe-layout: Render a region as an ASCII map (belts, inserters, machines, terrain).\nUsage: factorio.py observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>\n",
@@ -182,6 +184,65 @@ COMMAND_USAGE = {
     "job-status": "job-status: Read action job progress.\nUsage: factorio.py job-status --job-id <id>\n",
     "job-cancel": "job-cancel: Request cancellation after the current atomic action.\nUsage: factorio.py job-cancel --job-id <id>\n",
 }
+
+
+def tool_manifest() -> dict[str, Any]:
+    """Introspect the local Python client/CLI into a JSON-serializable manifest.
+
+    The manager and the checked-in public/tool-manifest.json add the HTTP
+    endpoint list; this function is the local source of truth for method
+    signatures, docstrings and CLI usage so the manifest cannot silently drift
+    from factorio.py.
+    """
+    import inspect
+
+    methods: list[dict[str, Any]] = []
+    for name, member in inspect.getmembers(FactorioClient, predicate=inspect.isfunction):
+        if name.startswith("_"):
+            continue
+        signature = inspect.signature(member)
+        parameters: list[dict[str, Any]] = []
+        for parameter in signature.parameters.values():
+            if parameter.name == "self":
+                continue
+            default = parameter.default
+            parameters.append({
+                "name": parameter.name,
+                "kind": parameter.kind.name.lower(),
+                "required": default is inspect.Parameter.empty,
+                "default": None if default is inspect.Parameter.empty else repr(default),
+                "annotation": None if parameter.annotation is inspect.Parameter.empty
+                else str(parameter.annotation),
+            })
+        summary = inspect.getdoc(member) or ""
+        methods.append({
+            "name": name,
+            "signature": f"{name}{signature}",
+            "parameters": parameters,
+            "description": summary.split("\n\n", 1)[0].replace("\n", " "),
+        })
+    cli: list[dict[str, Any]] = []
+    for command, text in COMMAND_USAGE.items():
+        lines = text.strip().splitlines()
+        usage = [line for line in lines if line.lower().startswith("usage:")]
+        cli.append({
+            "command": command,
+            "description": lines[0].split(":", 1)[1].strip() if ":" in lines[0] else lines[0],
+            "usage": usage[0] if usage else lines[0],
+            "help": " ".join(lines[1:]).replace("\\n", " ")[:600],
+        })
+    cli.sort(key=lambda item: item["command"])
+    methods.sort(key=lambda item: item["name"])
+    return {
+        "schema_version": 1,
+        "notes": [
+            "Generated from factorio.py (client methods + CLI usage) and src/api/agent.ts endpoints.",
+            "Prefer this manifest over reading factorio.py source when choosing a tool.",
+            "Manager endpoint: GET /api/agent/tools; CLI: factorio.py tools --json.",
+        ],
+        "cli_commands": cli,
+        "client_methods": methods,
+    }
 
 
 @dataclass
@@ -1531,6 +1592,13 @@ class FactorioClient:
         """Read the active run's STATE.md freshness/status."""
         return self.request("GET", "/api/agent/state")
 
+    def tools(self, query: str | None = None) -> Any:
+        """Fetch the generated tool manifest (signatures, usage, endpoints)."""
+        path = "/api/agent/tools"
+        if query:
+            path += f"?q={quote(str(query), safe='')}"
+        return self.request("GET", path)
+
     def write_state(self, current: str, *, scores: dict[str, int] | None = None,
                     done_when: str | None = None, next: str | None = None,
                     objective: str | None = None, timebox: str | None = None,
@@ -2677,6 +2745,14 @@ def run(argv: list[str]) -> int:
                 "radius": parse_number(flag("radius"), 50),
             }})
             return output(data_value(response))
+        if cmd == "tools":
+            if flag("local"):
+                return output(tool_manifest())
+            query = flag("query")
+            path = "/api/agent/tools"
+            if query:
+                path += f"?q={quote(str(query), safe='')}"
+            return output(data_value(request("GET", path)))
         if cmd == "state-show":
             return output(data_value(request("GET", "/api/agent/state")))
         if cmd == "state-write":

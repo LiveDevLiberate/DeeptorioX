@@ -9,6 +9,21 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Generated tool-discovery manifest.** `GET /api/agent/tools` (and
+  `factorio.py tools [--json] [--local] [--query TEXT]`,
+  `client.tools(query=...)`) returns a JSON manifest of every agent-facing
+  client method (signature, parameters, docstring), CLI command usage and manager
+  endpoint. `?q=` filters it and treats hyphens/underscores as spaces
+  (`build-mining-outpost` also finds `build_mining_outpost`). The manifest is
+  generated from `factorio.py` plus `src/api/agent.ts`/`src/api/*.ts` by
+  `scripts/generate-tool-manifest.py`; `npm run tools:manifest` regenerates it
+  and the Python test suite fails if `public/tool-manifest.json` is stale.
+  The task prompt and playbook now tell the agent to consult the manifest instead
+  of reading `factorio.py` source, so discovery cannot silently drift.
+
+## [0.18.0] - 2026-11-05
 ## [0.18.0] - 2026-11-04
 
 ### Changed

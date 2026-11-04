@@ -164,6 +164,11 @@ Next candidate: research (50) or armed exploration (25) when idle
 - If provided, `FACTORIO_API_BASE` overrides the manager address.
 - Run `python factorio.py --help` on Windows, or `python3 factorio.py --help` on
   macOS/Linux, plus command-specific help when needed.
+- **Tool discovery:** call `factorio.py tools --json` (or `client.tools()`) and read
+  `manager_endpoints`, `cli_commands` and `client_methods` before inventing a
+  command. The manifest is generated from `factorio.py` + `src/api/agent.ts`, so
+  it lists current signatures, parameters and usage; do not read source files to
+  discover the interface. `factorio.py tools --local` works without a manager.
 - For rocket objectives, inspect a silo with `observe_entity`, then call
   `launch_rocket([{"x": x, "y": y}])` (CLI: `act-launch-rocket --target x,y`).
   The silo's `rocket` observation includes parts, required parts, `silo_status`,

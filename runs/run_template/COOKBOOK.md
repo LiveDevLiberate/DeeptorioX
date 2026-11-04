@@ -172,6 +172,7 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.
+- Need a tool signature? Run `factorio.py tools --json` / `client.tools()` first; the manifest is generated from the code.
 - Check `observe-factory().plan.automation` after each subtask: manual mines/crafts are penalty points; prefer drills/furnaces/assemblers.
 - Keep STATE.md fresh (`state-write` / `write_state`) at least every 5 min; stale state blocks mutating actions after 10 min.
 - Dry-run placement before every multi-entity build; failures are cheaper than rebuilding.
