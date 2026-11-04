@@ -76,7 +76,7 @@ const BASE_TASK_PROMPT =
 export function languagePrompt(language?: string): string {
   if (!language) return "";
   const label = /^(?:chinese|中文|zh)/i.test(language) ? "Simplified Chinese (简体中文)" : language;
-  return `CRITICAL OUTPUT LANGUAGE: ${label}. Write every user-facing message and every reasoning summary in ${label}. Do not write English prose. Keep code, commands, file paths, identifiers and in-game proper names unchanged. `;
+  return `CRITICAL OUTPUT LANGUAGE: ${label}. Think in ${label}: write your internal reasoning/thinking content, every reasoning summary and every user-facing message in ${label}. Do not write English prose. Keep code, commands, file paths, identifiers and in-game proper names unchanged. `;
 }
 
 /** Shared agent task prompt: language + discipline + resume/restart clause. */
