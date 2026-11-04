@@ -2,7 +2,8 @@ import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Router } from "../http/router.js";
-import { json, readJson } from "../http/plumbing.js";
+import { json, readJsonBody } from "../http/plumbing.js";
+import { errorMessage } from "../validation.js";
 import { SAVES_DIR, MANAGER_PROFILE, createMap } from "../runtime.js";
 import type { ApiContext } from "./context.js";
 
@@ -14,7 +15,11 @@ async function listSaves(): Promise<string[]> {
     .sort();
 }
 
-function normalizeSaveFilename(value: unknown): string {
+/**
+ * Validate and normalize a save name from an `unknown` request field. Mirrors
+ * the historical inline rules and error messages exactly.
+ */
+export function normalizeSaveFilename(value: unknown): string {
   if (typeof value !== "string" || !value.trim()) {
     throw new Error("Missing save name");
   }
@@ -44,8 +49,8 @@ export function registerSavesRoutes(router: Router, _ctx: ApiContext): void {
       try {
         const saves = await listSaves();
         return json(res, 200, { saves });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "Failed to list saves" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "Failed to list saves" });
       }
     },
   });
@@ -59,26 +64,22 @@ export function registerSavesRoutes(router: Router, _ctx: ApiContext): void {
       if (saveCreationInProgress) {
         return json(res, 409, { error: "A save is already being created" });
       }
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
 
       let save: string;
       try {
-        save = normalizeSaveFilename(body?.name);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid save name" });
+        save = normalizeSaveFilename(parsedBody.body.name);
+      } catch (err) {
+        return json(res, 400, { error: errorMessage(err) || "Invalid save name" });
       }
 
       saveCreationInProgress = true;
       try {
         await createSave(save);
         return json(res, 201, { ok: true, save });
-      } catch (err: any) {
-        const message = err?.message || "Failed to create save";
+      } catch (err) {
+        const message = errorMessage(err) || "Failed to create save";
         const status = message === "Save already exists" ? 409 : 500;
         return json(res, status, { error: message });
       } finally {

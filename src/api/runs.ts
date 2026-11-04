@@ -1,8 +1,12 @@
 import fsSync from "node:fs";
 import { Router } from "../http/router.js";
 import { json, readJson } from "../http/plumbing.js";
+import { errorMessage } from "../validation.js";
 import { obsStatus } from "../obs.js";
 import type { ApiContext } from "./context.js";
+
+/** Options accepted by `RunManager.start` (validated there at runtime). */
+type RunStartOptions = Parameters<ApiContext["runManager"]["start"]>[0];
 
 export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
   const { runManager } = ctx;
@@ -44,9 +48,12 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
     handler: async (request) => {
       const { req, res } = request;
       try {
-        return json(res, 202, runManager.start(await readJson(req)));
-      } catch (error: any) {
-        return json(res, 400, { error: error.message });
+        // `start()` re-validates every option at runtime, including non-object bodies
+        // (it historically reports a TypeError message for null), so the payload is
+        // passed through without pre-narrowing to keep those behaviours identical.
+        return json(res, 202, runManager.start((await readJson(req)) as RunStartOptions));
+      } catch (error) {
+        return json(res, 400, { error: errorMessage(error) });
       }
     },
   });
@@ -110,24 +117,24 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
         if (runMatch[2] === "resume" && req.method === "POST") {
           try {
             return json(res, 202, runManager.resume(run.id));
-          } catch (error: any) {
-            return json(res, 409, { error: error.message });
+          } catch (error) {
+            return json(res, 409, { error: errorMessage(error) });
           }
         }
         if (runMatch[2] === "pause" && req.method === "POST") {
           try {
             await runManager.pause();
             return json(res, 200, runManager.get(run.id));
-          } catch (error: any) {
-            return json(res, 409, { error: error.message });
+          } catch (error) {
+            return json(res, 409, { error: errorMessage(error) });
           }
         }
         if (runMatch[2] === "stop" && req.method === "POST") {
           if (["preparing", "launching", "running", "saving"].includes(run.state)) {
             try {
               await runManager.stop();
-            } catch (error: any) {
-              return json(res, 409, { error: error.message });
+            } catch (error) {
+              return json(res, 409, { error: errorMessage(error) });
             }
           }
           return json(res, 200, runManager.get(run.id));

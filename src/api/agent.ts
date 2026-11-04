@@ -1,5 +1,6 @@
 import { Router } from "../http/router.js";
-import { json, readJson, clampInt, parseRconJson } from "../http/plumbing.js";
+import { json, clampInt, parseRconJson, readJsonBody } from "../http/plumbing.js";
+import { asRecord, asString, errorMessage, type JsonObject } from "../validation.js";
 import { rconConfigured } from "./shared.js";
 import { launchRocket } from "../rocket.js";
 import { visualObservation } from "../vision.js";
@@ -35,65 +36,170 @@ const AGENT_MAX_RECIPES = 300;
 const AGENT_MAX_RESEARCH = 200;
 const AGENT_MAX_ACTIONS = 50;
 
-function arrayOrEmpty(value: unknown): any[] {
+/** Raw JSON array or empty array; keeps the handlers' historical `[]` fallback. */
+function arrayOrEmpty(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function normalizeWorldData(data: any) {
-  if (!data || typeof data !== "object") return data;
-  data.entities = arrayOrEmpty(data.entities);
-  if (data.terrain && typeof data.terrain === "object") {
-    data.terrain.rows = arrayOrEmpty(data.terrain.rows);
-    for (const row of data.terrain.rows) row.runs = arrayOrEmpty(row?.runs);
-  }
-  return data;
+/** JSON object or `{}`; keeps optional body access falling back identically. */
+function recordOrEmpty(value: unknown): JsonObject {
+  return asRecord(value) ?? {};
 }
 
-function normalizeResearchData(data: any) {
-  if (!data || typeof data !== "object") return data;
-  const normalizeTechnology = (technology: any) => {
-    if (!technology || typeof technology !== "object") return;
-    technology.ingredients = arrayOrEmpty(technology.ingredients);
-    technology.prerequisites = arrayOrEmpty(technology.prerequisites);
-    technology.missing_prerequisites = arrayOrEmpty(technology.missing_prerequisites);
+/**
+ * `left < right` for values that are numbers at runtime. The assertion keeps the
+ * exact JavaScript comparison semantics (NaN is still false, no coercion code).
+ */
+function lessThan(left: unknown, right: unknown): boolean {
+  return (left as number) < (right as number);
+}
+
+/** `JSON.parse` for an RCON/Lua reply, keeping the raw text when it is not JSON. */
+export function parseRconObservation(response: string): unknown {
+  try {
+    return JSON.parse(response);
+  } catch {
+    return response;
+  }
+}
+
+/**
+ * Historical window/coordinate coercion shared by the observe handlers:
+ * numeric strings and null are accepted via `Number(value)`; non-finite values
+ * become undefined (`null` becomes `0`, exactly like the original `Number(...)`).
+ */
+export function finiteNumberOrUndefined(value: unknown): number | undefined {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+}
+
+/**
+ * Build requests from `{entities:[...]}`: entries need a truthy name and a
+ * finite-convertible anchor, exactly like the historical inline filter.
+ */
+export function parseBuildRequests(value: unknown, max = AGENT_MAX_ACTIONS): BuildRequest[] {
+  return arrayOrEmpty(value)
+    .slice(0, max)
+    .filter((entity) => {
+      const record = asRecord(entity);
+      const anchor = asRecord(record?.anchor);
+      return (
+        Boolean(record?.name) && Number.isFinite(Number(anchor?.x)) && Number.isFinite(Number(anchor?.y))
+      );
+    }) as BuildRequest[];
+}
+
+/** Placement analysis requests need a string name and a finite anchor, sliced to `max`. */
+export function parsePlacementRequests(value: unknown, max = AGENT_MAX_ACTIONS): BuildRequest[] {
+  return arrayOrEmpty(value)
+    .slice(0, max)
+    .filter((item) => {
+      const record = asRecord(item);
+      const anchor = asRecord(record?.anchor);
+      return (
+        typeof record?.name === "string" &&
+        Number.isFinite(Number(anchor?.x)) &&
+        Number.isFinite(Number(anchor?.y))
+      );
+    }) as BuildRequest[];
+}
+
+/** Targets with explicit x/y coordinates (the historical `!== undefined` check; null passes). */
+export function parsePositionTargets(value: unknown, max = AGENT_MAX_ACTIONS): JsonObject[] {
+  const hasPosition = (target: unknown): boolean => {
+    const record = asRecord(target);
+    return record?.x !== undefined && record?.y !== undefined;
   };
-  normalizeTechnology(data.current);
+  return arrayOrEmpty(value).slice(0, max).filter(hasPosition) as JsonObject[];
+}
+
+/** `set-recipe` targets additionally require a truthy `recipe`. */
+export function parseRecipeTargets(value: unknown, max = AGENT_MAX_ACTIONS): JsonObject[] {
+  const hasRecipe = (target: unknown): boolean => {
+    const record = asRecord(target);
+    return record?.x !== undefined && record?.y !== undefined && Boolean(record.recipe);
+  };
+  return arrayOrEmpty(value).slice(0, max).filter(hasRecipe) as JsonObject[];
+}
+
+// Placement work is retried and moves only short distances, so a stuck native
+// action is aborted quickly instead of holding the whole job for ten minutes.
+const ACTION_TIMEOUT_MS = 120_000;
+const BUILD_MOVE_TIMEOUT_MS = 120_000;
+
+// Observation normalizers: the Lua builders always send these arrays/objects,
+// but older manager/game combinations can omit them. Each normalizer keeps the
+// historical defaults for a JSON object and passes anything else through.
+
+export function normalizeWorldData(data: unknown): unknown {
+  const record = asRecord(data);
+  if (!record) return data;
+  record.entities = arrayOrEmpty(record.entities);
+  const terrain = asRecord(record.terrain);
+  if (terrain) {
+    const rows = arrayOrEmpty(terrain.rows);
+    terrain.rows = rows;
+    for (const row of rows) {
+      const rowRecord = asRecord(row);
+      if (rowRecord) rowRecord.runs = arrayOrEmpty(rowRecord.runs);
+    }
+  }
+  return record;
+}
+
+export function normalizeResearchData(data: unknown): unknown {
+  const record = asRecord(data);
+  if (!record) return data;
+  const normalizeTechnology = (technology: unknown): void => {
+    const tech = asRecord(technology);
+    if (!tech) return;
+    tech.ingredients = arrayOrEmpty(tech.ingredients);
+    tech.prerequisites = arrayOrEmpty(tech.prerequisites);
+    tech.missing_prerequisites = arrayOrEmpty(tech.missing_prerequisites);
+  };
+  normalizeTechnology(record.current);
   for (const key of ["queue", "available", "upgrades", "triggers", "locked", "completed"]) {
-    data[key] = arrayOrEmpty(data[key]);
-    for (const technology of data[key]) normalizeTechnology(technology);
+    const technologies = arrayOrEmpty(record[key]);
+    record[key] = technologies;
+    for (const technology of technologies) normalizeTechnology(technology);
   }
-  return data;
+  return record;
 }
 
-function normalizeConnectionsData(data: any) {
-  if (!data || typeof data !== "object") return data;
-  data.counts = data.counts && typeof data.counts === "object" ? data.counts : {};
-  data.inserters = arrayOrEmpty(data.inserters);
-  data.belts = arrayOrEmpty(data.belts);
-  data.machines = arrayOrEmpty(data.machines);
-  data.issues = arrayOrEmpty(data.issues);
-  return data;
+export function normalizeConnectionsData(data: unknown): unknown {
+  const record = asRecord(data);
+  if (!record) return data;
+  record.counts = asRecord(record.counts) ?? {};
+  record.inserters = arrayOrEmpty(record.inserters);
+  record.belts = arrayOrEmpty(record.belts);
+  record.machines = arrayOrEmpty(record.machines);
+  record.issues = arrayOrEmpty(record.issues);
+  return record;
 }
 
-function normalizeLayoutData(data: any) {
-  if (!data || typeof data !== "object") return data;
-  data.rows = arrayOrEmpty(data.rows);
-  data.built_rows = arrayOrEmpty(data.built_rows);
-  data.resource_rows = arrayOrEmpty(data.resource_rows);
-  data.entities = arrayOrEmpty(data.entities);
-  data.overlaps = arrayOrEmpty(data.overlaps);
-  data.legend = data.legend && typeof data.legend === "object" ? data.legend : {};
-  return data;
+export function normalizeLayoutData(data: unknown): unknown {
+  const record = asRecord(data);
+  if (!record) return data;
+  record.rows = arrayOrEmpty(record.rows);
+  record.built_rows = arrayOrEmpty(record.built_rows);
+  record.resource_rows = arrayOrEmpty(record.resource_rows);
+  record.entities = arrayOrEmpty(record.entities);
+  record.overlaps = arrayOrEmpty(record.overlaps);
+  record.legend = asRecord(record.legend) ?? {};
+  return record;
 }
 
-function normalizeFactoryData(data: any) {
-  if (!data || typeof data !== "object") return data;
-  data.counts = data.counts && typeof data.counts === "object" ? data.counts : {};
-  for (const value of Object.values(data.counts as Record<string, any>)) {
-    if (value && typeof value === "object")
-      value.statuses = value.statuses && typeof value.statuses === "object" ? value.statuses : {};
+export function normalizeFactoryData(data: unknown): unknown {
+  const record = asRecord(data);
+  if (!record) return data;
+  const counts = asRecord(record.counts) ?? {};
+  record.counts = counts;
+  for (const value of Object.values(counts)) {
+    const entry = asRecord(value);
+    if (entry) entry.statuses = asRecord(entry.statuses) ?? {};
   }
-  data.problems = data.problems && typeof data.problems === "object" ? data.problems : {};
+  const problems = asRecord(record.problems) ?? {};
+  record.problems = problems;
   for (const key of [
     "no_fuel",
     "no_power",
@@ -103,66 +209,140 @@ function normalizeFactoryData(data: any) {
     "no_ingredients",
     "missing_science_packs",
   ]) {
-    data.problems[key] = arrayOrEmpty(data.problems[key]);
+    problems[key] = arrayOrEmpty(problems[key]);
   }
-  data.totals = data.totals && typeof data.totals === "object" ? data.totals : {};
-  data.alerts = arrayOrEmpty(data.alerts);
-  return data;
+  record.totals = asRecord(record.totals) ?? {};
+  record.alerts = arrayOrEmpty(record.alerts);
+  return record;
 }
 
-function normalizeEntityData(data: any) {
-  if (!data || typeof data !== "object") return data;
-  data.results = arrayOrEmpty(data.results);
-  for (const entity of data.results) {
-    entity.inventories = arrayOrEmpty(entity?.inventories);
-    entity.fluid_boxes = arrayOrEmpty(entity?.fluid_boxes);
-    for (const inventory of entity.inventories) {
-      inventory.purposes = arrayOrEmpty(inventory?.purposes);
-      inventory.items = arrayOrEmpty(inventory?.items);
+export function normalizeEntityData(data: unknown): unknown {
+  const record = asRecord(data);
+  if (!record) return data;
+  const results = arrayOrEmpty(record.results);
+  record.results = results;
+  for (const entity of results) {
+    const item = asRecord(entity);
+    if (!item) continue;
+    const inventories = arrayOrEmpty(item.inventories);
+    item.inventories = inventories;
+    const fluidBoxes = arrayOrEmpty(item.fluid_boxes);
+    item.fluid_boxes = fluidBoxes;
+    for (const inventory of inventories) {
+      const inv = asRecord(inventory);
+      if (!inv) continue;
+      inv.purposes = arrayOrEmpty(inv.purposes);
+      inv.items = arrayOrEmpty(inv.items);
     }
-    for (const fluidBox of entity.fluid_boxes) {
-      fluidBox.connections = arrayOrEmpty(fluidBox?.connections);
-    }
-  }
-  return data;
-}
-
-function normalizePrototypeData(data: any) {
-  if (!data || typeof data !== "object") return data;
-  data.placeable_by = arrayOrEmpty(data.placeable_by);
-  data.fluid_boxes = arrayOrEmpty(data.fluid_boxes);
-  data.fuel_categories = arrayOrEmpty(data.fuel_categories);
-  for (const fluidBox of data.fluid_boxes) {
-    fluidBox.pipe_connections = arrayOrEmpty(fluidBox?.pipe_connections);
-    for (const connection of fluidBox.pipe_connections) {
-      connection.connection_category = arrayOrEmpty(connection?.connection_category);
-      connection.positions = arrayOrEmpty(connection?.positions);
+    for (const fluidBox of fluidBoxes) {
+      const box = asRecord(fluidBox);
+      if (box) box.connections = arrayOrEmpty(box.connections);
     }
   }
-  return data;
+  return record;
 }
 
-// Placement work is retried and moves only short distances, so a stuck native
-// action is aborted quickly instead of holding the whole job for ten minutes.
-const ACTION_TIMEOUT_MS = 120_000;
-const BUILD_MOVE_TIMEOUT_MS = 120_000;
+export function normalizePrototypeData(data: unknown): unknown {
+  const record = asRecord(data);
+  if (!record) return data;
+  record.placeable_by = arrayOrEmpty(record.placeable_by);
+  const fluidBoxes = arrayOrEmpty(record.fluid_boxes);
+  record.fluid_boxes = fluidBoxes;
+  record.fuel_categories = arrayOrEmpty(record.fuel_categories);
+  for (const fluidBox of fluidBoxes) {
+    const box = asRecord(fluidBox);
+    if (!box) continue;
+    const connections = arrayOrEmpty(box.pipe_connections);
+    box.pipe_connections = connections;
+    for (const connection of connections) {
+      const conn = asRecord(connection);
+      if (!conn) continue;
+      conn.connection_category = arrayOrEmpty(conn.connection_category);
+      conn.positions = arrayOrEmpty(conn.positions);
+    }
+  }
+  return record;
+}
+
+/** Result of one native-control action (`NativeController.run` reply). */
+type NativeActionResult = {
+  ok?: unknown;
+  error?: unknown;
+  movement?: {
+    final_position?: { x?: unknown; y?: unknown };
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+/** `agentBuildDestinationCommand` reply: `{ok, position}` or `{ok:false,error}`. */
+type BuildDestinationResult = {
+  ok?: unknown;
+  error?: unknown;
+  in_reach?: unknown;
+  staging?: unknown;
+  position: { x?: unknown; y?: unknown };
+};
+
+/** `agentClearBuildFootprintCommand` reply. */
+type ClearFootprintResult = {
+  ok?: unknown;
+  cleared?: unknown;
+  pending?: unknown;
+  skipped?: unknown;
+};
+
+/** `agentNativeBuildCommand` reply (success or `{ok:false,error,...}`). */
+type RconBuildResult = {
+  ok?: unknown;
+  error?: unknown;
+  [key: string]: unknown;
+};
+
+/** `agentRotateCommand` / `agentSetRecipeCommand` reply: `{results:[...]}`. */
+type CommandResultsReply = { results?: unknown[]; [key: string]: unknown };
+
+/** `agentInsertCommand` / `agentExtractCommand` reply. */
+type ItemTransferResult = Record<string, unknown>;
+
+/** `observe-placement` dry-run reply (diagnostics arrays are normalized below). */
+type PlacementAnalysisResult = {
+  ok?: unknown;
+  can_place?: unknown;
+  error?: unknown;
+  diagnostics?: {
+    nearest_valid_positions?: unknown;
+    terrain?: { tile_names?: unknown } | null;
+    collision?: { possible_blockers?: unknown } | null;
+  } | null;
+  [key: string]: unknown;
+};
+
+/** Accumulator for the build-footprint clearing passes. */
+type ClearingSummary = {
+  ok: boolean;
+  cleared: unknown[];
+  skipped: unknown[];
+  passes: number;
+  pending_remaining: number;
+};
 
 export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
   const { state, runManager, actionJobs, nativeController, rconCommand } = ctx;
 
-  const nativeAction = (payload: Record<string, unknown>) => {
+  const nativeAction = (payload: Record<string, unknown>): Promise<NativeActionResult> => {
     const job = actionJobs.currentJob;
-    const { timeout_ms, ...action } = payload as Record<string, any>;
+    const { timeout_ms, ...action } = payload;
     const timeout = typeof timeout_ms === "number" && timeout_ms > 0 ? timeout_ms : 600_000;
     return nativeController.run(action, () => actionJobs.isCancelled(job), timeout);
   };
   type EntityTarget = { x: number; y: number; kind?: "resource" | "entity"; name?: string };
 
-  async function moveNearEntity(target: EntityTarget) {
+  async function moveNearEntity(target: EntityTarget): Promise<NativeActionResult> {
     return nativeAction({ kind: "approach", target: { ...target, kind: target.kind || "entity" } });
   }
 
-  function movePlayerTo(x: number, y: number, timeoutMs?: number) {
+  function movePlayerTo(x: number, y: number, timeoutMs?: number): Promise<NativeActionResult> {
     return nativeAction({ kind: "move", x, y, ...(timeoutMs ? { timeout_ms: timeoutMs } : {}) });
   }
 
@@ -172,20 +352,17 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/visual",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       try {
         return json(
           res,
           200,
-          await visualObservation(typeof body?.title === "string" ? { title: body.title } : {}),
+          await visualObservation(typeof body.title === "string" ? { title: body.title } : {}),
         );
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "Visual capture failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "Visual capture failed" });
       }
     },
   });
@@ -196,20 +373,17 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/world",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const window = body?.window || {};
-      const include: string[] = Array.isArray(body?.include) ? body.include : ["tiles", "entities"];
+      const window = recordOrEmpty(body.window);
+      const include = Array.isArray(body.include) ? body.include : ["tiles", "entities"];
       const includeTiles = include.includes("terrain");
       const includeEntities = include.includes("entities");
       const radius = clampInt(window.radius, AGENT_DEFAULT_RADIUS, 1, 200);
@@ -225,24 +399,19 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             includeEntities,
           }),
         );
-        let data: any = response;
-        try {
-          data = JSON.parse(response);
-        } catch {
-          // Leave as raw string if it isn't JSON.
-        }
-        data = normalizeWorldData(data);
-        const counts = data?.counts || {};
+        const data = parseRconObservation(response);
+        const normalized = normalizeWorldData(data);
+        const counts = recordOrEmpty(asRecord(normalized)?.counts);
         const truncated =
-          (includeTiles && counts.tiles_included < counts.tiles_total) ||
-          (includeEntities && counts.entities_included < counts.entities_total);
+          (includeTiles && lessThan(counts.tiles_included, counts.tiles_total)) ||
+          (includeEntities && lessThan(counts.entities_included, counts.entities_total));
         return json(res, 200, {
           ok: true,
-          data,
+          data: normalized,
           truncated,
         });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -253,15 +422,12 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/map",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
       if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
-      const window = body?.window || {};
+      const window = recordOrEmpty(body.window);
       const x = clampInt(window.x, 0, -1000000, 1000000);
       const y = clampInt(window.y, 0, -1000000, 1000000);
       const radius = clampInt(window.radius, 48, 1, 96);
@@ -271,8 +437,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           ok: true,
           data: parseRconJson(response, "RCON map returned invalid JSON"),
         });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -283,19 +449,16 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/player",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const limits = body?.limits || {};
+      const limits = recordOrEmpty(body.limits);
       const inventoryLimit = clampInt(
         limits.inventory_slots,
         AGENT_MAX_INVENTORY_SLOTS,
@@ -310,19 +473,14 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       );
       try {
         const response = await rconCommand(agentPlayerCommand({ inventoryLimit, equipmentLimit }));
-        let data: any = response;
-        try {
-          data = JSON.parse(response);
-        } catch {
-          // Leave as raw string if it isn't JSON.
-        }
-        const counts = data?.counts || {};
+        const data = parseRconObservation(response);
+        const counts = recordOrEmpty(asRecord(data)?.counts);
         const truncated =
-          counts.inventory_included < counts.inventory_total ||
-          counts.equipment_included < counts.equipment_total;
+          lessThan(counts.inventory_included, counts.inventory_total) ||
+          lessThan(counts.equipment_included, counts.equipment_total);
         return json(res, 200, { ok: true, data, truncated });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -333,19 +491,16 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/research",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const limits = body?.limits || {};
+      const limits = recordOrEmpty(body.limits);
       const availableLimit = clampInt(limits.available, 50, 0, AGENT_MAX_RESEARCH);
       const lockedLimit = clampInt(limits.locked, 50, 0, AGENT_MAX_RESEARCH);
       const completedLimit = clampInt(limits.completed, 50, 0, AGENT_MAX_RESEARCH);
@@ -353,22 +508,17 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         const response = await rconCommand(
           agentResearchCommand({ availableLimit, lockedLimit, completedLimit }),
         );
-        let data: any = response;
-        try {
-          data = JSON.parse(response);
-        } catch {
-          // Leave as raw string if it isn't JSON.
-        }
-        data = normalizeResearchData(data);
-        const counts = data?.counts || {};
+        const data = parseRconObservation(response);
+        const normalized = normalizeResearchData(data);
+        const counts = recordOrEmpty(asRecord(normalized)?.counts);
         const truncated = {
-          available: counts.available_included < counts.available_total,
-          locked: counts.locked_included < counts.locked_total,
-          completed: counts.completed_included < counts.completed_total,
+          available: lessThan(counts.available_included, counts.available_total),
+          locked: lessThan(counts.locked_included, counts.locked_total),
+          completed: lessThan(counts.completed_included, counts.completed_total),
         };
-        return json(res, 200, { ok: true, data, truncated });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+        return json(res, 200, { ok: true, data: normalized, truncated });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -379,35 +529,27 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/recipes",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const limits = body?.limits || {};
+      const limits = recordOrEmpty(body.limits);
       const limit = clampInt(limits.recipes, AGENT_MAX_RECIPES, 1, AGENT_MAX_RECIPES);
-      const filters = body?.filters || {};
+      const filters = recordOrEmpty(body.filters);
       const unlockedOnly = Boolean(filters.unlocked);
       try {
         const response = await rconCommand(agentRecipesCommand({ limit, unlockedOnly }));
-        let data: any = response;
-        try {
-          data = JSON.parse(response);
-        } catch {
-          // Leave as raw string if it isn't JSON.
-        }
-        const counts = data?.counts || {};
-        const truncated = counts.included < counts.total;
+        const data = parseRconObservation(response);
+        const counts = recordOrEmpty(asRecord(data)?.counts);
+        const truncated = lessThan(counts.included, counts.total);
         return json(res, 200, { ok: true, data, truncated });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -418,33 +560,26 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/act/build",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const entities: any[] = Array.isArray(body?.entities) ? body.entities : [];
-      const limits = body?.limits || {};
+      const entities = arrayOrEmpty(body.entities);
+      const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
-      const trimmed = entities
-        .slice(0, max)
-        .filter(
-          (e) => e?.name && Number.isFinite(Number(e?.anchor?.x)) && Number.isFinite(Number(e?.anchor?.y)),
-        ) as BuildRequest[];
+      const trimmed = parseBuildRequests(entities, max);
       try {
-        const results: any[] = [];
+        const results: Record<string, unknown>[] = [];
         for (const entity of trimmed) {
           // Clear obstacles from the current position first: walking the
           // character through a forest to a staging tile is much slower than
           // mining the trees that are already within reach.
-          const placement = parseRconJson<any>(
+          const placement = parseRconJson<BuildDestinationResult>(
             await rconCommand(agentBuildDestinationCommand(entity, false)),
             "RCON build destination returned invalid JSON",
           );
@@ -473,40 +608,41 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             continue;
           }
           let usedMovement = movement.movement;
-          let clearing: any = null;
-          const clearFootprint = async (acc: any) => {
+          let clearing: ClearingSummary | null = null;
+          const clearFootprint = async (acc: ClearingSummary) => {
             // Mining a tree leaves a stump that can still block placement, so
             // re-scan a few times until the footprint stops changing.
             for (let pass = 0; pass < 4; pass++) {
-              const data = parseRconJson<any>(
+              const data = parseRconJson<ClearFootprintResult>(
                 await rconCommand(agentClearBuildFootprintCommand(entity)),
                 "RCON build clearing returned invalid JSON",
               );
               if (!data) break;
               acc.passes++;
-              const cleared = Array.isArray(data.cleared) ? data.cleared : [];
-              const pending = Array.isArray(data.pending) ? data.pending : [];
+              const cleared = arrayOrEmpty(data.cleared);
+              const pending = arrayOrEmpty(data.pending);
               acc.cleared.push(...cleared);
-              acc.skipped = Array.isArray(data.skipped) ? data.skipped : [];
+              acc.skipped = arrayOrEmpty(data.skipped);
               let minedPending = 0;
               for (const target of pending.slice(0, 8)) {
+                const targetRecord = asRecord(target) ?? {};
                 const mined = await nativeAction({
                   kind: "mine",
                   target: {
-                    x: Number(target.x),
-                    y: Number(target.y),
+                    x: Number(targetRecord.x),
+                    y: Number(targetRecord.y),
                     kind: "entity",
-                    name: target.name,
+                    name: targetRecord.name,
                   },
                   timeout_ms: ACTION_TIMEOUT_MS,
                 });
                 if (mined?.ok) {
-                  acc.cleared.push({ name: target.name, type: target.type });
+                  acc.cleared.push({ name: targetRecord.name, type: targetRecord.type });
                   minedPending++;
                 } else {
                   acc.skipped.push({
-                    name: target.name,
-                    type: target.type,
+                    name: targetRecord.name,
+                    type: targetRecord.type,
                     reason: mined?.error || "mine_failed",
                   });
                 }
@@ -516,7 +652,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
               if (cleared.length === 0 && minedPending === 0 && pending.length > 0) {
                 // Everything left is out of mining reach: step to a staging tile
                 // once and re-scan instead of chasing single trees.
-                const staging = parseRconJson<any>(
+                const staging = parseRconJson<BuildDestinationResult>(
                   await rconCommand(agentBuildDestinationCommand(entity, true)),
                   "RCON build staging destination returned invalid JSON",
                 );
@@ -532,16 +668,16 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             }
             acc.ok = acc.skipped.length === 0 && (acc.pending_remaining ?? 0) === 0;
           };
-          if (body?.clear_obstacles !== false) {
+          if (body.clear_obstacles !== false) {
             clearing = { ok: true, cleared: [], skipped: [], passes: 0, pending_remaining: 0 };
             await clearFootprint(clearing);
           }
           let response = await rconCommand(agentNativeBuildCommand(entity));
-          let result = parseRconJson<any>(response, "RCON build returned invalid JSON");
+          let result = parseRconJson<RconBuildResult>(response, "RCON build returned invalid JSON");
           // A player standing on the new building's tiles also blocks placement:
           // step to a staging position, clear the opened footprint and retry.
           if (!result?.ok && result?.error === "cannot_build") {
-            const retryDestination = parseRconJson<any>(
+            const retryDestination = parseRconJson<BuildDestinationResult>(
               await rconCommand(agentBuildDestinationCommand(entity, true)),
               "RCON build retry destination returned invalid JSON",
             );
@@ -555,7 +691,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
                 usedMovement = retryMovement.movement;
                 if (clearing) await clearFootprint(clearing);
                 response = await rconCommand(agentNativeBuildCommand(entity));
-                result = parseRconJson<any>(response, "RCON build retry returned invalid JSON");
+                result = parseRconJson<RconBuildResult>(response, "RCON build retry returned invalid JSON");
               }
             }
           }
@@ -566,8 +702,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           data: { results },
           truncated: entities.length > trimmed.length,
         });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -578,24 +714,21 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/act/mine",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const targets: any[] = Array.isArray(body?.targets) ? body.targets : [];
-      const limits = body?.limits || {};
+      const targets = arrayOrEmpty(body.targets);
+      const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
-      const trimmed = targets.slice(0, max).filter((t) => t?.x !== undefined && t?.y !== undefined);
+      const trimmed = parsePositionTargets(targets, max);
       try {
-        const results: any[] = [];
+        const results: Record<string, unknown>[] = [];
         for (const target of trimmed) {
           const result = await nativeAction({
             kind: "mine",
@@ -608,8 +741,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           data: { results },
           truncated: targets.length > trimmed.length,
         });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -620,24 +753,21 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/act/move",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const targets: any[] = Array.isArray(body?.targets) ? body.targets : [];
-      const limits = body?.limits || {};
+      const targets = arrayOrEmpty(body.targets);
+      const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
-      const trimmed = targets.slice(0, max).filter((t) => t?.x !== undefined && t?.y !== undefined);
+      const trimmed = parsePositionTargets(targets, max);
       try {
-        const results: any[] = [];
+        const results: Record<string, unknown>[] = [];
         for (const target of trimmed) {
           const result = await movePlayerTo(Number(target.x) + 0.5, Number(target.y) + 0.5);
           results.push({
@@ -653,8 +783,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           data: { results },
           truncated: targets.length > trimmed.length,
         });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -665,24 +795,21 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/act/rotate",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const targets: any[] = Array.isArray(body?.targets) ? body.targets : [];
-      const limits = body?.limits || {};
+      const targets = arrayOrEmpty(body.targets);
+      const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
-      const trimmed = targets.slice(0, max).filter((t) => t?.x !== undefined && t?.y !== undefined);
+      const trimmed = parsePositionTargets(targets, max);
       try {
-        const results: any[] = [];
+        const results: Record<string, unknown>[] = [];
         for (const target of trimmed) {
           const movement = await moveNearEntity({
             x: Number(target.x),
@@ -701,7 +828,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           const response = await rconCommand(
             agentRotateCommand([{ x: Number(target.x), y: Number(target.y) }]),
           );
-          const data = parseRconJson<any>(response, "RCON rotate returned invalid JSON");
+          const data = parseRconJson<CommandResultsReply>(response, "RCON rotate returned invalid JSON");
           const entry = data?.results?.[0];
           if (!entry) {
             results.push({
@@ -711,7 +838,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
               error: "rotate_failed",
             });
           } else {
-            results.push({ ...entry, movement: movement.movement });
+            results.push({ ...(entry as Record<string, unknown>), movement: movement.movement });
           }
         }
         return json(res, 200, {
@@ -719,8 +846,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           data: { results },
           truncated: targets.length > trimmed.length,
         });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -731,30 +858,28 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/act/launch-rocket",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
       if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
-      const targets: any[] = Array.isArray(body?.targets) ? body.targets : [];
-      const max = clampInt(body?.limits?.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
+      const targets = arrayOrEmpty(body.targets);
+      const max = clampInt(recordOrEmpty(body.limits).max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
       const trimmed = targets.slice(0, max);
       try {
         const results = [];
         const job = actionJobs.currentJob;
         for (const target of trimmed) {
+          const targetRecord = asRecord(target);
           results.push(
-            await launchRocket({ x: target?.x, y: target?.y }, moveNearEntity, rconCommand, () =>
+            await launchRocket({ x: targetRecord?.x, y: targetRecord?.y }, moveNearEntity, rconCommand, () =>
               actionJobs.isCancelled(job),
             ),
           );
         }
         return json(res, 200, { ok: true, data: { results }, truncated: targets.length > trimmed.length });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -765,26 +890,21 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/act/set-recipe",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const targets: any[] = Array.isArray(body?.targets) ? body.targets : [];
-      const limits = body?.limits || {};
+      const targets = arrayOrEmpty(body.targets);
+      const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
-      const trimmed = targets
-        .slice(0, max)
-        .filter((t) => t?.x !== undefined && t?.y !== undefined && t?.recipe);
+      const trimmed = parseRecipeTargets(targets, max);
       try {
-        const results: any[] = [];
+        const results: Record<string, unknown>[] = [];
         for (const target of trimmed) {
           const movement = await moveNearEntity({
             x: Number(target.x),
@@ -801,9 +921,11 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             continue;
           }
           const response = await rconCommand(
-            agentSetRecipeCommand([{ x: Number(target.x), y: Number(target.y), recipe: target.recipe }]),
+            agentSetRecipeCommand([
+              { x: Number(target.x), y: Number(target.y), recipe: target.recipe as string },
+            ]),
           );
-          const data = parseRconJson<any>(response, "RCON set-recipe returned invalid JSON");
+          const data = parseRconJson<CommandResultsReply>(response, "RCON set-recipe returned invalid JSON");
           const entry = data?.results?.[0];
           if (!entry) {
             results.push({
@@ -813,7 +935,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
               error: "set_recipe_failed",
             });
           } else {
-            results.push({ ...entry, movement: movement.movement });
+            results.push({ ...(entry as Record<string, unknown>), movement: movement.movement });
           }
         }
         return json(res, 200, {
@@ -821,8 +943,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           data: { results },
           truncated: targets.length > trimmed.length,
         });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -833,40 +955,33 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/act/craft",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const recipe = body?.item || body?.recipe;
-      const count = clampInt(body?.count, 1, 1, 10000);
-      if (!recipe || typeof recipe !== "string") {
+      const recipe = asString(body.item) || asString(body.recipe);
+      const count = clampInt(body.count, 1, 1, 10000);
+      if (!recipe) {
         return json(res, 400, { error: "Missing recipe" });
       }
       try {
         const response = await rconCommand(agentCraftCommand(recipe, count));
-        let data: any = response;
-        try {
-          data = JSON.parse(response);
-        } catch {
-          // Leave as raw string if it isn't JSON.
-        }
-        if (data && typeof data === "object" && data.ok === false) {
+        const data = parseRconObservation(response);
+        const record = asRecord(data);
+        if (record && record.ok === false) {
           return json(res, 400, {
-            error: data?.error || "Extract failed",
+            error: record.error || "Extract failed",
             data,
           });
         }
         return json(res, 200, { ok: true, data });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -877,25 +992,22 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/act/insert",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const to = body?.to?.entity || body?.entity || {};
-      const item = body?.item;
-      const count = clampInt(body?.count, 1, 1, 100000);
-      if (!item || typeof item !== "string") {
+      const to = recordOrEmpty(asRecord(body.to)?.entity || body.entity);
+      const item = asString(body.item);
+      const count = clampInt(body.count, 1, 1, 100000);
+      if (!item) {
         return json(res, 400, { error: "Missing item" });
       }
-      if (to?.x === undefined || to?.y === undefined) {
+      if (to.x === undefined || to.y === undefined) {
         return json(res, 400, { error: "Missing target" });
       }
       try {
@@ -909,10 +1021,10 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         const response = await rconCommand(
           agentInsertCommand({ x: Number(to.x), y: Number(to.y), item, count }),
         );
-        const data = parseRconJson<any>(response, "RCON insert returned invalid JSON");
+        const data = parseRconJson<ItemTransferResult>(response, "RCON insert returned invalid JSON");
         return json(res, 200, { ok: true, data: { ...data, movement: movement.movement } });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -923,27 +1035,24 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/act/extract",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const from = body?.from?.entity || body?.entity || {};
-      const item = body?.item;
-      const rawCount = body?.count;
+      const from = recordOrEmpty(asRecord(body.from)?.entity || body.entity);
+      const item = asString(body.item);
+      const rawCount = body.count;
       const countAll = rawCount === "all" || rawCount === -1;
       const count: number | "all" = countAll ? "all" : clampInt(rawCount, 1, 1, 100000);
-      if (!item || typeof item !== "string") {
+      if (!item) {
         return json(res, 400, { error: "Missing item" });
       }
-      if (from?.x === undefined || from?.y === undefined) {
+      if (from.x === undefined || from.y === undefined) {
         return json(res, 400, { error: "Missing target" });
       }
       try {
@@ -962,10 +1071,10 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             count,
           }),
         );
-        const data = parseRconJson<any>(response, "RCON extract returned invalid JSON");
+        const data = parseRconJson<ItemTransferResult>(response, "RCON extract returned invalid JSON");
         return json(res, 200, { ok: true, data: { ...data, movement: movement.movement } });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -976,30 +1085,27 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/connections",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const window = body?.window || {};
-      const x = Number.isFinite(Number(window.x)) ? Number(window.x) : undefined;
-      const y = Number.isFinite(Number(window.y)) ? Number(window.y) : undefined;
+      const window = recordOrEmpty(body.window);
+      const x = finiteNumberOrUndefined(window.x);
+      const y = finiteNumberOrUndefined(window.y);
       const radius = clampInt(window.radius, 120, 1, 256);
       try {
         const response = await rconCommand(agentConnectionsCommand({ x, y, radius }));
         const data = normalizeConnectionsData(
-          parseRconJson<any>(response, "RCON connection audit returned invalid JSON"),
+          parseRconJson<unknown>(response, "RCON connection audit returned invalid JSON"),
         );
         return json(res, 200, { ok: true, data });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -1010,31 +1116,28 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/layout",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const window = body?.window || {};
-      const x = Number.isFinite(Number(window.x)) ? Number(window.x) : undefined;
-      const y = Number.isFinite(Number(window.y)) ? Number(window.y) : undefined;
+      const window = recordOrEmpty(body.window);
+      const x = finiteNumberOrUndefined(window.x);
+      const y = finiteNumberOrUndefined(window.y);
       const radius = clampInt(window.radius, 35, 1, 80);
       const step = clampInt(window.step, 1, 1, 8);
       try {
         const response = await rconCommand(agentLayoutCommand({ x, y, radius, step }));
         const data = normalizeLayoutData(
-          parseRconJson<any>(response, "RCON layout observation returned invalid JSON"),
+          parseRconJson<unknown>(response, "RCON layout observation returned invalid JSON"),
         );
         return json(res, 200, { ok: true, data });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -1045,32 +1148,29 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/factory",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const window = body?.window || {};
-      const x = Number.isFinite(Number(window.x)) ? Number(window.x) : undefined;
-      const y = Number.isFinite(Number(window.y)) ? Number(window.y) : undefined;
+      const window = recordOrEmpty(body.window);
+      const x = finiteNumberOrUndefined(window.x);
+      const y = finiteNumberOrUndefined(window.y);
       const radius = clampInt(window.radius, 120, 1, 256);
       try {
         const response = await rconCommand(agentFactoryCommand({ x, y, radius }));
         const data = normalizeFactoryData(
-          parseRconJson<any>(response, "RCON factory observation returned invalid JSON"),
+          parseRconJson<unknown>(response, "RCON factory observation returned invalid JSON"),
         );
         const plan = runManager.plan();
-        if (plan) data.plan = plan;
+        if (plan) (data as JsonObject).plan = plan;
         return json(res, 200, { ok: true, data });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -1081,38 +1181,32 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/entity",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const targets: any[] = Array.isArray(body?.targets) ? body.targets : [];
-      const limits = body?.limits || {};
+      const targets = arrayOrEmpty(body.targets);
+      const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
-      const trimmed = targets.slice(0, max).filter((t) => t?.x !== undefined && t?.y !== undefined);
+      const trimmed = parsePositionTargets(targets, max);
       try {
-        const response = await rconCommand(agentObserveEntityCommand(trimmed));
-        let data: any = response;
-        try {
-          data = JSON.parse(response);
-        } catch {
-          // Leave as raw string if it isn't JSON.
-        }
-        data = normalizeEntityData(data);
+        const response = await rconCommand(
+          agentObserveEntityCommand(trimmed as Array<{ x: number; y: number; kind?: string; name?: string }>),
+        );
+        const data = parseRconObservation(response);
+        const normalized = normalizeEntityData(data);
         return json(res, 200, {
           ok: true,
-          data,
+          data: normalized,
           truncated: targets.length > trimmed.length,
         });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -1123,27 +1217,17 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/placement",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
       if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
-      const placements = Array.isArray(body?.placements) ? body.placements : [];
-      const valid = placements
-        .slice(0, AGENT_MAX_ACTIONS)
-        .filter(
-          (item: any) =>
-            typeof item?.name === "string" &&
-            Number.isFinite(Number(item?.anchor?.x)) &&
-            Number.isFinite(Number(item?.anchor?.y)),
-        ) as BuildRequest[];
+      const placements = arrayOrEmpty(body.placements);
+      const valid = parsePlacementRequests(placements);
       try {
         const results = [];
         for (const item of valid) {
-          const result = parseRconJson<any>(
+          const result = parseRconJson<PlacementAnalysisResult>(
             await rconCommand(agentNativeBuildCommand(item, true)),
             "RCON placement analysis returned invalid JSON",
           );
@@ -1162,8 +1246,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           data: { results },
           truncated: placements.length > valid.length,
         });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -1174,37 +1258,30 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/resources",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const window = body?.window || {};
+      const window = recordOrEmpty(body.window);
       const radius = clampInt(window.radius, 50, 1, 500);
       const x = clampInt(window.x, 0, -1000000, 1000000);
       const y = clampInt(window.y, 0, -1000000, 1000000);
       try {
         const response = await rconCommand(agentChartedResourcesCommand({ x, y, radius }), 15_000);
-        let data: any = response;
-        try {
-          data = JSON.parse(response);
-        } catch {
-          // Leave as raw string if it isn't JSON.
-        }
-        if (data && typeof data === "object") {
-          data.patches = arrayOrEmpty(data.patches);
-          data.shoreline_candidates = arrayOrEmpty(data.shoreline_candidates);
+        const data = parseRconObservation(response);
+        const record = asRecord(data);
+        if (record) {
+          record.patches = arrayOrEmpty(record.patches);
+          record.shoreline_candidates = arrayOrEmpty(record.shoreline_candidates);
         }
         return json(res, 200, { ok: true, data });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -1215,37 +1292,30 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/observe/entity-prototype",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const name = body?.name;
-      if (!name || typeof name !== "string") {
+      const name = asString(body.name);
+      if (!name) {
         return json(res, 400, { error: "Missing entity name" });
       }
       try {
         const response = await rconCommand(agentEntityPrototypeCommand(name));
-        let data: any = response;
-        try {
-          data = JSON.parse(response);
-        } catch {
-          // Leave as raw string if it isn't JSON.
+        const data = parseRconObservation(response);
+        const normalized = normalizePrototypeData(data);
+        const record = asRecord(normalized);
+        if (record && record.ok === false) {
+          return json(res, 400, { error: record.error || "Unknown entity", data: normalized });
         }
-        data = normalizePrototypeData(data);
-        if (data && typeof data === "object" && data.ok === false) {
-          return json(res, 400, { error: data?.error || "Unknown entity", data });
-        }
-        return json(res, 200, { ok: true, data });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+        return json(res, 200, { ok: true, data: normalized });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -1256,36 +1326,29 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/agent/act/research",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) {
         return json(res, 409, { error: "RCON not configured" });
       }
       if (!state.rcon.connected) {
         return json(res, 409, { error: "RCON not connected" });
       }
-      const technology = body?.technology;
-      if (!technology || typeof technology !== "string") {
+      const technology = asString(body.technology);
+      if (!technology) {
         return json(res, 400, { error: "Missing technology" });
       }
       try {
         const response = await rconCommand(agentResearchStartCommand(technology));
-        let data: any = response;
-        try {
-          data = JSON.parse(response);
-        } catch {
-          // Leave as raw string if it isn't JSON.
-        }
-        if (data && typeof data === "object" && data.ok === false) {
-          return json(res, 400, { error: data?.error || "Research failed", data });
+        const data = parseRconObservation(response);
+        const record = asRecord(data);
+        if (record && record.ok === false) {
+          return json(res, 400, { error: record.error || "Research failed", data });
         }
         return json(res, 200, { ok: true, data });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });

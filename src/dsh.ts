@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { asRecord, asString } from "./validation.js";
 
 export const DSH_PROFILE_DEFAULT = "headless";
 export const DSH_PROVIDER_DEFAULT = "deepseek-official";
@@ -323,8 +324,9 @@ function usageOp(usage: unknown): Extract<DshOp, { kind: "usage" }> | null {
  */
 export function translateDshEvent(event: unknown, state: DshTranslatorState): DshOp[] {
   if (!event || typeof event !== "object") return [];
-  const record = event as Record<string, any>;
-  switch (record.type) {
+  const record = asRecord(event);
+  if (!record) return [];
+  switch (asString(record.type)) {
     case "session":
       return typeof record.sessionId === "string" && record.sessionId
         ? [{ kind: "thread", sessionId: record.sessionId }]
@@ -365,13 +367,14 @@ export function translateDshEvent(event: unknown, state: DshTranslatorState): Ds
         return usage ? [usage] : [];
       }
       if (record.phase === "turn_end") {
-        const reason = record.reason;
-        if (reason && typeof reason === "object" && reason.kind === "error") {
-          const error = reason.error;
-          const message =
-            error && typeof error === "object"
-              ? String(error.message || error.code || "DSH turn failed")
-              : String(reason.message || "DSH turn failed");
+        const reason = asRecord(record.reason);
+        if (reason && reason.kind === "error") {
+          const error = asRecord(reason.error);
+          const asText = (value: unknown): string | undefined =>
+            typeof value === "string" ? value : undefined;
+          const message = error
+            ? (asText(error.message) ?? asText(error.code) ?? "DSH turn failed")
+            : (asText(reason.message) ?? "DSH turn failed");
           return [{ kind: "error", message }];
         }
         return [];

@@ -1,8 +1,20 @@
 import { Router } from "../http/router.js";
-import { json, readJson } from "../http/plumbing.js";
+import { json, readJsonBody } from "../http/plumbing.js";
 import { actionPaths, splitJobPayload, type JobAction } from "../action-jobs.js";
+import { asString } from "../validation.js";
 import { rconConfigured } from "./shared.js";
 import type { ApiContext } from "./context.js";
+
+/**
+ * Narrow an `unknown` job action to the supported `JobAction` values. The
+ * `in actionPaths` check is identical to the historical handler check (which
+ * also accepted inherited keys like `"toString"`); unknown/non-string values
+ * return undefined and produce the same 400 "Unknown job action" envelope.
+ */
+export function parseJobAction(value: unknown): JobAction | undefined {
+  const action = asString(value);
+  return action && action in actionPaths ? (action as JobAction) : undefined;
+}
 
 export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
   const { state, runManager, actionJobs, internalKey } = ctx;
@@ -15,26 +27,23 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
       const { req, res } = request;
       if (runManager.busy && !runManager.acceptingActions)
         return json(res, 409, { error: "Run is not accepting actions" });
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
       if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
       if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
-      const action = body?.action as JobAction;
-      if (!action || !(action in actionPaths)) {
+      const action = parseJobAction(body.action);
+      if (!action) {
         return json(res, 400, { error: "Unknown job action", allowed_actions: Object.keys(actionPaths) });
       }
-      if (splitJobPayload(action, body?.payload).length === 0) {
+      if (splitJobPayload(action, body.payload).length === 0) {
         return json(res, 400, { error: "Action payload contains no work" });
       }
       const keyHeader = req.headers["idempotency-key"];
       const idempotencyKey =
         (typeof keyHeader === "string" ? keyHeader : null) ??
-        (typeof body?.idempotency_key === "string" ? body.idempotency_key : null);
-      const job = actionJobs.submit(action, body?.payload, idempotencyKey);
+        (typeof body.idempotency_key === "string" ? body.idempotency_key : null);
+      const job = actionJobs.submit(action, body.payload, idempotencyKey);
       return json(res, 202, actionJobs.publicJob(job.id));
     },
   });

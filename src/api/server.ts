@@ -3,11 +3,62 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Router } from "../http/router.js";
-import { json, readJson, API_SCHEMA_VERSION } from "../http/plumbing.js";
+import { json, readJsonBody, API_SCHEMA_VERSION } from "../http/plumbing.js";
+import { asRecord, asString, errorMessage } from "../validation.js";
 import { SAVES_DIR, MANAGER_PROFILE } from "../runtime.js";
 import { rconConfigured } from "./shared.js";
 import { healthPayload, healthStatusCode } from "../health.js";
 import type { ApiContext } from "./context.js";
+
+/** Shape of the manager's `GET /api/server/status` payload (`statusPayload()`). */
+export type ApiServerStatusPayload = {
+  running: boolean;
+  pid: number | null;
+  save: string | null;
+  startedAt: string | null;
+  uptimeSec: number;
+  lastExit: { code: number | null; signal: NodeJS.Signals | null; at: string } | null;
+  usage: { cpuPercent: number | null; rssBytes: number | null };
+  rcon: {
+    configured: boolean;
+    connected: boolean;
+    host: string | null;
+    port: number | null;
+    note: string | null;
+    lastError: string | null;
+  };
+};
+
+/**
+ * Narrow the status payload returned by `statusPayload()` to the documented
+ * `/api/server/status` shape. Returns undefined when the required booleans are
+ * missing; the route then falls back to the original value so the JSON envelope
+ * never changes.
+ */
+export function parseServerStatus(value: unknown): ApiServerStatusPayload | undefined {
+  const record = asRecord(value);
+  const rcon = asRecord(record?.rcon);
+  if (!record || typeof record.running !== "boolean" || !rcon || typeof rcon.connected !== "boolean") {
+    return undefined;
+  }
+  return record as unknown as ApiServerStatusPayload;
+}
+
+/** Extract the RCON command from an `{command}` request body; undefined when invalid. */
+export function parseRconCommandBody(value: unknown): string | undefined {
+  return asString(asRecord(value)?.command);
+}
+
+/**
+ * Extract the save name from a `{save}` request body. Mirrors the historical
+ * inline checks: non-empty string and a bare file name (`path.basename` match);
+ * the `.zip` extension is validated separately by the route.
+ */
+export function parseStartSaveBody(value: unknown): string | undefined {
+  const save = asString(asRecord(value)?.save);
+  if (!save || path.basename(save) !== save) return undefined;
+  return save;
+}
 
 export function registerServerRoutes(router: Router, ctx: ApiContext): void {
   const {
@@ -30,7 +81,8 @@ export function registerServerRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/server/status",
     handler: (request) => {
       const { res } = request;
-      return json(res, 200, statusPayload());
+      const status = statusPayload();
+      return json(res, 200, parseServerStatus(status) ?? status);
     },
   });
 
@@ -70,14 +122,10 @@ export function registerServerRoutes(router: Router, ctx: ApiContext): void {
     name: "/api/rcon/command",
     handler: async (request) => {
       const { req, res } = request;
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
-      const command = body?.command;
-      if (!command || typeof command !== "string") {
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const command = parseRconCommandBody(parsedBody.body);
+      if (!command) {
         return json(res, 400, { error: "Missing command" });
       }
       if (!rconConfigured()) {
@@ -89,8 +137,8 @@ export function registerServerRoutes(router: Router, ctx: ApiContext): void {
       try {
         const response = await rconCommand(command);
         return json(res, 200, { ok: true, response });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "RCON command failed" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });
@@ -128,8 +176,8 @@ export function registerServerRoutes(router: Router, ctx: ApiContext): void {
         if (!fsSync.existsSync(checkpoint)) throw new Error("Checkpoint was not written");
         await fs.copyFile(checkpoint, activeSavePath);
         return json(res, 200, { ok: true, save: state.save, response });
-      } catch (err: any) {
-        return json(res, 500, { error: err?.message || "Failed to save game" });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "Failed to save game" });
       }
     },
   });
@@ -144,15 +192,11 @@ export function registerServerRoutes(router: Router, ctx: ApiContext): void {
         return json(res, 409, { error: "Server already running" });
       }
 
-      let body: any = null;
-      try {
-        body = await readJson(req);
-      } catch (err: any) {
-        return json(res, 400, { error: err?.message || "Invalid JSON" });
-      }
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
 
-      const save = body?.save;
-      if (!save || typeof save !== "string" || path.basename(save) !== save) {
+      const save = parseStartSaveBody(parsedBody.body);
+      if (!save) {
         return json(res, 400, { error: "Missing save" });
       }
 
@@ -173,8 +217,8 @@ export function registerServerRoutes(router: Router, ctx: ApiContext): void {
       if (runManager.busy) return json(res, 409, { error: "A benchmark run owns the game" });
       try {
         await startGame(savePath, MANAGER_PROFILE);
-      } catch (error: any) {
-        return json(res, 500, { error: error.message });
+      } catch (error) {
+        return json(res, 500, { error: errorMessage(error) });
       }
 
       return json(res, 200, statusPayload());
@@ -192,8 +236,8 @@ export function registerServerRoutes(router: Router, ctx: ApiContext): void {
       if (!getRunningPid()) return json(res, 409, { error: "Game not running" });
       try {
         await stopGame();
-      } catch (error: any) {
-        return json(res, 500, { error: error.message });
+      } catch (error) {
+        return json(res, 500, { error: errorMessage(error) });
       }
       return json(res, 200, { ok: true });
     },

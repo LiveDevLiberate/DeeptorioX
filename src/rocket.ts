@@ -1,3 +1,5 @@
+import { asRecord } from "./validation.js";
+
 // Shared by entity observations and the launch action. Readiness describes the
 // silo animation state; launch_rocket remains authoritative about launch rules.
 export const ROCKET_STATE_LUA = [
@@ -9,9 +11,16 @@ export const ROCKET_STATE_LUA = [
   "end",
 ].join(" ");
 
-type Target = { x: number; y: number };
+/** Validated coordinates used to build the launch command. */
+export type RocketTarget = { x: number; y: number };
 
-export function launchRocketCommand(target: Target): string {
+/** Raw coordinates accepted by the launch action (validated before use). */
+type RocketTargetInput = { x: unknown; y: unknown };
+
+/** Result of approaching the silo: `NativeController` movement reply. */
+export type RocketApproachResult = { ok?: unknown; error?: unknown; movement?: unknown };
+
+export function launchRocketCommand(target: RocketTarget): string {
   if (!Number.isFinite(target.x) || !Number.isFinite(target.y)) throw new Error("Invalid rocket target");
   return [
     "/sc",
@@ -35,15 +44,18 @@ export function launchRocketCommand(target: Target): string {
 }
 
 export async function launchRocket(
-  target: Target,
-  approach: (target: Target) => Promise<any>,
+  target: RocketTargetInput,
+  approach: (target: RocketTarget) => Promise<RocketApproachResult>,
   command: (lua: string) => Promise<string>,
   cancelled: () => boolean,
 ) {
-  if (!Number.isFinite(target.x) || !Number.isFinite(target.y))
+  // The target comes from an `unknown` HTTP payload: validate it exactly like
+  // the historical `Number.isFinite` checks before using it as coordinates.
+  const { x, y } = target;
+  if (typeof x !== "number" || !Number.isFinite(x) || typeof y !== "number" || !Number.isFinite(y))
     return { ...target, ok: false, error: "invalid_target" };
   if (cancelled()) return { ...target, ok: false, error: "cancelled" };
-  const movement = await approach(target);
+  const movement = await approach({ x, y });
   if (!movement?.ok)
     return {
       ...target,
@@ -52,14 +64,15 @@ export async function launchRocket(
       movement: movement?.movement,
     };
   if (cancelled()) return { ...target, ok: false, error: "cancelled", movement: movement.movement };
-  let result;
+  let parsed: unknown;
   try {
-    result = JSON.parse(await command(launchRocketCommand(target)));
+    parsed = JSON.parse(await command(launchRocketCommand({ x, y })));
   } catch (error) {
     if (error instanceof SyntaxError)
       throw new Error("RCON launch-rocket returned invalid JSON", { cause: error });
     throw error;
   }
+  const result = asRecord(parsed);
   if (!result || typeof result.ok !== "boolean")
     throw new Error("RCON launch-rocket returned invalid result");
   return { ...result, movement: movement.movement };

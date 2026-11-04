@@ -35,6 +35,7 @@ import { Router } from "./http/router.js";
 import { json } from "./http/plumbing.js";
 import { handleStatic } from "./http/static.js";
 import { rconConfigured } from "./api/shared.js";
+import { asRecord, errorMessage } from "./validation.js";
 import type { ApiContext } from "./api/context.js";
 import { registerAgentRoutes } from "./api/agent.js";
 import { registerJobsRoutes } from "./api/jobs.js";
@@ -101,8 +102,8 @@ function isPidRunning(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch (err: any) {
-    if (err?.code === "ESRCH") return false;
+  } catch (err) {
+    if (asRecord(err)?.code === "ESRCH") return false;
     return true;
   }
 }
@@ -396,8 +397,8 @@ async function connectRcon(): Promise<boolean> {
         state.rcon.connected = true;
         socket.setTimeout(0);
         finish(true);
-      } catch (err: any) {
-        finish(false, err?.message || "RCON auth failed");
+      } catch (err) {
+        finish(false, errorMessage(err) || "RCON auth failed");
       }
     });
 
@@ -642,8 +643,8 @@ const server = createServer(async (req, res) => {
   if (req.url.startsWith("/api/")) {
     try {
       return await handleApi(req, res);
-    } catch (error: any) {
-      return json(res, 500, { error: error.message || "Request failed" });
+    } catch (error) {
+      return json(res, 500, { error: errorMessage(error) || "Request failed" });
     }
   }
 
