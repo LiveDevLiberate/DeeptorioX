@@ -9,6 +9,16 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Status-details control is now a left-aligned stats button.** The right-side
+  `▾/▸` arrow was replaced by a chip at the start of the status line with the
+  game-icons.net `chart` glyph (new `public/icons/stats.svg`, attributed) and the
+  localized label `详细统计` / `Detailed stats`; it toggles the compact header
+  using `aria-expanded` and still collapses all detail rows (plan, metrics,
+  scores). Layout/CSS keeps it left-aligned on narrow windows too.
+
+## [0.14.0] - 2026-11-04
 ## [0.14.0] - 2026-11-04
 
 ### Changed

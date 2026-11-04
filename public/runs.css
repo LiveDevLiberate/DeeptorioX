@@ -2914,3 +2914,49 @@ body.recording .status-metrics:not([hidden]) {
 .metrics-table .metric-delta {
   vertical-align: middle;
 }
+
+/* Status-details button: icon + label, left-aligned before the state badge. */
+body.recording .status-line .status-toggle {
+  order: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  height: 22px;
+  margin-left: 0;
+  padding: 0 8px;
+  border: 1px solid #26313a;
+  border-radius: 6px;
+  background: #12181d;
+  color: #9db0bb;
+  font-size: 10.5px;
+}
+body.recording .status-line .status-toggle:hover {
+  border-color: #34424c;
+  background: #172028;
+  color: var(--text);
+}
+body.recording .status-line .status-toggle .icon {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  color: #7fd8e8;
+}
+body.recording .status-line .status-toggle[aria-expanded="true"] {
+  border-color: rgba(122, 162, 247, 0.35);
+  color: var(--accent-strong);
+}
+.icon-stats {
+  --gi-icon: url("/icons/stats.svg");
+}
+@media (max-width: 560px) {
+  body.recording .status-line .status-toggle {
+    order: 0;
+    margin-left: 0;
+  }
+  body.recording .status-meta {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+  }
+}

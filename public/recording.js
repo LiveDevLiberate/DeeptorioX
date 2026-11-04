@@ -164,6 +164,7 @@ const I18N = {
     },
     expand: "Expand status details",
     collapse: "Collapse status details",
+    stats: "Detailed stats",
     filters: {
       all: "All",
       thinking: "Thinking",
@@ -256,6 +257,7 @@ const I18N = {
     },
     expand: "展开状态详情",
     collapse: "收起状态详情",
+    stats: "详细统计",
     filters: {
       all: "全部",
       thinking: "思考",
@@ -277,7 +279,8 @@ function updateStatusToggleLabel() {
   if (!statusToggle || !statusHeader) return;
   const collapsed = statusHeader.classList.contains("collapsed");
   const strings = I18N[uiLang || "en"];
-  statusToggle.textContent = collapsed ? "▸" : "▾";
+  statusToggle.replaceChildren(icon("stats"), element("span", strings.stats, "status-toggle-label"));
+  statusToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
   statusToggle.setAttribute("aria-label", collapsed ? strings.expand : strings.collapse);
   statusToggle.setAttribute("title", collapsed ? strings.expand : strings.collapse);
 }
