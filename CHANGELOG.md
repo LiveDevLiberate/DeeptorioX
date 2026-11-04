@@ -9,6 +9,19 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **No more permanent “STATE.md pending” line.** The status bar only shows the
+  plan line when the agent has actually written `STATE.md` (with
+  `Current:`/`Done when:`/`Scores:`) or when live research progress exists;
+  otherwise the line is hidden instead of advertising a file that may never
+  appear. `STATE.md` parsing, stale-plan marking and scores remain for runs that
+  do use it (earlier Codex runs wrote it; recent DSH runs did not).
+- The agent task prompt now explicitly asks the model to create `STATE.md`
+  before its first action (`Current:`, `Done when:`, `Scores:`) and update it
+  whenever the subtask changes, so future runs are more likely to populate the
+  operator view.
+
 ## [0.10.5] - 2026-11-04
 
 ### Fixed

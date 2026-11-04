@@ -108,7 +108,6 @@ const I18N = {
       exploration: "Expl",
     },
     done: "Done",
-    pending: "STATE.md pending",
     tokens: "tok",
     plan: "plan",
     turn: "turn",
@@ -162,7 +161,6 @@ const I18N = {
       exploration: "探索",
     },
     done: "完成条件",
-    pending: "等待 STATE.md",
     tokens: "令牌",
     plan: "计划",
     turn: "回合",
@@ -315,7 +313,9 @@ function renderStatus(run) {
     statusDone.hidden = true;
     statusHeader?.classList.add("stale-plan");
   } else {
-    const planLine = current ? `▶ ${current}` : research || (terminalState ? "" : strings.pending);
+    // Do not advertise a file the agent has not written: with no STATE.md and no
+    // research progress there is nothing useful to show, so hide the line.
+    const planLine = current ? `▶ ${current}` : research || "";
     statusCurrent.textContent = planLine;
     statusCurrent.hidden = !planLine;
     statusDone.textContent = done ? `${strings.done}: ${done}` : "";

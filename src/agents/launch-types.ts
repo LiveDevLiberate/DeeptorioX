@@ -70,6 +70,7 @@ const RESTART_PROMPT =
 const BASE_TASK_PROMPT =
   "Read AGENTS.md, COOKBOOK.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
   "The cookbook has proven layouts and the error-recovery matrix; follow it before inventing new designs. " +
+  "Before your first action, create STATE.md with Current:, Done when: and Scores:, and update it whenever your subtask changes, so the operator view can follow your plan. " +
   "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
 
 /** Optional output-language instruction; empty when the run uses the default. */
