@@ -38,11 +38,14 @@ import { rconConfigured } from "./api/shared.js";
 import { asRecord, errorMessage } from "./validation.js";
 import type { ApiContext } from "./api/context.js";
 import { registerAgentRoutes } from "./api/agent.js";
+import { registerAreaEditRoutes } from "./api/area-edit.js";
 import { registerJobsRoutes } from "./api/jobs.js";
 import { registerManagerRoutes } from "./api/manager.js";
 import { registerRunsRoutes } from "./api/runs.js";
 import { registerSavesRoutes } from "./api/saves.js";
 import { registerServerRoutes } from "./api/server.js";
+import { registerTelemetryRoutes } from "./api/telemetry.js";
+import { createTelemetrySampler } from "./telemetry-sampler.js";
 
 fsSync.mkdirSync(DATA_DIR, { recursive: true });
 configureLogger({ file: path.join(DATA_DIR, "manager.log"), level: process.env.AUTORIO_LOG_LEVEL });
@@ -608,13 +611,24 @@ const apiContext: ApiContext = {
   shutdown,
 };
 
+const telemetrySampler = createTelemetrySampler({
+  command: (lua) => rconCommand(lua),
+  logger,
+  shouldSample: () => state.rcon.connected,
+});
+
 const apiRouter = new Router();
 registerManagerRoutes(apiRouter, apiContext);
 registerRunsRoutes(apiRouter, apiContext);
+// Register the quick area-edit group before the /act/ job guard so the synchronous
+// copy-settings action is reachable from clients (see src/api/area-edit.ts).
+registerAreaEditRoutes(apiRouter, apiContext);
 registerJobsRoutes(apiRouter, apiContext);
 registerSavesRoutes(apiRouter, apiContext);
 registerServerRoutes(apiRouter, apiContext);
 registerAgentRoutes(apiRouter, apiContext);
+registerTelemetryRoutes(apiRouter, apiContext, telemetrySampler);
+telemetrySampler.start();
 
 async function handleApi(req: IncomingMessage, res: ServerResponse) {
   if (await apiRouter.dispatch(req, res)) return;
@@ -660,6 +674,7 @@ let shuttingDown = false;
 async function shutdown(signal: NodeJS.Signals) {
   if (shuttingDown) return;
   shuttingDown = true;
+  telemetrySampler.stop();
   logger.info("Shutting down", { signal });
   try {
     await runManager.shutdown();
