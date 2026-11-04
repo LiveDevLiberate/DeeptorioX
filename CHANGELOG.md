@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-11-04
+
 ### Changed
 
 - **Dark theme now uses a true black page background (`#000`).** The recording
@@ -696,7 +698,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.25.1...HEAD
+[0.25.1]: https://github.com/ryanmadden/autorio/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/ryanmadden/autorio/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/ryanmadden/autorio/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/ryanmadden/autorio/compare/v0.22.0...v0.23.0
