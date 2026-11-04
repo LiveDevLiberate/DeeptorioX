@@ -9,6 +9,13 @@ this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Transcript auto-expansion: the newest two reasoning blocks are expanded again (and the
+  newest command group), instead of every reasoning block being collapsed because the
+  open-state was computed before the block list was updated. Found while watching a real
+  smoke run in the recording window.
+
 ## [0.7.0] - 2026-11-04
 
 ## [0.6.0] - 2026-11-04

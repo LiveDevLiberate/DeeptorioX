@@ -30,6 +30,7 @@ const decoder = new TextDecoder(),
   transcript = new CodexTranscript();
 const entries = new Map();
 let commandGroup;
+let openCommandGroup = null;
 const loops = new LoopDetector({ threshold: 3, window: 12 });
 const thoughtLoops = new LoopDetector({ threshold: 2, window: 6 });
 const seenThoughts = new Map();
@@ -288,6 +289,11 @@ function renderStatus(run) {
 function strings() {
   return I18N[uiLang || "en"] || I18N.en;
 }
+function setDetailsOpen(node, open) {
+  node.open = open;
+  if (open) node.setAttribute("open", "");
+  else node.removeAttribute?.("open");
+}
 const jumpButton = element("button", "", "jump-latest");
 jumpButton.type = "button";
 jumpButton.hidden = true;
@@ -314,6 +320,9 @@ function ensureCommandGroup() {
     const details = element("details", "", "commands");
     const summary = element("summary", "", "commands-summary");
     details.append(summary);
+    if (openCommandGroup && openCommandGroup !== details) setDetailsOpen(openCommandGroup, false);
+    openCommandGroup = details;
+    setDetailsOpen(details, true);
     output.append(details);
     commandGroup = { details, summary, items: new Map(), loop: 0 };
   }
@@ -396,7 +405,6 @@ function renderReasoning(item) {
   }
   const segments = splitReasoning(text);
   const node = element("details", "", "message reasoning");
-  node.open = openReasoning.length < 2;
   const summary = element("summary", "", "reasoning-summary");
   summary.textContent = segments[0]?.summary || "…";
   const badge = element("span", "", "dedupe-badge");
@@ -416,8 +424,9 @@ function renderReasoning(item) {
   openReasoning.push(node);
   while (openReasoning.length > 2) {
     const old = openReasoning.shift();
-    if (old) old.open = false;
+    if (old) setDetailsOpen(old, false);
   }
+  setDetailsOpen(node, true);
   if (repeat.repeated) {
     badge.hidden = false;
     badge.textContent = `↻ ${strings().repeated} ×${repeat.count}`;
