@@ -165,3 +165,15 @@ Use one authoritative rule per property; retire earlier passes. Do not add new
   effective one.
 - Stylesheet modules: **4,586 → 4,523 lines**. All six stable screenshots remain
   pixel-identical.
+
+### Phase 3 progress (round 10)
+
+- Extended declaration redundancy removal to grouped selectors: a declaration is
+  dropped only when *every* selector in the group has a later same-property
+  declaration in the same at-rule context. Removed another 21 declarations.
+- Modules: **4,523 → 4,469 lines** after removing 21 declarations and internal
+  blank lines left by declaration-level edits; six stable screenshots remain
+  pixel-identical.
+- An experimental whole-rule merge of repeated selectors was rejected: moving
+  declarations changed cascade-sensitive chip/filter/layout results. Future
+  consolidation must remain rule-local.

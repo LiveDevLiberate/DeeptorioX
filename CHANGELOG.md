@@ -29,7 +29,10 @@ this file.
   its effective header layout and light chip/plan rules; modules now total
   4,586 lines with pixel-identical stable screenshots. A declaration-level
   redundancy pass then removed 86 shadowed declarations and 5 empty rules,
-  bringing modules to 4,523 lines with identical screenshots.
+  bringing modules to 4,523 lines with identical screenshots. Extending the same
+  importance-aware pass to grouped selectors removed another 21 declarations,
+  and internal blank lines left by the edits were compacted, for a final
+  4,469 lines with identical stable screenshots.
 
 ### Added
 

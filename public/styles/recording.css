@@ -7,7 +7,6 @@ body.recording {
   background:
     radial-gradient(1100px 520px at 12% -12%, rgba(38, 96, 82, 0.32), transparent 65%),
     radial-gradient(900px 480px at 92% 0%, rgba(44, 62, 120, 0.18), transparent 60%), #0a0f12;
-
   font:
     13px/1.5 -apple-system,
     BlinkMacSystemFont,
@@ -23,7 +22,6 @@ body.recording ::selection {
 body.recording #agentStatus {
   padding: 0;
   background: rgba(9, 14, 17, 0.82);
-
   font-family: inherit;
 }
 body.recording .status-inner {
@@ -36,7 +34,6 @@ body.recording .status-inner {
 
 body.recording .status-badge {
   padding: 3px 11px;
-
   font:
     600 10px/1.6 -apple-system,
     "Segoe UI",
@@ -59,7 +56,6 @@ body.recording .status-activity {
   align-items: center;
   gap: 7px;
   color: #e4f0ec;
-
   font-weight: 500;
 }
 body.recording .status-activity::before {
@@ -68,7 +64,6 @@ body.recording .status-activity::before {
   height: 7px;
   border-radius: 50%;
   background: #e7c76f;
-
   animation: rec-pulse 2.4s ease-in-out infinite;
 }
 @keyframes rec-pulse {
@@ -98,7 +93,6 @@ body.recording .metric {
   padding: 2px 9px;
   border: 1px solid #223239;
   border-radius: 999px;
-
   font:
     10.5px/1.7 ui-monospace,
     SFMono-Regular,
@@ -144,14 +138,12 @@ body.recording .score.active .score-label {
   padding-right: max(22px, calc((100vw - 1000px) / 2));
   gap: 6px;
   background: rgba(10, 15, 18, 0.86);
-
   backdrop-filter: blur(12px);
 }
 #transcriptTools .chip {
   padding: 3px 12px;
   border-radius: 999px;
   border: 1px solid #24343a;
-
   font:
     500 11px/1.7 -apple-system,
     "Segoe UI",
@@ -168,7 +160,6 @@ body.recording .score.active .score-label {
   padding: 3px 11px;
   border-radius: 999px;
   border: 1px solid #24343a;
-
   font:
     11px/1.7 -apple-system,
     "Segoe UI",
@@ -192,7 +183,6 @@ body.recording .score.active .score-label {
     SFMono-Regular,
     Menlo,
     monospace;
-
   scrollbar-color: #24363c transparent;
 }
 #codexOutput > * {
@@ -230,7 +220,6 @@ body.recording #codexOutput {
   padding: 0;
   overflow: hidden;
   border: 1px solid #1d2d32;
-
   border-radius: 10px;
 }
 
@@ -254,7 +243,6 @@ body.recording #codexOutput {
   color: #5f8a7f;
   font-size: 10px;
   transform: translateY(-1px);
-  transition: transform 0.15s ease;
 }
 #codexOutput .reasoning[open] > .reasoning-summary::before {
   display: inline-block;
@@ -262,7 +250,6 @@ body.recording #codexOutput {
 }
 #codexOutput .reasoning-body {
   margin: 0;
-
   color: #a9bdb7;
   font:
     13px/1.68 -apple-system,
@@ -279,8 +266,6 @@ body.recording #codexOutput {
   padding: 1px 7px;
   border: 1px solid rgba(231, 199, 111, 0.35);
   border-radius: 999px;
-  background: rgba(74, 59, 19, 0.45);
-  color: #f0cf87;
   font:
     600 9px/1.6 ui-monospace,
     SFMono-Regular,
@@ -310,10 +295,8 @@ body.recording #codexOutput {
 }
 #codexOutput .commands-summary::before {
   content: "\25B8";
-  margin-right: 8px;
   color: #5f8a7f;
   font-size: 10px;
-  transition: transform 0.15s ease;
 }
 #codexOutput .commands[open] > .commands-summary::before {
   display: inline-block;
@@ -346,7 +329,6 @@ body.recording #codexOutput {
   padding: 2px 8px;
   border: 1px solid transparent;
   border-radius: 6px;
-
   font:
     600 9.5px/1.6 ui-monospace,
     SFMono-Regular,
@@ -390,7 +372,6 @@ body.recording #codexOutput {
 
 #codexOutput .action-raw summary {
   color: #5f7a74;
-
   list-style: none;
 }
 
@@ -402,8 +383,6 @@ body.recording #codexOutput {
   padding: 8px 10px;
   border: 1px solid #18262b;
   border-radius: 8px;
-  background: #0a1215;
-  color: #93aaa4;
   font:
     11px/1.55 ui-monospace,
     SFMono-Regular,
@@ -424,7 +403,6 @@ body.recording #codexOutput {
 }
 #codexOutput .tool-details summary::before {
   content: "\25B8";
-  margin-right: 8px;
   color: #5f8a7f;
   font-size: 10px;
 }
@@ -436,9 +414,7 @@ body.recording #codexOutput {
 #codexOutput .message {
   padding: 10px 15px;
   border: 1px solid #1e2d33;
-
   border-radius: 10px;
-
   font:
     13px/1.68 -apple-system,
     "Segoe UI",
@@ -484,7 +460,6 @@ body.recording #codexOutput {
   padding: 2px 10px;
   border: 1px solid #1d2d32;
   border-radius: 999px;
-
   font-size: 9.5px;
 }
 #codexOutput::-webkit-scrollbar {
@@ -504,12 +479,10 @@ body.recording #codexOutput {
   padding: 7px 14px;
   border: 1px solid rgba(126, 226, 176, 0.35);
   border-radius: 999px;
-
   font:
     600 11px/1.4 -apple-system,
     "Segoe UI",
     sans-serif;
-
   backdrop-filter: blur(8px);
 }
 
@@ -594,7 +567,6 @@ body.recording .status-activity:empty {
   padding: 1px 6px;
   border: 1px solid #1f3036;
   border-radius: 999px;
-
   font-size: 9px;
 }
 #codexOutput .action-duration {
@@ -663,7 +635,6 @@ body.recording .status-activity:empty {
     flex-wrap: wrap;
     row-gap: 4px;
   }
-
   body.recording .status-activity {
     order: 2;
   }
@@ -695,7 +666,6 @@ body.recording .status-activity:empty {
 }
 .icon {
   width: 14px;
-
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -705,7 +675,6 @@ body.recording .status-activity:empty {
 
 #codexOutput .action-badge .icon {
   width: 11px;
-
   margin-right: 4px;
   vertical-align: -1px;
   opacity: 0.85;
@@ -713,7 +682,6 @@ body.recording .status-activity:empty {
 #codexOutput .reasoning-summary .icon,
 #codexOutput .commands-summary .icon {
   width: 13px;
-  height: 13px;
   margin-right: 7px;
   color: #7fc0a9;
   opacity: 0.9;
@@ -721,21 +689,17 @@ body.recording .status-activity:empty {
 
 body.recording .metric .icon {
   width: 11px;
-  height: 11px;
-  margin-right: 4px;
   vertical-align: -1px;
   opacity: 0.75;
 }
 #codexOutput .event-marker .icon {
   width: 12px;
-
   margin-right: 6px;
   vertical-align: -1px;
   color: #9ed3f2;
 }
 .jump-latest .icon {
   width: 12px;
-
   margin-right: 5px;
   vertical-align: -1px;
 }
@@ -926,7 +890,6 @@ body.recording {
   --border-soft: #1a2229;
   --text: #dbe3ea;
   --body: #b7c3ce;
-
   --dim: #66737f;
   --accent: #7aa2f7;
   --accent-strong: #a8c4ff;
@@ -2267,7 +2230,6 @@ html[data-theme="light"] body.recording {
   --rec-violet: #6b57a3;
   --rec-danger: #b23f35;
   --rec-danger-soft: rgba(178, 63, 53, 0.09);
-
   --bg: #f3f7f5;
   --panel: #ffffff;
   --panel-2: #f8fbf9;
@@ -2275,7 +2237,6 @@ html[data-theme="light"] body.recording {
   --border-soft: #e5ede9;
   --text: #1d2b26;
   --body: #3c4d46;
-
   --dim: #85978f;
   --accent: #2f6f9e;
   --accent-strong: #1d547c;
@@ -2284,7 +2245,6 @@ html[data-theme="light"] body.recording {
   --amber: #8a641c;
   --red: #b23f35;
   --violet: #6b57a3;
-
   background:
     radial-gradient(1100px 500px at 8% -12%, rgba(153, 196, 178, 0.2), transparent 60%),
     radial-gradient(900px 440px at 94% -8%, rgba(166, 190, 214, 0.16), transparent 58%), #f3f7f5;
@@ -2323,7 +2283,6 @@ html[data-theme="light"] body.recording .status-badge.timed_out,
 html[data-theme="light"] body.recording .status-badge.interrupted {
   border-color: #efc4be;
   background: #fdecea;
-  color: #a43b31;
 }
 html[data-theme="light"] body.recording .status-activity {
   color: var(--text);

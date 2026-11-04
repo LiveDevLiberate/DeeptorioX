@@ -26,12 +26,7 @@ body.recording .status-tools .status-map-toggle,
 body.recording .status-tools .status-theme-toggle {
   min-height: 30px;
   height: 30px;
-  padding: 0 10px;
-  border-radius: 8px;
   border-color: var(--ui-control-border);
-  background: var(--ui-control-bg);
-  font-size: 11px;
-  font-weight: 500;
 }
 
 body.recording .status-badge {
@@ -44,9 +39,6 @@ body.recording .status-plan,
 body.recording .status-telemetry {
   min-width: 0;
   padding: 11px 13px 12px;
-  border: 1px solid var(--ui-card-border);
-  border-radius: 12px;
-  background: var(--ui-card);
 }
 body.recording .status-plan {
   gap: 6px;
@@ -56,7 +48,6 @@ body.recording .status-telemetry {
 }
 body.recording .section-kicker {
   display: flex;
-
   font:
     600 9px/1.2 ui-monospace,
     SFMono-Regular,
@@ -102,7 +93,6 @@ body.recording .connection-notice button {
   min-height: 28px;
   margin-left: auto;
   padding: 0 10px;
-
   font: inherit;
   cursor: pointer;
 }
@@ -261,7 +251,6 @@ body.recording .status-tools .status-toggle .icon,
 body.recording .status-tools .status-map-toggle .icon,
 body.recording .status-tools .status-theme-toggle .icon {
   width: 13px;
-  height: 13px;
   color: var(--steel);
 }
 body.recording .status-badge {
@@ -860,7 +849,6 @@ body.recording .connection-notice button:hover {
   body.recording .status-plan::before {
     left: 0;
   }
-
   body.recording .connection-notice {
     width: calc(100% - 28px);
     margin-top: 8px;
