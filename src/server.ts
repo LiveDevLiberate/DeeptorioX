@@ -1,4 +1,4 @@
-import { createServer, IncomingMessage, ServerResponse, request as httpRequest } from "http";
+import { createServer, IncomingMessage, ServerResponse } from "http";
 import type { ChildProcess } from "node:child_process";
 import { obsStatus } from "./obs.js";
 import fsSync from "fs";
@@ -25,6 +25,7 @@ import {
   requireSteam,
 } from "./runtime.js";
 import { NativeController } from "./native-control.js";
+import { ActionJobQueue, actionPaths, splitJobPayload, type JobAction } from "./action-jobs.js";
 import { launchRocket } from "./rocket.js";
 import { RunManager } from "./runs.js";
 import {
@@ -57,10 +58,8 @@ import {
   agentRecipesCommand,
   agentResearchCommand,
   agentResearchStartCommand,
-  agentResourcesCommand,
   agentRotateCommand,
   agentSetRecipeCommand,
-  agentWorldCommand,
   type BuildRequest,
 } from "./command-builders.js";
 
@@ -100,7 +99,6 @@ const AGENT_MAX_RECIPES = 300;
 const AGENT_MAX_RESEARCH = 200;
 const AGENT_MAX_ACTIONS = 50;
 const API_SCHEMA_VERSION = 2;
-const JOB_RETENTION_MS = 60 * 60 * 1000;
 
 function parseRconJson<T>(response: string, errorMessage: string): T {
   try {
@@ -659,219 +657,27 @@ async function rconCommand(command: string, timeoutMs = 3000): Promise<string> {
 }
 
 const nativeController = new NativeController(rconCommand);
+async function stopNativeController() {
+  if (state.rcon.connected) await nativeController.stop().catch(() => {});
+}
 // Placement work is retried and moves only short distances, so a stuck native
 // action is aborted quickly instead of holding the whole job for ten minutes.
 const ACTION_TIMEOUT_MS = 120_000;
 const BUILD_MOVE_TIMEOUT_MS = 120_000;
 function nativeAction(payload: Record<string, unknown>) {
-  const job = currentJob;
+  const job = actionJobs.currentJob;
   const { timeout_ms, ...action } = payload as Record<string, any>;
   const timeout = typeof timeout_ms === "number" && timeout_ms > 0 ? timeout_ms : 600_000;
-  return nativeController.run(
-    action,
-    () => Boolean(job?.cancel_requested) || (runManager.busy && !runManager.acceptingActions),
-    timeout,
-  );
+  return nativeController.run(action, () => actionJobs.isCancelled(job), timeout);
 }
 
-type JobAction =
-  | "build"
-  | "mine"
-  | "move"
-  | "rotate"
-  | "set-recipe"
-  | "launch-rocket"
-  | "research"
-  | "craft"
-  | "insert"
-  | "extract";
-
-type ActionJob = {
-  id: string;
-  action: JobAction;
-  idempotency_key: string | null;
-  status: "queued" | "running" | "completed" | "failed" | "cancelled";
-  created_at: string;
-  started_at: string | null;
-  completed_at: string | null;
-  total: number;
-  completed: number;
-  results: any[];
-  error: string | null;
-  cancel_requested: boolean;
-  payload: any;
-};
-
-const jobs = new Map<string, ActionJob>();
-let currentJob: ActionJob | undefined;
-const jobKeys = new Map<string, string>();
-let actionQueue: Promise<void> = Promise.resolve();
-
-const actionPaths: Record<JobAction, string> = {
-  build: "/api/agent/act/build",
-  mine: "/api/agent/act/mine",
-  move: "/api/agent/act/move",
-  rotate: "/api/agent/act/rotate",
-  "set-recipe": "/api/agent/act/set-recipe",
-  "launch-rocket": "/api/agent/act/launch-rocket",
-  research: "/api/agent/act/research",
-  craft: "/api/agent/act/craft",
-  insert: "/api/agent/act/insert",
-  extract: "/api/agent/act/extract",
-};
-
-function splitJobPayload(action: JobAction, payload: any): any[] {
-  if (action === "build") {
-    const clear = payload?.clear_obstacles !== false;
-    return (Array.isArray(payload?.entities) ? payload.entities : []).map((entity: any) => ({
-      entities: [entity],
-      clear_obstacles: clear,
-    }));
-  }
-  if (["mine", "move", "rotate", "set-recipe", "launch-rocket"].includes(action)) {
-    return (Array.isArray(payload?.targets) ? payload.targets : []).map((target: any) => ({
-      targets: [target],
-    }));
-  }
-  return [payload ?? {}];
-}
-
-function publicJob(job: ActionJob) {
-  return {
-    job_id: job.id,
-    action: job.action,
-    idempotency_key: job.idempotency_key,
-    status: job.status,
-    created_at: job.created_at,
-    started_at: job.started_at,
-    completed_at: job.completed_at,
-    progress: { completed: job.completed, total: job.total },
-    results: job.results,
-    error: job.error,
-    cancel_requested: job.cancel_requested,
-  };
-}
-
-// The queue owns timeouts and cancellation, so dispatch long actions over a
-// plain HTTP request with no client-side deadline (fetch/undici aborts at 300s).
-function internalPost(pathname: string, payload: unknown): Promise<{ status: number; body: any }> {
-  return new Promise((resolve, reject) => {
-    const body = Buffer.from(JSON.stringify(payload), "utf8");
-    const req = httpRequest(
-      {
-        host: "127.0.0.1",
-        port: PORT,
-        path: pathname,
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": body.length,
-          "X-Autorio-Internal": INTERNAL_JOB_KEY,
-        },
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
-        res.on("end", () => {
-          try {
-            resolve({
-              status: res.statusCode ?? 0,
-              body: JSON.parse(Buffer.concat(chunks).toString("utf8")),
-            });
-          } catch (err) {
-            reject(err);
-          }
-        });
-      },
-    );
-    // Safety net only: settle the socket after half an hour without any
-    // response instead of hanging the job queue forever.
-    req.setTimeout(30 * 60 * 1000, () => req.destroy(new Error("internal action timed out")));
-    req.on("error", reject);
-    req.end(body);
-  });
-}
-
-async function runActionJob(job: ActionJob) {
-  if (job.cancel_requested) {
-    job.status = "cancelled";
-    job.completed_at = new Date().toISOString();
-    runManager.recordJob("finished", { ...publicJob(job), payload: job.payload });
-    return;
-  }
-  job.status = "running";
-  currentJob = job;
-  job.started_at = new Date().toISOString();
-  const items = splitJobPayload(job.action, job.payload);
-  try {
-    for (const payload of items) {
-      if (job.cancel_requested) {
-        job.status = "cancelled";
-        break;
-      }
-      const response = await internalPost(actionPaths[job.action], payload);
-      const envelope = response.body;
-      const data = envelope?.data;
-      let result = data?.results?.[0] ?? data ?? envelope;
-      if (response.status < 200 || response.status >= 300) {
-        result = { ok: false, error: envelope?.error || `HTTP ${response.status}`, detail: result };
-      }
-      job.results.push(result);
-      job.completed++;
-    }
-    job.status = job.cancel_requested ? "cancelled" : "completed";
-  } catch (err: any) {
-    job.status = job.cancel_requested ? "cancelled" : "failed";
-    job.error = err?.message || "Action job failed";
-  } finally {
-    job.completed_at = new Date().toISOString();
-    runManager.recordJob("finished", { ...publicJob(job), payload: job.payload });
-    currentJob = undefined;
-  }
-}
-
-function queueActionJob(action: JobAction, payload: any, idempotencyKey: string | null) {
-  const scopedKey = idempotencyKey ? `${action}:${idempotencyKey}` : null;
-  if (idempotencyKey) {
-    const existingId = jobKeys.get(scopedKey!);
-    const existing = existingId ? jobs.get(existingId) : null;
-    if (existing) return existing;
-  }
-  const items = splitJobPayload(action, payload);
-  const job: ActionJob = {
-    id: randomUUID(),
-    action,
-    idempotency_key: idempotencyKey,
-    status: "queued",
-    created_at: new Date().toISOString(),
-    started_at: null,
-    completed_at: null,
-    total: items.length,
-    completed: 0,
-    results: [],
-    error: null,
-    cancel_requested: false,
-    payload,
-  };
-  jobs.set(job.id, job);
-  runManager.recordJob("submitted", { ...publicJob(job), payload: job.payload });
-  if (scopedKey) jobKeys.set(scopedKey, job.id);
-  actionQueue = actionQueue.then(
-    () => runActionJob(job),
-    () => runActionJob(job),
-  );
-  return job;
-}
-
-setInterval(() => {
-  const cutoff = Date.now() - JOB_RETENTION_MS;
-  for (const [id, job] of jobs) {
-    if (job.completed_at && Date.parse(job.completed_at) < cutoff) {
-      jobs.delete(id);
-      if (job.idempotency_key) jobKeys.delete(`${job.action}:${job.idempotency_key}`);
-    }
-  }
-}, 60_000);
+const actionJobs = new ActionJobQueue({
+  port: PORT,
+  internalKey: INTERNAL_JOB_KEY,
+  nativeStop: stopNativeController,
+  isCancelled: () => runManager.busy && !runManager.acceptingActions,
+  onRecord: (event, record) => runManager.recordJob(event, record),
+});
 
 setInterval(() => {
   sampleUsage().catch(() => {});
@@ -990,19 +796,17 @@ const runManager = new RunManager({
   command: rconCommand,
   connect: ensureRconConnection,
   cancelJobs: async () => {
-    for (const job of jobs.values())
-      if (["queued", "running"].includes(job.status)) job.cancel_requested = true;
-    if (state.rcon.connected) await nativeController.stop().catch(() => {});
+    actionJobs.cancelAll();
+    await stopNativeController();
     const drained = await Promise.race([
-      actionQueue.then(() => true),
+      actionJobs.drain().then(() => true),
       new Promise<false>((resolve) => setTimeout(() => resolve(false), 10_000)),
     ]);
     if (!drained) {
       await stopGame();
-      await actionQueue;
+      await actionJobs.drain();
     }
-    jobs.clear();
-    jobKeys.clear();
+    actionJobs.clear();
   },
 });
 
@@ -1135,23 +939,21 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
     const idempotencyKey =
       (typeof keyHeader === "string" ? keyHeader : null) ??
       (typeof body?.idempotency_key === "string" ? body.idempotency_key : null);
-    const job = queueActionJob(action, body?.payload, idempotencyKey);
-    return json(res, 202, publicJob(job));
+    const job = actionJobs.submit(action, body?.payload, idempotencyKey);
+    return json(res, 202, actionJobs.publicJob(job.id));
   }
 
   const jobMatch = url.pathname.match(/^\/api\/agent\/jobs\/([^/]+)$/);
   if (jobMatch && req.method === "GET") {
-    const job = jobs.get(jobMatch[1]);
+    const job = actionJobs.publicJob(jobMatch[1]);
     if (!job) return json(res, 404, { error: "Job not found" });
-    return json(res, 200, publicJob(job));
+    return json(res, 200, job);
   }
   const cancelJobMatch = url.pathname.match(/^\/api\/agent\/jobs\/([^/]+)\/cancel$/);
   if (cancelJobMatch && req.method === "POST") {
-    const job = jobs.get(cancelJobMatch[1]);
+    const job = await actionJobs.cancel(cancelJobMatch[1]);
     if (!job) return json(res, 404, { error: "Job not found" });
-    if (job.status === "queued" || job.status === "running") job.cancel_requested = true;
-    if (job === currentJob && state.rcon.connected) await nativeController.stop().catch(() => {});
-    return json(res, 202, publicJob(job));
+    return json(res, 202, actionJobs.publicJob(job.id));
   }
 
   if (url.pathname.startsWith("/api/agent/act/") && req.headers["x-autorio-internal"] !== INTERNAL_JOB_KEY) {
@@ -1160,10 +962,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
     });
   }
 
-  if (
-    url.pathname.startsWith("/api/agent/act/") &&
-    (currentJob?.cancel_requested || (runManager.busy && !runManager.acceptingActions))
-  ) {
+  if (url.pathname.startsWith("/api/agent/act/") && actionJobs.isCancelled()) {
     return json(res, 409, { error: "cancelled" });
   }
 
@@ -1742,14 +1541,11 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
     const trimmed = targets.slice(0, max);
     try {
       const results = [];
-      const job = currentJob;
+      const job = actionJobs.currentJob;
       for (const target of trimmed) {
         results.push(
-          await launchRocket(
-            { x: target?.x, y: target?.y },
-            moveNearEntity,
-            rconCommand,
-            () => Boolean(job?.cancel_requested) || (runManager.busy && !runManager.acceptingActions),
+          await launchRocket({ x: target?.x, y: target?.y }, moveNearEntity, rconCommand, () =>
+            actionJobs.isCancelled(job),
           ),
         );
       }

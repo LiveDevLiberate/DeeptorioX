@@ -105,7 +105,7 @@ export class ObsClient implements ObsConnection {
       } catch (error) {
         clearTimeout(timer);
         this.pending.delete(id);
-        reject(error);
+        reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
   }

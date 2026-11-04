@@ -144,8 +144,10 @@ export async function captureGameWindow(
         ],
         { timeout: timeoutMs },
       );
-    } catch (error: any) {
-      throw new Error(`visual_capture_failed: ${error?.message || error}`);
+    } catch (error) {
+      throw new Error(`visual_capture_failed: ${error instanceof Error ? error.message : String(error)}`, {
+        cause: error,
+      });
     }
 
     let data: Buffer;
@@ -153,8 +155,11 @@ export async function captureGameWindow(
       const stat = await fs.promises.stat(capturePath);
       if (stat.size > MAX_PNG_BYTES) throw new Error("capture PNG is too large");
       data = await fs.promises.readFile(capturePath);
-    } catch (error: any) {
-      throw new Error(`visual_capture_failed: ${error?.message || "PowerShell did not write a PNG"}`);
+    } catch (error) {
+      throw new Error(
+        `visual_capture_failed: ${error instanceof Error ? error.message : "PowerShell did not write a PNG"}`,
+        { cause: error },
+      );
     }
     const { width, height } = pngDimensions(data);
     return { format: "png", base64: data.toString("base64"), width, height, source: "window" };

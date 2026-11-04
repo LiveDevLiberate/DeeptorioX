@@ -56,7 +56,8 @@ export async function launchRocket(
   try {
     result = JSON.parse(await command(launchRocketCommand(target)));
   } catch (error) {
-    if (error instanceof SyntaxError) throw new Error("RCON launch-rocket returned invalid JSON");
+    if (error instanceof SyntaxError)
+      throw new Error("RCON launch-rocket returned invalid JSON", { cause: error });
     throw error;
   }
   if (!result || typeof result.ok !== "boolean")

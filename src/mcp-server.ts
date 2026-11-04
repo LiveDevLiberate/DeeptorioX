@@ -300,7 +300,6 @@ function jobToolSchema(required: string[], properties: JsonObject): JsonObject {
   );
 }
 
-const POINT_ARRAY_SCHEMA = targetArraySchema("Target tile positions.", pointSchema("Target tile position."));
 const TARGET_SCHEMA: JsonObject = {
   type: "object",
   properties: {

@@ -54,7 +54,7 @@ export function controlModHash() {
 export async function prepareProfile(dir: string) {
   // Inherit only interface scaling; keep personal paths and credentials isolated.
   const personalConfig = personalFactorioConfig();
-  let interfaceScale: string[] = [];
+  const interfaceScale: string[] = [];
   try {
     let section = "";
     for (const line of (await fs.promises.readFile(personalConfig, "utf8")).split(/\r?\n/)) {
@@ -171,7 +171,10 @@ export async function factorioVersion() {
   // --version to a redirected stdout pipe. Its base mod metadata is authoritative.
   const dataVersion = readDataVersion();
   if (dataVersion) return `Version: ${dataVersion} (${process.platform}, data)`;
-  if (reportedError) throw reportedError;
+  if (reportedError) {
+    if (reportedError instanceof Error) throw reportedError;
+    throw new Error(typeof reportedError === "string" ? reportedError : "Factorio version probe failed");
+  }
   throw new Error("Factorio did not report a version. Run the game once from Steam, then retry.");
 }
 

@@ -200,7 +200,7 @@ export class ObsRunRecorder {
     const sceneList = await this.client.request("GetSceneList");
     if (!sceneList.scenes.some((s: any) => s.sceneName === OBS_SCENE))
       await this.client.request("CreateScene", { sceneName: OBS_SCENE });
-    let inputs = (await this.client.request("GetInputList")).inputs;
+    const inputs = (await this.client.request("GetInputList")).inputs;
     const inputKind = IS_WINDOWS ? "window_capture" : "screen_capture";
     const inputSettings = (window: unknown) =>
       IS_WINDOWS

@@ -8,8 +8,6 @@ import { fileURLToPath } from "node:url";
 
 const serverPath = fileURLToPath(new URL("../dist/mcp-server.js", import.meta.url));
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 function withTimeout(promise, timeoutMs, label) {
   let timer;
   const timeout = new Promise((_, reject) => {

@@ -45,7 +45,7 @@ export class CodexOutput {
       emit(input.slice(cursor, escape));
       const rest = input.slice(escape);
       // OSC (window title etc.) and non-SGR CSI commands are not displayed.
-      const match = rest.match(/^\x1b(?:\[([0-?]*)([ -/]*)([@-~])|\][\s\S]*?(?:\x07|\x1b\\)|[^\[\]])/);
+      const match = rest.match(/^\x1b(?:\[([0-?]*)([ -/]*)([@-~])|\][\s\S]*?(?:\x07|\x1b\\)|[^[\]])/);
       if (!match) {
         this.pending = rest.slice(0, 8192);
         break;

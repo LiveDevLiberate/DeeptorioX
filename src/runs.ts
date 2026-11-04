@@ -8,7 +8,6 @@ import {
   ROOT,
   DATA_DIR,
   PORT,
-  FACTORIO_BIN,
   controlModHash,
   createMap,
   factorioVersion,
@@ -43,23 +42,33 @@ import {
   opencodeModel,
   opencodeTransport,
   opencodeVersionCommand,
-  shellQuote,
-  toWslPath,
   wslBinCommand,
   wslDistro,
 } from "./opencode.js";
 import {
   createDshState,
-  dshArgs,
-  dshEnvironmentPrompt,
   dshExecutable,
   dshProfile,
   parseDshModel,
   readDshApiKey,
   translateDshEvent,
-  writeDshModelPatch,
-  writeDshWrappers,
 } from "./dsh.js";
+import { codexLaunchSpec, codexProviderArgs } from "./agents/codex-launch.js";
+import { dshLaunchSpec } from "./agents/dsh-launch.js";
+import type { LaunchFile, LaunchSpec } from "./agents/launch-types.js";
+import { openCodeLaunchSpec } from "./agents/opencode-launch.js";
+import {
+  createCodexState,
+  isCodexNativeErrorLine,
+  sessionIdFromCodexOutput,
+  translateCodexEvent,
+  type CodexOpApplier,
+} from "./agents/codex-events.js";
+import {
+  createOpenCodeState,
+  translateOpenCodeEvent,
+  type OpenCodeOpApplier,
+} from "./agents/opencode-events.js";
 
 export type RunState =
   | "preparing"
@@ -156,45 +165,29 @@ type Hooks = {
   cancelJobs(): Promise<void>;
 };
 const terminal = new Set<RunState>(["completed", "failed", "stopped", "timed_out", "interrupted", "paused"]);
+
+/** Codex-shaped transcript item written to agent.events.jsonl and rendered by the web UI. */
+type TranscriptItem = {
+  id: string;
+  type: "agent_message" | "reasoning" | "command_execution";
+  text?: string;
+  command?: string;
+  status?: "completed" | "failed" | "error" | "in_progress";
+  exit_code?: number | null;
+  aggregated_output?: string;
+};
+
+/** One transcript line; the shared shape every agent backend emits for the UI. */
+type TranscriptEvent = {
+  type: "thread.started" | "item.started" | "item.completed" | "error";
+  thread_id?: string;
+  message?: string;
+  item?: TranscriptItem;
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const sha256 = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-/** Extra Codex overrides for an OpenAI-compatible provider (for example OpenCode Go → DeepSeek). */
-function disciplinePrompt() {
-  return "Never run a shell `sleep` longer than 10 seconds. Use wait_for_item, wait_for_research, wait_for_factory or wait_until, and keep doing useful work while production runs. Batch at least five related actions or observations per tool call and print only a short summary. ";
-}
-
-function languagePrompt(run: Run) {
-  if (!run.language) return "";
-  const label = /^(?:chinese|中文|zh)/i.test(run.language) ? "Simplified Chinese (简体中文)" : run.language;
-  return `CRITICAL OUTPUT LANGUAGE: ${label}. Write every user-facing message and every reasoning summary in ${label}. Do not write English prose. Keep code, commands, file paths, identifiers and in-game proper names unchanged. `;
-}
-
-function codexProviderArgs(): string[] {
-  const provider = process.env.AUTORIO_CODEX_PROVIDER?.trim();
-  if (!provider) return [];
-  const baseUrl = process.env.AUTORIO_CODEX_BASE_URL?.trim();
-  if (!baseUrl) throw new Error("AUTORIO_CODEX_PROVIDER requires AUTORIO_CODEX_BASE_URL");
-  const envKey = process.env.AUTORIO_CODEX_ENV_KEY?.trim() || "OPENCODE_API_KEY";
-  const wireApi = process.env.AUTORIO_CODEX_WIRE_API?.trim() || "responses";
-  const quote = (value: string) => JSON.stringify(value);
-  return [
-    "-c",
-    `model_provider=${quote(provider)}`,
-    "-c",
-    `model_providers.${provider}.name=${quote(provider)}`,
-    "-c",
-    `model_providers.${provider}.base_url=${quote(baseUrl)}`,
-    "-c",
-    `model_providers.${provider}.env_key=${quote(envKey)}`,
-    "-c",
-    `model_providers.${provider}.wire_api=${quote(wireApi)}`,
-    ...(process.env.AUTORIO_CODEX_CONTEXT_WINDOW
-      ? ["-c", `model_context_window=${Number(process.env.AUTORIO_CODEX_CONTEXT_WINDOW)}`]
-      : []),
-  ];
-}
 
 export class RunManager {
   readonly benchmarks = loadBenchmarks(ROOT);
@@ -757,7 +750,7 @@ export class RunManager {
       // Custom providers use an environment API key, not the Codex login session.
       const envKey = process.env.AUTORIO_CODEX_ENV_KEY?.trim() || "OPENCODE_API_KEY";
       if (!process.env[envKey]) throw new Error(`Set ${envKey} for the configured Codex provider`);
-      codexProviderArgs();
+      codexProviderArgs(process.env);
       return;
     }
     // Fail before starting the clock if authentication is missing.
@@ -781,112 +774,52 @@ export class RunManager {
     run.versions!.opencode = stdout.trim();
   }
 
-  /** Hard-enforce the short-wait rule for agent shell/Python commands. */
-  private writeShortWaitGuards(workspace: string) {
-    fs.mkdirSync(path.join(workspace, "bin"), { recursive: true });
+  /** Materialize a backend's deterministic workspace files (wrappers, patches, guards). */
+  private writeLaunchFiles(files: LaunchFile[]) {
+    for (const file of files) {
+      fs.mkdirSync(path.dirname(file.path), { recursive: true });
+      fs.writeFileSync(file.path, file.content, file.mode === undefined ? undefined : { mode: file.mode });
+    }
+  }
+  /** Persist the launch metadata for the segment and the run root, plus api_base. */
+  private writeLaunchMetadata(run: Run, spec: LaunchSpec) {
+    fs.mkdirSync(this.segmentDir(run), { recursive: true });
     fs.writeFileSync(
-      path.join(workspace, "bin", "sleep"),
-      [
-        "#!/bin/sh",
-        'n="${1:-0}"',
-        'case "$n" in ""|*[!0-9.]*) exec /bin/sleep "$@" ;; esac',
-        'if [ "${n%%.*}" -gt 10 ] 2>/dev/null; then',
-        '  echo "[autoriods] sleep ${n}s capped to 10s; use wait_for_*" >&2',
-        "  n=10",
-        "fi",
-        'exec /bin/sleep "$n"',
-        "",
-      ].join("\n"),
-      { mode: 0o755 },
+      path.join(this.segmentDir(run), "agent-launch.json"),
+      JSON.stringify(spec.launchInfo, null, 2),
     );
     fs.writeFileSync(
-      path.join(workspace, "sitecustomize.py"),
-      [
-        "import time as _autoriods_time",
-        "import sys as _autoriods_sys",
-        "_autoriods_orig_sleep = _autoriods_time.sleep",
-        "def _autoriods_sleep(seconds):",
-        "    try:",
-        "        value = float(seconds)",
-        "    except (TypeError, ValueError):",
-        "        return _autoriods_orig_sleep(seconds)",
-        "    if value > 10:",
-        '        print(f"[autoriods] sleep {value:g}s capped to 10s; use wait_for_*", file=_autoriods_sys.stderr, flush=True)',
-        "        value = 10",
-        "    return _autoriods_orig_sleep(value)",
-        "_autoriods_time.sleep = _autoriods_sleep",
-        "",
-      ].join("\n"),
+      path.join(this.dir(run), "agent-launch.json"),
+      JSON.stringify({ ...spec.launchInfo, api_base: spec.env.FACTORIO_API_BASE }, null, 2),
     );
   }
   /** OpenCode reports structured JSONL; translate it to the transcript schema the UI already renders. */
   private launchOpenCode(run: Run, workspace: string, resuming = false, restarting = false) {
     const model = opencodeModel(run.model);
     run.model = model;
-    const usage: Record<string, number> = (resuming || restarting) && run.usage ? { ...run.usage } : {};
     run.output_format = "events";
     this.persist(run);
-    const prompt =
-      languagePrompt(run) +
-      disciplinePrompt() +
-      (restarting
-        ? "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. "
-        : resuming
-          ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. "
-          : "") +
-      "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
-      "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
-    this.writeShortWaitGuards(workspace);
-    const command = [
-      "run",
-      "--format",
-      "json",
-      "--thinking",
-      "--model",
-      model,
-      "--auto",
-      ...(resuming && run.session_id ? ["--session", run.session_id] : []),
-      prompt,
-    ];
     const transport = opencodeTransport();
-    let executable: string;
-    let args: string[];
-    let pidFile: string | undefined;
-    if (transport === "wsl") {
-      pidFile = path.join(workspace, "agent.pid");
-      const script = path.join(workspace, "agent-launch.sh");
-      const commandLine = [wslBinCommand(), ...command.map(shellQuote)].join(" ");
-      fs.writeFileSync(
-        script,
-        [
-          "#!/bin/sh",
-          `cd ${shellQuote(toWslPath(workspace))}`,
-          `export PATH=${shellQuote(toWslPath(path.join(workspace, "bin")))}:"$PATH"`,
-          `export PYTHONPATH=${shellQuote(toWslPath(workspace))}${"${PYTHONPATH:+:$PYTHONPATH}"}`,
-          `echo $$ > ${shellQuote(toWslPath(pidFile))}`,
-          `exec ${commandLine}`,
-          "",
-        ].join("\n"),
-        { mode: 0o700 },
-      );
-      executable = "wsl.exe";
-      args = ["-d", wslDistro(), "-e", "sh", toWslPath(script)];
-      this.opencodeRemote = { distro: wslDistro(), pidFile };
-    } else {
-      executable = process.env.OPENCODE_BIN?.trim() || "opencode";
-      args = command;
-      this.opencodeRemote = undefined;
-    }
-    const env: NodeJS.ProcessEnv = { ...process.env, FACTORIO_API_BASE: `http://127.0.0.1:${PORT}` };
-    delete env.RCON_PASSWORD;
-    delete env.OBS_WEBSOCKET_PASSWORD;
-    // OpenCode reads its own stored credentials; inherited API keys can be stale.
-    delete env.OPENCODE_API_KEY;
-    env.PYTHONPATH = [workspace, env.PYTHONPATH].filter(Boolean).join(path.delimiter);
-    if (!IS_WINDOWS) env.PATH = [path.join(workspace, "bin"), env.PATH].filter(Boolean).join(path.delimiter);
-    const child = spawnExecutable(executable, args, {
-      cwd: workspace,
-      env,
+    const spec = openCodeLaunchSpec({
+      workspace,
+      env: process.env,
+      apiBase: `http://127.0.0.1:${PORT}`,
+      windows: IS_WINDOWS,
+      resume: resuming,
+      restart: restarting,
+      language: run.language,
+      sessionId: resuming ? run.session_id : undefined,
+      model,
+      transport,
+      executable: process.env.OPENCODE_BIN?.trim() || "opencode",
+      wslDistro: wslDistro(),
+      wslCommand: wslBinCommand(),
+    });
+    this.writeLaunchFiles(spec.files);
+    this.opencodeRemote = spec.remote ? { ...spec.remote } : undefined;
+    const child = spawnExecutable(spec.executable, spec.args, {
+      cwd: spec.cwd,
+      env: spec.env,
       stdio: ["ignore", "pipe", "pipe"],
       detached: !IS_WINDOWS,
       windowsHide: true,
@@ -909,18 +842,11 @@ export class RunManager {
       };
       readPid();
     }
-    fs.mkdirSync(this.segmentDir(run), { recursive: true });
-    const launch = { executable, args, transport, model };
-    fs.writeFileSync(path.join(this.segmentDir(run), "agent-launch.json"), JSON.stringify(launch, null, 2));
-    fs.writeFileSync(
-      path.join(this.dir(run), "agent-launch.json"),
-      JSON.stringify({ ...launch, api_base: env.FACTORIO_API_BASE }, null, 2),
-    );
+    this.writeLaunchMetadata(run, spec);
     let eventBuffer = "",
-      stderrTail = "",
-      sequence = 0;
+      stderrTail = "";
     const decoder = new StringDecoder("utf8");
-    const emit = (event: any) =>
+    const emit = (event: TranscriptEvent) =>
       fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), JSON.stringify(event) + "\n");
     const plain = (text: string) => fs.appendFileSync(path.join(this.dir(run), "codex.log"), text + "\n");
     const limited = (message: string) => {
@@ -928,92 +854,64 @@ export class RunManager {
       run.quota = { message, detected_at: new Date().toISOString() };
       void this.finish("paused", `OpenCode quota exhausted: ${message}`);
     };
-    const thoughtIds = new Set<string>();
-    const handle = (event: any) => {
-      if (!event || typeof event !== "object") return;
-      if (event.sessionID && event.sessionID !== run.session_id) {
-        run.session_id = event.sessionID;
-        this.segment(run).session_id = event.sessionID;
-        emit({ type: "thread.started", thread_id: event.sessionID });
+    const translator = createOpenCodeState((resuming || restarting) && run.usage ? { ...run.usage } : {});
+    const apply: OpenCodeOpApplier = (op) => {
+      switch (op.kind) {
+        case "thread":
+          if (op.sessionId === run.session_id) break;
+          run.session_id = op.sessionId;
+          this.segment(run).session_id = op.sessionId;
+          emit({ type: "thread.started", thread_id: op.sessionId });
+          break;
+        case "message":
+          emit({
+            type: "item.completed",
+            item: { id: op.id, type: "agent_message", text: op.text },
+          });
+          this.event(run, op.text);
+          plain(op.text);
+          break;
+        case "reasoning":
+          if (op.thought) this.thought(run, op.text);
+          emit({
+            type: "item.completed",
+            item: { id: op.id, type: "reasoning", text: op.text },
+          });
+          break;
+        case "command":
+          emit({
+            type: op.phase === "completed" ? "item.completed" : "item.started",
+            item: {
+              id: op.id,
+              type: "command_execution",
+              command: op.command,
+              status: op.status,
+              exit_code: op.exitCode,
+              aggregated_output: op.output,
+            },
+          });
+          this.event(run, `${op.command} (${op.reportedStatus})\n${op.output}`);
+          plain(`$ ${op.command}`);
+          if (op.output) plain(op.output);
+          break;
+        case "usage":
+          run.usage = { ...op.usage };
+          run.usage_status = "final";
+          run.usage_source = "opencode";
+          run.context_tokens = op.contextTokens;
+          if (run.context_limit && op.contextTokens >= run.context_limit)
+            void this.restartAgentForContext(run).catch((error) =>
+              this.finish("failed", `Context reset failed: ${errorText(error)}`),
+            );
+          break;
+        case "error":
+          emit({ type: "error", message: op.message });
+          if (op.quota) limited(op.quota);
+          break;
       }
-      if (event.type === "text" && event.part?.text) {
-        const part = event.part;
-        emit({
-          type: "item.completed",
-          item: { id: part.id || `opencode-text-${++sequence}`, type: "agent_message", text: part.text },
-        });
-        this.event(run, part.text);
-        plain(part.text);
-        return;
-      }
-      if (event.type === "reasoning" && event.part?.text) {
-        const id = event.part.id || `${event.part.messageID}:${event.part.text.slice(0, 48)}`;
-        if (!thoughtIds.has(id)) {
-          thoughtIds.add(id);
-          this.thought(run, event.part.text);
-        }
-        emit({
-          type: "item.completed",
-          item: {
-            id: event.part.id || `opencode-reasoning-${++sequence}`,
-            type: "reasoning",
-            text: event.part.text,
-          },
-        });
-        return;
-      }
-      if (event.type === "tool_use") {
-        const part = event.part || {},
-          state = part.state || {},
-          input = state.input || {};
-        const detail = input.filePath || input.path || input.pattern;
-        const command = input.command || (detail ? `${part.tool || "tool"} ${detail}` : part.tool || "tool");
-        const output = state.output || "";
-        const exit = state.metadata?.metadata?.exit ?? state.metadata?.exit;
-        const completed = state.status === "completed";
-        const failed = state.status === "error" || state.status === "failed";
-        emit({
-          type: completed ? "item.completed" : "item.started",
-          item: {
-            id: part.id || `opencode-tool-${++sequence}`,
-            type: "command_execution",
-            command,
-            status: completed ? "completed" : failed ? "failed" : "in_progress",
-            exit_code: typeof exit === "number" ? exit : null,
-            aggregated_output: output,
-          },
-        });
-        this.event(run, `${command} (${state.status || "running"})\n${output}`);
-        plain(`$ ${command}`);
-        if (output) plain(output);
-        return;
-      }
-      if (event.type === "step_finish" && event.part?.tokens) {
-        const tokens = event.part.tokens;
-        usage.input_tokens = (usage.input_tokens || 0) + (tokens.input || 0);
-        usage.output_tokens = (usage.output_tokens || 0) + (tokens.output || 0);
-        usage.reasoning_output_tokens = (usage.reasoning_output_tokens || 0) + (tokens.reasoning || 0);
-        // OpenCode reports cache reads cumulatively; never add them across steps.
-        usage.cached_input_tokens = Math.max(usage.cached_input_tokens || 0, tokens.cache?.read || 0);
-        usage.total_tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0);
-        run.usage = { ...usage };
-        run.usage_status = "final";
-        run.usage_source = "opencode";
-        const context = (tokens.input || 0) + (tokens.cache?.read || 0);
-        run.context_tokens = context;
-        if (run.context_limit && context >= run.context_limit)
-          void this.restartAgentForContext(run).catch((error) =>
-            this.finish("failed", `Context reset failed: ${errorText(error)}`),
-          );
-        return;
-      }
-      if (event.type === "error") {
-        const message =
-          event.error?.data?.message || event.error?.message || event.message || "OpenCode error";
-        emit({ type: "error", message });
-        const quota = quotaError({ type: "error", message, error: { message } });
-        if (quota) limited(quota);
-      }
+    };
+    const handle = (event: unknown) => {
+      for (const op of translateOpenCodeEvent(event, translator)) apply(op);
     };
     const capture = (stream: "stdout" | "stderr", chunk: Buffer) => {
       if (this.agent !== child) return;
@@ -1079,75 +977,37 @@ export class RunManager {
     // DSH's headless shell sandbox can deny wsl.exe; when a Windows Python is
     // present the wrapper runs the same stdlib client directly and avoids WSL.
     const windowsPython = windows ? Boolean(resolveExecutable("python") || resolveExecutable("py")) : false;
-    const environment = dshEnvironmentPrompt({
-      windows,
-      windowsPython,
-      distro: wslDistro(),
-      workspaceWsl: windows ? toWslPath(workspace) : workspace,
+    const spec = dshLaunchSpec({
+      workspace,
+      env: process.env,
       apiBase,
-    });
-    const prompt =
-      environment +
-      languagePrompt(run) +
-      disciplinePrompt() +
-      (restarting
-        ? "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. "
-        : resuming
-          ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. "
-          : "") +
-      "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
-      "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
-    this.writeShortWaitGuards(workspace);
-    writeDshWrappers(workspace, {
       windows,
-      distro: wslDistro(),
-      workspaceWsl: windows ? toWslPath(workspace) : workspace,
-      apiBase,
-    });
-    const patchPath = writeDshModelPatch(workspace, selection);
-    const args = dshArgs({
+      resume: resuming,
+      restart: restarting,
+      language: run.language,
+      sessionId: resuming ? run.session_id : undefined,
+      executable: dshExecutable(),
+      apiKey: readDshApiKey() || "",
       profile: dshProfile(),
-      patchPath,
-      sessionId: resuming && run.session_id ? run.session_id : undefined,
+      selection,
+      distro: wslDistro(),
+      windowsPython,
     });
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      DEEPSEEK_API_KEY: readDshApiKey() || "",
-      FACTORIO_API_BASE: apiBase,
-      DSH_PROFILE: dshProfile(),
-    };
-    delete env.RCON_PASSWORD;
-    delete env.OBS_WEBSOCKET_PASSWORD;
-    delete env.DSH_SESSION_ID;
-    delete env.DSH_PROFILE_DIR;
-    env.PYTHONPATH = [workspace, env.PYTHONPATH].filter(Boolean).join(path.delimiter);
-    const executable = dshExecutable();
-    const child = spawnExecutable(executable, args, {
-      cwd: workspace,
-      env,
+    this.writeLaunchFiles(spec.files);
+    const child = spawnExecutable(spec.executable, spec.args, {
+      cwd: spec.cwd,
+      env: spec.env,
       stdio: ["pipe", "pipe", "pipe"],
       detached: !IS_WINDOWS,
       windowsHide: true,
     });
     this.agent = child;
-    const launch = {
-      executable,
-      args,
-      transport: windows ? "wsl-python" : "native",
-      model: run.model,
-      session: resuming ? run.session_id : undefined,
-      prompt_via: "stdin",
-    };
-    fs.mkdirSync(this.segmentDir(run), { recursive: true });
-    fs.writeFileSync(path.join(this.segmentDir(run), "agent-launch.json"), JSON.stringify(launch, null, 2));
-    fs.writeFileSync(
-      path.join(this.dir(run), "agent-launch.json"),
-      JSON.stringify({ ...launch, api_base: apiBase }, null, 2),
-    );
+    this.writeLaunchMetadata(run, spec);
     // The task goes over stdin: a positional task would let model text such as
     // `node --version` be parsed as launcher options.
+    const task = spec.stdinTask;
     child.stdin?.on("error", () => {});
-    child.stdin?.end(prompt.endsWith("\n") ? prompt : prompt + "\n");
+    if (task !== undefined) child.stdin?.end(task.endsWith("\n") ? task : task + "\n");
     let eventBuffer = "",
       stderrTail = "",
       sequence = 0;
@@ -1353,61 +1213,35 @@ export class RunManager {
   }
 
   private launchCodex(run: Run, workspace: string, resuming = false, restarting = false) {
-    const usageBeforeTurn = resuming || restarting ? { ...run.usage } : {};
     run.output_format = run.terminal ? "native" : "events";
     this.persist(run);
-    const args = [
-      "exec",
-      ...(run.terminal ? ["--color", "always"] : ["--json"]),
-      "--ignore-user-config",
-      // Codex's Windows sandbox rejects every spawned command, so Windows needs full access.
-      "--sandbox",
-      process.env.AUTORIO_CODEX_SANDBOX?.trim() || (IS_WINDOWS ? "danger-full-access" : "workspace-write"),
-      "-c",
-      "sandbox_workspace_write.network_access=true",
-      "--skip-git-repo-check",
-      "-C",
+    const spec = codexLaunchSpec({
       workspace,
-      "--output-last-message",
-      path.join(workspace, "REPORT.md"),
-    ];
-    if (run.model) args.push("--model", run.model);
-    if (run.reasoning_effort)
-      args.push("-c", `model_reasoning_effort=${JSON.stringify(run.reasoning_effort)}`);
-    args.push(...codexProviderArgs());
-    if (resuming && run.session_id) args.push("resume", run.session_id);
-    args.push(
-      languagePrompt(run) +
-        disciplinePrompt() +
-        (restarting
-          ? "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. "
-          : resuming
-            ? "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. "
-            : "") +
-        "Read AGENTS.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
-        "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.",
-    );
-    const env: NodeJS.ProcessEnv = { ...process.env, FACTORIO_API_BASE: `http://127.0.0.1:${PORT}` };
-    delete env.RCON_PASSWORD;
-    delete env.OBS_WEBSOCKET_PASSWORD;
-    const child = spawnExecutable(this.codexBin(), args, {
-      cwd: workspace,
-      env,
+      env: process.env,
+      apiBase: `http://127.0.0.1:${PORT}`,
+      windows: IS_WINDOWS,
+      resume: resuming,
+      restart: restarting,
+      language: run.language,
+      sessionId: resuming ? run.session_id : undefined,
+      executable: this.codexBin(),
+      model: run.model,
+      reasoningEffort: run.reasoning_effort,
+      terminal: run.terminal,
+      sandbox:
+        process.env.AUTORIO_CODEX_SANDBOX?.trim() || (IS_WINDOWS ? "danger-full-access" : "workspace-write"),
+    });
+    this.writeLaunchFiles(spec.files);
+    const child = spawnExecutable(spec.executable, spec.args, {
+      cwd: spec.cwd,
+      env: spec.env,
       stdio: ["ignore", "pipe", "pipe"],
       // POSIX uses a process group for cleanup; Windows uses taskkill /T instead.
       detached: !IS_WINDOWS,
       windowsHide: true,
     });
     this.agent = child;
-    fs.mkdirSync(this.segmentDir(run), { recursive: true });
-    fs.writeFileSync(
-      path.join(this.segmentDir(run), "agent-launch.json"),
-      JSON.stringify({ executable: this.codexBin(), args }, null, 2),
-    );
-    fs.writeFileSync(
-      path.join(this.dir(run), "agent-launch.json"),
-      JSON.stringify({ executable: this.codexBin(), args, api_base: env.FACTORIO_API_BASE }, null, 2),
-    );
+    this.writeLaunchMetadata(run, spec);
     let outputTail = "",
       eventBuffer = "",
       stderrTail = "";
@@ -1415,6 +1249,38 @@ export class RunManager {
       if (run.state !== "running" || this.ending) return;
       run.quota = { message, detected_at: new Date().toISOString() };
       void this.finish("paused", `Codex quota exhausted: ${message}`);
+    };
+    const translator = createCodexState((resuming || restarting) && run.usage ? { ...run.usage } : {});
+    const apply: CodexOpApplier = (op) => {
+      switch (op.kind) {
+        case "thread":
+          run.session_id = op.sessionId;
+          this.segment(run).session_id = op.sessionId;
+          break;
+        case "reasoning":
+          if (op.text) this.thought(run, op.text);
+          this.event(run, op.text);
+          break;
+        case "message":
+          this.event(run, op.text);
+          break;
+        case "command":
+          this.event(run, `${op.command} (${op.status})\n${op.output}`);
+          break;
+        case "usage":
+          run.usage = { ...op.usage };
+          run.usage_status = "final";
+          run.usage_source = "turn.completed";
+          run.context_tokens = op.contextTokens ?? run.context_tokens;
+          if (run.context_limit && run.context_tokens && run.context_tokens >= run.context_limit)
+            void this.restartAgentForContext(run).catch((error) =>
+              this.finish("failed", `Context reset failed: ${errorText(error)}`),
+            );
+          break;
+        case "error":
+          if (op.quota) limited(op.quota);
+          break;
+      }
     };
     const eventDecoder = new StringDecoder("utf8");
     const capture = (stream: "stdout" | "stderr", chunk: Buffer) => {
@@ -1425,10 +1291,8 @@ export class RunManager {
         fs.appendFileSync(path.join(this.dir(run), "codex.log"), chunk);
         fs.appendFileSync(path.join(this.dir(run), "activity.log"), chunk);
         outputTail = (outputTail + chunk.toString()).slice(-4096);
-        const session = outputTail
-          .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
-          .match(/session id:\s*([a-zA-Z0-9-]+)/i);
-        if (session) run.session_id = session[1];
+        const sessionId = sessionIdFromCodexOutput(outputTail);
+        if (sessionId) run.session_id = sessionId;
       } else if (stream === "stdout") {
         // Save exact JSONL bytes. The browser decodes partial UTF-8/JSON lines.
         fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), chunk);
@@ -1438,36 +1302,7 @@ export class RunManager {
           const line = eventBuffer.slice(0, newline);
           eventBuffer = eventBuffer.slice(newline + 1);
           try {
-            const event = JSON.parse(line);
-            if (event.type === "thread.started") {
-              run.session_id = event.thread_id;
-              this.segment(run).session_id = event.thread_id;
-            }
-            const quota = quotaError(event);
-            if (quota) limited(quota);
-            if (event.type === "turn.completed") {
-              run.usage = Object.fromEntries(
-                Object.entries(event.usage as Record<string, number>).map(([key, value]) => [
-                  key,
-                  value + (usageBeforeTurn[key] || 0),
-                ]),
-              );
-              run.usage_status = "final";
-              run.usage_source = "turn.completed";
-              run.context_tokens = Number(run.usage.input_tokens) || run.context_tokens;
-              if (run.context_limit && run.context_tokens && run.context_tokens >= run.context_limit)
-                void this.restartAgentForContext(run).catch((error) =>
-                  this.finish("failed", `Context reset failed: ${errorText(error)}`),
-                );
-            }
-            if (event.type === "item.completed" && event.item) {
-              const item = event.item;
-              if (item.type === "reasoning" && item.text) this.thought(run, item.text);
-              if (item.type === "agent_message" || item.type === "reasoning")
-                this.event(run, item.text || "");
-              else if (item.type === "command_execution")
-                this.event(run, `${item.command} (${item.status})\n${item.aggregated_output || ""}`);
-            }
+            for (const op of translateCodexEvent(JSON.parse(line), translator)) apply(op);
           } catch {
             /* Raw bytes remain available for diagnostics. */
           }
@@ -1475,9 +1310,9 @@ export class RunManager {
       } else fs.appendFileSync(path.join(this.dir(run), "activity.log"), chunk);
       if (stream === "stderr") {
         stderrTail = (stderrTail + chunk.toString()).slice(-8192);
-        for (const line of stderrTail.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "").split("\n")) {
+        for (const line of stderrTail.split("\n")) {
           // Native/error stderr only; JSON tool output is deliberately excluded.
-          if (/^(?:ERROR[: ]|you(?:'|’)?ve hit your usage limit)/i.test(line.trim())) {
+          if (isCodexNativeErrorLine(line)) {
             const quota = quotaError({ type: "error", message: line });
             if (quota) limited(quota);
           }

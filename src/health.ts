@@ -103,7 +103,11 @@ function activeRunFrom(value: unknown, hasProbe: boolean, problems: string[]): H
     if (hasProbe) problems.push("active_run");
     return null;
   }
-  const text = (entry: unknown) => (typeof entry === "string" ? entry : String(entry ?? ""));
+  const text = (entry: unknown): string => {
+    if (typeof entry === "string") return entry;
+    if (typeof entry === "number" || typeof entry === "boolean") return String(entry);
+    return "";
+  };
   return { id: text(value.id), state: text(value.state), agent: text(value.agent) };
 }
 

@@ -28,8 +28,8 @@ export type LogSink = ((line: string) => void) | { write(chunk: string): void };
 export type LoggerOptions = {
   /** JSONL destination; parent directories are created. `null`/omitted disables the file. */
   file?: string | null;
-  /** Minimum level; defaults to AUTORIO_LOG_LEVEL, then "info". */
-  level?: LogLevel | string;
+  /** Minimum level: debug|info|warn|error; defaults to AUTORIO_LOG_LEVEL, then "info". */
+  level?: string;
   /** Human mirror: `true`/omitted writes to stderr, `false` disables it, or pass a sink. */
   console?: boolean | LogSink;
   /** Injectable clock so tests can produce deterministic timestamps. */
@@ -101,12 +101,19 @@ export function redactContext(value: unknown, depth = 0, seen = new WeakSet<obje
 function formatValue(value: unknown): string {
   if (typeof value === "string") return /\s/.test(value) ? JSON.stringify(value) : value;
   if (value === undefined) return "undefined";
-  try {
-    const text = JSON.stringify(value) ?? String(value);
-    return text.length > HUMAN_VALUE_LIMIT ? `${text.slice(0, HUMAN_VALUE_LIMIT - 3)}...` : text;
-  } catch {
+  if (value instanceof Error) return value.message;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
     return String(value);
   }
+  try {
+    const json = JSON.stringify(value);
+    if (json !== undefined) {
+      return json.length > HUMAN_VALUE_LIMIT ? `${json.slice(0, HUMAN_VALUE_LIMIT - 3)}...` : json;
+    }
+  } catch {
+    /* cyclic or unsupported value; fall through to the placeholder */
+  }
+  return "[unserializable]";
 }
 
 function formatHuman(record: LogRecord): string {

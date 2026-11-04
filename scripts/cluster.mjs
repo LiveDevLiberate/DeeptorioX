@@ -267,7 +267,7 @@ async function statusCommand(options) {
   try {
     info = readClusterInfo(options.dataDir);
   } catch (error) {
-    throw new Error(`${error.message} (data dir ${path.resolve(ROOT, options.dataDir)})`);
+    throw new Error(`${error.message} (data dir ${path.resolve(ROOT, options.dataDir)})`, { cause: error });
   }
   const selected = selectInstances(info.instances || [], options.instancesList);
   const rows = await Promise.all(
@@ -417,7 +417,7 @@ function logsCommand(options) {
   try {
     info = readClusterInfo(options.dataDir);
   } catch (error) {
-    throw new Error(error.message);
+    throw new Error(error.message, { cause: error });
   }
   const selected = selectInstances(info.instances || [], options.instancesList);
   for (const instance of selected) {

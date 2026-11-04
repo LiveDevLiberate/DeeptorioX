@@ -92,13 +92,14 @@ function fixture(dir, alreadyRecording = false) {
         case "StartRecord":
           state.startPolls = 3;
           return {};
-        case "StopRecord":
+        case "StopRecord": {
           state.active = false;
           state.stopBusy = true;
           state.stops++;
           const outputPath = path.join(state.directory, "capture.mov");
           fs.writeFileSync(outputPath, "capture fixture");
           return { outputPath };
+        }
         default:
           return {};
       }
