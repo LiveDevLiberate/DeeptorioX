@@ -74,7 +74,6 @@ process.stdin.on('end', () => {
     { type: 'tool_call', callId: 'call-1', tool: 'pwsh', input: { description: 'Observe player', command: 'pwsh -File .\\\\play.ps1 factorio.py observe-player' } },
     { type: 'tool_result', callId: 'call-1', status: 'completed', result: '{"ok":true}' },
     { type: 'status', phase: 'step_end', turn: 1, step: 1, usage: { inputTokens: 100, outputTokens: 20, cacheReadTokens: 40, totalTokens: 120 } },
-    { type: 'text', text: 'I observed the player.' },
     { type: 'status', phase: 'turn_end', turn: 1, reason: { kind: 'completed' } },
     { type: 'final', text: 'I observed the player.' }
   ];

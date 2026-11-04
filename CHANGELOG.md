@@ -9,6 +9,22 @@ this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **DSH final answers now reach the transcript and the Messages filter.**
+  `dsh --json` emits the final answer as a separate `final` event; the manager
+  only wrote it to `codex.log`, so the recording window never showed it and the
+  Messages filter could stay empty after a run finished. Final text is now
+  emitted as an `agent_message` item (deduplicated against the last streamed
+  text message) and covered by the fake-DSH run test.
+- Double-checked every filter against a live run with instrumented DOM state:
+  All (turn + messages + command groups + reasoning), Thinking (reasoning only),
+  Actions (command groups only), Decisions (decision reasoning only), Messages
+  (agent messages only, empty-state note when none), Errors (empty-state note
+  when no failures). Filters are re-applied after every poll, so newly arriving
+  items are filtered too, and `[hidden]` now wins over author display rules.
+
+## [0.12.0] - 2026-11-04
 ## [0.12.0] - 2026-11-04
 
 ### Added

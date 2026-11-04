@@ -1103,6 +1103,7 @@ export class RunManager {
       void this.finish("paused", `DSH quota exhausted: ${message}`);
     };
     const translator = createDshState();
+    let lastDshMessage = "";
     const handle = (event: unknown) => {
       for (const op of translateDshEvent(event, translator)) {
         switch (op.kind) {
@@ -1121,6 +1122,7 @@ export class RunManager {
             });
             break;
           case "message":
+            lastDshMessage = op.text;
             emit({
               type: "item.completed",
               item: { id: `dsh-message-${++sequence}`, type: "agent_message", text: op.text },
@@ -1196,7 +1198,19 @@ export class RunManager {
             break;
           }
           case "final":
-            if (op.text) plain(op.text);
+            if (op.text) {
+              plain(op.text);
+              // The final answer may not have been streamed as a text event; keep
+              // it in the transcript (the Messages filter/recording view expects it).
+              if (op.text !== lastDshMessage) {
+                lastDshMessage = op.text;
+                emit({
+                  type: "item.completed",
+                  item: { id: `dsh-message-${++sequence}`, type: "agent_message", text: op.text },
+                });
+                this.event(run, op.text);
+              }
+            }
             break;
         }
       }

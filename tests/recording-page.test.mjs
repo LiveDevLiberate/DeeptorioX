@@ -318,6 +318,18 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     const commandsAfterFilter = output.children.find((node) => node.className.includes("commands"));
     assert.equal(commandsAfterFilter.hidden, false, "action filter must keep command groups visible");
     assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, true);
+    // Messages filter keeps agent messages only.
+    nodes.filterMessages.fire("click");
+    const messageNodes = output.children.filter((node) => node._kind === "message");
+    assert.ok(messageNodes.length >= 1, "fixture should include agent messages");
+    assert.ok(messageNodes.every((node) => node.hidden === false));
+    assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, true);
+    assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, true);
+    // Decisions filter keeps only reasoning cards marked as decisions.
+    nodes.filterDecisions.fire("click");
+    const reasoningNodes = output.children.filter((node) => node._kind === "reasoning");
+    assert.ok(reasoningNodes.some((node) => node._decision && !node.hidden));
+    assert.ok(reasoningNodes.filter((node) => !node._decision).every((node) => node.hidden));
     // A filter with no matching entries shows an explicit empty-state note.
     nodes.filterErrors.fire("click");
     const emptyNote = output.children.find((node) => node.className.includes("filter-empty"));
