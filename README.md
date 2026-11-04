@@ -438,7 +438,7 @@ Agent observation endpoints include `/api/agent/observe/factory` (power/fuel/sta
 independent of runs), `/observe/fluids` (tank/pipe/refinery fluid amounts), `/observe/combat`
 (enemy nests/units, turret ammo, player health), `/observe/area` (deconstruct-planning entity list)
 and `/observe/copy-settings` + `/act/copy-settings` (dry-run/reach-checked settings paste). The
-Python client adds `observe_snapshot`, `wait_for_production`, blueprint support
+Python client adds `preview_path` (native pathfinder preview without walking; helps route around water/cliffs), `observe_snapshot`, `wait_for_production`, blueprint support
 (`build_blueprint`/`decode_blueprint_string`, underground input/output subtypes preserved) and
 construction planners (pipe lines, power networks, inserter pairs, mining outposts, defense lines,
 underground belt/pipe runs). It also adds `deconstruct_area` (observe an area, then remove the

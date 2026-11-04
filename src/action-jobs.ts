@@ -20,6 +20,7 @@ export type JobAction =
   | "build"
   | "mine"
   | "move"
+  | "path"
   | "rotate"
   | "set-recipe"
   | "launch-rocket"
@@ -117,6 +118,7 @@ export const actionPaths: Record<JobAction, string> = {
   build: "/api/agent/act/build",
   mine: "/api/agent/act/mine",
   move: "/api/agent/act/move",
+  path: "/api/agent/act/path",
   rotate: "/api/agent/act/rotate",
   "set-recipe": "/api/agent/act/set-recipe",
   "launch-rocket": "/api/agent/act/launch-rocket",
@@ -136,7 +138,7 @@ export function splitJobPayload(action: JobAction, payload: JobPayload): unknown
       clear_obstacles: clear,
     }));
   }
-  if (["mine", "move", "rotate", "set-recipe", "launch-rocket"].includes(action)) {
+  if (["mine", "move", "path", "rotate", "set-recipe", "launch-rocket"].includes(action)) {
     const record = asRecord(payload);
     return (Array.isArray(record?.targets) ? record.targets : []).map((target) => ({
       targets: [target],

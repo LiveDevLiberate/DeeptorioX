@@ -9,6 +9,27 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Path preview before walking.** New `path` action / `preview_path(x, y)` /
+  CLI `path-preview --target x,y` asks the native pathfinder for a route without
+  moving the character; returns `path` waypoints on success or
+  `ok=false,error=no_path` for water/cliff/building barriers. Agent guidance now
+  requires checking it before long or unseen-terrain moves instead of retrying
+  the same blocked goal.
+
+### Fixed
+
+- **Movement no longer oscillates in front of impassable terrain.** A pathfinder
+  `no_path` answer now only allows one local sidestep/clear attempt before
+  returning `no_path` (previously it looped up to 8 alternating avoidances, so
+  the character zig-zagged against cliffs/water). Unreachable coarse waypoints
+  are skipped once, tolerance was raised to 0.30 tiles and the stuck window to
+  60 ticks, which also removes most open-ground jitter. The audit of the current
+  rocket run showed 229/499 moves ending in `no_path` and 227 moves with
+  `avoid_count=9` — the exact oscillation pattern this addresses.
+
+## [0.19.2] - 2026-11-05
 ## [0.19.2] - 2026-11-04
 
 ### Fixed

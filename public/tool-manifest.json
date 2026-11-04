@@ -241,6 +241,12 @@
       "usage": "Usage: factorio.py observe-world --window-x <n> --window-y <n> --radius <n> --include terrain,entities"
     },
     {
+      "command": "path-preview",
+      "description": "Ask the native pathfinder for a route without walking it.",
+      "help": "Usage: factorio.py path-preview --target x,y Returns ok=true with path waypoints when reachable; ok=false error=no_path when blocked (water/cliff/buildings). Use this before long or unseen-terrain moves; route around water/cliff instead of retrying the same no_path target.",
+      "usage": "Usage: factorio.py path-preview --target x,y"
+    },
+    {
       "command": "server-saves",
       "description": "List available save files on the server.",
       "help": "Usage: factorio.py server-saves",
@@ -1597,6 +1603,34 @@
       "signature": "player_position(self) -> 'dict[str, float]'"
     },
     {
+      "description": "Ask the native pathfinder for a route without walking (preview only).",
+      "name": "preview_path",
+      "parameters": [
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "x",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "y",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "var_keyword",
+          "name": "options",
+          "required": true
+        }
+      ],
+      "signature": "preview_path(self, x: 'float', y: 'float', **options: 'Any') -> 'Any'"
+    },
+    {
       "description": "",
       "name": "request",
       "parameters": [
@@ -2138,6 +2172,10 @@
     },
     {
       "method": "POST",
+      "path": "/api/agent/act/path"
+    },
+    {
+      "method": "POST",
       "path": "/api/agent/act/research"
     },
     {
@@ -2244,8 +2282,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "9e7018fc585c8dc4df900c6c353b06badff759d5da8d950baf03bfa05a7dc5ac",
-    "src/api/agent.ts": "746614df697473358d98fea7d87555f01098147299df38da9c47e32e0061ca8f",
+    "factorio.py": "2be6f2805b6b11118e2c718e2b97201fda1788ff786c27cc43a17d51eb5ea9a6",
+    "src/api/agent.ts": "9ddcec1069072d21800e8d719320367a1dbb5e15c83df25f34fa5ca5ee2b8212",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",
     "src/api/jobs.ts": "bafe8a5682632bb0d9359a15dfb028358507c9ad8e8ba7eb0aa27a949e53948a",

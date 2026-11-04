@@ -2,10 +2,13 @@
 -- Persistent requests are never restarted after loading a save. A short lease
 -- also stops the character if the manager loses its connection or exits.
 local reset_after_load = false
-local STUCK_TICKS = 45
+local STUCK_TICKS = 60
 local AVOID_TICKS = 30
 local MAX_AVOIDS = 8
 local MAX_CLEARS = 16
+-- A pathfinder "no path" answer is terminal for terrain (water/cliffs): one
+-- sidestep attempt is enough; repeated avoidance just zig-zags in place.
+local MAX_NO_PATH_AVOIDS = 1
 local CLEAR_TICKS = 600
 local function state()
   storage.autorio_control = storage.autorio_control or {}
@@ -36,6 +39,7 @@ local function result(a,ok,err)
   local position=p and p.valid and p.position or a.last_position
   return {token=a.token,status='done',ok=ok,error=err,name=a.name,x=a.target_x,y=a.target_y,
     mined_count=a.mined_count or 0,items=a.items or {},avoid_count=a.avoid_count or 0,clear_count=a.clear_count or 0,
+    path=a.path_out,path_count=a.path_out and #a.path_out or nil,
     entity=a.entity_info,
     movement={distance=(a.distance or 0)+distance(position,a.last_position),duration_ms=((a.walk_end or game.tick)-a.started_tick)*1000/60,
       game_ticks=(a.walk_end or game.tick)-a.started_tick,final_position={x=position.x,y=position.y}},
@@ -232,7 +236,7 @@ local function update(a,p)
     return
   end
   local point=a.path and a.path[a.path_index]
-  while point and distance(p.position,point.position)<0.22 do
+  while point and distance(p.position,point.position)<0.30 do
     if a.kind=='move' and a.path_index==#a.path then break end
     a.path_index=a.path_index+1;point=a.path[a.path_index]
   end
@@ -265,6 +269,14 @@ local function update(a,p)
     a.progress_distance=point_distance;a.progress_tick=game.tick
   elseif game.tick-(a.progress_tick or game.tick)>STUCK_TICKS then
     a.progress_distance=nil
+    -- A coarse path node can sit just outside the character's collision box on
+    -- open ground. Skip one intermediate node before the more disruptive
+    -- sidestep dance, which is what caused visible zig-zagging.
+    if a.path and a.path_index<#a.path then
+      a.path_index=a.path_index+1
+      a.progress_tick=game.tick
+      return
+    end
     if (a.avoid_count or 0)>=1 then
       local cleared=begin_clearing(a,p)
       if cleared then return end
@@ -293,6 +305,11 @@ script.on_event(defines.events.on_script_path_request_finished,function(event)
     if a.retries>5 then return finish(a,false,'pathfinder_busy') end
     a.retry_tick=game.tick+30
   elseif not event.path then
+    if a.kind=='path' then finish(a,false,'no_path') return end
+    -- Terrain (water/cliffs) cannot be cleared: retry at most once from a
+    -- sidestep and then report no_path instead of oscillating.
+    if (a.no_path_attempts or 0)>=MAX_NO_PATH_AVOIDS then finish(a,false,'no_path') return end
+    a.no_path_attempts=(a.no_path_attempts or 0)+1
     local p=game.get_player(a.player)
     if p and p.valid and p.character then
       local cleared=begin_clearing(a,p)
@@ -301,6 +318,12 @@ script.on_event(defines.events.on_script_path_request_finished,function(event)
       if ok then return end
     end
     finish(a,false,'no_path')
+  elseif a.kind=='path' then
+    a.path_out={}
+    for _,waypoint in ipairs(event.path) do
+      table.insert(a.path_out,{x=waypoint.position.x,y=waypoint.position.y})
+    end
+    finish(a,true)
   else
     a.path=event.path;a.path_index=1;a.phase='walking'
     a.stuck_tick=game.tick
@@ -344,12 +367,12 @@ remote.add_interface('autorio-control',{
     if not p or not p.character or not p.connected then return {ok=false,status='done',error='no_character'} end
     if game.tick_paused then return {ok=false,status='done',error='game_paused'} end
     if p.driving then return {ok=false,status='done',error='driving_not_supported'} end
-    local pos=args.kind=='move' and args or args.target
+    local pos=(args.kind=='move' or args.kind=='path') and args or args.target
     if not pos or type(pos.x)~='number' or type(pos.y)~='number' or math.abs(pos.x)==math.huge or math.abs(pos.y)==math.huge then return {ok=false,status='done',error='invalid_target'} end
     local a={token=args.token,kind=args.kind,player=p.index,started_tick=game.tick,lease=game.tick+300,
       last_position={x=p.position.x,y=p.position.y},stuck_position={x=p.position.x,y=p.position.y},
       stuck_tick=game.tick,distance=0,avoid_count=0,clear_count=0,retries=0,mined_count=0,items={}}
-    if args.kind=='move' then
+    if args.kind=='move' or args.kind=='path' then
       a.goal={x=args.x,y=args.y};a.radius=0.18
     elseif args.kind=='mine' or args.kind=='approach' then
       a.entity=find_entity(p,args.target,args.kind=='mine')

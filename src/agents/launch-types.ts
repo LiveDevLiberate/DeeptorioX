@@ -77,6 +77,7 @@ const BASE_TASK_PROMPT =
   "The cookbook has proven layouts and the error-recovery matrix; follow it before inventing new designs. " +
   "After every completed subtask (and at least every 10 tool calls) post one short user-facing progress message in the configured output language: what was completed, any blocker, and the next step. " +
   "You may rotate, mine or deconstruct your own buildings when fixing a layout; prefer rotating/reusing them over building around a mistake, and re-observe afterwards. " +
+  "Before a long move or unseen terrain, call preview_path(x,y): water (~) and cliffs (#) are impassable, so route around a no_path target instead of retrying it; high avoid_count means blocked. " +
   "Watch the automation score in observe_factory().plan.automation: automate extraction and crafting instead of hand work (manual mines/crafts are penalty points). " +
   "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
 

@@ -106,6 +106,7 @@ Commands:
   act-mine --target x,y [--target ...] [--resource [name]] [--targets-json <json>]
   act-rotate --target x,y [--target ...] [--direction 0|4|8|12] [--targets-json <json>]
   act-move --target x,y [--target ...] [--targets-json <json>]
+  path-preview --target x,y [--target ...] [--targets-json <json>]
   act-launch-rocket --target x,y [--target ...] [--targets-json <json>]
   act-set-recipe --target x,y,recipe [--target ...] [--targets-json <json>]
   act-research --technology <name>
@@ -173,6 +174,7 @@ COMMAND_USAGE = {
     "build-defense-line": "build-defense-line: Place 2x2 turrets spaced along a line with a single wall row in front.\nUsage: factorio.py build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear]\nFront side is +y for horizontal lines and +x for vertical lines; single wall layer, no gates/power.\n",
     "act-mine": "act-mine: Mine a resource or entity at target tile coordinates.\nUsage: factorio.py act-mine --target x,y [--target ...] [--resource [name]]\n   or: factorio.py act-mine --targets-json <json>\nResource mode excludes the character and prioritizes the requested resource deterministically.\nNote: The character walks into reach and performs one native mining cycle per target (one extraction for a resource vein).\n",
     "act-rotate": "act-rotate: Rotate entities at target tile coordinates (first entity at each point).\nUsage: factorio.py act-rotate --target x,y [--target ...] [--direction 0|4|8|12]\n   or: factorio.py act-rotate --targets-json <json>\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nWith --direction the entity is rotated until it faces that direction (max 4 steps), so one call sets the final orientation.\nNote: The character walks into reach using native pathfinding.\n",
+    "path-preview": "path-preview: Ask the native pathfinder for a route without walking it.\nUsage: factorio.py path-preview --target x,y\nReturns ok=true with path waypoints when reachable; ok=false error=no_path when blocked (water/cliff/buildings).\nUse this before long or unseen-terrain moves; route around water/cliff instead of retrying the same no_path target.\n",
     "act-move": "act-move: Move the player through paced, collision-checked steps to target tile coordinates.\nUsage: factorio.py act-move --target x,y [--target ...]\n   or: factorio.py act-move --targets-json <json>\nNote: Stops and returns partial progress if an intermediate step is blocked.\n",
     "act-launch-rocket": "act-launch-rocket: Launch a ready rocket silo at target tile coordinates.\nUsage: factorio.py act-launch-rocket --target x,y [--target ...]\n   or: factorio.py act-launch-rocket --targets-json <json>\nNote: Walks into reach. Success means launch initiated; the benchmark waits for an actual launch.\n",
     "act-set-recipe": "act-set-recipe: Set the recipe on assemblers at target tile coordinates.\nUsage: factorio.py act-set-recipe --target x,y,recipe [--target ...]\n   or: factorio.py act-set-recipe --targets-json <json>\nNote: The character walks into reach using native pathfinding.\n",
@@ -2532,6 +2534,10 @@ class FactorioClient:
                         f"move in waypoints, e.g. ({wx:.0f},{wy:.0f}) first, and observe the route")
         return self.submit_action("move", {"targets": targets}, **options)
 
+    def preview_path(self, x: float, y: float, **options: Any) -> Any:
+        """Ask the native pathfinder for a route without walking (preview only)."""
+        return self.submit_action("path", {"targets": [{"x": x, "y": y}]}, **options)
+
     def launch_rocket(self, targets: list[dict[str, Any]], **options: Any) -> Any:
         """Launch ready silos; success indicates launch initiation, not flight completion."""
         return self.submit_action("launch-rocket", {"targets": targets}, **options)
@@ -3031,6 +3037,11 @@ def run(argv: list[str]) -> int:
                 clear=not bool(flag("no-clear")),
             )
             return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "path-preview":
+            targets = json.loads(flag("targets-json")) if flag("targets-json") else parse_targets(flags.get("target", []), False)
+            if not targets:
+                raise ValueError("Missing --target")
+            job = submit("path", {"targets": targets[:1]})
         elif cmd in ("act-mine", "act-rotate", "act-move", "act-set-recipe", "act-launch-rocket"):
             require_recipe = cmd == "act-set-recipe"
             targets = json.loads(flag("targets-json")) if flag("targets-json") else parse_targets(flags.get("target", []), require_recipe)

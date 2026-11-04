@@ -131,7 +131,7 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 | --- | --- | --- |
 | `out_of_reach` | target outside build distance | `move` closer (<= 64 tiles; prefer 10-20), re-observe |
 | `cannot_build` | collision or player overlap | clear footprint, retry; if still blocked move 1-2 tiles away |
-| `blocked` / `no_path` | walking blocked | observe layout, clear trees/rocks, try a different approach direction |
+| `blocked` / `no_path` | walking blocked | run `path-preview`; water/cliffs are impassable — route around with waypoints instead of retrying the same goal; clear trees/rocks only for local blockers |
 | `no_resource` / `no_entity` | target tile empty/wrong kind | re-observe, correct coordinates (anchor vs center) |
 | `no_ingredients` | assembler input starvation | add input inserter/chest/belt; check recipe |
 | `no_fuel` | burner machine empty | insert coal, automate with inserter+chest |

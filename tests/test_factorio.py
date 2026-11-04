@@ -146,6 +146,26 @@ class ClientTests(unittest.TestCase):
             unittest.mock.call("build", {"entities": entities, "clear_obstacles": False}),
         ])
 
+    def test_preview_path_submits_native_path_action(self):
+        client = factorio.FactorioClient()
+        with patch.object(client, "submit_action", return_value={"job_id": "path"}) as submit:
+            client.preview_path(3, 4)
+        submit.assert_called_once_with("path", {"targets": [{"x": 3, "y": 4}]})
+
+    def test_path_preview_cli_submits_one_target(self):
+        stdout = io.StringIO()
+        job = {"status": "completed", "results": [{"ok": True, "path": [{"x": 3, "y": 4}]}]}
+        with patch("factorio.submit_action_job", return_value=job) as submit, redirect_stdout(stdout):
+            code = factorio.run(["path-preview", "--target", "3,4"])
+        self.assertEqual(code, 0)
+        submit.assert_called_once_with(
+            factorio.DEFAULT_BASE,
+            "path",
+            {"targets": [{"x": 3, "y": 4}]},
+            detach=False,
+            idempotency_key=None,
+        )
+
     def test_rocket_launch_cli_batches_targets_and_reports_rejection(self):
         for result_ok in [True, False]:
             stdout = io.StringIO()

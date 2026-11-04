@@ -797,6 +797,37 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
 
   router.add({
     method: "POST",
+    path: "/api/agent/act/path",
+    name: "/api/agent/act/path",
+    handler: async (request) => {
+      const { req, res } = request;
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
+      if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
+      if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
+      const targets = parsePositionTargets(arrayOrEmpty(body.targets), 1);
+      if (!targets.length) return json(res, 400, { error: "Missing target" });
+      const target = targets[0];
+      try {
+        const result = await nativeAction({
+          kind: "path",
+          x: Number(target.x) + 0.5,
+          y: Number(target.y) + 0.5,
+        });
+        return json(res, 200, {
+          ok: true,
+          data: { results: [{ ...result, x: Number(target.x), y: Number(target.y) }] },
+          truncated: false,
+        });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
     path: "/api/agent/act/rotate",
     name: "/api/agent/act/rotate",
     handler: async (request) => {

@@ -101,7 +101,7 @@ test("splitJobPayload expands build entities and target lists into one item per 
     { entities: [{ name: "x" }], clear_obstacles: false },
   ]);
   assert.deepEqual(splitJobPayload("build", {}), []);
-  for (const action of ["mine", "move", "rotate", "set-recipe", "launch-rocket"]) {
+  for (const action of ["mine", "move", "path", "rotate", "set-recipe", "launch-rocket"]) {
     assert.deepEqual(splitJobPayload(action, { targets: [{ x: 1 }, { x: 2 }] }), [
       { targets: [{ x: 1 }] },
       { targets: [{ x: 2 }] },

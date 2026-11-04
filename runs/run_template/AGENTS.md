@@ -240,7 +240,14 @@ bootstrapping or an emergency, never for routine production.
   before committing to more machines; fix `no_fuel`, `no_power`, and
   `waiting_for_space_in_destination` before expanding.
 - Use placement observations before constructing tightly packed layouts.
-- Never request a single move farther than ~64 tiles (the client rejects it). Move in waypoints, observe the route/terrain, check `no_path`/`blocked`/`avoid_count`, and replan instead of letting a script walk blindly into water, cliffs, or a forest.
+- Never request a single move farther than ~64 tiles (the client rejects it).
+  Move in waypoints. Before a long move or any unseen terrain, call
+  `preview_path(x,y)` (`path-preview --target x,y`): it returns the pathfinder
+  waypoints or `ok=false,error=no_path` without walking. If it reports
+  `no_path`, do **not** retry the same goal — water `~` and cliffs `#` (from
+  `observe-layout`) are impassable: choose a waypoint around them, bridge with
+  landfill where appropriate, or pick another target. High `avoid_count` on a
+  move means it was blocked; replan instead of resending it.
 - `observe-factory` returns `plan.stale`; when it is stale, update `STATE.md` before acting again.
 - Update `STATE.md` whenever a blocker is resolved or the current subtask changes; `observe-factory` includes the active plan and its age, and stale plans mislead the operator and the next session.
 - Account for the player's actual walking path, obstacles, entity reach, and native mining time. If a valid
