@@ -89,6 +89,24 @@ Record scores and reasons in `STATE.md`.
 Do not switch subtasks mid-task without an emergency or an expired timebox.
 Update `STATE.md` after every subtask so a resumed session can continue.
 
+### Automation score
+
+The manager computes an operator-visible automation score from game telemetry and
+your action jobs. Read it after every subtask from
+`observe_factory()["plan"]["automation"]` (fields: `score`, `positive`,
+`penalty`, `manual_mines`, `manual_crafts`, `breakdown`); `act-mine` and
+`act-craft` responses include the current block too.
+
+- Positive: weighted cumulative automated output since the baseline, science-pack
+  output, satisfied power demand, current-research progress, and rocket launches.
+- Penalty: every hand-mined natural resource unit (1 point) and every
+  hand-crafted item (2 points). Removing/deconstructing placed buildings is not a
+  penalty; mining trees/rocks/ores by hand is.
+
+Automate extraction and crafting with drills, furnaces, assemblers and inserters;
+hand work lowers the score and wastes active play time. The score is feedback,
+not a hard failure condition.
+
 ### STATE.md template
 
 ```md

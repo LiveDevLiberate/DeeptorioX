@@ -172,6 +172,7 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.
+- Check `observe-factory().plan.automation` after each subtask: manual mines/crafts are penalty points; prefer drills/furnaces/assemblers.
 - Dry-run placement before every multi-entity build; failures are cheaper than rebuilding.
 - Batch: up to 50 entities/targets per action; chain jobs instead of one call per entity.
 - Never sleep more than 10 seconds; use `wait_for_*` conditions and re-observe.

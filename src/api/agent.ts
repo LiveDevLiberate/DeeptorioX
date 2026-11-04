@@ -741,9 +741,10 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           });
           results.push({ ...result, x: Number(target.x), y: Number(target.y) });
         }
+        const automation = runManager.plan()?.automation;
         return json(res, 200, {
           ok: true,
-          data: { results },
+          data: { results, ...(automation ? { automation } : {}) },
           truncated: targets.length > trimmed.length,
         });
       } catch (err) {
@@ -992,7 +993,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             data,
           });
         }
-        return json(res, 200, { ok: true, data });
+        const automation = runManager.plan()?.automation;
+        return json(res, 200, { ok: true, data: automation ? { ...(data as object), automation } : data });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }

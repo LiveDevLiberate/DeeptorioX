@@ -135,6 +135,10 @@ const I18N = {
       power: "Power",
       telemetry: "Telemetry",
       error: "Error",
+      automation: "Automation",
+      penalty: "Penalty",
+      manualMines: "mined",
+      manualCrafts: "crafted",
     },
     sparkStable: "stable",
     sparkUp: "+{percent}%",
@@ -228,6 +232,10 @@ const I18N = {
       power: "电力",
       telemetry: "遥测",
       error: "错误",
+      automation: "自动化",
+      penalty: "惩罚",
+      manualMines: "采矿",
+      manualCrafts: "合成",
     },
     sparkStable: "稳定",
     sparkUp: "+{percent}%",
@@ -271,7 +279,8 @@ const I18N = {
 let lastStatusAt = 0,
   lastEventAt = 0,
   activity = "idle",
-  uiLang;
+  uiLang,
+  currentRun = null;
 const statusHeader = document.getElementById("agentStatus");
 const statusToggle = document.getElementById("statusToggle");
 const STATUS_COLLAPSED_KEY = "autorio.statusCollapsed";
@@ -380,6 +389,7 @@ function pickLanguage(run) {
 }
 function renderStatus(run) {
   if (!statusState || !statusScores) return;
+  currentRun = run;
   if (!uiLang) {
     uiLang = pickLanguage(run);
     document.documentElement.lang = uiLang === "zh" ? "zh-CN" : "en";
@@ -859,6 +869,34 @@ function renderMetrics() {
       element("td", "", "metric-trend"),
     );
     rows.push(row);
+  }
+  const automation = currentRun?.automation;
+  if (automation) {
+    const score = Math.round(Number(automation.score) || 0);
+    const row = element("tr", "", "metric metric-automation");
+    const automationValue = metricValue("factory", `${score}`);
+    automationValue.classList.add(score < 0 ? "negative" : "positive");
+    row.append(
+      element("th", text.metrics.automation, "metric-label"),
+      automationValue,
+      element("td", `+${Math.round(Number(automation.positive) || 0)}`, "metric-trend metric-delta"),
+    );
+    rows.push(row);
+    const penaltyRow = element("tr", "", "metric metric-penalty");
+    const penaltyValue = metricValue("pickaxe", `-${Math.round(Number(automation.penalty) || 0)}`);
+    penaltyValue.classList.add("penalised");
+    const penaltyTrend = element("td", "", "metric-trend");
+    const details = element("span", "", "penalty-details");
+    details.append(
+      icon("pickaxe"),
+      element("span", `${Math.round(Number(automation.manual_mines) || 0)}`),
+      icon("wrench"),
+      element("span", `${Math.round(Number(automation.manual_crafts) || 0)}`),
+    );
+    details.title = `${text.metrics.penalty}: ${text.metrics.manualMines || "mined"} / ${text.metrics.manualCrafts || "crafted"}`;
+    penaltyTrend.append(details);
+    penaltyRow.append(element("th", text.metrics.penalty, "metric-label"), penaltyValue, penaltyTrend);
+    rows.push(penaltyRow);
   }
   if (lastErrorText) {
     const row = element("tr", "", "metric error");

@@ -15,6 +15,13 @@ import {
 } from "./runtime.js";
 import { factorioLocale } from "./locale.js";
 import {
+  CRAFT_PENALTY_POINTS,
+  computeAutomationScore,
+  manualCraftUnits,
+  manualMineUnits,
+  type AutomationScore,
+} from "./automation-score.js";
+import {
   Benchmark,
   Snapshot,
   loadBenchmarks,
@@ -155,6 +162,8 @@ type Run = {
     cancelled: number;
     partial_failures: number;
   };
+  /** Automated production score and manual-work penalty (updated with telemetry). */
+  automation?: AutomationScore & { updated_at?: string };
 };
 /** Metadata reported by timelapse rendering; persisted into run.json verbatim. */
 export type VideoRenderResult = {
@@ -308,6 +317,19 @@ export class RunManager {
         recoveredVideo = true;
       }
       if (run.segments?.at(-1)?.video) run.video = run.segments.at(-1)!.video;
+      if (!run.automation) {
+        const { mines, crafts } = this.recountManualActions(run);
+        const penalty = mines + crafts * CRAFT_PENALTY_POINTS;
+        run.automation = {
+          score: -penalty,
+          positive: 0,
+          penalty,
+          manual_mines: mines,
+          manual_crafts: crafts,
+          breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0 },
+        };
+        this.persist(run);
+      }
       if (recoveredVideo) this.persist(run);
       this.runs.set(id, run);
     }
@@ -319,6 +341,31 @@ export class RunManager {
   get acceptingActions() {
     return this.active?.state === "running";
   }
+  /** Rebuild manual-work counters for runs created before automation scoring. */
+  private recountManualActions(run: Run) {
+    let mines = 0;
+    let crafts = 0;
+    try {
+      const lines = fs.readFileSync(path.join(this.dir(run), "jobs.jsonl"), "utf8").split("\n");
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const record = JSON.parse(line) as {
+          phase?: string;
+          status?: string;
+          action?: string;
+          payload?: unknown;
+          results?: unknown[];
+        };
+        if (record.phase !== "finished" || record.status !== "completed") continue;
+        if (record.action === "mine") mines += manualMineUnits(record.results || []);
+        else if (record.action === "craft") crafts += manualCraftUnits(record.payload, record.results || []);
+      }
+    } catch {
+      /* no jobs file yet */
+    }
+    return { mines, crafts };
+  }
+
   recordJob(phase: "submitted" | "finished", job: ActionJobRecord) {
     const run = this.active;
     if (!run || !["running", "saving"].includes(run.state)) return;
@@ -332,6 +379,17 @@ export class RunManager {
       if (job.status === "failed") run.actions.failed++;
       if (job.status === "cancelled") run.actions.cancelled++;
       run.actions.partial_failures += failureCount(job.results);
+      if (job.status === "completed" && run.automation) {
+        const mines = job.action === "mine" ? manualMineUnits(job.results) : 0;
+        const crafts = job.action === "craft" ? manualCraftUnits(job.payload, job.results) : 0;
+        if (mines || crafts) {
+          run.automation.manual_mines += mines;
+          run.automation.manual_crafts += crafts;
+          run.automation.penalty =
+            run.automation.manual_mines + run.automation.manual_crafts * CRAFT_PENALTY_POINTS;
+          run.automation.score = run.automation.positive - run.automation.penalty;
+        }
+      }
     }
     this.persist(run);
   }
@@ -422,6 +480,7 @@ export class RunManager {
       age_seconds: age === null ? null : Math.round(age),
       research: run.latest?.current_research ?? null,
       research_progress: run.latest?.research_progress ?? null,
+      automation: run.automation,
       remaining_seconds: Math.max(0, run.max_seconds - this.elapsed()),
     };
   }
@@ -534,6 +593,14 @@ export class RunManager {
       context_limit: Number.isFinite(contextLimit) && contextLimit > 0 ? contextLimit : undefined,
       session_resets: 0,
       actions: { submitted: 0, completed: 0, failed: 0, cancelled: 0, partial_failures: 0 },
+      automation: {
+        score: 0,
+        positive: 0,
+        penalty: 0,
+        manual_mines: 0,
+        manual_crafts: 0,
+        breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0 },
+      },
     };
     run.capture_video = run.agent !== "manual" && (options.capture_video ?? obsEnabled());
     if (run.capture_video && run.terminal)
@@ -1497,6 +1564,24 @@ export class RunManager {
     run.latest = snapshot;
     run.elapsed_seconds = wallSeconds;
     const now = new Date().toISOString();
+    const rocketsLaunched = snapshot.rockets - (run.baseline?.rockets ?? 0);
+    const productionTotals = Object.fromEntries(
+      Object.entries(snapshot.production).map(([name, count]) => [
+        name,
+        count - (run.baseline?.production[name] || 0),
+      ]),
+    );
+    run.automation = {
+      ...computeAutomationScore({
+        productionTotals,
+        powerSatisfaction: snapshot.power?.satisfaction ?? null,
+        researchProgress: snapshot.research_progress ?? null,
+        rocketsLaunched,
+        manualMines: run.automation?.manual_mines ?? 0,
+        manualCrafts: run.automation?.manual_crafts ?? 0,
+      }),
+      updated_at: now,
+    };
     fs.appendFileSync(
       path.join(this.dir(run), "telemetry.jsonl"),
       JSON.stringify({
@@ -1504,6 +1589,7 @@ export class RunManager {
         wall_seconds: run.elapsed_seconds,
         game_ticks: snapshot.tick - run.baseline_tick!,
         production_per_game_minute: rates,
+        automation: run.automation,
         ...snapshot,
       }) + "\n",
     );

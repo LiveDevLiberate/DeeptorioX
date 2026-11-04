@@ -9,6 +9,23 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Automation score with manual-work penalty.** The manager now records every
+  finished mine/craft job: hand-mined natural-resource units (ores, stone, wood,
+  trees/rocks) cost 1 point and hand-crafted items cost 2 points; deconstructing
+  placed buildings is not penalised. A positive score is derived from telemetry
+  (weighted cumulative automated output since the baseline, science packs, power
+  satisfaction, research progress, rockets). `run.json`/`telemetry.jsonl` carry the
+  `automation` block (score, positive, penalty, counts, breakdown), the recording
+  window shows `自动化`/`惩罚` table rows, and old runs are recounted from
+  `jobs.jsonl` when the manager loads them.
+- Agent feedback: `observe_factory().plan.automation` carries the block, and
+  `act-mine`/`act-craft` responses include it immediately; the playbook,
+  cookbook and task prompt tell the agent to prefer drills/furnaces/assemblers
+  over hand work and to check the score after each subtask.
+
+## [0.14.1] - 2026-11-05
 ## [0.14.1] - 2026-11-04
 
 ### Changed

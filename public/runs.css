@@ -2960,3 +2960,37 @@ body.recording .status-line .status-toggle[aria-expanded="true"] {
     margin-left: 0;
   }
 }
+
+/* Automation score / manual penalty rows */
+.metric-automation .metric-value {
+  color: var(--green);
+  font-weight: 600;
+}
+.metric-penalty .metric-value {
+  color: var(--red);
+}
+.metric-penalty .metric-trend {
+  gap: 4px;
+}
+.penalty-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--dim);
+}
+.penalty-details .icon {
+  width: 10px;
+  height: 10px;
+  margin: 0;
+  vertical-align: -1px;
+}
+.penalty-details .icon + span {
+  margin-right: 5px;
+}
+
+.metric-automation .metric-value.negative {
+  color: var(--red);
+}
+.metric-automation .metric-value.positive {
+  color: var(--green);
+}
