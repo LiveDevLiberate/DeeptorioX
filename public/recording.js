@@ -125,6 +125,7 @@ const I18N = {
     researchLabel: "research",
     trimmed: "earlier entries trimmed",
     noEntries: "No entries for this filter",
+    showAll: "Show all",
     documentTitle: "Agent transcript",
     loading: "loading",
     stale: "stale",
@@ -227,6 +228,7 @@ const I18N = {
     researchLabel: "研究",
     trimmed: "更早记录已裁剪",
     noEntries: "当前过滤下没有内容",
+    showAll: "显示全部",
     documentTitle: "Agent 记录",
     loading: "加载中",
     stale: "已过期",
@@ -841,9 +843,26 @@ function applyFilters() {
     if (!emptyFilterNote) {
       emptyFilterNote = element("div", "", "filter-empty");
       emptyFilterNote._kind = "empty";
+      const label = element("span", "", "filter-empty-text");
+      const reset = element("button", "", "filter-empty-reset");
+      reset.type = "button";
+      reset.addEventListener("click", () => {
+        if (transcriptSearch) transcriptSearch.value = "";
+        searchQuery = "";
+        try {
+          localStorage.removeItem("autorio.search");
+        } catch {
+          /* localStorage may be unavailable */
+        }
+        setFilter("all");
+      });
+      emptyFilterNote.append(label, reset);
+      emptyFilterNote._label = label;
+      emptyFilterNote._reset = reset;
       output.append(emptyFilterNote);
     }
-    emptyFilterNote.textContent = strings().noEntries;
+    emptyFilterNote._label.textContent = strings().noEntries;
+    emptyFilterNote._reset.textContent = strings().showAll;
     emptyFilterNote.hidden = false;
   } else if (emptyFilterNote) {
     emptyFilterNote.hidden = true;

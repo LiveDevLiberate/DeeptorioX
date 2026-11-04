@@ -9,6 +9,18 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Applied transferable [ui-skills](https://www.ui-skills.com/) baseline rules.**
+  The registry's React/Tailwind/MCP stack does not fit this vanilla CSS/JS
+  recording window, but its baseline checklist did: data uses tabular numerals
+  (metrics table, status meta, durations, radar), status/long transcript text
+  uses `text-wrap: balance`/`pretty`, and the filter empty state now has a clear
+  **显示全部 / Show all** reset action. Existing `:focus-visible`,
+  `prefers-reduced-motion`, `100dvh`, and icon-button labels already satisfied
+  the relevant constraints. Audit notes are in `docs/ui-skills-audit.md`.
+
+## [0.19.0] - 2026-11-05
 ## [0.19.0] - 2026-11-04
 
 ### Added

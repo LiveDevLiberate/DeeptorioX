@@ -389,9 +389,13 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     const emptyNote = output.children.find((node) => node.className.includes("filter-empty"));
     assert.ok(emptyNote, "missing filter empty-state note");
     assert.equal(emptyNote.hidden, false);
-    assert.match(emptyNote.textContent, /No entries/);
+    assert.match(nodeText(emptyNote), /No entries/);
     nodes.filterAll.fire("click");
     assert.equal(emptyNote.hidden, true);
+    assert.ok(
+      emptyNote.children.some((node) => String(node.className).includes("filter-empty-reset")),
+      "empty state should offer a reset action",
+    );
     nodes.filterAll.fire("click");
 
     // The status toggle is a compact-header control (collapses all detail rows).

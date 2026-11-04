@@ -3097,3 +3097,41 @@ body.recording .status-line .status-toggle[aria-expanded="true"] {
     gap: 8px;
   }
 }
+
+/* ui-skills baseline: data numerals, text wrapping and empty-state action. */
+.metrics-table,
+.status-meta,
+.metric-delta,
+.action-duration,
+.score-radar {
+  font-variant-numeric: tabular-nums;
+}
+.status-current,
+.status-activity,
+#codexOutput .reasoning-summary,
+#codexOutput .commands-summary {
+  text-wrap: balance;
+}
+#codexOutput .reasoning-segment-text,
+#codexOutput .message-body,
+#codexOutput .action-outcome {
+  text-wrap: pretty;
+}
+#codexOutput .filter-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+#codexOutput .filter-empty-reset {
+  padding: 2px 8px;
+  border: 1px solid rgba(122, 162, 247, 0.4);
+  border-radius: 6px;
+  background: rgba(122, 162, 247, 0.12);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+#codexOutput .filter-empty-reset:hover {
+  background: rgba(122, 162, 247, 0.2);
+}
