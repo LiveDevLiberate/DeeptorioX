@@ -92,6 +92,7 @@ Commands:
   act-build-loader --from x,y --to x,y [--name inserter] [--no-clear]
   act-build-blueprint (--blueprint-file <path>|--blueprint <string>) [--anchor x,y] [--dry-run] [--no-clear]
   act-copy-settings --target sx,sy,tx,ty [--target ...] [--dry-run]
+  deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run]
   build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]
   build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]
   build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]
@@ -156,6 +157,7 @@ COMMAND_USAGE = {
     "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]\n   or: factorio.py act-build --entities-json <json> [--no-clear]\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding. Trees and rocks in the\nfootprint are mined before placement unless --no-clear is given.\n",
     "act-build-blueprint": "act-build-blueprint: Expand a Factorio blueprint string and build it in batches of at most 50 entities.\nUsage: factorio.py act-build-blueprint --blueprint-file <path> [--anchor x,y] [--dry-run] [--no-clear]\n   or: factorio.py act-build-blueprint --blueprint <string> [--anchor x,y] [--dry-run] [--no-clear]\nPosition: blueprint positions are map coordinates; --anchor moves the whole plan so its top-left tile lands there.\nDirections: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nUnderground: underground-belt/pipe-to-ground input/output subtypes are preserved as underground_type.\nDry run: prints the expanded entities, placement analysis, and missing items without building.\nNote: Recipes, filters and module settings inside the blueprint are NOT applied; set them with\nact-set-recipe afterwards. The character walks between entities, so a large plan takes many minutes.\n",
     "act-copy-settings": "act-copy-settings: Copy settings from source to target entities (synchronous, reach-checked).\nUsage: factorio.py act-copy-settings --target source-x,source-y,target-x,target-y [--target ...] [--dry-run]\n   or: factorio.py act-copy-settings --targets-json <json> [--dry-run]\nNote: Not a walking job; move the character into reach of every source and target first.\nUnreachable or incompatible pairs are reported and never mutated.\n",
+    "deconstruct-area": "deconstruct-area: Observe an area and remove the entities with native mining (chunked).\nUsage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run]\nDefaults: radius 64, limit server default (300), player_only=true (last_user heuristic).\n--include-all sets player_only=false; add --types tree,simple-entity for passability or --types resource for ore.\nRemoval is the normal native miner: the character walks, mining takes real time, and unreachable targets\nfail per entity. Jobs are split into batches of at most 50 targets (--max-per-job smaller). --dry-run plans only.\n",
     "build-pipe-line": "build-pipe-line: Lay an L-shaped surface pipe line (x first, then y).\nUsage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]\nNote: surface pipes only; for straight runs under obstacles use build-underground-pipe.\n",
     "build-underground-belt": "build-underground-belt: Lay a straight underground-belt line (input/output pairs + surface belt connectors).\nUsage: factorio.py build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]\nName: transport-belt/fast-transport-belt/express-transport-belt (default distance 4/6/8); pass --max-distance to override.\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface belt\nconnector after each pair, surface belts for tails shorter than a pair. Straight horizontal/vertical only.\n",
     "build-underground-pipe": "build-underground-pipe: Lay a straight pipe-to-ground line (input/output pairs + surface pipe connectors).\nUsage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface pipe\nconnector after each pair, surface pipes for tails shorter than a pair (default distance 10). Straight only.\n",
@@ -1576,10 +1578,16 @@ class FactorioClient:
             "x": x, "y": y, "radius": radius,
         })
 
-    def observe_area(self, x: float, y: float, radius: int = 64, *,
+    def observe_area(self, x: float | None = None, y: float | None = None,
+                     radius: int = 64, *,
                      limit: int | None = None, types: list[str] | None = None,
                      filters: list[str] | None = None, player_only: bool = False) -> Any:
-        """Deconstruction-planning entity list for an area (name/type/position)."""
+        """Deconstruction-planning entity list for an area (name/type/position).
+
+        Omitted coordinates are stripped from the request body, so the server
+        falls back to its own defaults. Server defaults exclude resources,
+        characters and cliffs; explicit ``types`` can include them.
+        """
         return self.request("POST", "/api/agent/observe/area", {
             "window": {"x": x, "y": y, "radius": radius},
             "limit": limit,
@@ -1934,6 +1942,76 @@ class FactorioClient:
         summary["blueprint_entities"] = len(entities)
         return summary
 
+    def _run_chunks(
+        self,
+        items: list[Any],
+        submit: Callable[[list[Any]], Any],
+        *,
+        max_per_job: int = BLUEPRINT_MAX_ENTITIES_PER_JOB,
+    ) -> dict[str, Any]:
+        """Run items through sequential jobs of at most ``max_per_job``.
+
+        Shared by build planners (:meth:`_submit_planned`, via ``self.build``) and
+        deconstruction (via ``self.mine``). Aggregates per-item results and job
+        ids, stops on the first fatal job failure (``failed_chunk``/``error``),
+        and treats an empty item list as an ok no-op. Per-entity ``ok: false``
+        results are kept but do not abort later chunks.
+        """
+        limit = int(max_per_job)
+        if limit < 1:
+            raise ValueError("max_per_job must be at least 1")
+        limit = min(limit, BLUEPRINT_MAX_ENTITIES_PER_JOB)
+        chunks = [items[start:start + limit] for start in range(0, len(items), limit)]
+        summary: dict[str, Any] = {
+            "ok": True,
+            "chunks": 0,
+            "max_per_job": limit,
+            "results": [],
+            "job_ids": [],
+        }
+        if not chunks:
+            return summary
+        jobs: list[Any] = []
+        results: list[Any] = []
+        failed_chunk: int | None = None
+        error: str | None = None
+        for index, chunk in enumerate(chunks):
+            try:
+                job = submit(chunk)
+            except Exception as chunk_error:  # Stop launching chunks after a job failure.
+                failed_chunk = index
+                error = str(chunk_error) or chunk_error.__class__.__name__
+                break
+            jobs.append(job)
+            status = job.get("status") if isinstance(job, dict) else None
+            if not isinstance(job, dict) or status in ("failed", "cancelled"):
+                failed_chunk = index
+                error = (
+                    str(job.get("error"))
+                    if isinstance(job, dict) and job.get("error")
+                    else f"job for chunk {index} {status or 'failed'}"
+                )
+                break
+            chunk_results = job.get("results")
+            if not isinstance(chunk_results, list) or not chunk_results:
+                failed_chunk = index
+                error = f"job for chunk {index} returned no results"
+                break
+            results.extend(chunk_results)
+        ok = failed_chunk is None and bool(results) and all(
+            isinstance(result, dict) and result.get("ok") is not False for result in results
+        )
+        summary.update(
+            ok=ok,
+            chunks=len(chunks),
+            results=results,
+            job_ids=[job.get("job_id") for job in jobs if isinstance(job, dict)],
+        )
+        if failed_chunk is not None:
+            summary["failed_chunk"] = failed_chunk
+            summary["error"] = error
+        return summary
+
     def _submit_planned(
         self,
         plan_entities: list[dict[str, Any]],
@@ -1949,89 +2027,40 @@ class FactorioClient:
         jobs, per-entity result/clearing aggregation, fatal-chunk stop with
         ``failed_chunk``/``error``, and an empty-plan no-op success.
         """
-        limit = int(max_per_job)
-        if limit < 1:
-            raise ValueError("max_per_job must be at least 1")
-        limit = min(limit, BLUEPRINT_MAX_ENTITIES_PER_JOB)
         plan_entities = [dict(entity) for entity in plan_entities]
-        summary: dict[str, Any] = {
-            "ok": True,
-            "chunks": 0,
-            "max_per_job": limit,
-            "results": [],
-            "clearing": {"ok": True, "cleared": 0, "skipped": [], "pending_remaining": 0},
-            "job_ids": [],
-            "warnings": list(warnings or []),
-        }
-        if include_entities:
-            summary["entities"] = plan_entities
-        if not plan_entities:
-            return summary
-        chunks = [plan_entities[start:start + limit] for start in range(0, len(plan_entities), limit)]
-        jobs: list[Any] = []
-        results: list[Any] = []
-        failed_chunk: int | None = None
-        error: str | None = None
+        summary = self._run_chunks(
+            plan_entities,
+            lambda chunk: self.build(chunk, clear=clear),
+            max_per_job=max_per_job,
+        )
         cleared = 0
         skipped: list[Any] = []
         pending_remaining = 0
         clearing_ok = True
-        for index, chunk in enumerate(chunks):
+        for result in summary["results"]:
+            clearing = result.get("clearing") if isinstance(result, dict) else None
+            if not isinstance(clearing, dict):
+                continue
+            cleared_entries = clearing.get("cleared")
+            if isinstance(cleared_entries, list):
+                cleared += len(cleared_entries)
+            if isinstance(clearing.get("skipped"), list):
+                skipped.extend(clearing["skipped"])
             try:
-                job = self.build(chunk, clear=clear)
-            except Exception as chunk_error:  # Stop launching chunks after a job failure.
-                failed_chunk = index
-                error = str(chunk_error) or chunk_error.__class__.__name__
-                break
-            jobs.append(job)
-            status = job.get("status") if isinstance(job, dict) else None
-            if not isinstance(job, dict) or status in ("failed", "cancelled"):
-                failed_chunk = index
-                error = (
-                    str(job.get("error"))
-                    if isinstance(job, dict) and job.get("error")
-                    else f"build job for chunk {index} {status or 'failed'}"
-                )
-                break
-            chunk_results = job.get("results")
-            if not isinstance(chunk_results, list) or not chunk_results:
-                failed_chunk = index
-                error = f"build job for chunk {index} returned no results"
-                break
-            results.extend(chunk_results)
-            for result in chunk_results:
-                clearing = result.get("clearing") if isinstance(result, dict) else None
-                if not isinstance(clearing, dict):
-                    continue
-                cleared_entries = clearing.get("cleared")
-                if isinstance(cleared_entries, list):
-                    cleared += len(cleared_entries)
-                if isinstance(clearing.get("skipped"), list):
-                    skipped.extend(clearing["skipped"])
-                try:
-                    pending_remaining += int(clearing.get("pending_remaining") or 0)
-                except (TypeError, ValueError):
-                    pass
-                if clearing.get("ok") is False:
-                    clearing_ok = False
-        ok = failed_chunk is None and bool(results) and all(
-            isinstance(result, dict) and result.get("ok") is not False for result in results
-        )
-        summary.update(
-            ok=ok,
-            chunks=len(chunks),
-            results=results,
-            clearing={
-                "ok": clearing_ok,
-                "cleared": cleared,
-                "skipped": skipped,
-                "pending_remaining": pending_remaining,
-            },
-            job_ids=[job.get("job_id") for job in jobs if isinstance(job, dict)],
-        )
-        if failed_chunk is not None:
-            summary["failed_chunk"] = failed_chunk
-            summary["error"] = error
+                pending_remaining += int(clearing.get("pending_remaining") or 0)
+            except (TypeError, ValueError):
+                pass
+            if clearing.get("ok") is False:
+                clearing_ok = False
+        summary["clearing"] = {
+            "ok": clearing_ok,
+            "cleared": cleared,
+            "skipped": skipped,
+            "pending_remaining": pending_remaining,
+        }
+        summary["warnings"] = list(warnings or [])
+        if include_entities:
+            summary["entities"] = plan_entities
         return summary
 
     def _resolve_plan(self, plan: Any) -> tuple[list[dict[str, Any]], list[str]]:
@@ -2127,6 +2156,112 @@ class FactorioClient:
         if inventory_warning is not None:
             result["warning"] = inventory_warning
         return result
+
+    def deconstruct_area(self, x: float | None = None, y: float | None = None,
+                         radius: int = 64, *, limit: int | None = None,
+                         types: list[str] | None = None,
+                         filters: list[str] | None = None,
+                         player_only: bool = True,
+                         max_per_job: int = BLUEPRINT_MAX_ENTITIES_PER_JOB,
+                         dry_run: bool = False) -> dict[str, Any]:
+        """Observe an area and remove the resulting entities with native mining.
+
+        The server's ``observe/area`` scan returns the planning entity list
+        (defaults exclude resources, characters and cliffs; ``player_only`` uses
+        the ``last_user`` heuristic). Removal then goes through the normal queued
+        native miner: one target per entity (kind "resource" for resources,
+        otherwise "entity", with its prototype name), in sequential jobs of at
+        most ``max_per_job`` (capped at the manager batch limit of 50). This is
+        deliberately NOT an instant deconstruct: the character walks, mining
+        takes real time, and unreachable/depleted targets fail per entity
+        (aggregate ``ok`` false) without stopping later chunks.
+
+        ``dry_run`` returns the plan only (scanned/counts/entities/truncated) and
+        never calls ``mine``. An empty area is an ok no-op with zero chunks.
+        Fatal job-level failures stop the remaining chunks and report
+        ``failed_chunk``/``error``. A scan that reports ``ok: false`` (for
+        example no character) raises ``RuntimeError``; HTTP errors propagate like
+        the other wrappers.
+
+        Note: trees/rocks (passability) are only included with
+        ``player_only=False`` plus explicit ``types`` such as ``["tree"]`` or
+        ``["tree", "simple-entity"]``; resources likewise need
+        ``types=["resource"]`` (they are excluded by default).
+        """
+        max_per_job = int(max_per_job)
+        if max_per_job < 1:
+            raise ValueError("max_per_job must be at least 1")
+        max_per_job = min(max_per_job, BLUEPRINT_MAX_ENTITIES_PER_JOB)
+        response = self.observe_area(
+            x, y, radius, limit=limit, types=types, filters=filters,
+            player_only=player_only,
+        )
+        data = data_value(response)
+        if not isinstance(data, dict):
+            data = {}
+        if data.get("ok") is False:
+            raise RuntimeError(str(data.get("error") or "observe-area failed"))
+        raw_entities = data.get("entities")
+        entities = [entity for entity in raw_entities if isinstance(entity, dict)] \
+            if isinstance(raw_entities, list) else []
+        targets: list[dict[str, Any]] = []
+        for entity in entities:
+            try:
+                target_x = int(entity["x"])
+                target_y = int(entity["y"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            target: dict[str, Any] = {"x": target_x, "y": target_y}
+            target["kind"] = "resource" if entity.get("type") == "resource" else "entity"
+            name = entity.get("name")
+            if isinstance(name, str) and name:
+                target["name"] = name
+            targets.append(target)
+        by_type: dict[str, int] = {}
+        for entity in entities:
+            entity_type = entity.get("type")
+            if isinstance(entity_type, str) and entity_type:
+                by_type[entity_type] = by_type.get(entity_type, 0) + 1
+        counts = data.get("counts") if isinstance(data.get("counts"), dict) else {}
+        scanned = data.get("scanned")
+        if not isinstance(scanned, int):
+            scanned = counts.get("total", len(entities))
+        summary: dict[str, Any] = {
+            "ok": True,
+            "dry_run": bool(dry_run),
+            "scanned": scanned,
+            "area": data.get("area"),
+            "player_only": data.get("player_only", player_only),
+            "entities": entities,
+            "counts": {
+                "total": counts.get("total", len(entities)),
+                "matched": counts.get("matched", len(entities)),
+                "included": counts.get("included", len(entities)),
+                "planned": len(targets),
+                "by_type": by_type,
+            },
+            "truncated": bool(data.get("truncated", False)),
+            "matched": len(targets),
+            "targets": targets,
+            "chunks": 0,
+            "max_per_job": max_per_job,
+            "results": [],
+            "job_ids": [],
+        }
+        if dry_run:
+            return summary
+        mining = self._run_chunks(targets, self.mine, max_per_job=max_per_job)
+        summary.update(
+            ok=mining["ok"],
+            chunks=mining["chunks"],
+            max_per_job=mining["max_per_job"],
+            results=mining["results"],
+            job_ids=mining["job_ids"],
+        )
+        if "failed_chunk" in mining:
+            summary["failed_chunk"] = mining["failed_chunk"]
+            summary["error"] = mining.get("error")
+        return summary
 
     def build_pipe_line(self, from_xy: Any = None, to_xy: Any = None, *,
                         plan: Any = None, name: str = "pipe",
@@ -2574,6 +2709,22 @@ def run(argv: list[str]) -> int:
             response = FactorioClient(parsed.base).copy_settings_check(targets)
             result = data_value(response)
             return output(result, ok=bool(result.get("ok", True)) if isinstance(result, dict) else True)
+        if cmd == "deconstruct-area":
+            area_types = [part.strip() for part in (flag("types") or "").split(",") if part.strip()]
+            area_filters = [part.strip() for part in (flag("filters") or "").split(",") if part.strip()]
+            deconstruct_result = FactorioClient(parsed.base).deconstruct_area(
+                parse_number(flag("center-x")),
+                parse_number(flag("center-y")),
+                parse_number(flag("radius"), 64),
+                limit=parse_number(flag("limit")),
+                types=area_types or None,
+                filters=area_filters or None,
+                player_only=not bool(flag("include-all")),
+                max_per_job=parse_number(flag("max-per-job"), 50),
+                dry_run=bool(flag("dry-run")),
+            )
+            return output(deconstruct_result,
+                          ok=bool(deconstruct_result.get("ok", True)))
 
         if cmd == "act-build":
             entities = json.loads(flag("entities-json")) if flag("entities-json") else parse_entities(flags.get("entity", []))

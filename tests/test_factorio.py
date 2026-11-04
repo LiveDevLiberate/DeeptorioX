@@ -47,6 +47,27 @@ def belt_blueprint(entity_count):
 BELT_SIZES = {"transport-belt": {"width": 1, "height": 1}}
 
 
+def area_observation(entity_count, *, types=None, total=100, truncated=False):
+    """Synthetic observe-area response payload for deconstruct tests."""
+    kinds = types or ["transport-belt"]
+    entities = [
+        {"name": f"entity-{index}", "type": kinds[index % len(kinds)],
+         "x": index % 20, "y": index // 20}
+        for index in range(entity_count)
+    ]
+    return {
+        "ok": True,
+        "data": {
+            "ok": True,
+            "area": {"x": 0, "y": 0, "radius": 64},
+            "counts": {"total": total, "matched": entity_count, "included": entity_count},
+            "entities": entities,
+            "truncated": truncated,
+            "player_only": True,
+        },
+    }
+
+
 class ParsingTests(unittest.TestCase):
     def test_entities_and_targets_match_api_shapes(self):
         self.assertEqual(
@@ -1287,6 +1308,206 @@ class PlanBuildAndBuilderTests(unittest.TestCase):
         self.assertEqual(len(stopped["job_ids"]), 1)
 
 
+class DeconstructAreaTests(unittest.TestCase):
+    def test_dry_run_forwards_observation_and_never_mines(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        entities = [
+            {"name": "transport-belt", "type": "transport-belt", "x": 0, "y": 0},
+            {"name": "tree-01", "type": "tree", "x": -2, "y": 4},
+        ]
+        data = {
+            "ok": True,
+            "area": {"x": 1, "y": 2, "radius": 16},
+            "counts": {"total": 12, "matched": 2, "included": 2},
+            "entities": entities,
+            "truncated": True,
+            "player_only": False,
+        }
+        with patch.object(client, "observe_area",
+                          return_value={"ok": True, "data": data}) as observe, \
+                patch.object(client, "mine",
+                             side_effect=AssertionError("dry run must not mine")) as mine:
+            result = client.deconstruct_area(
+                1, 2, radius=16, limit=5, types=["tree"], filters=["tree"],
+                player_only=False, max_per_job=25, dry_run=True)
+        observe.assert_called_once_with(
+            1, 2, 16, limit=5, types=["tree"], filters=["tree"], player_only=False)
+        mine.assert_not_called()
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["dry_run"])
+        self.assertEqual(result["scanned"], 12)
+        self.assertEqual(result["entities"], entities)
+        self.assertEqual(result["counts"], {
+            "total": 12,
+            "matched": 2,
+            "included": 2,
+            "planned": 2,
+            "by_type": {"transport-belt": 1, "tree": 1},
+        })
+        self.assertTrue(result["truncated"])
+        self.assertEqual(result["matched"], 2)
+        self.assertEqual(result["targets"], [
+            {"x": 0, "y": 0, "kind": "entity", "name": "transport-belt"},
+            {"x": -2, "y": 4, "kind": "entity", "name": "tree-01"},
+        ])
+        self.assertEqual(result["chunks"], 0)
+        self.assertEqual(result["max_per_job"], 25)
+        self.assertEqual(result["results"], [])
+        self.assertEqual(result["job_ids"], [])
+
+    def test_execute_chunks_50_and_aggregates_results(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        calls = []
+
+        def fake_mine(targets):
+            calls.append([dict(target) for target in targets])
+            return {"job_id": f"job-{len(calls)}", "status": "completed",
+                    "results": [{"ok": True} for _ in targets]}
+
+        with patch.object(client, "observe_area",
+                          return_value=area_observation(120)), \
+                patch.object(client, "mine", side_effect=fake_mine):
+            result = client.deconstruct_area(0, 0, 64)
+        self.assertEqual([len(chunk) for chunk in calls], [50, 50, 20])
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["dry_run"])
+        self.assertEqual(result["matched"], 120)
+        self.assertEqual(result["chunks"], 3)
+        self.assertEqual(result["max_per_job"], 50)
+        self.assertEqual(len(result["results"]), 120)
+        self.assertEqual(result["job_ids"], ["job-1", "job-2", "job-3"])
+        self.assertNotIn("failed_chunk", result)
+
+        calls.clear()
+        with patch.object(client, "observe_area",
+                          return_value=area_observation(60)), \
+                patch.object(client, "mine", side_effect=fake_mine):
+            custom = client.deconstruct_area(max_per_job=7)
+        self.assertEqual([len(chunk) for chunk in calls], [7] * 8 + [4])
+        self.assertEqual(custom["max_per_job"], 7)
+
+        calls.clear()
+        with patch.object(client, "observe_area",
+                          return_value=area_observation(60)), \
+                patch.object(client, "mine", side_effect=fake_mine):
+            capped = client.deconstruct_area(max_per_job=500)
+        self.assertEqual([len(chunk) for chunk in calls], [50, 10])
+        self.assertEqual(capped["max_per_job"], 50)
+
+    def test_per_entity_failures_aggregate_without_aborting(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        calls = []
+
+        def fake_mine(targets):
+            calls.append(len(targets))
+            results = [{"ok": True} for _ in targets]
+            if len(calls) == 2:
+                results[0] = {"ok": False, "error": "out_of_reach"}
+            return {"job_id": f"job-{len(calls)}", "status": "completed",
+                    "results": results}
+
+        with patch.object(client, "observe_area",
+                          return_value=area_observation(120)), \
+                patch.object(client, "mine", side_effect=fake_mine):
+            result = client.deconstruct_area()
+        self.assertEqual(calls, [50, 50, 20])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["chunks"], 3)
+        self.assertNotIn("failed_chunk", result)
+        self.assertEqual(len(result["results"]), 120)
+        self.assertEqual(result["results"][50]["error"], "out_of_reach")
+
+    def test_fatal_chunk_stops_remaining_chunks(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "observe_area",
+                          return_value=area_observation(120)), \
+                patch.object(client, "mine", side_effect=[
+                    {"job_id": "job-1", "status": "completed",
+                     "results": [{"ok": True}] * 50},
+                    RuntimeError("queue unavailable"),
+                ]):
+            result = client.deconstruct_area()
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["failed_chunk"], 1)
+        self.assertIn("queue unavailable", result["error"])
+        self.assertEqual(len(result["results"]), 50)
+        self.assertEqual(result["job_ids"], ["job-1"])
+
+        with patch.object(client, "observe_area",
+                          return_value=area_observation(120)), \
+                patch.object(client, "mine", side_effect=[
+                    {"job_id": "job-1", "status": "completed",
+                     "results": [{"ok": True}] * 50},
+                    {"status": "failed", "error": "RCON not connected"},
+                ]):
+            failed = client.deconstruct_area()
+        self.assertEqual(failed["failed_chunk"], 1)
+        self.assertIn("RCON not connected", failed["error"])
+
+    def test_empty_area_no_op_and_error_paths(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        empty = {"ok": True, "data": {
+            "ok": True, "entities": [], "counts": {"total": 0}, "truncated": False,
+        }}
+        with patch.object(client, "observe_area", return_value=empty), \
+                patch.object(client, "mine") as mine:
+            result = client.deconstruct_area()
+        mine.assert_not_called()
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["chunks"], 0)
+        self.assertEqual(result["results"], [])
+        self.assertEqual(result["job_ids"], [])
+        self.assertEqual(result["counts"]["planned"], 0)
+
+        with patch.object(client, "observe_area", return_value={
+            "ok": True, "data": {"ok": False, "error": "no_character"},
+        }):
+            with self.assertRaisesRegex(RuntimeError, "no_character"):
+                client.deconstruct_area()
+        with patch.object(client, "observe_area",
+                          side_effect=RuntimeError("RCON not connected")):
+            with self.assertRaisesRegex(RuntimeError, "RCON"):
+                client.deconstruct_area()
+        with patch.object(client, "observe_area") as observe:
+            with self.assertRaisesRegex(ValueError, "at least 1"):
+                client.deconstruct_area(max_per_job=0)
+        observe.assert_not_called()
+
+        malformed = {"ok": True, "data": {
+            "ok": True,
+            "entities": ["bad", {"name": "no-coords"},
+                         {"name": "tree-01", "type": "tree", "x": 1, "y": 2}],
+            "counts": {"total": 3},
+        }}
+        with patch.object(client, "observe_area", return_value=malformed), \
+                patch.object(client, "mine", return_value={
+                    "status": "completed", "results": [{"ok": True}]}) as mine:
+            result = client.deconstruct_area()
+        self.assertEqual(result["targets"],
+                         [{"x": 1, "y": 2, "kind": "entity", "name": "tree-01"}])
+        self.assertEqual(result["counts"]["planned"], 1)
+
+    def test_resource_entities_use_resource_mining_kind(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        data = {"ok": True, "data": {
+            "ok": True,
+            "entities": [
+                {"name": "iron-ore", "type": "resource", "x": 5, "y": 6},
+                {"name": "stone-furnace", "type": "furnace", "x": 7, "y": 8},
+            ],
+            "counts": {"total": 2, "matched": 2, "included": 2},
+        }}
+        with patch.object(client, "observe_area", return_value=data), \
+                patch.object(client, "mine", return_value={
+                    "status": "completed", "results": [{"ok": True}, {"ok": True}],
+                }):
+            result = client.deconstruct_area(types=["resource"], player_only=False)
+        self.assertEqual(result["targets"], [
+            {"x": 5, "y": 6, "kind": "resource", "name": "iron-ore"},
+            {"x": 7, "y": 8, "kind": "entity", "name": "stone-furnace"},
+        ])
+
+
 class ConstructionCliTests(unittest.TestCase):
     def test_new_observe_commands_forward_to_http(self):
         with patch("factorio.http_request",
@@ -1479,10 +1700,56 @@ class ConstructionCliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("--max-distance", stderr.getvalue())
 
+    def test_deconstruct_area_cli_forwards_and_defaults(self):
+        with patch("factorio.FactorioClient.deconstruct_area",
+                   return_value={"ok": True, "dry_run": True}) as deconstruct, \
+                redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run([
+                "deconstruct-area", "--center-x", "5", "--center-y", "6",
+                "--radius", "12", "--limit", "10", "--types", "tree",
+                "--filters", "tree", "--include-all", "--max-per-job", "25",
+                "--dry-run",
+            ])
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(stdout.getvalue())["ok"])
+        deconstruct.assert_called_once_with(
+            5, 6, 12, limit=10, types=["tree"], filters=["tree"],
+            player_only=False, max_per_job=25, dry_run=True,
+        )
+
+        with patch("factorio.FactorioClient.deconstruct_area",
+                   return_value={"ok": True}) as deconstruct, \
+                redirect_stdout(io.StringIO()):
+            factorio.run(["deconstruct-area"])
+        deconstruct.assert_called_once_with(
+            None, None, 64, limit=None, types=None, filters=None,
+            player_only=True, max_per_job=50, dry_run=False,
+        )
+
+        with patch("factorio.FactorioClient.deconstruct_area",
+                   side_effect=RuntimeError("RCON not connected")), \
+                redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run(["deconstruct-area"])
+        self.assertEqual(code, 1)
+        payload = json.loads(stdout.getvalue())
+        self.assertFalse(payload["ok"])
+        self.assertIn("RCON not connected", payload["error"])
+        self.assertEqual(payload["cmd"], "deconstruct-area")
+
+        self.assertIn("deconstruct-area", factorio.COMMAND_USAGE)
+        self.assertIn("deconstruct-area", factorio.GLOBAL_USAGE)
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            code = factorio.run(["deconstruct-area", "--help"])
+        self.assertEqual(code, 0)
+        self.assertIn("--include-all", stderr.getvalue())
+        self.assertIn("--dry-run", stderr.getvalue())
+
     def test_help_lists_all_new_commands(self):
         commands = [
             "observe-production", "observe-fluids", "observe-combat", "observe-area",
             "observe-snapshot", "observe-copy-settings", "act-copy-settings",
+            "deconstruct-area",
             "build-pipe-line", "build-power-network", "build-mining-outpost",
             "build-defense-line", "build-inserter-pairs",
             "build-underground-belt", "build-underground-pipe",
