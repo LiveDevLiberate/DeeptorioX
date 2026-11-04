@@ -56,11 +56,15 @@ check("package.json scripts, engines and zero runtime dependencies", () => {
     "test:node",
     "test:python",
     "test:coverage",
+    "coverage",
+    "lint",
     "verify",
     "check:repo",
     "format",
     "format:check",
     "package",
+    "release",
+    "hooks:install",
   ];
   const missing = required.filter((name) => !pkg.scripts?.[name]);
   if (missing.length > 0) throw new Error(`missing scripts: ${missing.join(", ")}`);
@@ -98,8 +102,16 @@ check("required engineering files exist", () => {
     ".prettierrc.json",
     ".prettierignore",
     ".gitattributes",
+    "eslint.config.mjs",
+    ".githooks/pre-commit",
     ".github/workflows/ci.yml",
+    ".github/workflows/live-selftest.yml",
     "package-lock.json",
+    "scripts/check-repo.mjs",
+    "scripts/package.mjs",
+    "scripts/coverage-gate.mjs",
+    "scripts/release.mjs",
+    "scripts/install-hooks.mjs",
   ];
   const missing = required.filter((file) => !fs.existsSync(path.join(ROOT, file)));
   if (missing.length > 0) throw new Error(`missing: ${missing.join(", ")}`);

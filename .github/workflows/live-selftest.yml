@@ -1,0 +1,62 @@
+name: Live selftest
+
+# Manual, self-hosted validation against a real Factorio install: hosts a save,
+# unpauses the game and runs the read-only API selftest.
+#
+# Runner requirements (labels: self-hosted, windows, factorio):
+#   * Steam running and signed in with Factorio installed (or FACTORIO_BIN set)
+#   * Node.js 24 available to actions/setup-node
+#   * a baseline save preseeded under .autorio/saves (default clear-test.zip)
+# The job is opt-in: dispatch it manually, or enable the schedule below and set
+# the repository variable AUTORIO_LIVE_SELFTEST=true.
+on:
+  workflow_dispatch:
+    inputs:
+      save:
+        description: Save file name under .autorio/saves
+        required: false
+        default: clear-test.zip
+  # Uncomment for a nightly run; the job-level `if` still requires
+  # AUTORIO_LIVE_SELFTEST=true so an unavailable runner is not woken up.
+  # schedule:
+  #   - cron: "0 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-selftest
+  cancel-in-progress: false
+
+jobs:
+  live-selftest:
+    name: live selftest
+    runs-on: [self-hosted, windows, factorio]
+    if: github.event_name == 'workflow_dispatch' || vars.AUTORIO_LIVE_SELFTEST == 'true'
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Host a save, unpause and run the live selftest
+        shell: powershell
+        run: ./scripts/ci-live-selftest.ps1 -Save "${{ github.event.inputs.save || 'clear-test.zip' }}"
+
+      - name: Upload manager logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-selftest-manager-logs
+          path: .autorio/ci-manager-*.log
+          if-no-files-found: ignore
+          retention-days: 7

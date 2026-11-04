@@ -1,0 +1,47 @@
+#!/bin/sh
+# Fast pre-commit gate for autorio.
+#
+# Runs the checks that catch broken commits before they exist:
+#   1. npm run check:repo    - repository hygiene (strict TS, LF, no secrets)
+#   2. npm run format:check  - Prettier formatting
+#   3. npm run typecheck     - tsc --noEmit
+#
+# The full build/test suite stays in `npm run verify` and CI; this hook only
+# runs the cheap checks so committing stays fast.
+#
+# Install with `npm run hooks:install` (sets `git config core.hooksPath .githooks`).
+# Bypass a single commit (e.g. WIP or an emergency fix) with:
+#   AUTORIO_SKIP_HOOKS=1 git commit ...
+set -u
+
+if [ "${AUTORIO_SKIP_HOOKS:-}" = "1" ]; then
+  echo "pre-commit: skipped (AUTORIO_SKIP_HOOKS=1)"
+  exit 0
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "pre-commit: npm not found - skipping fast checks (install Node.js 20+)" >&2
+  exit 0
+fi
+
+# Git runs hooks from the repository root; make that explicit for npm.
+cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" || exit 1
+
+run_check() {
+  name=$1
+  shift
+  echo "pre-commit: running $name"
+  if ! "$@"; then
+    echo "" >&2
+    echo "pre-commit: $name failed - fix the errors above or bypass with:" >&2
+    echo "  AUTORIO_SKIP_HOOKS=1 git commit ..." >&2
+    exit 1
+  fi
+}
+
+run_check "repository hygiene (npm run check:repo)" npm run --silent check:repo
+run_check "formatting (npm run format:check)" npm run --silent format:check
+run_check "typecheck (npm run typecheck)" npm run --silent typecheck
+
+echo "pre-commit: all fast checks passed"
+exit 0

@@ -41,8 +41,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Lint (type-aware)
+        run: npm run lint
+
       - name: Node tests
         run: npm run test:node
+
+      - name: Coverage gate
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/coverage-gate.mjs
 
       - name: Python client tests
         run: npm run test:python
