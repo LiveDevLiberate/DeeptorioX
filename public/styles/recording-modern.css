@@ -38,8 +38,6 @@ body.recording .status-badge {
   min-height: 26px;
   display: inline-flex;
   align-items: center;
-  padding: 0 11px;
-  font-size: 10.5px;
 }
 
 body.recording .status-plan,
@@ -58,17 +56,12 @@ body.recording .status-telemetry {
 }
 body.recording .section-kicker {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0 0 7px;
-  color: var(--ui-kicker);
+
   font:
     600 9px/1.2 ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
 }
 
 body.recording .metrics-table .metric,
@@ -88,16 +81,6 @@ body.recording .status-telemetry .radar-label {
 
 /* Segmented filter bar. */
 
-body.recording #transcriptTools .chip:hover {
-  border-color: transparent;
-  background: rgba(255, 255, 255, 0.045);
-}
-body.recording #transcriptTools .chip.active {
-  border-color: rgba(111, 216, 178, 0.25);
-  background: var(--rec-accent-soft);
-  color: var(--rec-accent-strong);
-}
-
 body.recording #transcriptTools .search-field #transcriptSearch {
   min-height: 24px;
 }
@@ -114,16 +97,12 @@ body.recording .connection-dot {
   flex: 0 0 auto;
   border-radius: 50%;
   background: #ff9d92;
-  box-shadow: 0 0 0 3px rgba(255, 157, 146, 0.12);
 }
 body.recording .connection-notice button {
   min-height: 28px;
   margin-left: auto;
   padding: 0 10px;
-  border: 1px solid rgba(255, 157, 146, 0.4);
-  border-radius: 7px;
-  background: rgba(255, 157, 146, 0.1);
-  color: #ffd4ce;
+
   font: inherit;
   cursor: pointer;
 }
@@ -519,6 +498,11 @@ body.recording #transcriptTools .chip.active {
   border-bottom-color: var(--safety);
   background: transparent;
   color: var(--ink);
+}
+html:not([data-theme="light"]) body.recording #transcriptTools .chip.active {
+  border-top-color: rgba(111, 216, 178, 0.25);
+  border-left-color: rgba(111, 216, 178, 0.25);
+  border-right-color: rgba(111, 216, 178, 0.25);
 }
 body.recording #transcriptTools .chip.active .icon {
   color: var(--safety);

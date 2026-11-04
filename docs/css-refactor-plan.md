@@ -155,3 +155,13 @@ Use one authoritative rule per property; retire earlier passes. Do not add new
   the error notice; the retained subset is the minimum effective part.
 - Stable before/after screenshots remain **pixel-identical**. Stylesheet modules:
   **4,623 → 4,586 lines**.
+
+### Phase 3 progress (round 9)
+
+- Ran a declaration-level redundancy pass: for single-selector rules with the
+  same at-rule context, removed declarations that a later identical selector
+  re-declares (importance-aware). Removed **86 declarations / 5 whole rules**;
+  preserved computed chip border roles where the old declaration was still the
+  effective one.
+- Stylesheet modules: **4,586 → 4,523 lines**. All six stable screenshots remain
+  pixel-identical.

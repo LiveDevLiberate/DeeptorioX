@@ -27,7 +27,9 @@ this file.
   are now 4,623 lines and screenshots remain pixel-identical. Round 8 removed
   the obsolete modern-v4 light/panel/microcopy tail (28 lines) while retaining
   its effective header layout and light chip/plan rules; modules now total
-  4,586 lines with pixel-identical stable screenshots.
+  4,586 lines with pixel-identical stable screenshots. A declaration-level
+  redundancy pass then removed 86 shadowed declarations and 5 empty rules,
+  bringing modules to 4,523 lines with identical screenshots.
 
 ### Added
 

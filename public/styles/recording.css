@@ -7,7 +7,7 @@ body.recording {
   background:
     radial-gradient(1100px 520px at 12% -12%, rgba(38, 96, 82, 0.32), transparent 65%),
     radial-gradient(900px 480px at 92% 0%, rgba(44, 62, 120, 0.18), transparent 60%), #0a0f12;
-  color: #dbe8e4;
+
   font:
     13px/1.5 -apple-system,
     BlinkMacSystemFont,
@@ -23,9 +23,7 @@ body.recording ::selection {
 body.recording #agentStatus {
   padding: 0;
   background: rgba(9, 14, 17, 0.82);
-  border-bottom: 1px solid #1b292e;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(14px) saturate(1.15);
+
   font-family: inherit;
 }
 body.recording .status-inner {
@@ -34,20 +32,15 @@ body.recording .status-inner {
   padding: 12px 22px 10px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
 }
 
 body.recording .status-badge {
   padding: 3px 11px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: #17242a;
-  color: #9db3ad;
+
   font:
     600 10px/1.6 -apple-system,
     "Segoe UI",
     sans-serif;
-  letter-spacing: 0.07em;
 }
 body.recording .status-badge::before {
   content: "";
@@ -66,7 +59,7 @@ body.recording .status-activity {
   align-items: center;
   gap: 7px;
   color: #e4f0ec;
-  font-size: 12.5px;
+
   font-weight: 500;
 }
 body.recording .status-activity::before {
@@ -75,7 +68,7 @@ body.recording .status-activity::before {
   height: 7px;
   border-radius: 50%;
   background: #e7c76f;
-  box-shadow: 0 0 0 3px rgba(231, 199, 111, 0.14);
+
   animation: rec-pulse 2.4s ease-in-out infinite;
 }
 @keyframes rec-pulse {
@@ -105,8 +98,7 @@ body.recording .metric {
   padding: 2px 9px;
   border: 1px solid #223239;
   border-radius: 999px;
-  background: #111b20;
-  color: #cfe3dd;
+
   font:
     10.5px/1.7 ui-monospace,
     SFMono-Regular,
@@ -120,7 +112,6 @@ body.recording .metric-spark {
   padding: 2px;
   border: 1px solid #223239;
   border-radius: 4px;
-  background: #0c1417;
 }
 body.recording .metric-bar {
   background: linear-gradient(180deg, #8fe6b7, #3f8d74);
@@ -153,15 +144,14 @@ body.recording .score.active .score-label {
   padding-right: max(22px, calc((100vw - 1000px) / 2));
   gap: 6px;
   background: rgba(10, 15, 18, 0.86);
-  border-bottom: 1px solid #1b292e;
+
   backdrop-filter: blur(12px);
 }
 #transcriptTools .chip {
   padding: 3px 12px;
   border-radius: 999px;
   border: 1px solid #24343a;
-  background: #101a1f;
-  color: #9db3ad;
+
   font:
     500 11px/1.7 -apple-system,
     "Segoe UI",
@@ -178,8 +168,7 @@ body.recording .score.active .score-label {
   padding: 3px 11px;
   border-radius: 999px;
   border: 1px solid #24343a;
-  background: #0c1518;
-  color: #dbe8e4;
+
   font:
     11px/1.7 -apple-system,
     "Segoe UI",
@@ -190,7 +179,6 @@ body.recording .score.active .score-label {
 #transcriptSearch:focus {
   outline: none;
   border-color: #3f7c6b;
-  box-shadow: 0 0 0 3px rgba(63, 124, 107, 0.18);
 }
 
 /* ---- Transcript ---------------------------------------------------------- */
@@ -204,7 +192,7 @@ body.recording .score.active .score-label {
     SFMono-Regular,
     Menlo,
     monospace;
-  color: #dbe8e4;
+
   scrollbar-color: #24363c transparent;
 }
 #codexOutput > * {
@@ -242,10 +230,8 @@ body.recording #codexOutput {
   padding: 0;
   overflow: hidden;
   border: 1px solid #1d2d32;
-  border-left: 3px solid #3c6a5f;
+
   border-radius: 10px;
-  background: rgba(17, 26, 30, 0.62);
-  color: #a9bdb7;
 }
 
 #codexOutput .reasoning-summary {
@@ -276,7 +262,7 @@ body.recording #codexOutput {
 }
 #codexOutput .reasoning-body {
   margin: 0;
-  padding: 2px 16px 12px 26px;
+
   color: #a9bdb7;
   font:
     13px/1.68 -apple-system,
@@ -307,8 +293,6 @@ body.recording #codexOutput {
   overflow: hidden;
   border: 1px solid #1d2d32;
   border-radius: 10px;
-  background: rgba(13, 21, 24, 0.7);
-  color: #b9cdc7;
 }
 
 #codexOutput .commands-summary {
@@ -362,8 +346,7 @@ body.recording #codexOutput {
   padding: 2px 8px;
   border: 1px solid transparent;
   border-radius: 6px;
-  background: #1b2b31;
-  color: #9fc7bd;
+
   font:
     600 9.5px/1.6 ui-monospace,
     SFMono-Regular,
@@ -404,13 +387,10 @@ body.recording #codexOutput {
   color: #9ed3f2;
   font-size: 10px;
 }
-#codexOutput .action-raw {
-  flex-basis: 100%;
-  margin: 2px 0 0;
-}
+
 #codexOutput .action-raw summary {
   color: #5f7a74;
-  font-size: 10px;
+
   list-style: none;
 }
 
@@ -434,7 +414,6 @@ body.recording #codexOutput {
   padding: 9px 14px;
   border: 1px solid #1d2d32;
   border-radius: 10px;
-  background: rgba(17, 26, 30, 0.55);
 }
 #codexOutput .tool-details summary {
   color: #b9cdc7;
@@ -457,10 +436,9 @@ body.recording #codexOutput {
 #codexOutput .message {
   padding: 10px 15px;
   border: 1px solid #1e2d33;
-  border-left: 3px solid #3b6ea8;
+
   border-radius: 10px;
-  background: rgba(18, 28, 34, 0.6);
-  color: #d3e4de;
+
   font:
     13px/1.68 -apple-system,
     "Segoe UI",
@@ -506,8 +484,7 @@ body.recording #codexOutput {
   padding: 2px 10px;
   border: 1px solid #1d2d32;
   border-radius: 999px;
-  background: #0e171a;
-  color: #5f7a74;
+
   font-size: 9.5px;
 }
 #codexOutput::-webkit-scrollbar {
@@ -527,13 +504,12 @@ body.recording #codexOutput {
   padding: 7px 14px;
   border: 1px solid rgba(126, 226, 176, 0.35);
   border-radius: 999px;
-  background: rgba(17, 31, 27, 0.92);
-  color: #b9f2da;
+
   font:
     600 11px/1.4 -apple-system,
     "Segoe UI",
     sans-serif;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+
   backdrop-filter: blur(8px);
 }
 
@@ -618,7 +594,7 @@ body.recording .status-activity:empty {
   padding: 1px 6px;
   border: 1px solid #1f3036;
   border-radius: 999px;
-  color: #6f8a84;
+
   font-size: 9px;
 }
 #codexOutput .action-duration {
@@ -719,21 +695,17 @@ body.recording .status-activity:empty {
 }
 .icon {
   width: 14px;
-  height: 14px;
-  flex: none;
-  margin-right: 6px;
-  vertical-align: -2px;
+
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.9;
 }
 
 #codexOutput .action-badge .icon {
   width: 11px;
-  height: 11px;
+
   margin-right: 4px;
   vertical-align: -1px;
   opacity: 0.85;
@@ -756,14 +728,14 @@ body.recording .metric .icon {
 }
 #codexOutput .event-marker .icon {
   width: 12px;
-  height: 12px;
+
   margin-right: 6px;
   vertical-align: -1px;
   color: #9ed3f2;
 }
 .jump-latest .icon {
   width: 12px;
-  height: 12px;
+
   margin-right: 5px;
   vertical-align: -1px;
 }
@@ -778,9 +750,6 @@ body.recording .metric .icon {
 #codexOutput .reasoning-segment {
   padding: 9px 12px;
   border: 1px solid #1d3036;
-  border-left: 2px solid #35564d;
-  border-radius: 8px;
-  background: rgba(11, 18, 21, 0.55);
 }
 
 #codexOutput .reasoning-segment-text {
@@ -957,7 +926,7 @@ body.recording {
   --border-soft: #1a2229;
   --text: #dbe3ea;
   --body: #b7c3ce;
-  --muted: #8b98a5;
+
   --dim: #66737f;
   --accent: #7aa2f7;
   --accent-strong: #a8c4ff;
@@ -968,13 +937,6 @@ body.recording {
   --violet: #c0a8f0;
   min-height: 100vh;
   background: linear-gradient(180deg, #0c1014 0%, #0b0e11 42%, #090c0f 100%);
-  color: var(--body);
-}
-
-body.recording .status-badge {
-  border-color: #26313a;
-  background: #151b21;
-  color: var(--muted);
 }
 
 body.recording .status-activity::before {
@@ -1818,7 +1780,6 @@ body.recording .transcript-pane > #transcriptTools {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
 }
 #transcriptTools .filter-group {
   display: flex;
@@ -2314,7 +2275,7 @@ html[data-theme="light"] body.recording {
   --border-soft: #e5ede9;
   --text: #1d2b26;
   --body: #3c4d46;
-  --muted: #62766e;
+
   --dim: #85978f;
   --accent: #2f6f9e;
   --accent-strong: #1d547c;
@@ -2327,7 +2288,6 @@ html[data-theme="light"] body.recording {
   background:
     radial-gradient(1100px 500px at 8% -12%, rgba(153, 196, 178, 0.2), transparent 60%),
     radial-gradient(900px 440px at 94% -8%, rgba(166, 190, 214, 0.16), transparent 58%), #f3f7f5;
-  color: var(--body);
 }
 html[data-theme="light"] body.recording ::selection {
   background: rgba(47, 127, 95, 0.18);
@@ -2349,17 +2309,14 @@ html[data-theme="light"] body.recording #agentStatus::before {
 html[data-theme="light"] body.recording .status-badge.running {
   border-color: #b7dfcc;
   background: #e2f4eb;
-  color: #0b6e4f;
 }
 html[data-theme="light"] body.recording .status-badge.paused {
   border-color: #ead7b0;
   background: #fbf3e2;
-  color: #8a6215;
 }
 html[data-theme="light"] body.recording .status-badge.completed {
   border-color: #c1d8eb;
   background: #e8f1fb;
-  color: #1f5f9c;
 }
 html[data-theme="light"] body.recording .status-badge.failed,
 html[data-theme="light"] body.recording .status-badge.timed_out,
@@ -2477,11 +2434,6 @@ html[data-theme="light"] body.recording .score-radar .radar-label.active {
 
 /* Toolbar */
 
-html[data-theme="light"] body.recording #transcriptTools .chip {
-  border-color: #d8e3de;
-  background: #f8fbf9;
-  color: var(--muted);
-}
 html[data-theme="light"] body.recording #transcriptTools .chip:hover {
   border-color: #b9ccc4;
   background: #f1f7f4;
