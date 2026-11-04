@@ -111,25 +111,6 @@ body.recording .metric-bar {
   background: linear-gradient(180deg, #8fe6b7, #3f8d74);
   border-radius: 1px;
 }
-body.recording .score-label {
-  width: 34px;
-  font-size: 10px;
-  color: #849a95;
-}
-body.recording .score-track {
-  height: 4px;
-  background: #1a272c;
-}
-
-body.recording .score-value {
-  width: 20px;
-  font-size: 10px;
-  color: #8ba09b;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-body.recording .score.active .score-label {
-  color: #dcece7;
-}
 
 /* ---- Filter toolbar ------------------------------------------------------ */
 #transcriptTools {
@@ -930,20 +911,6 @@ body.recording .metric-spark {
 body.recording .metric-bar {
   background: var(--accent);
 }
-body.recording .score-track {
-  background: #172026;
-}
-body.recording .score-fill {
-  background: #4f74b8;
-}
-body.recording .score.active .score-fill {
-  background: var(--accent);
-}
-body.recording .score-label,
-body.recording .score-value {
-  color: var(--muted);
-}
-
 /* Toolbar */
 #transcriptTools {
   background: rgba(10, 13, 16, 0.94);
@@ -2353,19 +2320,6 @@ html[data-theme="light"] body.recording .metric-progress-fill {
 }
 html[data-theme="light"] body.recording .metric-production .metric-spark .metric-bar {
   background: #5f9c82;
-}
-html[data-theme="light"] body.recording .score-track {
-  background: #e4ece8;
-}
-html[data-theme="light"] body.recording .score-fill {
-  background: #4f74b8;
-}
-html[data-theme="light"] body.recording .score.active .score-fill {
-  background: #2f6f9e;
-}
-html[data-theme="light"] body.recording .score-label,
-html[data-theme="light"] body.recording .score-value {
-  color: var(--muted);
 }
 html[data-theme="light"] body.recording .score-radar .radar-ring {
   stroke: #cbd8d3;

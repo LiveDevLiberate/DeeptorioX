@@ -32,7 +32,9 @@ this file.
   bringing modules to 4,523 lines with identical screenshots. Extending the same
   importance-aware pass to grouped selectors removed another 21 declarations,
   and internal blank lines left by the edits were compacted, for a final
-  4,469 lines with identical stable screenshots.
+  4,469 lines with identical stable screenshots. Removed the obsolete score-bar
+  UI rules (the page uses the radar now) and orphaned grouped selectors, bringing
+  modules to 4,377 lines with pixel-identical screenshots.
 
 ### Added
 

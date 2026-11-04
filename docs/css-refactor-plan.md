@@ -177,3 +177,12 @@ Use one authoritative rule per property; retire earlier passes. Do not add new
 - An experimental whole-rule merge of repeated selectors was rejected: moving
   declarations changed cascade-sensitive chip/filter/layout results. Future
   consolidation must remain rule-local.
+
+### Phase 3 progress (round 11)
+
+- Removed the obsolete score-bar UI entirely (`.score-label`, `.score-track`,
+  `.score-fill`, `.score-value`, `.score.active` and stale-plan score rules) from
+  base/recording/light modules — the current UI renders a radar, not bars.
+- Also removed the orphaned grouped selectors left by earlier membership edits.
+- Modules: **4,469 → 4,377 lines**; all six stable screenshots remain
+  pixel-identical.

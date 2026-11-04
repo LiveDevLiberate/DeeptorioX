@@ -320,52 +320,9 @@ body.recording main {
   gap: 2px 8px;
   min-width: 0;
 }
-.score {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-.score-label {
-  width: 28px;
-  color: #8fa09d;
-  font-size: 9px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.score-track {
-  flex: 1;
-  height: 3px;
-  background: #233038;
-  border-radius: 2px;
-  overflow: hidden;
-}
-.score-fill {
-  height: 100%;
-  background: #4b8f7a;
-}
-.score.active .score-label {
-  color: #e7eeec;
-}
-.score.active .score-fill {
-  background: #8fe0b3;
-}
-.score-value {
-  width: 15px;
-  text-align: right;
-  color: #8fa09d;
-  font-size: 9px;
-}
 
 #agentStatus.stale-plan .status-current {
   color: #e7d38f;
-}
-#agentStatus.stale-plan .score-fill {
-  background: #6f6a4a;
-}
-#agentStatus.stale-plan .score.active .score-fill {
-  background: #e7d38f;
 }
 @media (min-width: 421px) {
   .status-scores {
@@ -397,9 +354,6 @@ body.recording main {
   }
   .status-scores {
     gap: 1px 6px;
-  }
-  .score-label {
-    width: 24px;
   }
 }
 .run-info {
