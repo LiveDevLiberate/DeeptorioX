@@ -9,6 +9,22 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Factory-log redesign (Anthropic frontend-design skill).** Replaced the
+  dashboard card kit with an industrial operator's surface: an Autorio masthead,
+  a full-width ruled **work order** with the current plan as the hero, a
+  full-width **readouts** strip, ledger-style transcript rows, ledger tabs, and
+  an amber/steel palette on black graphite (dark) or blueprint paper (light).
+  Type is Bahnschrift display + Segoe UI body with tabular numerals; mono is
+  reserved for commands. The design keeps all information, icons, themes,
+  focus trap, connection alert and 30 px controls.
+
+### Fixed
+
+- The map dialog now returns focus to the map trigger when it was opened from a
+  programmatic/body focus context.
+
 ## [0.26.0] - 2026-11-04
 
 ### Changed
@@ -29,7 +45,6 @@ this file.
 
 - `#connectionNotice` alert with retry and localized messaging.
 
-## [0.25.2] - 2026-11-05
 ## [0.25.2] - 2026-11-04
 
 ### Fixed

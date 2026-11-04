@@ -12,8 +12,10 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(html, /<header class="status-head" aria-label="Run status">/);
   assert.match(html, /<div class="status-tools" role="group" aria-label="Display options">/);
   assert.match(html, /<section id="planPanel" class="status-plan ui-col-1-7" aria-label="Current plan">/);
-  assert.match(html, /id="planKicker"[^>]*>Plan</);
-  assert.match(html, /id="telemetryKicker"[^>]*>Live telemetry</);
+  assert.match(html, /class="run-masthead" aria-hidden="true"/);
+  assert.match(html, /id="runMastheadContext"[^>]*>factory log</);
+  assert.match(html, /id="planKicker"[^>]*>Work order</);
+  assert.match(html, /id="telemetryKicker"[^>]*>Readouts</);
   assert.match(
     html,
     /<section id="telemetryPanel" class="status-telemetry ui-col-8-12" aria-label="Live telemetry">/,
@@ -32,7 +34,9 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(css, /html\[data-theme="light"\] body\.recording/);
   assert.match(css, /html:not\(\[data-theme="light"\]\) body\.recording/);
   assert.match(css, /--rec-bg: #000000/);
-  assert.match(css, /--ui-card:/);
+  assert.match(css, /--font-display:/);
+  assert.match(css, /--safety:/);
+  assert.match(css, /--font-body:/);
   assert.match(css, /body\.recording \.connection-notice/);
   assert.match(css, /body\.recording \.status-tools/);
   assert.match(css, /html\[data-theme="light"\] body\.recording #agentStatus\.stale-plan \.status-current/);
@@ -51,6 +55,7 @@ test("recording page keeps its semantic structure and information surfaces", () 
     "telemetryKicker",
     "connectionNotice",
     "connectionRetry",
+    "runMastheadContext",
     "statusMetrics",
     "statusScores",
     "filterAll",

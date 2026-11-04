@@ -125,7 +125,6 @@ const I18N = {
     trimmed: "earlier entries trimmed",
     noEntries: "No entries for this filter",
     showAll: "Show all",
-    documentTitle: "Agent transcript",
     loading: "loading",
     stale: "stale",
     failed: "failed",
@@ -182,8 +181,13 @@ const I18N = {
     searchLabel: "Filter transcript",
     filtersLabel: "Transcript filters",
     filterGroupLabel: "Filter by category",
-    planKicker: "Plan",
-    telemetryKicker: "Live telemetry",
+    planKicker: "Work order",
+    telemetryKicker: "Readouts",
+    documentTitle: "Autorio factory log",
+    factoryLog: "factory log",
+    elapsedLabel: "elapsed",
+    tokensLabel: "tokens",
+    contextLabel: "context",
     displayOptionsLabel: "Display options",
     connectionLost: "Manager connection lost. The transcript may be stale.",
     connectionRetry: "Retry",
@@ -261,7 +265,6 @@ const I18N = {
     trimmed: "更早记录已裁剪",
     noEntries: "当前过滤下没有内容",
     showAll: "显示全部",
-    documentTitle: "Agent 记录",
     loading: "加载中",
     stale: "已过期",
     failed: "失败",
@@ -318,8 +321,13 @@ const I18N = {
     searchLabel: "过滤记录",
     filtersLabel: "记录过滤",
     filterGroupLabel: "按类别过滤",
-    planKicker: "当前计划",
-    telemetryKicker: "实时遥测",
+    planKicker: "作业指令",
+    telemetryKicker: "运行读数",
+    documentTitle: "Autorio 工厂日志",
+    factoryLog: "工厂日志",
+    elapsedLabel: "已用时",
+    tokensLabel: "令牌",
+    contextLabel: "上下文",
     displayOptionsLabel: "显示选项",
     connectionLost: "与 manager 的连接中断，记录可能已停止更新。",
     connectionRetry: "重试",
@@ -363,6 +371,7 @@ let lastStatusAt = 0,
   mapAutoOpened = false;
 const statusHeader = document.getElementById("agentStatus");
 const statusTools = document.querySelector?.(".status-tools") ?? null;
+const runMastheadContext = document.getElementById("runMastheadContext");
 const planKicker = document.getElementById("planKicker");
 const telemetryKicker = document.getElementById("telemetryKicker");
 const connectionNotice = document.getElementById("connectionNotice");
@@ -380,7 +389,8 @@ const stateTimer = document.getElementById("stateTimer");
 const STATUS_COLLAPSED_KEY = "autorio.statusCollapsed";
 let lastFocusedElement = null;
 function updateSectionLabels(text) {
-  if (planKicker) planKicker.textContent = text.planKicker || "Plan";
+  if (runMastheadContext) runMastheadContext.textContent = text.factoryLog || "factory log";
+  if (planKicker) planKicker.textContent = text.planKicker || "Work order";
   if (telemetryKicker) telemetryKicker.textContent = text.telemetryKicker || "Live telemetry";
   statusTools?.setAttribute("aria-label", text.displayOptionsLabel || "Display options");
   if (connectionNotice && !connectionNotice.hidden) {
@@ -527,7 +537,9 @@ function renderMapInfo() {
 }
 function openMapInfo() {
   if (!mapInfoOverlay) return;
-  lastFocusedElement = document.activeElement;
+  const active = document.activeElement;
+  lastFocusedElement =
+    active && active !== document.body && active !== document.documentElement ? active : mapInfoToggle;
   setModalBackgroundInert(true);
   renderMapInfo();
   mapInfoOverlay.hidden = false;
@@ -594,7 +606,7 @@ document.addEventListener?.("keydown", (event) => {
   }
 });
 updateThemeToggleLabel();
-document.title = "Agent transcript";
+document.title = "Autorio factory log";
 function element(tag, text, className) {
   const node = document.createElement(tag);
   if (text) node.textContent = text;
@@ -786,9 +798,17 @@ function renderStatus(run) {
   const usage = run.usage || {};
   const tokens = usage.total_tokens ?? (usage.input_tokens || 0) + (usage.output_tokens || 0);
   const context = run.context_limit
-    ? ` · ctx ${Math.round((run.context_tokens || 0) / 1000)}k/${Math.round(run.context_limit / 1000)}k`
+    ? `${strings.contextLabel} ${Math.round((run.context_tokens || 0) / 1000)}k/${Math.round(run.context_limit / 1000)}k`
     : "";
-  statusMeta.textContent = `${Math.round(run.elapsed_seconds || 0)}s / ${run.max_seconds || 0}s · ${Number(tokens || 0).toLocaleString()} ${strings.tokens}${context}`;
+  statusMeta.replaceChildren(
+    element(
+      "span",
+      `${strings.elapsedLabel} ${Math.round(run.elapsed_seconds || 0)}s / ${run.max_seconds || 0}s`,
+      "status-readout",
+    ),
+    element("span", `${Number(tokens || 0).toLocaleString()} ${strings.tokensLabel}`, "status-readout"),
+    ...(context ? [element("span", context, "status-readout")] : []),
+  );
   const markdown = run.state_md || "";
   const current = (markdown.match(/^Current:\s*(.+)$/m) || [])[1] || "";
   const done = (markdown.match(/^Done when:\s*(.+)$/m) || [])[1] || "";
@@ -1098,7 +1118,7 @@ function updateTranscriptTools(text) {
     .getElementById("filterGroup")
     ?.setAttribute("aria-label", text.filterGroupLabel || "Filter by category");
   updateSectionLabels(text);
-  document.title = text.documentTitle || "Agent transcript";
+  document.title = text.documentTitle || "Autorio factory log";
   updateStatusToggleLabel();
 }
 function nodeMatchesFilter(node) {
@@ -1475,10 +1495,10 @@ async function poll() {
       void pollTelemetry();
       offset = log.offset;
     }
-    document.title = "Agent transcript";
+    document.title = "Autorio factory log";
   } catch {
     showConnectionNotice();
-    document.title = "Agent transcript";
+    document.title = "Autorio factory log";
   } finally {
     setTimeout(poll, 250);
   }

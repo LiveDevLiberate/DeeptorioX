@@ -114,3 +114,35 @@ states, hierarchy, visual, cleanup). The UI review report is
   both themes (≥5.13:1), restored Done-when at 390 px, added a modal focus trap,
   and added an inline connection-lost banner with Retry.
 - Verified at 1280 and 390 in dark/light; see `.ui-review/2026-11-05-modern/`.
+
+## Factory-log redesign (v0.27.0)
+
+Skill: `anthropics/frontend-design` (from MCP). The design brief: an operator
+watching an autonomous Factorio run, at 1280 and 390, needing state, plan,
+readouts and transcript without leaving the page.
+
+Design direction: an **operator's factory log**, not a SaaS dashboard. Black
+graphite with a faint drafting grid, safety amber, steel blue and semantic
+green/red in dark; blueprint paper with ink and amber in light. Bahnschrift
+display + Segoe UI body, tabular numerals, and mono only for commands. The plan
+is the single bold moment; the rest is quiet.
+
+Implemented: masthead (`Autorio / factory log`), full-width ruled work order,
+full-width readouts strip, ledger transcript rows, underlined ledger tabs,
+squared machine controls, and instrument-style elapsed/tokens/context readouts.
+This supersedes the v0.26 card layout; the review fixes (contrast, 30px targets,
+Done-when at 390, focus trap, connection banner) remain. Evidence:
+`.ui-review/2026-11-05-anthropic/`.
+
+### Design plan
+
+- **Color:** graphite `#000`, ink `#E9E3D6`, muted `#9FA399`, safety amber
+  `#E8A23C`, steel `#8AAEBE`, danger `#FF9D8E`. Light: blueprint paper
+  `#E8EEF0`, ink `#18262C`, muted `#596D74`, amber `#8A4E0B`, steel `#2E6683`.
+- **Type:** Bahnschrift display for the masthead/work order/readouts; Segoe UI
+  body; tabular numerals for readouts; mono only for command text.
+- **Layout:** masthead → ruled full-width work order (hero) → full-width
+  readouts strip → underlined ledger tabs → ruled transcript rows.
+- **Principles:** spend boldness on the plan line; use rules and grid to encode
+  structure, not decoration; keep operational state legible at 390 px; remove
+  the generic card kit rather than restyling it.

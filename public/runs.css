@@ -4742,3 +4742,969 @@ html[data-theme="light"] body.recording {
   --ui-card: #f8fbf9;
   --ui-card-border: #d5e2dc;
 }
+
+/* ============================================================================
+   Autorio factory log — industrial work-order surface
+   Design lead: Anthropic frontend-design skill. Plan is the hero; telemetry is
+   an instrument strip; transcript reads as a ruled ledger. Black graphite with
+   safety amber and steel in dark; blueprint paper with ink and amber in light.
+   No card kit, pill chrome, all-caps labels or mono labels; mono stays on code.
+   ========================================================================= */
+body.recording {
+  --font-display: "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Segoe UI", "Aptos", "Helvetica Neue", Arial, sans-serif;
+  --ink: #e9e3d6;
+  --ink-soft: #c9c3b5;
+  --muted: #9fa399;
+  --rule: #2c302b;
+  --paper: #000;
+  --grid: rgba(255, 255, 255, 0.035);
+  --header-bg: rgba(0, 0, 0, 0.84);
+  --toolbar-bg: rgba(0, 0, 0, 0.86);
+  --surface: rgba(255, 255, 255, 0.025);
+  --safety: #e8a23c;
+  --steel: #8aaebe;
+  --ok: #8fcfac;
+  --danger: #ff9d8e;
+  font-family: var(--font-body);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-attachment: fixed;
+  color: var(--ink-soft);
+}
+html[data-theme="light"] body.recording {
+  --ink: #18262c;
+  --ink-soft: #34474f;
+  --muted: #596d74;
+  --rule: #b9c8cd;
+  --paper: #e8eef0;
+  --grid: rgba(24, 38, 44, 0.055);
+  --header-bg: rgba(232, 238, 240, 0.92);
+  --toolbar-bg: rgba(232, 238, 240, 0.94);
+  --surface: rgba(24, 38, 44, 0.035);
+  --safety: #8a4e0b;
+  --steel: #2e6683;
+  --ok: #1b6f46;
+  --danger: #a33a2e;
+}
+
+/* Page chrome ------------------------------------------------------------- */
+body.recording #agentStatus {
+  background: var(--header-bg);
+  border-top: 3px solid var(--safety);
+  border-bottom: 1px solid var(--rule);
+  box-shadow: none;
+  backdrop-filter: blur(6px);
+}
+body.recording #agentStatus::before {
+  display: none;
+}
+body.recording .status-inner {
+  gap: 10px 16px;
+  padding-top: 10px;
+  padding-bottom: 11px;
+}
+body.recording .run-masthead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-family: var(--font-display);
+}
+body.recording .run-masthead-mark {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+body.recording .run-masthead-context {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+}
+body.recording .run-masthead-context::before {
+  content: "/";
+  margin-right: 10px;
+  color: var(--safety);
+}
+body.recording .status-line {
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+body.recording .status-tools {
+  gap: 4px;
+}
+body.recording .status-tools .status-toggle,
+body.recording .status-tools .status-map-toggle,
+body.recording .status-tools .status-theme-toggle {
+  height: 30px;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+body.recording .status-tools .status-toggle:hover,
+body.recording .status-tools .status-map-toggle:hover,
+body.recording .status-tools .status-theme-toggle:hover {
+  border-color: var(--safety);
+  background: var(--surface);
+  color: var(--ink);
+}
+body.recording .status-tools .status-toggle[aria-expanded="true"],
+body.recording .status-tools .status-map-toggle[aria-expanded="true"] {
+  border-color: var(--safety);
+  color: var(--safety);
+  background: transparent;
+}
+body.recording .status-tools .status-toggle .icon,
+body.recording .status-tools .status-map-toggle .icon,
+body.recording .status-tools .status-theme-toggle .icon {
+  width: 13px;
+  height: 13px;
+  color: var(--steel);
+}
+body.recording .status-badge {
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.recording .status-badge.running {
+  border-color: var(--ok);
+  background: transparent;
+  color: var(--ok);
+}
+body.recording .status-badge.paused {
+  border-color: var(--safety);
+  background: transparent;
+  color: var(--safety);
+}
+body.recording .status-badge.completed {
+  border-color: var(--steel);
+  background: transparent;
+  color: var(--steel);
+}
+body.recording .status-badge.failed,
+body.recording .status-badge.timed_out,
+body.recording .status-badge.interrupted {
+  border-color: var(--danger);
+  background: transparent;
+  color: var(--danger);
+}
+body.recording .status-activity {
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+body.recording .status-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  margin-left: auto;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  text-align: right;
+}
+body.recording .status-readout {
+  padding: 0 9px;
+  border-left: 1px solid var(--rule);
+}
+body.recording .status-readout:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+body.recording .status-readout:last-child {
+  padding-right: 0;
+}
+
+/* Work order + instrument strip ------------------------------------------ */
+body.recording .status-plan,
+body.recording .status-telemetry {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+body.recording .status-plan {
+  position: relative;
+  padding: 12px 0 13px 18px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+body.recording .status-plan::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 13px;
+  left: 0;
+  width: 3px;
+  background: var(--safety);
+}
+body.recording #agentStatus.stale-plan .status-plan {
+  border-color: var(--rule);
+}
+body.recording #agentStatus.stale-plan .status-plan::before {
+  background: var(--danger);
+}
+body.recording .status-telemetry {
+  padding: 9px 0 11px;
+  border-bottom: 1px solid var(--rule);
+}
+body.recording .section-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.recording .section-kicker::before {
+  content: "";
+  width: 22px;
+  height: 2px;
+  flex: 0 0 auto;
+  background: var(--safety);
+  opacity: 1;
+}
+body.recording .status-current {
+  gap: 8px;
+  max-width: 90ch;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: clamp(18px, 1.7vw, 23px);
+  font-weight: 600;
+  line-height: 1.16;
+  letter-spacing: -0.01em;
+}
+body.recording .status-current .icon {
+  width: 17px;
+  height: 17px;
+  color: var(--safety);
+}
+body.recording .status-done {
+  display: block;
+  max-width: 92ch;
+  margin-top: 5px;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+body.recording .status-telemetry .status-data {
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+body.recording .status-scores {
+  margin-left: auto;
+}
+body.recording .metrics-table {
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+body.recording .metrics-table .metric,
+body.recording .metrics-table .metric-label,
+body.recording .metrics-table .metric-value,
+body.recording .metrics-table .metric-trend {
+  color: inherit;
+  font-family: inherit;
+}
+body.recording .metrics-table .metric-label {
+  color: var(--muted);
+  font-weight: 500;
+}
+body.recording .metrics-table tr + tr > * {
+  border-top: 1px solid var(--rule);
+}
+body.recording .metric-automation .metric-value {
+  color: var(--ok);
+}
+body.recording .metric-penalty .metric-value {
+  color: var(--danger);
+}
+body.recording .score-radar .radar-ring {
+  stroke: var(--rule);
+}
+body.recording .score-radar .radar-axis {
+  stroke: var(--rule);
+  opacity: 0.7;
+}
+body.recording .score-radar .score-polygon {
+  fill: rgba(138, 174, 190, 0.14);
+  stroke: var(--steel);
+}
+body.recording .score-radar .score-dot {
+  fill: var(--steel);
+}
+body.recording .score-radar .score-dot.active {
+  fill: var(--safety);
+  stroke: var(--ink);
+}
+body.recording .score-radar .radar-label {
+  fill: var(--muted);
+  font-family: var(--font-body);
+}
+body.recording .score-radar .radar-label.active {
+  fill: var(--safety);
+}
+
+/* Ledger tabs ------------------------------------------------------------- */
+body.recording .transcript-pane > #transcriptTools {
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--rule);
+  padding-top: 7px;
+  padding-bottom: 7px;
+  gap: 16px;
+}
+body.recording #transcriptTools .filter-group {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 1px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+body.recording #transcriptTools .chip {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+}
+body.recording #transcriptTools .chip:hover {
+  border-bottom-color: var(--rule);
+  background: transparent;
+  color: var(--ink);
+}
+body.recording #transcriptTools .chip.active {
+  border-bottom-color: var(--safety);
+  background: transparent;
+  color: var(--ink);
+}
+body.recording #transcriptTools .chip.active .icon {
+  color: var(--safety);
+}
+body.recording #transcriptTools .search-field {
+  min-height: 32px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: transparent;
+}
+body.recording #transcriptTools .search-field:focus-within {
+  border-color: var(--safety);
+  box-shadow: 0 0 0 2px rgba(232, 162, 60, 0.16);
+}
+body.recording #transcriptTools .search-field .icon {
+  color: var(--muted);
+}
+body.recording #transcriptTools #transcriptSearch {
+  color: var(--ink);
+}
+body.recording #transcriptSearch::placeholder {
+  color: var(--muted);
+}
+
+/* Transcript as a ruled ledger ------------------------------------------- */
+body.recording #codexOutput {
+  gap: 0;
+  padding-top: 16px;
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+}
+body.recording #codexOutput .reasoning,
+body.recording #codexOutput .commands,
+body.recording #codexOutput .message,
+body.recording #codexOutput .tool-details {
+  padding: 9px 11px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  box-shadow: none;
+}
+body.recording #codexOutput .reasoning {
+  border-left-color: var(--steel);
+}
+body.recording #codexOutput .commands {
+  border-left-color: var(--safety);
+}
+body.recording #codexOutput .message {
+  border-left-color: var(--steel);
+}
+body.recording #codexOutput .message.error {
+  border-left-color: var(--danger);
+}
+body.recording #codexOutput .reasoning:hover,
+body.recording #codexOutput .commands:hover {
+  border-color: var(--rule);
+  border-left-color: var(--safety);
+  background: var(--surface);
+}
+body.recording #codexOutput .reasoning-summary,
+body.recording #codexOutput .commands-summary {
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+}
+body.recording #codexOutput .reasoning-summary .icon,
+body.recording #codexOutput .commands-summary .icon {
+  color: var(--safety);
+}
+body.recording #codexOutput .reasoning-segment {
+  padding: 7px 0 7px 10px;
+  border: 0;
+  border-left: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+}
+body.recording #codexOutput .reasoning-segment.decision {
+  border-left-color: var(--safety);
+  background: transparent;
+}
+body.recording #codexOutput .reasoning-segment-text {
+  color: var(--ink-soft);
+}
+body.recording #codexOutput .reasoning-segment.decision .reasoning-segment-text {
+  color: var(--ink);
+}
+body.recording #codexOutput .commands[open] > .commands-summary {
+  border-bottom-color: var(--rule);
+  background: transparent;
+}
+body.recording #codexOutput .command {
+  border-top-color: var(--rule);
+}
+body.recording #codexOutput .command:hover {
+  background: var(--surface);
+}
+body.recording #codexOutput .action-target {
+  color: var(--ink);
+}
+body.recording #codexOutput .action-outcome {
+  color: var(--muted);
+}
+body.recording #codexOutput .action-duration,
+body.recording #codexOutput .msg-time {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+body.recording #codexOutput .action-badge {
+  border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+}
+body.recording #codexOutput .action-badge.build,
+body.recording #codexOutput .action-badge.craft {
+  color: var(--ok);
+}
+body.recording #codexOutput .action-badge.deconstruct,
+body.recording #codexOutput .action-badge.mine {
+  color: var(--safety);
+}
+body.recording #codexOutput .action-badge.observe,
+body.recording #codexOutput .action-badge.job,
+body.recording #codexOutput .action-badge.wait {
+  color: var(--steel);
+}
+body.recording #codexOutput .action-badge.failed {
+  color: var(--danger);
+}
+body.recording #codexOutput .dedupe-badge,
+body.recording #codexOutput .loop-badge {
+  border-color: var(--safety);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--safety);
+}
+body.recording #codexOutput .action-raw summary {
+  border-color: var(--rule);
+  color: var(--muted);
+}
+body.recording #codexOutput .action-raw pre,
+body.recording #codexOutput .tool-raw {
+  border-color: var(--rule);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+body.recording #codexOutput .tool-details {
+  border-left-color: var(--steel);
+}
+body.recording #codexOutput .tool-details summary {
+  color: var(--ink-soft);
+}
+body.recording #codexOutput .message-body {
+  color: var(--ink-soft);
+}
+body.recording #codexOutput .turn-separator {
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+body.recording #codexOutput .turn-separator::before,
+body.recording #codexOutput .turn-separator::after {
+  background: var(--rule);
+}
+body.recording #codexOutput .trimmed-note {
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+}
+body.recording #codexOutput .filter-empty {
+  color: var(--muted);
+}
+body.recording #codexOutput .filter-empty-reset {
+  border-color: var(--rule);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--safety);
+}
+body.recording .jump-latest {
+  border: 1px solid var(--safety);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--safety);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  font-family: var(--font-body);
+}
+body.recording .jump-latest:hover {
+  border-color: var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+}
+body.recording :focus-visible {
+  outline: 2px solid var(--safety);
+  outline-offset: 2px;
+}
+
+/* Map sheet --------------------------------------------------------------- */
+body.recording .map-info-overlay {
+  background: rgba(0, 0, 0, 0.76);
+}
+body.recording .map-info-dialog {
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--safety);
+  border-radius: 0;
+  background: var(--paper);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+}
+body.recording .map-info-head {
+  border-bottom: 1px solid var(--rule);
+}
+body.recording .map-info-head h2 {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+body.recording .map-info-close {
+  min-width: 30px;
+  min-height: 30px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-body);
+}
+body.recording .map-info-close:hover {
+  border-color: var(--safety);
+  color: var(--ink);
+}
+body.recording .map-info-seed {
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--surface);
+}
+body.recording .map-info-label,
+body.recording .map-info-note,
+body.recording .map-info-raw {
+  color: var(--muted);
+}
+body.recording .map-info-seed code {
+  color: var(--safety);
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+body.recording .map-info-section-title {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+body.recording .map-resource-table {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+body.recording .map-resource-table th,
+body.recording .map-resource-table td {
+  border-bottom-color: var(--rule);
+}
+body.recording .map-resource-table th {
+  color: var(--muted);
+}
+body.recording .map-resource-table td {
+  color: var(--ink-soft);
+}
+body.recording .map-resource-table td:first-child {
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+body.recording .map-info-extra {
+  border-bottom-color: var(--rule);
+  color: var(--muted);
+}
+body.recording .map-info-extra code {
+  color: var(--ink-soft);
+}
+body.recording .map-info-raw pre {
+  border-color: var(--rule);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+
+/* Operational alert ------------------------------------------------------- */
+body.recording .connection-notice {
+  width: min(calc(100% - 44px), 1036px);
+  padding: 8px 10px;
+  border: 1px solid var(--danger);
+  border-radius: 0;
+  background: transparent;
+  color: var(--danger);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+}
+body.recording .connection-dot {
+  background: var(--danger);
+  box-shadow: none;
+}
+body.recording .connection-notice button {
+  min-height: 28px;
+  border: 1px solid var(--danger);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--danger);
+  font-family: var(--font-body);
+}
+body.recording .connection-notice button:hover {
+  background: var(--surface);
+}
+
+@media (min-width: 901px) {
+  body.recording .status-inner.ui-grid-12 > .status-plan.ui-col-1-7,
+  body.recording .status-inner.ui-grid-12 > .status-telemetry.ui-col-8-12 {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 900px) {
+  body.recording .status-meta {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+  body.recording .status-readout:first-child {
+    padding-left: 0;
+  }
+  body.recording .status-plan {
+    padding-left: 14px;
+  }
+  body.recording .status-plan::before {
+    left: 0;
+  }
+  body.recording .status-telemetry .status-data {
+    align-items: flex-start;
+    gap: 14px;
+  }
+  body.recording .status-scores {
+    margin-left: 0;
+  }
+  body.recording .connection-notice {
+    width: calc(100% - 28px);
+    margin-top: 8px;
+  }
+}
+@media (max-width: 560px) {
+  body.recording .run-masthead-context {
+    display: none;
+  }
+  body.recording .status-tools {
+    gap: 3px;
+  }
+  body.recording .status-tools .status-map-toggle,
+  body.recording .status-tools .status-theme-toggle {
+    min-width: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+  body.recording .status-current {
+    font-size: 18px;
+  }
+  body.recording .status-telemetry .status-data {
+    flex-wrap: wrap;
+  }
+  body.recording .status-scores {
+    margin-left: 0;
+  }
+  body.recording #transcriptTools {
+    gap: 8px;
+  }
+  body.recording #transcriptTools .filter-group {
+    width: 100%;
+    border-bottom: 1px solid var(--rule);
+  }
+  body.recording #transcriptTools .chip {
+    min-height: 34px;
+  }
+  body.recording #codexOutput {
+    padding-top: 10px;
+  }
+}
+
+/* Light blueprint overrides for rules the earlier theme pass owns. -------- */
+html[data-theme="light"] body.recording {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  color: var(--ink-soft);
+}
+html[data-theme="light"] body.recording #agentStatus {
+  background: var(--header-bg);
+  border-top-color: var(--safety);
+  border-bottom-color: var(--rule);
+  box-shadow: none;
+}
+html[data-theme="light"] body.recording .status-plan,
+html[data-theme="light"] body.recording .status-telemetry {
+  border-color: var(--rule);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+html[data-theme="light"] body.recording .status-current {
+  color: var(--ink);
+}
+html[data-theme="light"] body.recording #agentStatus.stale-plan .status-current {
+  color: var(--safety);
+}
+html[data-theme="light"] body.recording .status-done,
+html[data-theme="light"] body.recording .status-meta,
+html[data-theme="light"] body.recording .section-kicker {
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .status-tools .status-toggle,
+html[data-theme="light"] body.recording .status-tools .status-map-toggle,
+html[data-theme="light"] body.recording .status-tools .status-theme-toggle {
+  border-color: var(--rule);
+  background: transparent;
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .status-tools .status-toggle:hover,
+html[data-theme="light"] body.recording .status-tools .status-map-toggle:hover,
+html[data-theme="light"] body.recording .status-tools .status-theme-toggle:hover {
+  border-color: var(--safety);
+  background: var(--surface);
+  color: var(--ink);
+}
+html[data-theme="light"] body.recording .status-badge {
+  border-color: var(--rule);
+  background: transparent;
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .status-badge.running {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+html[data-theme="light"] body.recording .status-badge.paused {
+  border-color: var(--safety);
+  color: var(--safety);
+}
+html[data-theme="light"] body.recording .status-badge.completed {
+  border-color: var(--steel);
+  color: var(--steel);
+}
+html[data-theme="light"] body.recording .status-badge.failed,
+html[data-theme="light"] body.recording .status-badge.timed_out,
+html[data-theme="light"] body.recording .status-badge.interrupted {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+html[data-theme="light"] body.recording #transcriptTools {
+  background: var(--toolbar-bg);
+  border-bottom-color: var(--rule);
+}
+html[data-theme="light"] body.recording #transcriptTools .filter-group {
+  border: 0;
+  background: none;
+}
+html[data-theme="light"] body.recording #transcriptTools .chip {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording #transcriptTools .chip.active {
+  border-bottom-color: var(--safety);
+  background: transparent;
+  color: var(--ink);
+}
+html[data-theme="light"] body.recording #transcriptTools .search-field {
+  border-color: var(--rule);
+  background: transparent;
+}
+html[data-theme="light"] body.recording #codexOutput {
+  color: var(--ink-soft);
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning,
+html[data-theme="light"] body.recording #codexOutput .commands,
+html[data-theme="light"] body.recording #codexOutput .message,
+html[data-theme="light"] body.recording #codexOutput .tool-details {
+  border-color: var(--rule);
+  border-left-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning {
+  border-left-color: var(--steel);
+}
+html[data-theme="light"] body.recording #codexOutput .commands {
+  border-left-color: var(--safety);
+}
+html[data-theme="light"] body.recording #codexOutput .message {
+  border-left-color: var(--steel);
+}
+html[data-theme="light"] body.recording #codexOutput .message.error {
+  border-left-color: var(--danger);
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning-summary,
+html[data-theme="light"] body.recording #codexOutput .commands-summary,
+html[data-theme="light"] body.recording #codexOutput .action-target {
+  color: var(--ink);
+}
+html[data-theme="light"] body.recording #codexOutput .reasoning-segment-text,
+html[data-theme="light"] body.recording #codexOutput .action-outcome,
+html[data-theme="light"] body.recording #codexOutput .message-body {
+  color: var(--ink-soft);
+}
+html[data-theme="light"] body.recording #codexOutput .action-duration,
+html[data-theme="light"] body.recording #codexOutput .msg-time {
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording #codexOutput .action-raw pre,
+html[data-theme="light"] body.recording #codexOutput .tool-raw {
+  border-color: var(--rule);
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+html[data-theme="light"] body.recording #codexOutput .commands[open] > .commands-summary {
+  border-bottom-color: var(--rule);
+  background: transparent;
+}
+html[data-theme="light"] body.recording #codexOutput .command {
+  border-top-color: var(--rule);
+}
+html[data-theme="light"] body.recording #codexOutput .message.error {
+  background: transparent;
+}
+html[data-theme="light"] body.recording #codexOutput .trimmed-note {
+  border-color: var(--rule);
+  background: transparent;
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .jump-latest {
+  border-color: var(--safety);
+  background: var(--paper);
+  color: var(--safety);
+  box-shadow: 0 8px 22px rgba(24, 38, 44, 0.14);
+}
+html[data-theme="light"] body.recording .map-info-overlay {
+  background: rgba(24, 38, 44, 0.4);
+}
+html[data-theme="light"] body.recording .map-info-dialog {
+  border-color: var(--rule);
+  border-top-color: var(--safety);
+  background: var(--paper);
+  box-shadow: 0 24px 70px rgba(24, 38, 44, 0.2);
+  color: var(--ink-soft);
+}
+html[data-theme="light"] body.recording .map-info-head {
+  border-bottom-color: var(--rule);
+}
+html[data-theme="light"] body.recording .map-info-close {
+  border-color: var(--rule);
+  background: transparent;
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .map-info-seed,
+html[data-theme="light"] body.recording .map-info-raw pre {
+  border-color: var(--rule);
+  background: var(--surface);
+}
+html[data-theme="light"] body.recording .map-info-raw pre {
+  color: var(--ink-soft);
+}
+html[data-theme="light"] body.recording .map-info-note {
+  color: var(--muted);
+}
+html[data-theme="light"] body.recording .connection-notice {
+  border-color: var(--danger);
+  background: transparent;
+  color: var(--danger);
+}
+html[data-theme="light"] body.recording .connection-notice button {
+  border-color: var(--danger);
+  background: transparent;
+  color: var(--danger);
+}
+
+/* Dark stale-plan warning uses the same safety colour as the rest of the log. */
+html:not([data-theme="light"]) body.recording #agentStatus.stale-plan .status-current {
+  color: var(--safety);
+}
