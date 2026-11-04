@@ -9,6 +9,15 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Stylesheet split without visual change.** `public/runs.css` is now an
+  ordered entry point for `styles/tokens.css`, `styles/base.css`,
+  `styles/recording.css`, `styles/dashboard.css` and
+  `styles/recording-modern.css`. The modules preserve the original source order;
+  all six browser-regression screenshots are pixel-identical before/after.
+  Base `:root` tokens now live in `tokens.css`; duplicate cleanup continues.
+
 ### Added
 
 - Dependency-free browser UI regression (`npm run test:ui`): serves the real

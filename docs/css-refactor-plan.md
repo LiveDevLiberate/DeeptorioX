@@ -59,6 +59,18 @@ Replace the single file with ordered imports so the cascade stays equivalent:
 - `public/runs.css` becomes the ordered entry point (`@import`).
 - Keep each URL cacheable and included in packaging/release checks.
 
+### Phase 2 progress (round 2)
+
+- `public/runs.css` is now a 6-line ordered entry point; modules:
+  `styles/tokens.css`, `styles/base.css`, `styles/recording.css`,
+  `styles/dashboard.css`, `styles/recording-modern.css`.
+- The split boundaries preserve the exact original source order. All six
+  regression screenshots are byte-for-byte identical (0 pixels differ) before
+  and after the split.
+- `tokens.css` now owns the base `:root` design tokens; theme/recording token
+  overrides still live in their modules until duplicate cleanup.
+- Remaining: 201 duplicate selectors and legacy override passes (Phase 3).
+
 ## Phase 3 — remove duplicates
 
 Work selector groups in this order, re-running captures after each:

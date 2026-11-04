@@ -1,0 +1,154 @@
+/* Dashboard launch form and global dark-page overrides. */
+/* Launch form: map generation configuration ------------------------------- */
+.map-config {
+  flex: 1 1 100%;
+  margin-top: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.map-config > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 12px;
+}
+.map-config-summary {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+.map-config-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--border);
+}
+.map-config-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding-top: 12px;
+}
+.map-config-fields label {
+  min-width: 150px;
+}
+.map-config-fields .check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+}
+.map-config-fields .check input {
+  margin: 0;
+}
+.map-config-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.map-config-head p {
+  margin: 3px 0 0;
+  font-size: 11px;
+}
+.map-config-head button {
+  padding: 5px 9px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.map-config-table {
+  margin-top: 0;
+  font-size: 11px;
+}
+.map-config-table th,
+.map-config-table td {
+  padding: 4px 7px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.map-config-table th:first-child,
+.map-config-table td:first-child {
+  text-align: left;
+}
+.map-config-table th:first-child {
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 500;
+}
+.map-config-table th:not(:first-child),
+.map-config-table td:not(:first-child) {
+  width: 18%;
+  text-align: right;
+}
+.map-config-table th {
+  color: var(--muted);
+  font-weight: 500;
+}
+.map-config-table td:first-child {
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.map-control {
+  width: 100%;
+  min-width: 92px;
+  padding: 4px 6px;
+  border-color: var(--border);
+  background: var(--bg);
+  font-size: 11px;
+}
+@media (max-width: 720px) {
+  .map-config-head {
+    align-items: start;
+    flex-direction: column;
+  }
+  .map-config-fields label {
+    min-width: 120px;
+    flex: 1 1 140px;
+  }
+  .map-config-table {
+    min-width: 520px;
+  }
+}
+
+/* ============================================================================
+   Dark theme: pure-black page background
+   The dark theme keeps its existing card/panel surfaces for hierarchy, but the
+   page, status header and transcript toolbar use a true black background. The
+   light theme is unaffected.
+   ========================================================================= */
+:root {
+  --bg: #000000;
+}
+html:not([data-theme="light"]) {
+  background: #000000;
+}
+html:not([data-theme="light"]) body {
+  background: #000000;
+}
+html:not([data-theme="light"]) body.recording {
+  --rec-bg: #000000;
+  --rec-bg-deep: #000000;
+  --bg: #000000;
+  background: #000000;
+}
+html:not([data-theme="light"]) body.recording #agentStatus {
+  background: #000000;
+  border-bottom-color: #1a1a1a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+}
+html:not([data-theme="light"]) body.recording #transcriptTools {
+  background: #000000;
+  border-bottom-color: #1a1a1a;
+}
+html:not([data-theme="light"]) body.overlay {
+  background: #000000;
+}
+html:not([data-theme="light"]) body.overlay #agentStatus {
+  background: #000000;
+}

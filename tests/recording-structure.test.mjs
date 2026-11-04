@@ -4,9 +4,20 @@ import fs from "node:fs";
 import path from "node:path";
 
 const html = fs.readFileSync(path.join(process.cwd(), "public", "recording.html"), "utf8");
-const css = fs.readFileSync(path.join(process.cwd(), "public", "runs.css"), "utf8");
+const entryCss = fs.readFileSync(path.join(process.cwd(), "public", "runs.css"), "utf8");
+const styleFiles = ["base.css", "recording.css", "dashboard.css", "recording-modern.css"];
+const css = [
+  entryCss,
+  ...styleFiles.map((file) => fs.readFileSync(path.join(process.cwd(), "public", "styles", file), "utf8")),
+].join("\n");
 
 test("recording page keeps its semantic structure and information surfaces", () => {
+  // The entry point imports modules in the original source order.
+  assert.match(entryCss, /@import url\("\.\/styles\/tokens\.css"\);/);
+  assert.match(entryCss, /@import url\("\.\/styles\/base\.css"\);/);
+  assert.match(entryCss, /@import url\("\.\/styles\/recording\.css"\);/);
+  assert.match(entryCss, /@import url\("\.\/styles\/dashboard\.css"\);/);
+  assert.match(entryCss, /@import url\("\.\/styles\/recording-modern\.css"\);/);
   // Semantic grouping for the status header and the shared 12-column grid.
   assert.match(html, /<div class="status-inner ui-grid-12">/);
   assert.match(html, /<header class="status-head" aria-label="Run status">/);

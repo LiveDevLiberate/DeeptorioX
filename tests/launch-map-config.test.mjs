@@ -6,7 +6,11 @@ import path from "node:path";
 const root = process.cwd();
 const html = fs.readFileSync(path.join(root, "public", "index.html"), "utf8");
 const js = fs.readFileSync(path.join(root, "public", "runs.js"), "utf8");
-const css = fs.readFileSync(path.join(root, "public", "runs.css"), "utf8");
+const styleFiles = ["tokens.css", "base.css", "recording.css", "dashboard.css", "recording-modern.css"];
+const css = [
+  fs.readFileSync(path.join(root, "public", "runs.css"), "utf8"),
+  ...styleFiles.map((file) => fs.readFileSync(path.join(root, "public", "styles", file), "utf8")),
+].join("\n");
 
 test("launch form exposes map seed/resource configuration and submits map_gen", () => {
   for (const id of [

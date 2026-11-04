@@ -1,0 +1,10 @@
+/* Canonical base tokens. Theme overrides stay with their page modules for now. */
+:root {
+  color-scheme: dark;
+  --bg: #101315;
+  --panel: #191f23;
+  --border: #303a40;
+  --text: #e7eeec;
+  --muted: #9baaa8;
+  --accent: #d5ed9b;
+}
