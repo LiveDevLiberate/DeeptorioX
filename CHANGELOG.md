@@ -9,6 +9,20 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Stale-plan feedback loop.** Three additions on top of the STATE.md gate:
+  - when STATE.md crosses the soft/hard deadline (and when it is refreshed) the
+    manager appends an `event_marker` to the transcript, so the recording window
+    shows “计划需要更新” / “计划超时” / “计划恢复” markers;
+  - a stale STATE.md adds a visible penalty to the automation score
+    (`25` for the soft deadline, `100` for the hard deadline, shown as a clock
+    item in the 惩罚 row); it clears as soon as the state is written;
+  - the status line shows a live `计划 m:ss` countdown to the hard deadline
+    (amber when due, red “需更新计划” when blocked), driven by
+    `run.state_status`.
+
+## [0.16.0] - 2026-11-05
 ## [0.16.0] - 2026-11-04
 
 ### Added

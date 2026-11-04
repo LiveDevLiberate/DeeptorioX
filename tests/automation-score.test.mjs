@@ -43,6 +43,7 @@ test("automation score rewards automated production and subtracts manual penalti
     manualCrafts: 2,
   });
   assert.deepEqual(score.breakdown, { production: 74, science: 200, power: 40, research: 5, rockets: 0 });
+  assert.equal(score.state_penalty, 0);
   assert.equal(score.positive, 319);
   assert.equal(score.penalty, 3 + 2 * 2);
   assert.equal(score.score, 312);
@@ -55,4 +56,13 @@ test("automation score rewards automated production and subtracts manual penalti
     manualCrafts: 5,
   });
   assert.equal(manual.score, -20);
+  const stale = computeAutomationScore({
+    productionTotals: {},
+    manualMines: 0,
+    manualCrafts: 0,
+    statePenalty: 100,
+  });
+  assert.equal(stale.penalty, 100);
+  assert.equal(stale.state_penalty, 100);
+  assert.equal(stale.score, -100);
 });

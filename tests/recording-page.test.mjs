@@ -78,6 +78,7 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     "statusScores",
     "statusMetrics",
     "statusToggle",
+    "stateTimer",
     "transcriptSearch",
     "filterAll",
     "filterThinking",
@@ -109,10 +110,19 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     state_md:
       "Scores: production 40, logistics 35, mining 60\nCurrent: Mining iron\nDone when: 60 iron plates",
     latest: { current_research: "automation", research_progress: 0.4 },
+    state_status: {
+      age_seconds: 120,
+      due: false,
+      blocked: false,
+      soft_seconds: 300,
+      hard_seconds: 600,
+      grace_seconds: 120,
+    },
     automation: {
       score: 120,
       positive: 140,
       penalty: 20,
+      state_penalty: 0,
       manual_mines: 6,
       manual_crafts: 7,
       breakdown: { production: 90, science: 10, power: 30, research: 5, rockets: 5 },
@@ -170,6 +180,10 @@ test("recording page renders summaries, loops, turns and unread updates", async 
         type: "reasoning",
         text: "There is coal nearby. Next step: mine coal and build two furnaces for the iron plates.",
       },
+    },
+    {
+      type: "item.completed",
+      item: { id: "marker1", type: "event_marker", text: "Plan needs updating: STATE.md unchanged for 320s" },
     },
     {
       type: "item.completed",
@@ -320,6 +334,12 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     assert.ok(metricClass("metric-spark"), "missing sparkline in production row");
     assert.ok(metricClass("metric-delta"), "missing trend label in production row");
     assert.ok(metricClass("metric-progress"), "missing research progress");
+    assert.ok(
+      output.children.some((node) => String(node.className).includes("event-marker")),
+      "missing stale-state event marker",
+    );
+    assert.equal(nodes.stateTimer.hidden, false);
+    assert.match(nodeText(nodes.stateTimer), /Plan 8:00/, `timer: ${nodeText(nodes.stateTimer)}`);
     assert.ok(
       metrics.some((text) => /Automation 120/i.test(text)),
       `metrics: ${metrics.join(" | ")}`,

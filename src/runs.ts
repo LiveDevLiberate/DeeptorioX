@@ -16,6 +16,8 @@ import {
 import { factorioLocale } from "./locale.js";
 import {
   CRAFT_PENALTY_POINTS,
+  STATE_BLOCKED_PENALTY,
+  STATE_DUE_PENALTY,
   computeAutomationScore,
   manualCraftUnits,
   manualMineUnits,
@@ -170,6 +172,8 @@ type Run = {
   };
   /** Automated production score and manual-work penalty (updated with telemetry). */
   automation?: AutomationScore & { updated_at?: string };
+  /** Last emitted STATE.md reminder stage, so markers are not duplicated. */
+  state_reminder?: "due" | "blocked";
 };
 /** Metadata reported by timelapse rendering; persisted into run.json verbatim. */
 export type VideoRenderResult = {
@@ -198,7 +202,7 @@ const terminal = new Set<RunState>(["completed", "failed", "stopped", "timed_out
 /** Codex-shaped transcript item written to agent.events.jsonl and rendered by the web UI. */
 type TranscriptItem = {
   id: string;
-  type: "agent_message" | "reasoning" | "command_execution";
+  type: "agent_message" | "reasoning" | "command_execution" | "event_marker";
   text?: string;
   command?: string;
   status?: "completed" | "failed" | "error" | "in_progress";
@@ -330,6 +334,7 @@ export class RunManager {
           score: -penalty,
           positive: 0,
           penalty,
+          state_penalty: 0,
           manual_mines: mines,
           manual_crafts: crafts,
           breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0 },
@@ -392,7 +397,9 @@ export class RunManager {
           run.automation.manual_mines += mines;
           run.automation.manual_crafts += crafts;
           run.automation.penalty =
-            run.automation.manual_mines + run.automation.manual_crafts * CRAFT_PENALTY_POINTS;
+            run.automation.manual_mines +
+            run.automation.manual_crafts * CRAFT_PENALTY_POINTS +
+            (run.automation.state_penalty || 0);
           run.automation.score = run.automation.positive - run.automation.penalty;
         }
       }
@@ -546,15 +553,68 @@ export class RunManager {
     const markdown = renderStateMarkdown(input);
     fs.writeFileSync(path.join(workspace, "STATE.md"), markdown);
     this.event(run, `STATE.md updated: ${input.current.trim().slice(0, 120)}`);
+    this.checkStateReminder(run);
     return this.stateStatus();
+  }
+
+  /** Append a transcript marker (rendered by the recording window). */
+  private emitTranscript(run: Run, item: TranscriptItem) {
+    fs.appendFileSync(
+      path.join(this.dir(run), "agent.events.jsonl"),
+      JSON.stringify({ type: "item.completed", item }) + "\n",
+    );
+  }
+
+  /** Emit at most one marker per stale -> blocked -> fresh transition. */
+  private checkStateReminder(run: Run) {
+    const status = this.stateStatus();
+    if (!status) return;
+    const stage: "" | "due" | "blocked" = status.blocked ? "blocked" : status.due ? "due" : "";
+    if ((run.state_reminder || "") === stage) return;
+    const previous = run.state_reminder;
+    run.state_reminder = stage || undefined;
+    const zh = /chinese|中文|zh/i.test(run.language || "");
+    const age = Math.round(status.age_seconds ?? 0);
+    const text =
+      stage === "blocked"
+        ? zh
+          ? `计划超时：STATE.md 已 ${Math.round(age / 60)} 分钟未更新，动作已被阻止`
+          : `Plan overdue: STATE.md unchanged for ${Math.round(age / 60)} min; actions are blocked`
+        : stage === "due"
+          ? zh
+            ? `计划需要更新：STATE.md 已 ${age} 秒未更新`
+            : `Plan needs updating: STATE.md unchanged for ${age}s`
+          : previous
+            ? zh
+              ? "STATE.md 已更新，计划恢复"
+              : "STATE.md refreshed; plan is current"
+            : "";
+    if (!text) return;
+    this.emitTranscript(run, {
+      id: `state-marker-${Date.now()}`,
+      type: "event_marker",
+      text,
+    });
+    this.persist(run);
   }
 
   private view(run: Run) {
     const state = this.stateFile(run);
+    const stateStatus = run === this.active ? this.stateStatus() : undefined;
     return {
       ...run,
       state_md: state?.text,
       state_updated_at: state?.updated_at,
+      state_status: stateStatus
+        ? {
+            age_seconds: stateStatus.age_seconds,
+            due: stateStatus.due,
+            blocked: stateStatus.blocked,
+            soft_seconds: stateStatus.soft_seconds,
+            hard_seconds: stateStatus.hard_seconds,
+            grace_seconds: stateStatus.grace_seconds,
+          }
+        : undefined,
       resumable:
         run.state === "paused" &&
         Boolean(run.checkpoint && fs.existsSync(path.join(this.dir(run), run.checkpoint.file))),
@@ -662,6 +722,7 @@ export class RunManager {
         score: 0,
         positive: 0,
         penalty: 0,
+        state_penalty: 0,
         manual_mines: 0,
         manual_crafts: 0,
         breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0 },
@@ -1636,6 +1697,12 @@ export class RunManager {
         count - (run.baseline?.production[name] || 0),
       ]),
     );
+    const stateStatus = this.stateStatus();
+    const statePenalty = stateStatus?.blocked
+      ? STATE_BLOCKED_PENALTY
+      : stateStatus?.due
+        ? STATE_DUE_PENALTY
+        : 0;
     run.automation = {
       ...computeAutomationScore({
         productionTotals,
@@ -1644,9 +1711,11 @@ export class RunManager {
         rocketsLaunched,
         manualMines: run.automation?.manual_mines ?? 0,
         manualCrafts: run.automation?.manual_crafts ?? 0,
+        statePenalty,
       }),
       updated_at: now,
     };
+    this.checkStateReminder(run);
     fs.appendFileSync(
       path.join(this.dir(run), "telemetry.jsonl"),
       JSON.stringify({

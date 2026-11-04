@@ -169,6 +169,11 @@ const I18N = {
     expand: "Expand status details",
     collapse: "Collapse status details",
     stats: "Detailed stats",
+    stateTimer: "Plan",
+    stateBlocked: "update plan",
+    stateGrace: "plan grace",
+    stateTimerTitle: "STATE.md freshness: actions are blocked when the hard deadline expires",
+    planPenalty: "plan",
     filters: {
       all: "All",
       thinking: "Thinking",
@@ -266,6 +271,11 @@ const I18N = {
     expand: "展开状态详情",
     collapse: "收起状态详情",
     stats: "详细统计",
+    stateTimer: "计划",
+    stateBlocked: "需更新计划",
+    stateGrace: "计划宽限",
+    stateTimerTitle: "STATE.md 新鲜度：超过硬性期限后动作会被阻止",
+    planPenalty: "计划",
     filters: {
       all: "全部",
       thinking: "思考",
@@ -283,6 +293,7 @@ let lastStatusAt = 0,
   currentRun = null;
 const statusHeader = document.getElementById("agentStatus");
 const statusToggle = document.getElementById("statusToggle");
+const stateTimer = document.getElementById("stateTimer");
 const STATUS_COLLAPSED_KEY = "autorio.statusCollapsed";
 function updateStatusToggleLabel() {
   if (!statusToggle || !statusHeader) return;
@@ -387,6 +398,38 @@ function pickLanguage(run) {
     ? "zh"
     : "en";
 }
+function formatStateRemaining(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+function updateStateTimer(run) {
+  if (!stateTimer) return;
+  const active = ["running", "preparing", "launching", "saving"].includes(run.state);
+  const status = run.state_status;
+  if (!active || !status) {
+    stateTimer.hidden = true;
+    return;
+  }
+  const text = I18N[uiLang || "en"];
+  let content;
+  let state;
+  if (status.blocked) {
+    content = `⚠ ${text.stateBlocked}`;
+    state = "blocked";
+  } else if (status.age_seconds === null) {
+    const remaining = Math.max(0, (status.grace_seconds ?? 120) - (run.elapsed_seconds || 0));
+    content = `${text.stateGrace} ${formatStateRemaining(remaining)}`;
+    state = status.due ? "due" : "ok";
+  } else {
+    const remaining = Math.max(0, (status.hard_seconds ?? 600) - status.age_seconds);
+    content = `${text.stateTimer} ${formatStateRemaining(remaining)}`;
+    state = status.due ? "due" : "ok";
+  }
+  stateTimer.replaceChildren(icon("clock"), element("span", content, "state-timer-text"));
+  stateTimer.className = `state-timer ${state}`;
+  stateTimer.title = text.stateTimerTitle;
+  stateTimer.hidden = false;
+}
 function renderStatus(run) {
   if (!statusState || !statusScores) return;
   currentRun = run;
@@ -409,6 +452,7 @@ function renderStatus(run) {
   statusActivity.textContent = terminalState
     ? ""
     : `${strings.activity[activeKey] || activeKey}${waitSeconds ? ` ${waitSeconds}s` : ""}`;
+  updateStateTimer(run);
   const usage = run.usage || {};
   const tokens = usage.total_tokens ?? (usage.input_tokens || 0) + (usage.output_tokens || 0);
   const context = run.context_limit
@@ -699,6 +743,7 @@ function render(item) {
   if (item.type === "command_execution") renderCommand(item);
   else if (item.type === "reasoning") renderReasoning(item);
   else if (item.type === "agent_message" || item.type === "error") renderMessage(item);
+  else if (item.type === "event_marker") renderEventMarker(item.text || "");
   else renderTool(item);
 }
 function appendTurn(generation) {
@@ -893,6 +938,12 @@ function renderMetrics() {
       icon("wrench"),
       element("span", `${Math.round(Number(automation.manual_crafts) || 0)}`),
     );
+    if (Number(automation.state_penalty) > 0) {
+      details.append(
+        icon("clock"),
+        element("span", `-${Math.round(Number(automation.state_penalty))}`, "penalty-state"),
+      );
+    }
     details.title = `${text.metrics.penalty}: ${text.metrics.manualMines || "mined"} / ${text.metrics.manualCrafts || "crafted"}`;
     penaltyTrend.append(details);
     penaltyRow.append(element("th", text.metrics.penalty, "metric-label"), penaltyValue, penaltyTrend);

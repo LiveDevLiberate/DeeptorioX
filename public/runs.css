@@ -2994,3 +2994,38 @@ body.recording .status-line .status-toggle[aria-expanded="true"] {
 .metric-automation .metric-value.positive {
   color: var(--green);
 }
+
+/* STATE.md freshness countdown (status line, before the right-aligned meta). */
+.state-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dim);
+  font:
+    10px/1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  white-space: nowrap;
+}
+.state-timer .icon {
+  width: 11px;
+  height: 11px;
+  margin: 0;
+  color: #7fd8e8;
+}
+.state-timer.due {
+  color: var(--amber);
+}
+.state-timer.due .icon {
+  color: var(--amber);
+}
+.state-timer.blocked {
+  color: var(--red);
+}
+.state-timer.blocked .icon {
+  color: var(--red);
+}
+.penalty-details .penalty-state {
+  color: var(--amber);
+}

@@ -53,6 +53,9 @@ const ITEM_WEIGHTS: Record<string, number> = {
 
 /** Extra points per hand-crafted item (mining is 1 point per resource unit). */
 export const CRAFT_PENALTY_POINTS = 2;
+/** Penalty while STATE.md is older than the soft/hard deadline. */
+export const STATE_DUE_PENALTY = 25;
+export const STATE_BLOCKED_PENALTY = 100;
 
 export type AutomationCounters = { manual_mines: number; manual_crafts: number };
 
@@ -69,6 +72,8 @@ export type AutomationScore = AutomationCounters & {
   score: number;
   positive: number;
   penalty: number;
+  /** Part of the penalty caused by a stale/missing STATE.md. */
+  state_penalty: number;
   breakdown: AutomationBreakdown;
 };
 
@@ -80,6 +85,7 @@ export type AutomationScoreInput = {
   rocketsLaunched?: number;
   manualMines: number;
   manualCrafts: number;
+  statePenalty?: number;
 };
 
 /** Count natural-resource units mined by hand from finished mine job results. */
@@ -163,11 +169,14 @@ export function computeAutomationScore(input: AutomationScoreInput): AutomationS
   const positive = production + science + power + research + rockets;
   const manualMines = Math.max(0, Math.round(Number(input.manualMines) || 0));
   const manualCrafts = Math.max(0, Math.round(Number(input.manualCrafts) || 0));
-  const penalty = manualMines + manualCrafts * CRAFT_PENALTY_POINTS;
+  const manualPenalty = manualMines + manualCrafts * CRAFT_PENALTY_POINTS;
+  const statePenalty = Math.max(0, Math.round(Number(input.statePenalty) || 0));
+  const penalty = manualPenalty + statePenalty;
   return {
     score: positive - penalty,
     positive,
     penalty,
+    state_penalty: statePenalty,
     manual_mines: manualMines,
     manual_crafts: manualCrafts,
     breakdown,
