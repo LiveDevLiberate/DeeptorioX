@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-04
+
 ### Changed
 
 - **Modern recording-window refactor.** Guided by the ui-skills `arla6ka/ui-review`
@@ -726,7 +728,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.25.2...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/ryanmadden/autorio/compare/v0.25.2...v0.26.0
 [0.25.2]: https://github.com/ryanmadden/autorio/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/ryanmadden/autorio/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/ryanmadden/autorio/compare/v0.24.0...v0.25.0
