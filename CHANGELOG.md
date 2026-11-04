@@ -9,6 +9,24 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Recording UI structure pass (ui-skills `baseline-ui`/`improve-ui`).**
+  - The status header now has semantic `<header>`/`<section>` groups with ARIA
+    labels: run status, current plan, live telemetry. On wide screens the plan
+    sits left and the metrics/radar right; both stack below 900px.
+  - The transcript lives in a `<main class="transcript-pane">`; the toolbar is a
+    labelled `role="toolbar"` with a `filter-group` and a focusable search field
+    containing a magnifying-glass icon (new `public/icons/search.svg`, attributed).
+  - Fixed the dashboard `section` card style leaking into the status header.
+  - Stale plans no longer erase the current subtask/done-when: they show
+    `⚠ plan stale · current` + done-when, while the duplicated plan-age text is
+    removed from the meta line. Plan/done text wraps instead of ellipsizing.
+  - All existing information, IDs and icons are retained; structural contract is
+    covered by `tests/recording-structure.test.mjs`, plus before/after screenshots
+    at 1200px and 600px.
+
+## [0.20.0] - 2026-11-05
 ## [0.20.0] - 2026-11-04
 
 ### Added

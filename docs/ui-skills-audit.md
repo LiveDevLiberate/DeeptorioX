@@ -39,3 +39,19 @@ Individual skills can be fetched as raw markdown, for example:
 `design-plans/`); it is not implemented as a runtime feature here. The remote
 MCP endpoint can be registered in an agent host that supports MCP; this
 repository does not depend on it and does not vendor the skill files.
+
+## Structure pass (v0.21.0)
+
+Applied the `baseline-ui`/`improve-ui` structure-oriented constraints to the
+recording surface without removing any information or icon:
+
+| Finding | Change |
+| --- | --- |
+| Status content was a flat column (state, plan, metrics, radar, scores) with no semantic groups | Wrapped it in `<header class="status-head">`, `<section class="status-plan">` and `<section class="status-telemetry">` with ARIA labels; wide layout uses a grid with plan left and telemetry right, stacking below 900px |
+| Transcript toolbar had no labelled group and search was placeholder-only | Added `<main class="transcript-pane">`, `role="toolbar"`, a labelled `filter-group`, and a magnifying-glass icon inside a focusable search field; labels are localized |
+| The global dashboard `section` card style leaked into the recording header | Scoped a reset for `#agentStatus section` |
+| A stale plan replaced the current subtask/done-when information | Stale mode now shows `⚠ plan stale · current` plus the done-when line; duplicated plan-age text was removed from the meta line |
+| Current/done text could be ellipsized away | Allowed wrapping while keeping the target icon and compact layout |
+
+Before/after evidence was captured at 1200px and 600px widths; the structural
+contract is covered by `tests/recording-structure.test.mjs`.

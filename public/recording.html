@@ -1,23 +1,41 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Agent transcript</title><link rel="stylesheet" href="/runs.css"></head><body class="recording">
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Agent transcript</title><link rel="stylesheet" href="/runs.css"></head>
+<body class="recording">
 <div id="agentStatus">
   <div class="status-inner">
-    <div class="status-line"><button id="statusToggle" class="status-toggle" type="button" aria-label="Toggle status details" aria-expanded="true"><span class="status-toggle-label">Stats</span></button><span id="statusState" class="status-badge">…</span><span id="statusActivity" class="status-activity">—</span><span id="stateTimer" class="state-timer" hidden></span><span id="statusMeta" class="status-meta"></span></div>
-    <div id="statusCurrent" class="status-current" hidden></div>
-    <div id="statusDone" class="status-done"></div>
-    <div class="status-data">
-      <div id="statusMetrics" class="status-metrics"></div>
-      <div id="statusScores" class="status-scores"></div>
-    </div>
+    <header class="status-head" aria-label="Run status">
+      <div class="status-line"><button id="statusToggle" class="status-toggle" type="button" aria-label="Toggle status details" aria-expanded="true"><span class="status-toggle-label">Stats</span></button><span id="statusState" class="status-badge">…</span><span id="statusActivity" class="status-activity">—</span><span id="stateTimer" class="state-timer" hidden></span><span id="statusMeta" class="status-meta"></span></div>
+    </header>
+    <section id="planPanel" class="status-plan" aria-label="Current plan">
+      <div id="statusCurrent" class="status-current" hidden></div>
+      <div id="statusDone" class="status-done"></div>
+    </section>
+    <section id="telemetryPanel" class="status-telemetry" aria-label="Live telemetry">
+      <div class="status-data">
+        <div id="statusMetrics" class="status-metrics"></div>
+        <div id="statusScores" class="status-scores"></div>
+      </div>
+    </section>
   </div>
 </div>
-<div id="transcriptTools" class="transcript-tools">
-  <button id="filterAll" class="chip active" type="button"><span class="icon icon-layers"></span>All</button>
-  <button id="filterThinking" class="chip" type="button"><span class="icon icon-brain"></span>Thinking</button>
-  <button id="filterActions" class="chip" type="button"><span class="icon icon-wrench"></span>Actions</button>
-  <button id="filterMessages" class="chip" type="button"><span class="icon icon-chat"></span>Messages</button>
-  <button id="filterErrors" class="chip" type="button"><span class="icon icon-siren"></span>Errors</button>
-  <button id="filterDecisions" class="chip" type="button"><span class="icon icon-compass"></span>Decisions</button>
-  <input id="transcriptSearch" type="search" placeholder="Filter…" autocomplete="off" aria-label="Filter transcript text">
-</div>
-<div id="codexOutput" aria-label="Agent output" tabindex="0"></div><script type="module" src="/recording.js"></script></body></html>
+<main class="transcript-pane">
+  <div id="transcriptTools" class="transcript-tools" role="toolbar" aria-label="Transcript filters">
+    <div id="filterGroup" class="filter-group" role="group" aria-label="Filter by category">
+      <button id="filterAll" class="chip active" type="button"><span class="icon icon-layers"></span>All</button>
+      <button id="filterThinking" class="chip" type="button"><span class="icon icon-brain"></span>Thinking</button>
+      <button id="filterActions" class="chip" type="button"><span class="icon icon-wrench"></span>Actions</button>
+      <button id="filterMessages" class="chip" type="button"><span class="icon icon-chat"></span>Messages</button>
+      <button id="filterErrors" class="chip" type="button"><span class="icon icon-siren"></span>Errors</button>
+      <button id="filterDecisions" class="chip" type="button"><span class="icon icon-compass"></span>Decisions</button>
+    </div>
+    <label class="search-field">
+      <span class="icon icon-search" aria-hidden="true"></span>
+      <input id="transcriptSearch" type="search" placeholder="Filter…" autocomplete="off" aria-label="Filter transcript text">
+    </label>
+  </div>
+  <div id="codexOutput" aria-label="Agent output" tabindex="0"></div>
+</main>
+<script type="module" src="/recording.js"></script>
+</body>
+</html>

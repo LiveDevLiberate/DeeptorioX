@@ -3135,3 +3135,186 @@ body.recording .status-line .status-toggle[aria-expanded="true"] {
 #codexOutput .filter-empty-reset:hover {
   background: rgba(122, 162, 247, 0.2);
 }
+
+/* ============================================================================
+   Structural layout v3 (ui-skills improve-ui pass)
+   Semantic status groups + transcript pane; info/icons preserved.
+   ========================================================================= */
+body.recording main.transcript-pane {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+body.recording .transcript-pane > #transcriptTools {
+  flex: 0 0 auto;
+}
+body.recording .transcript-pane > #codexOutput {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* Status header: one header row, plan on the left, telemetry on the right. */
+body.recording .status-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-areas:
+    "head head"
+    "plan telemetry";
+  align-items: start;
+  gap: 7px 24px;
+}
+body.recording .status-head {
+  grid-area: head;
+  min-width: 0;
+}
+body.recording .status-plan {
+  grid-area: plan;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+body.recording .status-telemetry {
+  grid-area: telemetry;
+  justify-self: end;
+  min-width: 0;
+}
+body.recording .status-telemetry .status-data {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  min-width: 0;
+}
+body.recording .status-line {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+body.recording .status-meta {
+  margin-left: auto;
+  min-width: 0;
+  max-width: 100%;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Toolbar: filter group + search affordance. */
+body.recording .transcript-pane > #transcriptTools {
+  position: relative;
+  top: auto;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+#transcriptTools .filter-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+#transcriptTools .search-field {
+  display: flex;
+  align-items: center;
+  flex: 0 1 250px;
+  min-width: 170px;
+  gap: 6px;
+  margin-left: auto;
+  padding: 3px 11px;
+  border: 1px solid #22333a;
+  border-radius: 999px;
+  background: #0a1418;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+#transcriptTools .search-field:focus-within {
+  border-color: rgba(111, 216, 178, 0.5);
+  box-shadow: 0 0 0 3px rgba(111, 216, 178, 0.14);
+}
+#transcriptTools .search-field .icon {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  color: #7f9691;
+}
+#transcriptTools .search-field #transcriptSearch {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+#transcriptTools .search-field #transcriptSearch:focus {
+  outline: none;
+  border: 0;
+  box-shadow: none;
+}
+.icon-search {
+  --gi-icon: url("/icons/search.svg");
+}
+
+@media (max-width: 900px) {
+  body.recording .status-inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "head"
+      "plan"
+      "telemetry";
+  }
+  body.recording .status-telemetry {
+    justify-self: stretch;
+  }
+  body.recording .status-telemetry .status-data {
+    flex-wrap: wrap;
+    gap: 10px 18px;
+  }
+}
+
+@media (max-width: 560px) {
+  body.recording .status-meta {
+    width: 100%;
+    text-align: left;
+  }
+  #transcriptTools .search-field {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+}
+
+/* The global dashboard `section` card style must not leak into the recording
+   header's semantic sections. */
+body.recording #agentStatus section {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+/* The plan line may wrap when a stale marker is combined with the current
+   subtask; keep both visible instead of ellipsizing the information away. */
+body.recording .status-current {
+  align-items: flex-start;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+body.recording .status-current .status-current-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+body.recording .status-done {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}

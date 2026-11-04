@@ -177,6 +177,12 @@ const I18N = {
     stateGrace: "plan grace",
     stateTimerTitle: "STATE.md freshness: actions are blocked when the hard deadline expires",
     planPenalty: "plan",
+    runStatusLabel: "Run status",
+    planLabel: "Current plan",
+    telemetryLabel: "Live telemetry",
+    searchLabel: "Filter transcript",
+    filtersLabel: "Transcript filters",
+    filterGroupLabel: "Filter by category",
     filters: {
       all: "All",
       thinking: "Thinking",
@@ -280,6 +286,12 @@ const I18N = {
     stateGrace: "计划宽限",
     stateTimerTitle: "STATE.md 新鲜度：超过硬性期限后动作会被阻止",
     planPenalty: "计划",
+    runStatusLabel: "运行状态",
+    planLabel: "当前计划",
+    telemetryLabel: "实时遥测",
+    searchLabel: "过滤记录",
+    filtersLabel: "记录过滤",
+    filterGroupLabel: "按类别过滤",
     filters: {
       all: "全部",
       thinking: "思考",
@@ -515,11 +527,7 @@ function renderStatus(run) {
   const context = run.context_limit
     ? ` · ctx ${Math.round((run.context_tokens || 0) / 1000)}k/${Math.round(run.context_limit / 1000)}k`
     : "";
-  const planAge = run.state_updated_at
-    ? Math.floor((Date.now() - Date.parse(run.state_updated_at)) / 60000)
-    : null;
-  const stale = planAge !== null && planAge >= 10 ? ` · ${strings.plan} ${planAge}m old` : "";
-  statusMeta.textContent = `${Math.round(run.elapsed_seconds || 0)}s / ${run.max_seconds || 0}s · ${Number(tokens || 0).toLocaleString()} ${strings.tokens}${context}${stale}`;
+  statusMeta.textContent = `${Math.round(run.elapsed_seconds || 0)}s / ${run.max_seconds || 0}s · ${Number(tokens || 0).toLocaleString()} ${strings.tokens}${context}`;
   const markdown = run.state_md || "";
   const current = (markdown.match(/^Current:\s*(.+)$/m) || [])[1] || "";
   const done = (markdown.match(/^Done when:\s*(.+)$/m) || [])[1] || "";
@@ -530,9 +538,10 @@ function renderStatus(run) {
     ? Date.now() - Date.parse(run.state_updated_at) > 10 * 60 * 1000
     : false;
   if (planStale) {
-    setStatusCurrent(`⚠ ${strings.plan} ${strings.stale}${research ? ` · ${research}` : ""}`);
-    statusDone.textContent = "";
-    statusDone.hidden = true;
+    const suffix = current || research;
+    setStatusCurrent(`⚠ ${strings.plan} ${strings.stale}${suffix ? ` · ${suffix}` : ""}`);
+    statusDone.textContent = done ? `${strings.done}: ${done}` : "";
+    statusDone.hidden = !done;
     statusHeader?.classList.add("stale-plan");
   } else {
     // Do not advertise a file the agent has not written: with no STATE.md and no
@@ -808,7 +817,21 @@ function updateTranscriptTools(text) {
     );
     button.setAttribute("aria-pressed", button.classList.contains("active") ? "true" : "false");
   }
-  if (transcriptSearch) transcriptSearch.placeholder = uiLang === "zh" ? "过滤内容…" : "Filter…";
+  if (transcriptSearch) {
+    transcriptSearch.placeholder = uiLang === "zh" ? "过滤内容…" : "Filter…";
+    transcriptSearch.setAttribute("aria-label", text.searchLabel || "Filter transcript");
+  }
+  document.getElementById("agentStatus")?.setAttribute("aria-label", text.runStatusLabel || "Run status");
+  document.getElementById("planPanel")?.setAttribute("aria-label", text.planLabel || "Current plan");
+  document
+    .getElementById("telemetryPanel")
+    ?.setAttribute("aria-label", text.telemetryLabel || "Live telemetry");
+  document
+    .getElementById("transcriptTools")
+    ?.setAttribute("aria-label", text.filtersLabel || "Transcript filters");
+  document
+    .getElementById("filterGroup")
+    ?.setAttribute("aria-label", text.filterGroupLabel || "Filter by category");
   document.title = text.documentTitle || "Agent transcript";
   updateStatusToggleLabel();
 }
