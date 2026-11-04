@@ -87,15 +87,6 @@ body.recording .status-activity::before {
     opacity: 0.45;
   }
 }
-body.recording .status-meta {
-  font:
-    11px/1.5 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
-  color: #8ba09b;
-  letter-spacing: 0.01em;
-}
 body.recording .status-toggle {
   width: 22px;
   height: 22px;
@@ -105,12 +96,6 @@ body.recording .status-toggle {
 body.recording .status-toggle:hover {
   background: #17242a;
   color: #dbe8e4;
-}
-body.recording .status-current {
-  margin-top: 1px;
-  color: #dcece7;
-  font-size: 13px;
-  font-weight: 500;
 }
 
 body.recording .status-metrics {
@@ -140,10 +125,6 @@ body.recording .metric-spark {
 body.recording .metric-bar {
   background: linear-gradient(180deg, #8fe6b7, #3f8d74);
   border-radius: 1px;
-}
-body.recording .status-scores {
-  gap: 3px 14px;
-  margin-top: 3px;
 }
 body.recording .score-label {
   width: 34px;
@@ -1520,12 +1501,6 @@ body.recording .metric.error .icon {
   align-items: center;
   gap: 6px;
 }
-#agentStatus .status-current .icon {
-  width: 13px;
-  height: 13px;
-  margin: 0;
-  color: #7fd8e8;
-}
 .icon-target {
   --gi-icon: url("/icons/target.svg");
 }
@@ -1830,23 +1805,9 @@ body.recording .status-telemetry {
   justify-self: end;
   min-width: 0;
 }
-body.recording .status-telemetry .status-data {
-  display: flex;
-  align-items: flex-start;
-  gap: 18px;
-  min-width: 0;
-}
 body.recording .status-line {
   flex-wrap: wrap;
   row-gap: 4px;
-}
-body.recording .status-meta {
-  margin-left: auto;
-  min-width: 0;
-  max-width: 100%;
-  text-align: right;
-  white-space: normal;
-  overflow-wrap: anywhere;
 }
 
 /* Toolbar: filter group + search affordance. */
@@ -1926,10 +1887,6 @@ body.recording .transcript-pane > #transcriptTools {
 }
 
 @media (max-width: 560px) {
-  body.recording .status-meta {
-    width: 100%;
-    text-align: left;
-  }
   #transcriptTools .search-field {
     flex: 1 1 100%;
     margin-left: 0;

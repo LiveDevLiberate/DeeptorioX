@@ -105,23 +105,6 @@ body.recording #transcriptTools .search-field #transcriptSearch {
 /* Transcript cards: keep the existing language, tighten the rhythm. */
 
 /* Connection notice, aligned to the same page inset as the header. */
-body.recording .connection-notice {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: min(calc(100% - 44px), 1036px);
-  margin: 10px auto 0;
-  padding: 9px 12px;
-  border: 1px solid rgba(255, 143, 133, 0.42);
-  border-radius: 10px;
-  background: rgba(74, 31, 28, 0.55);
-  color: #ffb0a6;
-  font:
-    500 12px/1.45 -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
 body.recording .connection-notice[hidden] {
   display: none;
 }
@@ -154,26 +137,12 @@ body.recording .connection-notice button {
   body.recording .status-telemetry {
     padding: 10px 12px 11px;
   }
-  body.recording .status-current {
-    font-size: 13.5px;
-  }
-  body.recording .status-telemetry .status-data {
-    flex-wrap: wrap;
-    gap: 10px 16px;
-  }
 }
 
 @media (max-width: 560px) {
   body.recording #transcriptTools .filter-group {
     width: 100%;
     flex-wrap: wrap;
-  }
-  body.recording .status-meta {
-    font-size: 10.5px;
-  }
-  body.recording .connection-notice {
-    width: calc(100% - 22px);
-    font-size: 11.5px;
   }
 }
 
@@ -401,13 +370,18 @@ body.recording .status-meta {
   flex-wrap: wrap;
   align-items: center;
   gap: 0;
+  min-width: 0;
+  max-width: 100%;
   margin-left: auto;
   color: var(--muted);
   font-family: var(--font-body);
   font-size: 10.5px;
   font-variant-numeric: tabular-nums;
   line-height: 1.4;
+  letter-spacing: 0.01em;
   text-align: right;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 body.recording .status-readout {
   padding: 0 9px;
@@ -478,17 +452,13 @@ body.recording .section-kicker::before {
 body.recording .status-current {
   gap: 8px;
   max-width: 90ch;
+  margin-top: 1px;
   color: var(--ink);
   font-family: var(--font-display);
   font-size: clamp(18px, 1.7vw, 23px);
   font-weight: 600;
   line-height: 1.16;
   letter-spacing: -0.01em;
-}
-body.recording .status-current .icon {
-  width: 17px;
-  height: 17px;
-  color: var(--safety);
 }
 body.recording .status-done {
   display: block;
@@ -498,11 +468,6 @@ body.recording .status-done {
   font-family: var(--font-body);
   font-size: 11.5px;
   line-height: 1.5;
-}
-body.recording .status-telemetry .status-data {
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
 }
 
 body.recording .metrics-table {
@@ -892,7 +857,11 @@ body.recording .map-info-raw pre {
 
 /* Operational alert ------------------------------------------------------- */
 body.recording .connection-notice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   width: min(calc(100% - 44px), 1036px);
+  margin: 10px auto 0;
   padding: 8px 10px;
   border: 1px solid var(--danger);
   border-radius: 0;
@@ -900,6 +869,8 @@ body.recording .connection-notice {
   color: var(--danger);
   font-family: var(--font-body);
   font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.45;
 }
 body.recording .connection-dot {
   background: var(--danger);
@@ -939,9 +910,6 @@ body.recording .connection-notice button:hover {
     left: 0;
   }
 
-  body.recording .status-scores {
-    margin-left: 0;
-  }
   body.recording .connection-notice {
     width: calc(100% - 28px);
     margin-top: 8px;
@@ -962,9 +930,6 @@ body.recording .connection-notice button:hover {
   }
   body.recording .status-current {
     font-size: 18px;
-  }
-  body.recording .status-telemetry .status-data {
-    flex-wrap: wrap;
   }
   body.recording .status-scores {
     margin-left: 0;
@@ -1205,10 +1170,6 @@ body.recording .status-tools .status-theme-toggle .icon {
   width: var(--icon-md);
   height: var(--icon-md);
 }
-body.recording .status-current .icon {
-  width: var(--icon-lg);
-  height: var(--icon-lg);
-}
 body.recording #transcriptTools .chip .icon,
 body.recording #transcriptTools .search-field .icon {
   width: var(--icon-sm);
@@ -1285,27 +1246,22 @@ body.recording .status-telemetry .status-data {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: stretch;
+  justify-content: space-between;
   gap: 24px;
+  min-width: 0;
 }
 body.recording .status-scores {
   display: flex;
   align-items: stretch;
   justify-content: center;
   align-self: stretch;
+  gap: 3px 14px;
   margin-left: 0;
 }
 body.recording .status-scores .score-radar {
   width: auto;
   height: 100%;
   aspect-ratio: 1;
-}
-body.recording #agentStatus .status-current .icon {
-  width: 1.05em;
-  height: 1.05em;
-  color: var(--safety);
-}
-body.recording #agentStatus.stale-plan .status-current .icon {
-  color: var(--danger);
 }
 @media (max-width: 900px) {
   body.recording .status-telemetry .status-data {
@@ -1331,6 +1287,7 @@ body.recording .status-scores {
 body.recording #agentStatus .status-current .icon {
   width: 1em;
   height: 1em;
+  margin: 0;
 }
 html:not([data-theme="light"]) body.recording #agentStatus .status-current .icon {
   color: var(--safety);

@@ -109,3 +109,15 @@ Use one authoritative rule per property; retire earlier passes. Do not add new
 - Run `npm run verify` and the browser check.
 - Update `docs/ui-skills-audit.md`, CHANGELOG, visual baseline notes.
 - Release a patch version when the refactor is only structural.
+
+### Phase 3 progress (round 5)
+
+- Consolidated the repeated status selector chains: removed earlier
+  `status-current`, `status-scores`, `status-meta`, `status-data`, status icon
+  and connection-notice declarations after moving the still-effective properties
+  into the final rules.
+- Stylesheet modules now **4,947 → 4,861 lines**, rules **902 → 871**; all six
+  screenshots remain pixel-identical.
+- Added `#statusCurrent .icon`, `#statusMeta` and `.status-readout` to the
+  computed-style baseline after finding that the meta line's letter-spacing and
+  icon margin were not covered by the previous fingerprint.

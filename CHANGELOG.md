@@ -19,7 +19,9 @@ this file.
   Base `:root` tokens now live in `tokens.css`. Removed 221 fully-shadowed
   legacy rules (822 lines) whose declarations were all re-declared later for the
   same selector/context; the browser screenshots remain pixel-identical.
-  Also removed the superseded 120-line colour-system-v2 pass.
+  Also removed the superseded 120-line colour-system-v2 pass and consolidated
+  the repeated status/meta/readout/connection-notice selector chains into their
+  final rules (4,947 → 4,861 lines; screenshots still pixel-identical).
 
 ### Added
 
@@ -31,6 +33,8 @@ this file.
   A committed computed-style baseline (`tests/ui-style-baseline.json`) covers
   colors, borders, fonts, spacing and layout for main/dialog/error surfaces;
   regenerate deliberately with `AUTORIO_UI_UPDATE_BASELINE=1 npm run test:ui`.
+  The status line, its icon/readouts and the error notice are included after
+  catching a meta letter-spacing/icon-margin drift during consolidation.
   Windows CI requires the check.
 
 ## [0.27.2] - 2026-11-04
