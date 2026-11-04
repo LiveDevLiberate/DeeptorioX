@@ -69,7 +69,18 @@ Replace the single file with ordered imports so the cascade stays equivalent:
   and after the split.
 - `tokens.css` now owns the base `:root` design tokens; theme/recording token
   overrides still live in their modules until duplicate cleanup.
-- Remaining: 201 duplicate selectors and legacy override passes (Phase 3).
+- Remaining: repeated selectors and legacy override passes (Phase 3).
+
+### Phase 3 progress
+
+- Removed **221 fully shadowed rules** (822 lines) across base/recording/modern:
+  a rule was removed only when every declaration it set was re-declared later
+  for the same selector and at-rule context.
+- Totals: `public/styles/*.css` **5,889 → 5,067 lines**, rules **1,123 → 902**.
+- Re-ran the full browser suite: all six screenshots still pixel-identical to the
+  pre-split baseline.
+- No fully-shadowed rules remain; further cleanup needs context-aware
+  consolidation of the remaining repeated selectors/declarations.
 
 ## Phase 3 — remove duplicates
 

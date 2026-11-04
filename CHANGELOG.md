@@ -16,7 +16,9 @@ this file.
   `styles/recording.css`, `styles/dashboard.css` and
   `styles/recording-modern.css`. The modules preserve the original source order;
   all six browser-regression screenshots are pixel-identical before/after.
-  Base `:root` tokens now live in `tokens.css`; duplicate cleanup continues.
+  Base `:root` tokens now live in `tokens.css`. Removed 221 fully-shadowed
+  legacy rules (822 lines) whose declarations were all re-declared later for the
+  same selector/context; the browser screenshots remain pixel-identical.
 
 ### Added
 

@@ -362,10 +362,7 @@ body.recording main {
   color: #8fa09d;
   font-size: 9px;
 }
-#agentStatus.collapsed .status-scores,
-#agentStatus.collapsed .status-done {
-  display: none;
-}
+
 #agentStatus.stale-plan .status-current {
   color: #e7d38f;
 }
@@ -453,18 +450,6 @@ body.recording main {
   }
 }
 
-#codexOutput .message {
-  margin: 8px 0 22px;
-  white-space: pre-wrap;
-}
-#codexOutput .reasoning {
-  color: #a7b3b4;
-  font-style: italic;
-}
-#codexOutput .commands {
-  margin: 8px 0 22px;
-  color: #9baaa8;
-}
 #codexOutput summary {
   cursor: pointer;
   white-space: normal;
@@ -487,9 +472,7 @@ body.recording main {
 }
 
 /* Transcript readability: collapsed reasoning, action summaries, turns, unread. */
-#codexOutput .message-body {
-  white-space: pre-wrap;
-}
+
 #codexOutput .reasoning {
   color: #a7b3b4;
   font-style: normal;
@@ -505,9 +488,7 @@ body.recording main {
   margin-top: 4px;
   white-space: pre-wrap;
 }
-#codexOutput .reasoning.repeated {
-  opacity: 0.82;
-}
+
 #codexOutput .dedupe-badge,
 #codexOutput .loop-badge {
   display: inline-block;
@@ -550,42 +531,17 @@ body.recording main {
   font-size: 9px;
   text-align: center;
 }
-#codexOutput .action-badge.failed {
-  background: #3a1b18;
-  color: #ff9d8e;
-}
-#codexOutput .action-target {
-  color: #dbe5e3;
-}
+
 #codexOutput .action-outcome {
   margin-left: 6px;
   color: #8fa09d;
 }
-#codexOutput .action-duration {
-  margin-left: 6px;
-  color: #60716e;
-  font-size: 9px;
-}
+
 #codexOutput .action-flag {
   margin-left: 6px;
   color: #9fd0ff;
 }
-#codexOutput .action-raw {
-  margin: 4px 0 8px;
-}
-#codexOutput .action-raw summary {
-  color: #6f807d;
-  font-size: 10px;
-}
-#codexOutput .action-raw pre {
-  margin: 4px 0 0;
-}
-#codexOutput .tool-details summary {
-  color: #9baaa8;
-}
-#codexOutput .tool-raw {
-  color: #7f908d;
-}
+
 #codexOutput .msg-time {
   margin-left: 8px;
   color: #60716e;
@@ -606,9 +562,7 @@ body.recording main {
   font-size: 10px;
   padding: 5px 10px;
 }
-.jump-latest:hover {
-  background: #24413b;
-}
+
 #transcriptTools {
   position: sticky;
   top: 0;
@@ -650,9 +604,7 @@ body.recording main {
   font-size: 9px;
   padding: 2px 8px;
 }
-#transcriptSearch:focus {
-  outline: 1px solid #4b8f7a;
-}
+
 #codexOutput .trimmed-note {
   margin: 4px 0 10px;
   color: #6f807d;
@@ -676,12 +628,7 @@ body.overlay .action-raw,
 body.overlay .tool-raw {
   display: none;
 }
-body.overlay #agentStatus {
-  background: rgba(12, 18, 20, 0.72);
-}
-body.overlay #codexOutput {
-  font-size: 13px;
-}
+
 body.overlay #codexOutput .action-badge {
   min-width: 52px;
 }

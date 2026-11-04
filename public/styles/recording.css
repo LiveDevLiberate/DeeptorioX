@@ -36,9 +36,7 @@ body.recording .status-inner {
   flex-direction: column;
   gap: 7px;
 }
-body.recording .status-line {
-  gap: 10px;
-}
+
 body.recording .status-badge {
   padding: 3px 11px;
   border: 1px solid transparent;
@@ -62,28 +60,7 @@ body.recording .status-badge::before {
   vertical-align: 1px;
   opacity: 0.85;
 }
-body.recording .status-badge.running {
-  border-color: rgba(126, 226, 176, 0.35);
-  background: rgba(31, 74, 56, 0.55);
-  color: #8fe6b7;
-}
-body.recording .status-badge.paused {
-  border-color: rgba(231, 199, 111, 0.35);
-  background: rgba(74, 59, 28, 0.55);
-  color: #f0cf87;
-}
-body.recording .status-badge.completed {
-  border-color: rgba(136, 189, 245, 0.35);
-  background: rgba(28, 58, 74, 0.55);
-  color: #9ed3f2;
-}
-body.recording .status-badge.failed,
-body.recording .status-badge.timed_out,
-body.recording .status-badge.interrupted {
-  border-color: rgba(255, 157, 142, 0.35);
-  background: rgba(74, 31, 28, 0.6);
-  color: #ffb0a6;
-}
+
 body.recording .status-activity {
   display: inline-flex;
   align-items: center;
@@ -135,10 +112,7 @@ body.recording .status-current {
   font-size: 13px;
   font-weight: 500;
 }
-body.recording .status-done {
-  color: #8ba09b;
-  font-size: 11px;
-}
+
 body.recording .status-metrics {
   gap: 6px;
 }
@@ -154,14 +128,7 @@ body.recording .metric {
     Menlo,
     monospace;
 }
-body.recording .metric.muted {
-  color: #7c918c;
-}
-body.recording .metric.error {
-  border-color: rgba(255, 157, 142, 0.35);
-  background: rgba(74, 31, 28, 0.45);
-  color: #ffb0a6;
-}
+
 body.recording .metric-spark {
   width: 62px;
   height: 12px;
@@ -187,9 +154,7 @@ body.recording .score-track {
   height: 4px;
   background: #1a272c;
 }
-body.recording .score-fill {
-  background: linear-gradient(90deg, #3f8d74, #6fc7a6);
-}
+
 body.recording .score-value {
   width: 20px;
   font-size: 10px;
@@ -198,9 +163,6 @@ body.recording .score-value {
 }
 body.recording .score.active .score-label {
   color: #dcece7;
-}
-body.recording .score.active .score-fill {
-  background: linear-gradient(90deg, #6fc7a6, #a9f2d2);
 }
 
 /* ---- Filter toolbar ------------------------------------------------------ */
@@ -228,16 +190,7 @@ body.recording .score.active .score-fill {
     color 0.15s ease,
     border-color 0.15s ease;
 }
-#transcriptTools .chip:hover {
-  background: #16242a;
-  border-color: #33494f;
-  color: #dcece7;
-}
-#transcriptTools .chip.active {
-  background: #1b3a32;
-  border-color: #3f7c6b;
-  color: #b9f2da;
-}
+
 #transcriptSearch {
   flex: 0 1 220px;
   margin-left: auto;
@@ -252,9 +205,7 @@ body.recording .score.active .score-fill {
     sans-serif;
   transition: border-color 0.15s ease;
 }
-#transcriptSearch::placeholder {
-  color: #5e7570;
-}
+
 #transcriptSearch:focus {
   outline: none;
   border-color: #3f7c6b;
@@ -315,10 +266,7 @@ body.recording #codexOutput {
   background: rgba(17, 26, 30, 0.62);
   color: #a9bdb7;
 }
-#codexOutput .reasoning:hover {
-  border-color: #243940;
-  border-left-color: #4d8a7b;
-}
+
 #codexOutput .reasoning-summary {
   display: flex;
   align-items: baseline;
@@ -381,9 +329,7 @@ body.recording #codexOutput {
   background: rgba(13, 21, 24, 0.7);
   color: #b9cdc7;
 }
-#codexOutput .commands:hover {
-  border-color: #243940;
-}
+
 #codexOutput .commands-summary {
   padding: 9px 14px;
   list-style: none;
@@ -408,10 +354,7 @@ body.recording #codexOutput {
   display: inline-block;
   transform: rotate(90deg);
 }
-#codexOutput .commands[open] > .commands-summary {
-  border-bottom: 1px solid #1a282d;
-  background: rgba(20, 31, 36, 0.6);
-}
+
 #codexOutput .commands.loop > .commands-summary {
   color: #f0cf87;
 }
@@ -431,9 +374,7 @@ body.recording #codexOutput {
 #codexOutput .command:first-of-type {
   border-top: 0;
 }
-#codexOutput .command:hover {
-  background: rgba(255, 255, 255, 0.022);
-}
+
 #codexOutput .action-badge {
   min-width: 0;
   margin: 0;
@@ -450,46 +391,7 @@ body.recording #codexOutput {
   letter-spacing: 0.04em;
   text-align: center;
 }
-#codexOutput .action-badge.build,
-#codexOutput .action-badge.deconstruct {
-  border-color: rgba(126, 226, 176, 0.28);
-  background: rgba(31, 74, 56, 0.5);
-  color: #9fe3bd;
-}
-#codexOutput .action-badge.mine,
-#codexOutput .action-badge.craft {
-  border-color: rgba(231, 199, 111, 0.28);
-  background: rgba(74, 59, 28, 0.45);
-  color: #f0cf87;
-}
-#codexOutput .action-badge.observe,
-#codexOutput .action-badge.job,
-#codexOutput .action-badge.wait {
-  border-color: rgba(136, 189, 245, 0.28);
-  background: rgba(28, 58, 74, 0.5);
-  color: #9ed3f2;
-}
-#codexOutput .action-badge.recipe,
-#codexOutput .action-badge.research,
-#codexOutput .action-badge.insert,
-#codexOutput .action-badge.extract,
-#codexOutput .action-badge.rocket {
-  border-color: rgba(196, 160, 238, 0.28);
-  background: rgba(58, 42, 74, 0.5);
-  color: #d5b8f2;
-}
-#codexOutput .action-badge.move,
-#codexOutput .action-badge.rotate,
-#codexOutput .action-badge.settings {
-  border-color: rgba(169, 198, 232, 0.25);
-  background: rgba(36, 48, 63, 0.5);
-  color: #c3d6ea;
-}
-#codexOutput .action-badge.failed {
-  border-color: rgba(255, 157, 142, 0.35);
-  background: rgba(74, 31, 28, 0.6);
-  color: #ffb0a6;
-}
+
 #codexOutput .action-main {
   display: inline-flex;
   flex: 1 1 auto;
@@ -530,9 +432,7 @@ body.recording #codexOutput {
   font-size: 10px;
   list-style: none;
 }
-#codexOutput .action-raw summary::before {
-  content: "\2318 ";
-}
+
 #codexOutput .action-raw pre,
 #codexOutput .tool-raw {
   max-height: 240px;
@@ -589,12 +489,7 @@ body.recording #codexOutput {
 #codexOutput .message-body {
   white-space: pre-wrap;
 }
-#codexOutput .message.error {
-  border-color: rgba(255, 157, 142, 0.28);
-  border-left-color: #c0524a;
-  background: rgba(58, 27, 24, 0.32);
-  color: #ffd2cb;
-}
+
 #codexOutput .message.tool {
   padding: 0;
   border: 0;
@@ -643,10 +538,6 @@ body.recording #codexOutput {
   background: #24363c;
   background-clip: content-box;
 }
-#codexOutput::-webkit-scrollbar-thumb:hover {
-  background: #314a51;
-  background-clip: content-box;
-}
 
 /* Jump-to-latest pill */
 .jump-latest {
@@ -664,16 +555,9 @@ body.recording #codexOutput {
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(8px);
 }
-.jump-latest:hover {
-  background: rgba(27, 58, 50, 0.95);
-  border-color: rgba(126, 226, 176, 0.55);
-}
 
 /* Focus + motion */
-body.recording :focus-visible {
-  outline: 2px solid rgba(126, 226, 176, 0.5);
-  outline-offset: 2px;
-}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -722,9 +606,6 @@ body.overlay .message {
 body.overlay .action-outcome {
   font-size: 12px;
 }
-body.overlay #agentStatus {
-  background: rgba(8, 13, 15, 0.72);
-}
 
 /* Polish pass: hidden utility badges, terminal status, inline raw toggle. */
 #codexOutput .dedupe-badge[hidden],
@@ -742,9 +623,7 @@ body.recording .status-activity:empty {
 #codexOutput .reasoning-summary::before {
   color: #7fc0a9;
 }
-#codexOutput .commands-summary {
-  color: #dcefe8;
-}
+
 #codexOutput .action-raw {
   flex: 0 0 auto;
   margin: 0 0 0 2px;
@@ -827,11 +706,7 @@ body.recording .status-activity:empty {
     flex-wrap: wrap;
     row-gap: 4px;
   }
-  body.recording .status-meta {
-    order: 3;
-    width: 100%;
-    margin-left: 0;
-  }
+
   body.recording .status-activity {
     order: 2;
   }
@@ -874,13 +749,7 @@ body.recording .status-activity:empty {
   stroke-linejoin: round;
   opacity: 0.9;
 }
-#transcriptTools .chip .icon {
-  width: 12px;
-  height: 12px;
-  margin-right: 5px;
-  vertical-align: -1px;
-  opacity: 0.8;
-}
+
 #codexOutput .action-badge .icon {
   width: 11px;
   height: 11px;
@@ -896,9 +765,7 @@ body.recording .status-activity:empty {
   color: #7fc0a9;
   opacity: 0.9;
 }
-#codexOutput .reasoning-summary .icon {
-  color: #e7c76f;
-}
+
 body.recording .metric .icon {
   width: 11px;
   height: 11px;
@@ -934,10 +801,7 @@ body.recording .metric .icon {
   border-radius: 8px;
   background: rgba(11, 18, 21, 0.55);
 }
-#codexOutput .reasoning-segment.decision {
-  border-left-color: #c9a95a;
-  background: rgba(42, 34, 15, 0.28);
-}
+
 #codexOutput .reasoning-segment-text {
   margin: 0;
   color: #a9bdb7;
@@ -948,17 +812,8 @@ body.recording .metric .icon {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-#codexOutput .reasoning-segment.decision .reasoning-segment-text {
-  color: #e4d8b8;
-}
 
 /* Softer decision frame tint (reasoning segment boxes). */
-#codexOutput .reasoning-segment.decision {
-  background: rgba(46, 36, 15, 0.16);
-}
-#codexOutput .reasoning-segment.decision .reasoning-segment-text {
-  color: #d8cfb6;
-}
 
 /* ---- game-icons.net mask icons ------------------------------------------- */
 .icon-sprite {
@@ -1075,10 +930,7 @@ body.recording .metric .icon {
   width: 12px;
   height: 12px;
 }
-body.recording .metric .icon {
-  width: 12px;
-  height: 12px;
-}
+
 #codexOutput .reasoning-summary .icon,
 #codexOutput .commands-summary .icon {
   width: 14px;
@@ -1104,9 +956,7 @@ body.recording .metric .icon {
   vertical-align: 0;
   opacity: 0.95;
 }
-#transcriptTools .chip.active .icon {
-  color: #b9f2da;
-}
+
 #transcriptTools .chip-label {
   line-height: 1.4;
 }
@@ -1164,228 +1014,18 @@ body.recording #agentStatus::before {
     transparent
   );
 }
-body.recording .status-badge {
-  border-color: #22333a;
-  background: #131e23;
-  color: #9db3ad;
-}
-body.recording .status-badge.running {
-  border-color: rgba(111, 216, 178, 0.4);
-  background: rgba(28, 68, 54, 0.5);
-  color: #8ce8bd;
-}
-body.recording .status-badge.paused {
-  border-color: rgba(232, 201, 138, 0.38);
-  background: rgba(72, 57, 26, 0.5);
-  color: #f0d391;
-}
-body.recording .status-badge.completed {
-  border-color: rgba(127, 184, 230, 0.4);
-  background: rgba(26, 48, 66, 0.55);
-  color: #a4cff0;
-}
-body.recording .status-badge.failed,
-body.recording .status-badge.timed_out,
-body.recording .status-badge.interrupted {
-  border-color: rgba(255, 157, 146, 0.4);
-  background: rgba(72, 29, 26, 0.6);
-  color: #ffb4ab;
-}
-body.recording .status-activity {
-  color: var(--rec-text);
-}
-body.recording .status-activity::before {
-  background: var(--rec-warm);
-  box-shadow: 0 0 0 3px var(--rec-warm-soft);
-}
-body.recording .status-meta {
-  color: var(--rec-text-muted);
-}
-body.recording .status-current {
-  color: var(--rec-text);
-}
-body.recording .status-done {
-  color: var(--rec-text-muted);
-}
-body.recording .metric {
-  border-color: #223239;
-  background: #0e181d;
-  color: #cfe0da;
-}
-body.recording .metric.muted {
-  color: var(--rec-text-dim);
-}
-body.recording .metric.error {
-  border-color: rgba(255, 157, 146, 0.32);
-  background: rgba(64, 24, 21, 0.42);
-  color: #ffb4ab;
-}
-body.recording .metric-spark {
-  border-color: #223239;
-  background: #0a1216;
-}
-body.recording .metric-bar {
-  background: linear-gradient(180deg, #8ce8bd, #3f8d74);
-}
-body.recording .score-track {
-  background: #17262b;
-}
-body.recording .score-fill {
-  background: linear-gradient(90deg, #3f8d74, #6fd8b2);
-}
-body.recording .score-label,
-body.recording .score-value {
-  color: var(--rec-text-muted);
-}
-body.recording .score.active .score-fill {
-  background: linear-gradient(90deg, #6fd8b2, #b6f7df);
-}
 
 /* Toolbar ----------------------------------------------------------------- */
-#transcriptTools {
-  background: rgba(8, 13, 16, 0.88);
-  border-bottom: 1px solid #17242a;
-}
-#transcriptTools .chip {
-  border-color: #22333a;
-  background: #0f191e;
-  color: #94aaa4;
-}
-#transcriptTools .chip:hover {
-  border-color: #2f4a52;
-  background: #132229;
-  color: var(--rec-text);
-}
-#transcriptTools .chip.active {
-  border-color: rgba(111, 216, 178, 0.45);
-  background: rgba(28, 60, 50, 0.6);
-  color: var(--rec-accent-strong);
-}
-#transcriptTools .chip.active .icon {
-  color: var(--rec-accent-strong);
-}
-#transcriptSearch {
-  border-color: #22333a;
-  background: #0a1418;
-  color: var(--rec-text);
-}
-#transcriptSearch:focus {
-  border-color: rgba(111, 216, 178, 0.5);
-  box-shadow: 0 0 0 3px rgba(111, 216, 178, 0.14);
-}
 
 /* Transcript -------------------------------------------------------------- */
-#codexOutput {
-  color: var(--rec-text-body);
-}
-#codexOutput .msg-time {
-  color: var(--rec-text-dim);
-}
-#codexOutput .reasoning {
-  border: 1px solid var(--rec-border);
-  border-left: 3px solid #35695c;
-  background: var(--rec-surface);
-  color: var(--rec-text-body);
-}
-#codexOutput .reasoning:hover {
-  border-color: #24373f;
-  border-left-color: #478f7d;
-}
-#codexOutput .reasoning-summary {
-  color: var(--rec-text);
-}
-#codexOutput .reasoning-summary .icon {
-  color: var(--rec-warm);
-}
-#codexOutput .reasoning-segment {
-  border: 1px solid #1a2a30;
-  border-left: 2px solid #28453e;
-  background: rgba(10, 17, 21, 0.55);
-}
-#codexOutput .reasoning-segment.decision {
-  border-left-color: rgba(232, 201, 138, 0.75);
-  background: var(--rec-warm-soft);
-}
-#codexOutput .reasoning-segment-text {
-  color: #bccdc8;
-}
-#codexOutput .reasoning-segment.decision .reasoning-segment-text {
-  color: #d9d2be;
-}
-#codexOutput .commands {
-  border: 1px solid var(--rec-border);
-  background: var(--rec-surface);
-  color: var(--rec-text-body);
-}
-#codexOutput .commands:hover {
-  border-color: #24373f;
-}
-#codexOutput .commands-summary {
-  color: #d5e5df;
-}
-#codexOutput .commands-summary .icon {
-  color: var(--rec-accent);
-}
-#codexOutput .commands[open] > .commands-summary {
-  border-bottom: 1px solid #17242a;
-  background: rgba(16, 26, 31, 0.72);
-}
-#codexOutput .command {
-  border-top: 1px solid #152229;
-}
-#codexOutput .command:hover {
-  background: rgba(255, 255, 255, 0.018);
-}
-#codexOutput .action-target {
-  color: #e0ece8;
-}
-#codexOutput .action-outcome {
-  color: #9db2ac;
-}
-#codexOutput .action-duration {
-  color: var(--rec-text-dim);
-}
-#codexOutput .action-raw summary {
-  border-color: #1d3036;
-  color: #7d938e;
-}
-#codexOutput .action-raw pre,
-#codexOutput .tool-raw {
-  border-color: #18262b;
-  background: #070e11;
-  color: #93aaa4;
-}
-#codexOutput .tool-details {
-  border-color: var(--rec-border);
-  background: var(--rec-surface);
-}
-#codexOutput .tool-details summary {
-  color: #b9cdc7;
-}
+
 #codexOutput .message {
   border-color: var(--rec-border);
   border-left: 3px solid #4d8fc4;
   background: rgba(15, 24, 30, 0.72);
   color: #c9dcd6;
 }
-#codexOutput .message.error {
-  border-color: rgba(255, 157, 146, 0.26);
-  border-left-color: #c95d54;
-  background: rgba(52, 24, 21, 0.34);
-  color: #ffd4ce;
-}
-#codexOutput .turn-separator {
-  color: #5f7a74;
-}
-#codexOutput .turn-separator::before,
-#codexOutput .turn-separator::after {
-  background: linear-gradient(90deg, transparent, #22343a);
-}
-#codexOutput .trimmed-note {
-  border-color: #1d2d33;
-  background: #0c1519;
-  color: #5f7a74;
-}
+
 #codexOutput::-webkit-scrollbar-thumb {
   background: #24363c;
   background-clip: content-box;
@@ -1396,11 +1036,7 @@ body.recording .score.active .score-fill {
 }
 
 /* Action badge palette: fewer hues, lower saturation. */
-#codexOutput .action-badge {
-  border: 1px solid #22333a;
-  background: #102027;
-  color: #9fc7bd;
-}
+
 #codexOutput .action-badge.build,
 #codexOutput .action-badge.craft {
   border-color: rgba(111, 216, 178, 0.26);
@@ -1440,37 +1076,10 @@ body.recording .score.active .score-fill {
   background: rgba(34, 46, 58, 0.46);
   color: #c2d5e4;
 }
-#codexOutput .action-badge.failed {
-  border-color: rgba(255, 157, 146, 0.4);
-  background: rgba(72, 28, 25, 0.55);
-  color: #ffb4ab;
-}
-#codexOutput .dedupe-badge,
-#codexOutput .loop-badge {
-  border-color: rgba(232, 201, 138, 0.34);
-  background: rgba(64, 52, 22, 0.4);
-  color: #ecd39b;
-}
 
 /* Jump pill --------------------------------------------------------------- */
-.jump-latest {
-  border-color: rgba(111, 216, 178, 0.38);
-  background: rgba(13, 27, 23, 0.94);
-  color: var(--rec-accent-strong);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
-}
-.jump-latest:hover {
-  border-color: rgba(111, 216, 178, 0.6);
-  background: rgba(22, 48, 40, 0.96);
-}
 
 /* Overlay keeps the same palette without the gradients. */
-body.overlay {
-  background: #080c0f;
-}
-body.overlay #agentStatus {
-  background: rgba(7, 11, 14, 0.78);
-}
 
 /* ============================================================================
    Recording transcript — theme v3 "clean editor dark"
@@ -1500,79 +1109,34 @@ body.recording {
   background: linear-gradient(180deg, #0c1014 0%, #0b0e11 42%, #090c0f 100%);
   color: var(--body);
 }
-body.recording #agentStatus {
-  background: rgba(9, 12, 15, 0.94);
-  border-bottom: 1px solid var(--border-soft);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
-}
-body.recording #agentStatus::before {
-  display: none;
-}
+
 body.recording .status-badge {
   border-color: #26313a;
   background: #151b21;
   color: var(--muted);
 }
-body.recording .status-badge.running {
-  border-color: rgba(122, 162, 247, 0.4);
-  background: rgba(28, 40, 66, 0.6);
-  color: var(--accent-strong);
-}
-body.recording .status-badge.paused {
-  border-color: rgba(224, 176, 114, 0.36);
-  background: rgba(58, 46, 24, 0.55);
-  color: #ecc78f;
-}
-body.recording .status-badge.completed {
-  border-color: rgba(143, 214, 168, 0.36);
-  background: rgba(26, 48, 36, 0.55);
-  color: #a8e6bf;
-}
-body.recording .status-badge.failed,
-body.recording .status-badge.timed_out,
-body.recording .status-badge.interrupted {
-  border-color: rgba(255, 143, 133, 0.4);
-  background: rgba(64, 26, 23, 0.6);
-  color: #ffaea6;
-}
-body.recording .status-activity {
-  color: var(--text);
-}
+
 body.recording .status-activity::before {
   background: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
-body.recording .status-meta {
-  color: var(--muted);
-}
-body.recording .status-current {
-  color: var(--text);
-}
-body.recording .status-done {
-  color: var(--muted);
-}
+
 body.recording .metric {
   border-color: var(--border);
   background: var(--panel-2);
   color: var(--body);
 }
-body.recording .metric .icon {
-  color: var(--accent);
-}
+
 body.recording .metric.muted {
   color: var(--dim);
 }
-body.recording .metric.muted .icon {
-  color: var(--dim);
-}
+
 body.recording .metric.error {
   border-color: rgba(255, 143, 133, 0.3);
   background: rgba(56, 22, 20, 0.4);
   color: #ffaea6;
 }
-body.recording .metric.error .icon {
-  color: var(--red);
-}
+
 body.recording .metric-spark {
   border-color: var(--border);
   background: #0a1014;
@@ -1614,9 +1178,7 @@ body.recording .score-value {
   background: var(--accent-soft);
   color: var(--accent-strong);
 }
-#transcriptTools .chip.active .icon {
-  color: var(--accent-strong);
-}
+
 #transcriptSearch {
   border-color: #26313a;
   background: #0c1216;
@@ -1652,9 +1214,7 @@ body.recording .score-value {
 #codexOutput .reasoning-summary {
   color: var(--text);
 }
-#codexOutput .reasoning-summary .icon {
-  color: var(--accent);
-}
+
 #codexOutput .reasoning-segment {
   border: 1px solid #1d262d;
   border-left: 2px solid #26333c;
@@ -1682,9 +1242,7 @@ body.recording .score-value {
 #codexOutput .commands-summary {
   color: var(--text);
 }
-#codexOutput .commands-summary .icon {
-  color: var(--accent);
-}
+
 #codexOutput .commands[open] > .commands-summary {
   border-bottom: 1px solid var(--border-soft);
   background: #141a20;
@@ -1752,37 +1310,13 @@ body.recording .score-value {
   background: #141b21;
   color: #a3b1be;
 }
-#codexOutput .action-badge .icon {
-  color: #8b98a5;
-}
-#codexOutput .action-badge.build .icon,
-#codexOutput .action-badge.craft .icon {
-  color: var(--green);
-}
-#codexOutput .action-badge.mine .icon,
-#codexOutput .action-badge.deconstruct .icon,
-#codexOutput .action-badge.wait .icon {
-  color: var(--amber);
-}
-#codexOutput .action-badge.observe .icon,
-#codexOutput .action-badge.job .icon {
-  color: var(--accent);
-}
-#codexOutput .action-badge.recipe .icon,
-#codexOutput .action-badge.research .icon,
-#codexOutput .action-badge.insert .icon,
-#codexOutput .action-badge.extract .icon,
-#codexOutput .action-badge.rocket .icon {
-  color: var(--violet);
-}
+
 #codexOutput .action-badge.failed {
   border-color: rgba(255, 143, 133, 0.36);
   background: rgba(56, 22, 20, 0.45);
   color: #ffaea6;
 }
-#codexOutput .action-badge.failed .icon {
-  color: var(--red);
-}
+
 #codexOutput .dedupe-badge,
 #codexOutput .loop-badge {
   border-color: rgba(224, 176, 114, 0.32);
@@ -2509,10 +2043,6 @@ body.recording .transcript-pane > #transcriptTools {
   body.recording .status-telemetry {
     justify-self: stretch;
   }
-  body.recording .status-telemetry .status-data {
-    flex-wrap: wrap;
-    gap: 10px 18px;
-  }
 }
 
 @media (max-width: 560px) {
@@ -2597,9 +2127,7 @@ body.recording .status-telemetry.ui-col-8-12 {
   justify-self: stretch;
   min-width: 0;
 }
-body.recording .status-telemetry .status-data {
-  justify-content: flex-start;
-}
+
 body.recording .transcript-pane > #transcriptTools {
   padding-left: max(var(--ui-gutter), calc((100vw - var(--ui-max)) / 2));
   padding-right: max(var(--ui-gutter), calc((100vw - var(--ui-max)) / 2));
@@ -2609,9 +2137,6 @@ body.recording .transcript-pane > #codexOutput {
   padding-right: max(var(--ui-gutter), calc((100% - var(--ui-max)) / 2));
 }
 @media (max-width: 900px) {
-  body.recording .status-inner.ui-grid-12 {
-    grid-template-columns: minmax(0, 1fr);
-  }
   body.recording .status-plan.ui-col-1-7,
   body.recording .status-telemetry.ui-col-8-12 {
     grid-column: 1 / -1;
@@ -2973,11 +2498,7 @@ html[data-theme="light"] body.recording ::selection {
 }
 
 /* Header */
-html[data-theme="light"] body.recording #agentStatus {
-  background: rgba(255, 255, 255, 0.93);
-  border-bottom-color: #d8e3de;
-  box-shadow: 0 8px 24px rgba(26, 50, 41, 0.07);
-}
+
 html[data-theme="light"] body.recording #agentStatus::before {
   background: linear-gradient(
     90deg,
@@ -2987,11 +2508,7 @@ html[data-theme="light"] body.recording #agentStatus::before {
     transparent
   );
 }
-html[data-theme="light"] body.recording .status-badge {
-  border-color: #d8e3de;
-  background: #f1f6f3;
-  color: #52655e;
-}
+
 html[data-theme="light"] body.recording .status-badge.running {
   border-color: #b7dfcc;
   background: #e2f4eb;
@@ -3021,15 +2538,7 @@ html[data-theme="light"] body.recording .status-activity::before {
   background: #2f7f5f;
   box-shadow: 0 0 0 3px rgba(47, 127, 95, 0.12);
 }
-html[data-theme="light"] body.recording .status-meta {
-  color: var(--muted);
-}
-html[data-theme="light"] body.recording .status-current {
-  color: var(--text);
-}
-html[data-theme="light"] body.recording .status-done {
-  color: var(--muted);
-}
+
 html[data-theme="light"] body.recording .status-line .status-toggle,
 html[data-theme="light"] body.recording .status-map-toggle,
 html[data-theme="light"] body.recording .status-theme-toggle {
@@ -3053,9 +2562,6 @@ html[data-theme="light"] body.recording .status-map-toggle[aria-expanded="true"]
 html[data-theme="light"] body.recording .status-line .status-toggle .icon,
 html[data-theme="light"] body.recording .status-map-toggle .icon,
 html[data-theme="light"] body.recording .status-theme-toggle .icon {
-  color: #2f6f9e;
-}
-html[data-theme="light"] body.recording #agentStatus .status-current .icon {
   color: #2f6f9e;
 }
 
@@ -3133,10 +2639,7 @@ html[data-theme="light"] body.recording .score-radar .radar-label.active {
 }
 
 /* Toolbar */
-html[data-theme="light"] body.recording #transcriptTools {
-  background: rgba(255, 255, 255, 0.94);
-  border-bottom-color: #d8e3de;
-}
+
 html[data-theme="light"] body.recording #transcriptTools .chip {
   border-color: #d8e3de;
   background: #f8fbf9;
@@ -3147,18 +2650,11 @@ html[data-theme="light"] body.recording #transcriptTools .chip:hover {
   background: #f1f7f4;
   color: var(--text);
 }
-html[data-theme="light"] body.recording #transcriptTools .chip.active {
-  border-color: rgba(47, 111, 158, 0.4);
-  background: rgba(47, 111, 158, 0.09);
-  color: #1d547c;
-}
+
 html[data-theme="light"] body.recording #transcriptTools .chip.active .icon {
   color: #1d547c;
 }
-html[data-theme="light"] body.recording #transcriptTools .search-field {
-  border-color: #d8e3de;
-  background: #ffffff;
-}
+
 html[data-theme="light"] body.recording #transcriptTools .search-field:focus-within {
   border-color: rgba(47, 111, 158, 0.55);
   box-shadow: 0 0 0 3px rgba(47, 111, 158, 0.12);
@@ -3175,25 +2671,12 @@ html[data-theme="light"] body.recording #transcriptSearch::placeholder {
 }
 
 /* Transcript cards */
-html[data-theme="light"] body.recording #codexOutput {
-  color: var(--body);
-}
-html[data-theme="light"] body.recording #codexOutput .msg-time {
-  color: var(--dim);
-}
-html[data-theme="light"] body.recording #codexOutput .reasoning {
-  border-color: #dce6e2;
-  border-left-color: #6f9f8c;
-  background: #ffffff;
-  color: var(--body);
-}
+
 html[data-theme="light"] body.recording #codexOutput .reasoning:hover {
   border-color: #c9d9d3;
   border-left-color: #4f8a74;
 }
-html[data-theme="light"] body.recording #codexOutput .reasoning-summary {
-  color: var(--text);
-}
+
 html[data-theme="light"] body.recording #codexOutput .reasoning-summary .icon {
   color: #9a6b12;
 }
@@ -3206,68 +2689,32 @@ html[data-theme="light"] body.recording #codexOutput .reasoning-segment.decision
   border-left-color: rgba(181, 138, 54, 0.8);
   background: #fbf5e8;
 }
-html[data-theme="light"] body.recording #codexOutput .reasoning-segment-text {
-  color: #3f544c;
-}
+
 html[data-theme="light"] body.recording #codexOutput .reasoning-segment.decision .reasoning-segment-text {
   color: #5d4c2a;
 }
-html[data-theme="light"] body.recording #codexOutput .commands {
-  border-color: #dce6e2;
-  background: #ffffff;
-  color: var(--body);
-}
+
 html[data-theme="light"] body.recording #codexOutput .commands:hover {
   border-color: #c9d9d3;
 }
-html[data-theme="light"] body.recording #codexOutput .commands-summary {
-  color: #2a3a34;
-}
+
 html[data-theme="light"] body.recording #codexOutput .commands-summary .icon {
   color: #2f7f5f;
 }
-html[data-theme="light"] body.recording #codexOutput .commands[open] > .commands-summary {
-  border-bottom-color: #e5ede9;
-  background: #f6faf8;
-}
-html[data-theme="light"] body.recording #codexOutput .command {
-  border-top-color: #e7efec;
-}
+
 html[data-theme="light"] body.recording #codexOutput .command:hover {
   background: #f8fbf9;
 }
-html[data-theme="light"] body.recording #codexOutput .action-target {
-  color: #24352e;
-}
-html[data-theme="light"] body.recording #codexOutput .action-outcome {
-  color: #5a6e66;
-}
-html[data-theme="light"] body.recording #codexOutput .action-duration {
-  color: var(--dim);
-}
+
 html[data-theme="light"] body.recording #codexOutput .action-raw summary {
   border-color: #d8e3de;
   color: #71867d;
 }
-html[data-theme="light"] body.recording #codexOutput .action-raw pre,
-html[data-theme="light"] body.recording #codexOutput .tool-raw {
-  border-color: #d8e3de;
-  background: #f6faf8;
-  color: #40544c;
-}
-html[data-theme="light"] body.recording #codexOutput .tool-details {
-  border-color: #d8e3de;
-  background: #ffffff;
-}
+
 html[data-theme="light"] body.recording #codexOutput .tool-details summary {
   color: #3d5149;
 }
-html[data-theme="light"] body.recording #codexOutput .message {
-  border-color: #dce6e2;
-  border-left-color: #4f86b4;
-  background: #ffffff;
-  color: #3a4e46;
-}
+
 html[data-theme="light"] body.recording #codexOutput .message.error {
   border-color: #efc4be;
   border-left-color: #b4544b;
@@ -3281,11 +2728,7 @@ html[data-theme="light"] body.recording #codexOutput .turn-separator::before,
 html[data-theme="light"] body.recording #codexOutput .turn-separator::after {
   background: linear-gradient(90deg, transparent, #dce6e2);
 }
-html[data-theme="light"] body.recording #codexOutput .trimmed-note {
-  border-color: #d8e3de;
-  background: #f6faf8;
-  color: #71867d;
-}
+
 html[data-theme="light"] body.recording #codexOutput::-webkit-scrollbar-thumb {
   background: #cbd8d3;
   background-clip: content-box;
@@ -3343,44 +2786,21 @@ html[data-theme="light"] body.recording #codexOutput .loop-badge {
 }
 
 /* Jump pill + map dialog */
-html[data-theme="light"] body.recording .jump-latest {
-  border-color: rgba(47, 127, 95, 0.35);
-  background: #ffffff;
-  color: #1d664b;
-  box-shadow: 0 12px 30px rgba(26, 50, 41, 0.18);
-}
+
 html[data-theme="light"] body.recording .jump-latest:hover {
   border-color: rgba(47, 127, 95, 0.55);
   background: #f3f8f6;
 }
-html[data-theme="light"] body.recording .map-info-overlay {
-  background: rgba(29, 48, 41, 0.28);
-}
-html[data-theme="light"] body.recording .map-info-dialog {
-  border-color: #d8e3de;
-  background: #ffffff;
-  box-shadow: 0 24px 70px rgba(26, 50, 41, 0.2);
-  color: var(--body);
-}
-html[data-theme="light"] body.recording .map-info-head {
-  border-bottom-color: #e5ede9;
-}
+
 html[data-theme="light"] body.recording .map-info-head h2 {
   color: var(--text);
 }
-html[data-theme="light"] body.recording .map-info-close {
-  border-color: #d8e3de;
-  background: #f8fbf9;
-  color: #52655e;
-}
+
 html[data-theme="light"] body.recording .map-info-close:hover {
   border-color: #8fb2a4;
   color: var(--text);
 }
-html[data-theme="light"] body.recording .map-info-seed {
-  border-color: #d8e3de;
-  background: #f6faf8;
-}
+
 html[data-theme="light"] body.recording .map-info-seed code {
   color: #1d664b;
 }
@@ -3412,11 +2832,7 @@ html[data-theme="light"] body.recording .map-info-extra {
 html[data-theme="light"] body.recording .map-info-extra code {
   color: var(--body);
 }
-html[data-theme="light"] body.recording .map-info-raw pre {
-  border-color: #d8e3de;
-  background: #f6faf8;
-  color: var(--body);
-}
+
 html[data-theme="light"] body.overlay {
   background: #f3f7f5;
 }
