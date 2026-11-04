@@ -14,6 +14,7 @@ import {
   extractTarget,
   parseEnvelope,
   LoopDetector,
+  mapSettingsView,
 } from "../public/transcript-view-model.js";
 
 test("splitReasoning yields summary + body segments and merges tiny paragraphs", () => {
@@ -386,4 +387,31 @@ test("telemetryMarkers reports research, production starts and rockets", async (
   ]);
   assert.deepEqual(model.telemetryMarkers(null, next), []);
   assert.deepEqual(model.telemetryMarkers(previous, previous), []);
+});
+
+test("mapSettingsView normalizes benchmark seed, peaceful mode and autoplace resources", () => {
+  const view = mapSettingsView({
+    benchmark: {
+      map_gen: {
+        seed: 424242,
+        peaceful_mode: true,
+        autoplace_controls: {
+          "enemy-base": { frequency: 0, size: 0 },
+          "iron-ore": { frequency: 2, size: 1.5, richness: 3 },
+          coal: { frequency: "low" },
+        },
+        starting_area: 4,
+      },
+    },
+  });
+  assert.equal(view.seed, 424242);
+  assert.equal(view.peaceful, true);
+  assert.deepEqual(view.resources, [
+    { name: "enemy-base", frequency: 0, size: 0, richness: null },
+    { name: "iron-ore", frequency: 2, size: 1.5, richness: 3 },
+    { name: "coal", frequency: "low", size: null, richness: null },
+  ]);
+  assert.deepEqual(view.extras, [{ key: "starting_area", value: "4" }]);
+  assert.equal(mapSettingsView({ benchmark: {} }), null);
+  assert.equal(mapSettingsView(null), null);
 });

@@ -72,3 +72,15 @@ widths (1080 vs 1000). Added a shared, recording-scoped 12-column grid:
 The responsive reset is declared after the explicit placements so the narrow
 layout cannot fall back into implicit columns. `tests/recording-structure.test.mjs`
 locks the HTML classes and CSS tokens.
+
+## Map-settings dialog (v0.23.0)
+
+Added a `地图 / Map` header button next to the stats toggle, using the existing
+status control pattern. It opens a labelled modal dialog (`role="dialog"`,
+Escape/backdrop close, focus return) with the benchmark seed, peaceful mode, an
+autoplace Resource/Frequency/Size/Richness table, other map settings and raw
+`map_gen` in a `<details>` block. Data comes from the run payload through the
+DOM-free `mapSettingsView()` helper; the dialog only lists map-generation
+overrides, with a note that unlisted resources use Factorio defaults. The icon is
+`lorc/treasure-map` (CC BY 3.0, attributed), and `tests/recording-structure.test.mjs`
+covers the button/dialog hooks.

@@ -655,3 +655,42 @@ export function telemetryMarkers(previous, next) {
   }
   return markers.slice(0, 4);
 }
+
+/**
+ * Normalize a run's benchmark map generation into view-ready seed/resource rows.
+ * Returns null when the run has no benchmark map_gen (old runs / manual runs).
+ */
+export function mapSettingsView(run) {
+  const benchmark = run?.benchmark && typeof run.benchmark === "object" ? run.benchmark : {};
+  const map = benchmark.map_gen;
+  if (!map || typeof map !== "object") return null;
+  const numberOrText = (value) => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim()) return value.trim();
+    return null;
+  };
+  const controls =
+    map.autoplace_controls && typeof map.autoplace_controls === "object" ? map.autoplace_controls : {};
+  const resources = Object.entries(controls).map(([name, raw]) => {
+    const control = raw && typeof raw === "object" ? raw : {};
+    return {
+      name,
+      frequency: numberOrText(control.frequency),
+      size: numberOrText(control.size),
+      richness: numberOrText(control.richness),
+    };
+  });
+  const extras = Object.entries(map)
+    .filter(([key]) => !["seed", "peaceful_mode", "autoplace_controls"].includes(key))
+    .map(([key, value]) => ({
+      key,
+      value: value && typeof value === "object" ? JSON.stringify(value) : String(value),
+    }));
+  return {
+    seed: numberOrText(map.seed ?? benchmark.seed),
+    peaceful: typeof map.peaceful_mode === "boolean" ? map.peaceful_mode : null,
+    resources,
+    extras,
+    raw: map,
+  };
+}

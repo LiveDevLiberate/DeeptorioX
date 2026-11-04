@@ -9,6 +9,25 @@ this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Map settings button in the recording header.** A `地图 / Map` button (next
+  to the stats toggle, with a treasure-map icon) opens an accessible dialog
+  (`role="dialog"`, Escape/backdrop close, focus return) showing:
+  - the benchmark `map_gen.seed` (e.g. `424242`),
+  - peaceful mode,
+  - every `autoplace_controls` override in a Resource / Frequency / Size /
+    Richness table,
+  - other map settings and a collapsible raw `map_gen` JSON block.
+
+  The dialog is populated from the run payload via the DOM-free
+  `mapSettingsView()` helper; labels follow the run language and the panel can
+  be opened directly with `?map=1`. Only overrides are listed; unlisted
+  resources and blank fields use Factorio defaults. Added
+  `public/icons/map.svg` (lorc/treasure-map, CC BY 3.0) and a structure test for
+  the button/dialog.
+
+## [0.22.0] - 2026-11-05
 ## [0.22.0] - 2026-11-04
 
 ### Changed

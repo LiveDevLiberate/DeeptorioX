@@ -24,6 +24,7 @@ import {
   SCORE_AXES,
   radarGeometry,
   formatDurationText,
+  mapSettingsView,
 } from "./transcript-view-model.js";
 const output = document.getElementById("codexOutput");
 const params = new URLSearchParams(location.search);
@@ -183,6 +184,24 @@ const I18N = {
     searchLabel: "Filter transcript",
     filtersLabel: "Transcript filters",
     filterGroupLabel: "Filter by category",
+    map: "Map",
+    mapTitle: "Map settings",
+    mapClose: "Close map settings",
+    mapSeed: "Seed",
+    mapPeaceful: "Peaceful mode",
+    mapOn: "On",
+    mapOff: "Off",
+    mapResources: "Resource settings",
+    mapResource: "Resource",
+    mapFrequency: "Frequency",
+    mapSize: "Size",
+    mapRichness: "Richness",
+    mapNoResources: "No autoplace overrides — default resource generation.",
+    mapNoData: "Map settings are not available for this run.",
+    mapNote:
+      "Seed and autoplace overrides used to generate the benchmark map; blank values use Factorio defaults.",
+    mapExtras: "Other map settings",
+    mapRaw: "Raw map_gen",
     filters: {
       all: "All",
       thinking: "Thinking",
@@ -292,6 +311,24 @@ const I18N = {
     searchLabel: "过滤记录",
     filtersLabel: "记录过滤",
     filterGroupLabel: "按类别过滤",
+    map: "地图",
+    mapTitle: "地图设置",
+    mapClose: "关闭地图设置",
+    mapSeed: "种子",
+    mapPeaceful: "和平模式",
+    mapOn: "开",
+    mapOff: "关",
+    mapResources: "资源配置",
+    mapResource: "资源",
+    mapFrequency: "频率",
+    mapSize: "大小",
+    mapRichness: "富集度",
+    mapNoResources: "没有资源生成覆盖，使用 Factorio 默认配置。",
+    mapNoData: "当前 run 没有地图配置信息。",
+    mapNote:
+      "生成基准地图时使用的种子与资源生成覆盖。这里只列出覆盖项，未列出的资源和空值使用 Factorio 默认配置。",
+    mapExtras: "其他地图设置",
+    mapRaw: "原始 map_gen",
     filters: {
       all: "全部",
       thinking: "思考",
@@ -306,9 +343,16 @@ let lastStatusAt = 0,
   lastEventAt = 0,
   activity = "idle",
   uiLang,
-  currentRun = null;
+  currentRun = null,
+  mapAutoOpened = false;
 const statusHeader = document.getElementById("agentStatus");
 const statusToggle = document.getElementById("statusToggle");
+const mapInfoToggle = document.getElementById("mapInfoToggle");
+const mapInfoOverlay = document.getElementById("mapInfoOverlay");
+const mapInfoBody = document.getElementById("mapInfoBody");
+const mapInfoClose = document.getElementById("mapInfoClose");
+const mapInfoTitle = document.getElementById("mapInfoTitle");
+const mapInfoNote = document.getElementById("mapInfoNote");
 const stateTimer = document.getElementById("stateTimer");
 const STATUS_COLLAPSED_KEY = "autorio.statusCollapsed";
 function updateStatusToggleLabel() {
@@ -319,6 +363,90 @@ function updateStatusToggleLabel() {
   statusToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
   statusToggle.setAttribute("aria-label", collapsed ? strings.expand : strings.collapse);
   statusToggle.setAttribute("title", collapsed ? strings.expand : strings.collapse);
+}
+function updateMapToggleLabel() {
+  if (!mapInfoToggle) return;
+  const strings = I18N[uiLang || "en"];
+  mapInfoToggle.replaceChildren(icon("map"), element("span", strings.map, "status-map-label"));
+  mapInfoToggle.setAttribute("aria-label", strings.mapTitle);
+  mapInfoToggle.setAttribute("title", strings.mapTitle);
+  if (mapInfoTitle) mapInfoTitle.textContent = strings.mapTitle;
+  if (mapInfoClose) mapInfoClose.setAttribute("aria-label", strings.mapClose);
+  if (mapInfoNote) mapInfoNote.textContent = strings.mapNote;
+}
+function mapValueText(value) {
+  return value === null || value === undefined || value === "" ? "—" : String(value);
+}
+function renderMapInfo() {
+  if (!mapInfoBody) return;
+  const strings = I18N[uiLang || "en"];
+  const view = mapSettingsView(currentRun);
+  if (!view) {
+    mapInfoBody.replaceChildren(element("p", strings.mapNoData, "map-info-muted"));
+    return;
+  }
+  const nodes = [];
+  const seed = element("div", "", "map-info-seed");
+  seed.append(element("span", strings.mapSeed, "map-info-label"), element("code", mapValueText(view.seed)));
+  nodes.push(seed);
+  if (view.peaceful !== null) {
+    const peaceful = element("div", "", "map-info-extra");
+    peaceful.append(
+      element("span", strings.mapPeaceful, "map-info-label"),
+      element("code", view.peaceful ? strings.mapOn : strings.mapOff),
+    );
+    nodes.push(peaceful);
+  }
+  nodes.push(element("h3", strings.mapResources, "map-info-section-title"));
+  if (view.resources.length) {
+    const table = element("table", "", "map-resource-table");
+    const thead = element("thead");
+    const head = element("tr");
+    for (const label of [strings.mapResource, strings.mapFrequency, strings.mapSize, strings.mapRichness]) {
+      head.append(element("th", label));
+    }
+    thead.append(head);
+    const tbody = element("tbody");
+    for (const resource of view.resources) {
+      const row = element("tr");
+      row.append(
+        element("td", resource.name),
+        element("td", mapValueText(resource.frequency)),
+        element("td", mapValueText(resource.size)),
+        element("td", mapValueText(resource.richness)),
+      );
+      tbody.append(row);
+    }
+    table.append(thead, tbody);
+    nodes.push(table);
+  } else {
+    nodes.push(element("p", strings.mapNoResources, "map-info-muted"));
+  }
+  if (view.extras.length) {
+    nodes.push(element("h3", strings.mapExtras, "map-info-section-title"));
+    for (const extra of view.extras) {
+      const row = element("div", "", "map-info-extra");
+      row.append(element("span", extra.key, "map-info-label"), element("code", extra.value));
+      nodes.push(row);
+    }
+  }
+  const raw = element("details", "", "map-info-raw");
+  raw.append(element("summary", strings.mapRaw), element("pre", JSON.stringify(view.raw, null, 2)));
+  nodes.push(raw);
+  mapInfoBody.replaceChildren(...nodes);
+}
+function openMapInfo() {
+  if (!mapInfoOverlay) return;
+  renderMapInfo();
+  mapInfoOverlay.hidden = false;
+  mapInfoToggle?.setAttribute("aria-expanded", "true");
+  mapInfoClose?.focus?.();
+}
+function closeMapInfo() {
+  if (!mapInfoOverlay) return;
+  mapInfoOverlay.hidden = true;
+  mapInfoToggle?.setAttribute("aria-expanded", "false");
+  mapInfoToggle?.focus?.();
 }
 function setStatusCollapsed(collapsed, persist = false) {
   if (!statusHeader) return;
@@ -334,6 +462,17 @@ function setStatusCollapsed(collapsed, persist = false) {
 }
 statusToggle?.addEventListener("click", () => {
   setStatusCollapsed(!statusHeader.classList.contains("collapsed"), true);
+});
+mapInfoToggle?.addEventListener("click", () => {
+  if (mapInfoOverlay?.hidden) openMapInfo();
+  else closeMapInfo();
+});
+mapInfoClose?.addEventListener("click", closeMapInfo);
+mapInfoOverlay?.addEventListener("click", (event) => {
+  if (event.target === mapInfoOverlay) closeMapInfo();
+});
+document.addEventListener?.("keydown", (event) => {
+  if (event.key === "Escape" && mapInfoOverlay && !mapInfoOverlay.hidden) closeMapInfo();
 });
 document.title = "Agent transcript";
 function element(tag, text, className) {
@@ -508,6 +647,7 @@ function renderStatus(run) {
   }
   const strings = I18N[uiLang] || I18N.en;
   updateTranscriptTools(strings);
+  updateMapToggleLabel();
   const state = run.state || "—";
   statusState.textContent = strings.states[state] || state;
   statusState.className = `status-badge ${state}`;
@@ -550,6 +690,10 @@ function renderStatus(run) {
     statusDone.textContent = done ? `${strings.done}: ${done}` : "";
     statusDone.hidden = !done;
     statusHeader?.classList.remove("stale-plan");
+  }
+  if (!mapAutoOpened && params.get("map") === "1") {
+    mapAutoOpened = true;
+    openMapInfo();
   }
   const scores = parseScores(markdown);
   const hasScores = SUBTASKS.some((key) => scores[key] != null);

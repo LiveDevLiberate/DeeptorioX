@@ -3418,3 +3418,208 @@ body.recording .status-inner.ui-grid-12 > .status-telemetry.ui-col-8-12 {
     justify-content: flex-start;
   }
 }
+
+/* Map info button and dialog ------------------------------------------------ */
+.icon-map {
+  --gi-icon: url("/icons/map.svg");
+}
+body.recording .status-map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid #22333a;
+  border-radius: 999px;
+  background: #101a1f;
+  color: #9db3ad;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+body.recording .status-map-toggle:hover {
+  border-color: #2f4a52;
+  background: #16242a;
+  color: var(--rec-text);
+}
+body.recording .status-map-toggle[aria-expanded="true"] {
+  border-color: rgba(111, 216, 178, 0.45);
+  background: rgba(28, 60, 50, 0.6);
+  color: var(--rec-accent-strong);
+}
+body.recording .status-map-toggle .icon {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+}
+body.recording .status-map-toggle .status-map-label {
+  white-space: nowrap;
+}
+.map-info-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(3, 8, 10, 0.72);
+  backdrop-filter: blur(6px);
+}
+.map-info-overlay[hidden] {
+  display: none;
+}
+.map-info-dialog {
+  width: min(620px, 100%);
+  max-height: min(82dvh, 720px);
+  overflow: auto;
+  border: 1px solid #263942;
+  border-radius: 12px;
+  background: #0d1519;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  color: var(--rec-text-body);
+}
+.map-info-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #1d2a31;
+}
+.map-info-head h2 {
+  margin: 0;
+  color: var(--rec-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.map-info-close {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid #263942;
+  border-radius: 6px;
+  background: #101a1f;
+  color: #9db3ad;
+  cursor: pointer;
+  font:
+    15px/1 -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+.map-info-close:hover {
+  border-color: #3f7c6b;
+  color: var(--rec-text);
+}
+.map-info-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 16px 6px;
+}
+.map-info-note {
+  margin: 0;
+  padding: 0 16px 14px;
+  color: var(--rec-text-dim);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.map-info-seed {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #22333a;
+  border-radius: 8px;
+  background: #0a1418;
+}
+.map-info-label {
+  color: var(--rec-text-muted);
+  font-size: 10.5px;
+}
+.map-info-seed code {
+  color: var(--rec-accent-strong);
+  font:
+    600 16px/1.2 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.map-info-section-title {
+  margin: 0;
+  color: var(--rec-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.map-info-muted {
+  margin: 0;
+  color: var(--rec-text-dim);
+  font-size: 11px;
+}
+.map-resource-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.map-resource-table th,
+.map-resource-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #1a2a30;
+  text-align: right;
+}
+.map-resource-table th:first-child,
+.map-resource-table td:first-child {
+  text-align: left;
+}
+.map-resource-table th {
+  color: var(--rec-text-dim);
+  font-weight: 500;
+}
+.map-resource-table td {
+  color: var(--rec-text-body);
+}
+.map-resource-table td:first-child {
+  color: var(--rec-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.map-info-extra {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid #16232a;
+  color: var(--rec-text-muted);
+  font-size: 11px;
+}
+.map-info-extra code {
+  color: var(--rec-text-body);
+}
+.map-info-raw {
+  color: var(--rec-text-muted);
+  font-size: 10.5px;
+}
+.map-info-raw summary {
+  cursor: pointer;
+}
+.map-info-raw pre {
+  margin: 8px 0 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid #1a2a30;
+  border-radius: 6px;
+  background: #091216;
+  color: var(--rec-text-body);
+  font-size: 10px;
+  line-height: 1.5;
+}
+@media (max-width: 560px) {
+  body.recording .status-map-label {
+    display: none;
+  }
+  .map-info-overlay {
+    padding: 12px;
+  }
+}

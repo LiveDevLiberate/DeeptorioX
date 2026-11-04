@@ -50,6 +50,11 @@ test("recording page keeps its semantic structure and information surfaces", () 
   }
   // Icons are preserved across the status and filter surfaces.
   assert.match(html, /class="icon icon-search"/);
+  assert.match(html, /id="mapInfoToggle"[^>]*aria-controls="mapInfoOverlay"/);
+  assert.match(html, /class="icon icon-map"/);
+  assert.match(html, /id="mapInfoOverlay"[^>]*hidden/);
+  assert.match(html, /id="mapInfoDialog"[^>]*role="dialog"[^>]*aria-modal="true"/);
+  assert.match(html, /id="mapInfoClose"/);
   assert.match(html, /class="icon icon-layers"/);
   assert.match(html, /class="icon icon-brain"/);
   assert.match(html, /class="icon icon-wrench"/);
