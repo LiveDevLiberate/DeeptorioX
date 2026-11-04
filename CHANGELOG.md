@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-04
+
 ### Changed
 
 - **Recording UI structure pass (ui-skills `baseline-ui`/`improve-ui`).**
@@ -604,7 +606,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/ryanmadden/autorio/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/ryanmadden/autorio/compare/v0.19.2...v0.20.0
 [0.19.2]: https://github.com/ryanmadden/autorio/compare/v0.19.1...v0.19.2
 [0.19.1]: https://github.com/ryanmadden/autorio/compare/v0.19.0...v0.19.1
