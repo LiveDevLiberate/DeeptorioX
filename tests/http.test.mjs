@@ -89,6 +89,7 @@ test("contentType() maps dashboard asset extensions", () => {
   assert.equal(contentType("/x/runs.css"), "text/css; charset=utf-8");
   assert.equal(contentType("/x/data.json"), "application/json; charset=utf-8");
   assert.equal(contentType("/x/icon.png"), "image/png");
+  assert.equal(contentType("/icons/brain.svg"), "image/svg+xml");
   assert.equal(contentType("/x/file.bin"), "application/octet-stream");
 });
 
