@@ -85,6 +85,15 @@ grouped by theme.
   CI; a manual self-hosted Windows `Live selftest` workflow; and semver release
   automation (`npm run release`, CHANGELOG section + compare links + annotated
   tag).
+- **Engineering hardening round 2.** `src/server.ts` finished its decomposition
+  (2221 → 679 lines): request plumbing, static serving and the route matcher moved
+  to `src/http/`, and every endpoint group (`src/api/agent.ts`, `jobs.ts`, `runs.ts`,
+  `saves.ts`, `server.ts`, `manager.ts`) now registers through an injected
+  `ApiContext` — 43/43 routes preserved, live manager smoke verified. Remaining
+  `any` usages outside the API handlers were replaced with `unknown` +
+  `src/validation.ts` guards and typed domain interfaces (178 → 143
+  `no-explicit-any` warnings; the 118 in `src/api/agent.ts` are the next target).
+  Node suite is now 210 tests with the coverage gate at 88.1/84.7/89.2.
 - **UI and recording.** A compact, English/Simplified-Chinese transcript
   status bar (state/activity/time/tokens, current subtask and done condition,
   six subtask scores, collapse for narrow windows); OpenCode reasoning

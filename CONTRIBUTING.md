@@ -47,10 +47,10 @@ repository hygiene + Prettier check, exactly what CI runs.
 | Command | What it checks |
 | --- | --- |
 | `npm run build` / `npm run typecheck` | TypeScript compiles to `dist/` (strict, NodeNext ESM); `typecheck` skips emit |
-| `npm run test:node` | `node --test tests/*.test.mjs` — 189 Node tests (lifecycle, agent translators, command builders, cluster, MCP, vision, observability, UI helpers, …) |
+| `npm run test:node` | `node --test tests/*.test.mjs` — 210 Node tests (lifecycle, agent translators/launch specs, command builders, action jobs, HTTP/router/API, cluster, MCP, vision, observability, validation, UI helpers, …) |
 | `npm run test:python` | `node scripts/run-python-tests.mjs` — unittest discovery, 59 Python client/env tests |
 | `npm test` | Build, then `test:node`, then `test:python` |
-| `npm run test:coverage` / `npm run coverage` | Builds, then runs the Node suite with Node's built-in coverage through `scripts/coverage-gate.mjs`; fails below 82 % lines / 78 % branches / 84 % functions (CLI/env overrides, `--json`) |
+| `npm run test:coverage` / `npm run coverage` | Builds, then runs the Node suite with Node's built-in coverage through `scripts/coverage-gate.mjs`; fails below 82 % lines / 78 % branches / 84 % functions (CLI/env overrides, `--json`; current suite ~88.1 % lines / 84.7 % branches / 89.2 % functions) |
 | `npm run lint` / `npm run lint:fix` | Type-aware ESLint (`eslint.config.mjs`): `no-floating-promises`, `no-misused-promises`, unused vars and JS recommended rules as errors; `no-explicit-any` is a warning while dynamic RCON/Lua/agent boundaries are typed incrementally |
 | `npm run check:repo` | Zero-dependency hygiene gate: required scripts/engines, strict TS + NodeNext, required files (including `docs/architecture.md`, `CONTRIBUTING.md`, `CHANGELOG.md`), no tracked build artifacts/secrets/local state, LF endings, no focused tests (`.only(`), no stray `console.log` in `src/` (logger and run CLI excepted), reproducible package script |
 | `npm run format` / `format:check` | Prettier over `src/**/*.ts`, `public/**/*.{js,css}`, `tests/**/*.mjs`, `scripts/**/*.mjs`, `package.json`, `tsconfig.json`, `.github/**/*.yml`; Markdown, HTML, Lua and generated dirs are excluded via `.prettierignore` |
