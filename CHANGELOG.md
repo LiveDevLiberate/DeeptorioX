@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-11-04
+
 ## [0.10.3] - 2026-11-04
 
 ### Changed
@@ -282,7 +284,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.10.3...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.10.4...HEAD
+[0.10.4]: https://github.com/ryanmadden/autorio/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/ryanmadden/autorio/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/ryanmadden/autorio/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/ryanmadden/autorio/compare/v0.10.0...v0.10.1
