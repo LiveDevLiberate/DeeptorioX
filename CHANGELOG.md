@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-04
+
 ### Added
 
 - **Transcript icons and framed reasoning segments.** A small inline SVG icon
@@ -233,7 +235,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/ryanmadden/autorio/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/ryanmadden/autorio/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/ryanmadden/autorio/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/ryanmadden/autorio/compare/v0.6.0...v0.7.0
