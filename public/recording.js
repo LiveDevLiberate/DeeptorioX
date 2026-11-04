@@ -195,7 +195,6 @@ function element(tag, text, className) {
   if (className) node.className = className;
   return node;
 }
-const SVG_NS = "http://www.w3.org/2000/svg";
 const BADGE_ICONS = {
   build: "hammer",
   mine: "pickaxe",
@@ -212,22 +211,14 @@ const BADGE_ICONS = {
   settings: "sliders",
   job: "clipboard",
   wait: "clock",
-  script: "terminal",
+  script: "laptop",
   server: "server",
   run: "arrow-right",
   action: "wrench",
-  other: "terminal",
+  other: "laptop",
 };
 function icon(name, className = "icon") {
-  if (typeof document.createElementNS !== "function") return element("span", "", `icon icon-${name}`);
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("class", className);
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  const use = document.createElementNS(SVG_NS, "use");
-  use.setAttribute("href", `#i-${name}`);
-  svg.append(use);
-  return svg;
+  return element("span", "", `${className} icon-${name}`);
 }
 function prependIcon(node, name) {
   if (!node || typeof node.prepend !== "function") return node;
@@ -393,7 +384,7 @@ function refreshCommandGroup(group) {
   const stats = summarizeCommandGroup([...group.items.values()]);
   const loopPrefix = group.loop ? `⚠ ${strings().loop} ×${group.loop} · ` : "";
   group.summary.textContent = `${loopPrefix}${stats.text}`;
-  prependIcon(group.summary, "terminal");
+  prependIcon(group.summary, "laptop");
   group.details.classList.toggle("failed", stats.failed > 0);
   group.details.classList.toggle("loop", group.loop > 0);
 }
@@ -470,7 +461,7 @@ function renderReasoning(item) {
   const node = element("details", "", "message reasoning");
   const summary = element("summary", "", "reasoning-summary");
   summary.textContent = segments[0]?.summary || "…";
-  prependIcon(summary, "bulb");
+  prependIcon(summary, "brain");
   const badge = element("span", "", "dedupe-badge");
   badge.hidden = true;
   summary.append(badge);
@@ -638,7 +629,7 @@ function renderMetrics() {
     const top = rates[0];
     if (top) {
       const metric = element("span", `${top.name} ${Math.round(top.rate)}${text.rateSuffix}`, "metric");
-      prependIcon(metric, "gear");
+      prependIcon(metric, "factory");
       children.push(metric);
       const spark = element("span", "", "metric-spark");
       for (const width of miniBars(telemetrySeries(telemetrySamples, top.name, 8))) {
@@ -662,12 +653,12 @@ function renderMetrics() {
     }
   } else {
     const metric = element("span", text.noTelemetry, "metric muted");
-    prependIcon(metric, "terminal");
+    prependIcon(metric, "cog");
     children.push(metric);
   }
   if (lastErrorText) {
     const metric = element("span", `⚠ ${lastErrorText}`, "metric error");
-    prependIcon(metric, "alert");
+    prependIcon(metric, "siren");
     children.push(metric);
   }
   statusMetrics.replaceChildren(...children);

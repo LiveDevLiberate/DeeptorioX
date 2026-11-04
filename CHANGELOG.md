@@ -9,6 +9,16 @@ this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Recording-window icons now come from [game-icons.net](https://game-icons.net/).**
+  25 white-on-transparent line/silhouette SVGs (Lorc, Delapouite, Skoll, Sbed)
+  live in `public/icons/`, are rendered as CSS masks tinted with `currentColor`
+  (chips, telemetry pills, action badges, card headers, unread pill) and are
+  listed with author/source/license in `public/icons/ATTRIBUTION.md`
+  (CC BY 3.0). The manager now serves `.svg` as `image/svg+xml` so the masks
+  load; the previous hand-drawn inline sprite is gone.
+
 ## [0.9.0] - 2026-11-04
 
 ### Added

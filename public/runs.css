@@ -1723,3 +1723,136 @@ body.recording .metric .icon {
 #codexOutput .reasoning-segment.decision .reasoning-segment-text {
   color: #d8cfb6;
 }
+
+/* ---- game-icons.net mask icons ------------------------------------------- */
+.icon-sprite {
+  display: none;
+}
+.icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-right: 6px;
+  vertical-align: -2px;
+  background-color: currentColor;
+  -webkit-mask-image: var(--gi-icon);
+  mask-image: var(--gi-icon);
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  opacity: 0.88;
+}
+.icon-stack {
+  --gi-icon: url("/icons/stack.svg");
+}
+.icon-brain {
+  --gi-icon: url("/icons/brain.svg");
+}
+.icon-wrench {
+  --gi-icon: url("/icons/wrench.svg");
+}
+.icon-chat {
+  --gi-icon: url("/icons/chat.svg");
+}
+.icon-siren {
+  --gi-icon: url("/icons/siren.svg");
+}
+.icon-compass {
+  --gi-icon: url("/icons/compass.svg");
+}
+.icon-laptop {
+  --gi-icon: url("/icons/laptop.svg");
+}
+.icon-flag {
+  --gi-icon: url("/icons/flag.svg");
+}
+.icon-arrow-down {
+  --gi-icon: url("/icons/arrow-right.svg");
+}
+.icon-arrow-right {
+  --gi-icon: url("/icons/arrow-right.svg");
+  transform: rotate(-90deg);
+}
+.icon-arrow-left {
+  --gi-icon: url("/icons/arrow-right.svg");
+  transform: rotate(90deg);
+}
+.icon-cog {
+  --gi-icon: url("/icons/cog.svg");
+}
+.icon-flask {
+  --gi-icon: url("/icons/flask.svg");
+}
+.icon-bolt {
+  --gi-icon: url("/icons/bolt.svg");
+}
+.icon-eye {
+  --gi-icon: url("/icons/eye.svg");
+}
+.icon-hammer {
+  --gi-icon: url("/icons/hammer.svg");
+}
+.icon-pickaxe {
+  --gi-icon: url("/icons/pickaxe.svg");
+}
+.icon-move {
+  --gi-icon: url("/icons/move.svg");
+}
+.icon-rotate {
+  --gi-icon: url("/icons/rotate.svg");
+}
+.icon-clock {
+  --gi-icon: url("/icons/clock.svg");
+}
+.icon-trash {
+  --gi-icon: url("/icons/trash.svg");
+}
+.icon-clipboard {
+  --gi-icon: url("/icons/clipboard.svg");
+}
+.icon-rocket {
+  --gi-icon: url("/icons/rocket.svg");
+}
+.icon-sliders {
+  --gi-icon: url("/icons/sliders.svg");
+}
+.icon-book {
+  --gi-icon: url("/icons/book.svg");
+}
+.icon-server {
+  --gi-icon: url("/icons/server.svg");
+}
+.icon-factory {
+  --gi-icon: url("/icons/factory.svg");
+}
+
+/* Slightly larger masks for the filled game-icons silhouettes. */
+#transcriptTools .chip .icon {
+  width: 13px;
+  height: 13px;
+}
+#codexOutput .action-badge .icon {
+  width: 12px;
+  height: 12px;
+}
+body.recording .metric .icon {
+  width: 12px;
+  height: 12px;
+}
+#codexOutput .reasoning-summary .icon,
+#codexOutput .commands-summary .icon {
+  width: 14px;
+  height: 14px;
+}
+#codexOutput .event-marker .icon {
+  width: 13px;
+  height: 13px;
+}
+.jump-latest .icon {
+  width: 13px;
+  height: 13px;
+}

@@ -40,6 +40,7 @@
 - `scripts/coverage-gate.mjs`, `scripts/release.mjs`, `scripts/install-hooks.mjs`, `.githooks/pre-commit`: coverage thresholds, semver/CHANGELOG/tag automation, and the fast pre-commit hook.
 - `.github/workflows/live-selftest.yml`, `scripts/ci-live-selftest.ps1`: manual self-hosted Windows live selftest (Steam + real game required).
 - `scripts/check-repo.mjs`, `scripts/package.mjs`: repository hygiene gate and reproducible release packaging.
+- `public/icons/`: game-icons.net SVGs (CC BY 3.0) used as CSS masks by the recording window; keep `ATTRIBUTION.md` in sync when adding/removing icons.
 - `public/recording.html`, `public/runs.css`: recording page and shared styling; `public/recording.js`, `public/transcript-view-model.js` render the live transcript (collapsed reasoning summaries, action/result rows, loop badges, turn dividers, unread pill, filters/search, telemetry metrics/markers, `?overlay=1`), `public/codex-transcript.js` groups structured Codex events; `public/codex-output.js` supports older native logs.
 - `.autorio/`: ignored baselines, profiles, saves, run results, logs, and credentials.
 - Default game: Steam `factorio.app/Contents/MacOS/factorio` (macOS) or `...\steamapps\common\Factorio\bin\x64\factorio.exe` (Windows, auto-detected across Steam libraries).

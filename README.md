@@ -134,7 +134,9 @@ choice is remembered. The header also shows production rates from telemetry
 player), research progress, the latest failure, elapsed time and
 tokens, the current subtask with its done condition, and six subtask scores from
 `STATE.md`. Labels switch between English and Simplified Chinese from the run's
-language, and the header collapses for narrow windows. Add `&overlay=1` to the
+language, and the header collapses for narrow windows. Icons in the transcript are from
+[game-icons.net](https://game-icons.net/) (CC BY 3.0; see
+`public/icons/ATTRIBUTION.md`). Add `&overlay=1` to the
 recording URL for an OBS-friendly transparent/large-text overlay (hides the
 filter bar, scores and raw rows).
 The standalone recording window
