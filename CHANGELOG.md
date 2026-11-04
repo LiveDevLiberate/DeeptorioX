@@ -9,6 +9,8 @@ this file.
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-04
+
 ### Changed
 
 - **Status-details control is now a left-aligned stats button.** The right-side
@@ -455,7 +457,8 @@ grouped by theme.
   fresh research instead of an old blocked label, and `observe-factory.plan`
   exposes staleness/age/research/remaining so the agent can update `STATE.md`.
 
-[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/ryanmadden/autorio/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/ryanmadden/autorio/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/ryanmadden/autorio/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/ryanmadden/autorio/compare/v0.12.3...v0.13.0
 [0.12.3]: https://github.com/ryanmadden/autorio/compare/v0.12.2...v0.12.3
