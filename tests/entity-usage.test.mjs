@@ -50,6 +50,7 @@ test("catalog exposes rules for every curated type and name", () => {
 test("belt rules explain two lanes and no automatic junction summing", () => {
   const belt = entityUsage({ name: "transport-belt", type: "transport-belt" });
   assert.ok(belt.rules.some((rule) => /two lanes/i.test(rule)));
+  assert.ok(belt.rules.some((rule) => /cannot insert|inserter/i.test(rule)));
   assert.ok(belt.rules.some((rule) => /side-loading/i.test(rule)));
   assert.ok(belt.rules.some((rule) => /throughput/i.test(rule)));
   assert.ok(belt.common_mistakes.some((note) => /sum|intersection|cross/i.test(note)));
@@ -59,4 +60,5 @@ test("belt rules explain two lanes and no automatic junction summing", () => {
   assert.equal(catalog.belt_rules.lanes_per_belt, 2);
   assert.match(catalog.belt_rules.junction_rule, /do not automatically sum/i);
   assert.equal(catalog.belt_rules.throughput_items_per_second["transport-belt"], 15);
+  assert.match(catalog.belt_rules.building_io_rule, /inserter/i);
 });
