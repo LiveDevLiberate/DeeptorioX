@@ -94,6 +94,7 @@
   - Tool-usage stats: `GET /api/tool-calls` (active run) / `GET /api/runs/:id/tool-calls` return per-endpoint agent call counts; recorded run page/recording Tools buttons.
   - Run budget: `POST /api/runs/:id/extend` (`{"seconds": N}`) extends a paused run's wall-clock limit before resume.
   - Entity usage: `POST /api/agent/observe/entity-usage` returns curated one-way flow/placement/common-mistake rules plus live prototype limits; `GET /api/agent/observe/entity-usage-catalog` returns all curated rules without a game call. Python `entity_usage(name)` / `entity_usage_catalog()`; CLI `entity-usage` / `entity-usage-catalog`.
+  - Agent knowledge: `GET /api/agent/knowledge[?topic=inserters|pipes|trains|power|chemistry|defense|production|blueprints]` returns concise engineering rules and mistakes; Python `knowledge(topic)` / CLI `knowledge --topic`.
   - Descriptions: `POST /api/agent/observe/description` resolves an entity/technology `localised_description` in the current game locale (raw LocalisedString + rendered text; missing translations are flagged). Python `describe(name, kind=...)` / CLI `describe`.
 - CLI mirrors these as commands like `server-status`, `observe-world`, `act-build`, etc. See `python3 factorio.py --help` for commands. Client helpers include `observe_snapshot`, `observe_production/fluids/combat/area`, `copy_settings`, `build_blueprint`, `build_underground_belt_line`/`build_underground_pipe_line`, `deconstruct_area` (observe area -> native-mining batches) and the `build-*`/`deconstruct-area` CLI commands.
 

@@ -71,6 +71,11 @@ this file.
   `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
   changing its checkpoint; resuming a paused run then uses the new limit and
   watchdog.
+- **Agent engineering knowledge base.** New concise `knowledge` topics cover
+  inserters, pipes/fluids, trains, power, chemistry, defense, production
+  optimization and blueprints, with common mistakes and wiki references. Exposed
+  as `GET /api/agent/knowledge`, `FactorioClient.knowledge()`, CLI `knowledge
+  --topic`, `KNOWLEDGE.md` in every run workspace, and prompt guidance.
 - **Unified linear builder.** `build-line --kind pipe|belt|wall|pole` uses the
   native pathfinder (`route=auto`, default) to detour lakes/cliffs and lays each
   type on the same orthogonal route; `route=straight` preserves the old L/straight

@@ -72,7 +72,7 @@ const BASE_TASK_PROMPT =
   "# STATE\nUpdated: <ISO-8601 timestamp>\nObjective: <from TASK.md>\nScores: production 0, logistics 0, mining 0, research 0, defense 0, exploration 0\nCurrent: <subtask name> (score 0)\nDone when: <quantified completion condition>\nNext: <first action>\n\n" +
   "Refresh STATE.md at least every 5 minutes and whenever the subtask changes. The manager blocks mutating actions with STATE_UPDATE_REQUIRED once STATE.md is older than 10 minutes (or missing after the startup grace period); STATE.md writes reset that deadline. " +
   "Before inventing a command, read the generated tool manifest (`factorio.py tools --json` or `client.tools()`): it lists every client method signature, parameter, CLI usage and manager endpoint. Do not read factorio.py source to discover the interface. " +
-  "Read AGENTS.md, COOKBOOK.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
+  "Read AGENTS.md, COOKBOOK.md, KNOWLEDGE.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
   "Update STATE.md whenever the current subtask or its done-when condition changes, and after completing a subtask; the operator view and crash recovery rely on it. " +
   "The cookbook has proven layouts and the error-recovery matrix; follow it before inventing new designs. " +
   "After every completed subtask (and at least every 10 tool calls) post one short user-facing progress message in the configured output language: what was completed, any blocker, and the next step. " +
@@ -81,6 +81,7 @@ const BASE_TASK_PROMPT =
   "For a fast charted-area overview use observe_map_overview(x, y, radius, size); it returns compact rows/legend (or SVG/PNG) for already-charted chunks only, so it is a plan aid rather than a fog reveal. " +
   "Before placing an unfamiliar building or designing a junction, call entity-usage --name <entity> (client.entity_usage); belts/splitters/underground belts are directional, and a crossing is not a bidirectional output junction. " +
   "Use entity-usage-catalog to list all curated building rules/limits once, then entity-usage --name for a specific building. " +
+  "Before designing logistics, power, trains, chemistry, defense, production or blueprints, query knowledge --topic <inserters|pipes|trains|power|chemistry|defense|production|blueprints>; the run workspace also has KNOWLEDGE.md. " +
   "For pipes across lakes/cliffs use build-pipe-route (pathfinder route, orthogonal tiles); never keep retrying a straight build-pipe-line into water. " +
   "Use build-line --kind pipe|belt|wall|pole --route auto for any linear installation across unknown terrain; it shares the pathfinder detour and orthogonal routing instead of a straight-only builder. " +
   "Belt rules: each tile has two lanes (two item types can share a belt), but junctions/crossings do not automatically sum flows; side-loading fills only one lane, splitters merge with a throughput cap, and underground pairs cross without mixing. " +

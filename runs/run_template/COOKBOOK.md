@@ -258,6 +258,15 @@ factorio.py build-line --kind pipe|belt|wall|pole \
 Do not keep retrying a straight line into water. If `auto` returns `no_path`,
 choose a reachable shore/waypoint and build the route in stages.
 
+## 10.10 Knowledge lookup
+
+- `factorio.py knowledge --topic inserters|pipes|trains|power|chemistry|defense|production|blueprints`
+  returns concise rules, common mistakes and wiki references; `factorio.py knowledge`
+  lists all topics.
+- The run workspace also contains `KNOWLEDGE.md` with the same quick reference.
+- Use this before designing a new system, then verify with the relevant
+  `observe-*` calls; knowledge is guidance, current game state is authoritative.
+
 ## 11. Blueprint workflow
 
 - `decode_blueprint_string(text)` / `encode_blueprint_string(dict)` for inspection.

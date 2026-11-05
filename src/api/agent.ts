@@ -6,6 +6,7 @@ import { launchRocket } from "../rocket.js";
 import { visualObservation } from "../vision.js";
 import { mapOverviewPng, mapOverviewSvg } from "../map-overview.js";
 import { entityUsage, entityUsageCatalog } from "../entity-usage.js";
+import { knowledgeCatalog, knowledgeTopic } from "../agent-knowledge.js";
 import {
   agentBuildDestinationCommand,
   agentChartedResourcesCommand,
@@ -1405,6 +1406,24 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
+    },
+  });
+
+  router.add({
+    method: "GET",
+    path: "/api/agent/knowledge",
+    name: "/api/agent/knowledge",
+    handler: ({ res, url }) => {
+      const topic = url.searchParams.get("topic");
+      if (topic) {
+        const entry = knowledgeTopic(topic);
+        if (!entry) {
+          const known = knowledgeCatalog().topics.map((item) => item.id);
+          return json(res, 404, { error: "Unknown knowledge topic", topic, known });
+        }
+        return json(res, 200, { ok: true, data: entry });
+      }
+      return json(res, 200, { ok: true, data: knowledgeCatalog() });
     },
   });
 

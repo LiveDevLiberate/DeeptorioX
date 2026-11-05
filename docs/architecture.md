@@ -179,6 +179,12 @@ creates straight horizontal/vertical trunks with wire-reach spacing and includes
 both endpoints (big pole default, 30 reach). The planner avoids using big poles
 as a dense coverage grid.
 
+**Agent knowledge.** `src/agent-knowledge.ts` is the canonical compact
+engineering reference (inserters, pipes, trains, power, chemistry, defense,
+production, blueprints) with aliases, common mistakes and wiki references. It is
+served by `GET /api/agent/knowledge`, mirrored as `KNOWLEDGE.md` in each run
+workspace, and referenced from the prompt.
+
 **Unified linear builder.** `FactorioClient.build_line`/CLI `build-line`
 dispatches pipe, belt, wall and pole plans over a shared route: `auto` uses the
 native pathfinder and `_path_route_tiles` for an orthogonal corridor,

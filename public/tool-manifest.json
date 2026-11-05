@@ -181,6 +181,12 @@
       "usage": "Usage: factorio.py job-status --job-id <id>"
     },
     {
+      "command": "knowledge",
+      "description": "Concise engineering knowledge for inserters, pipes, trains, power, chemistry, defense, production optimization and blueprints.",
+      "help": "Usage: factorio.py knowledge [--topic inserters|pipes|trains|power|chemistry|defense|production|blueprints]",
+      "usage": "Usage: factorio.py knowledge [--topic inserters|pipes|trains|power|chemistry|defense|production|blueprints]"
+    },
+    {
       "command": "observe-area",
       "description": "List entities for deconstruction planning in an area (name/type/position/status).",
       "help": "Usage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only]",
@@ -1320,6 +1326,20 @@
         }
       ],
       "signature": "job_status(self, job_id: 'str') -> 'Any'"
+    },
+    {
+      "description": "Concise engineering knowledge for inserters/pipes/trains/power/chemistry/defense/production/blueprints.",
+      "name": "knowledge",
+      "parameters": [
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "topic",
+          "required": false
+        }
+      ],
+      "signature": "knowledge(self, topic: 'str | None' = None) -> 'Any'"
     },
     {
       "description": "Launch ready silos; success indicates launch initiation, not flight completion.",
@@ -2491,7 +2511,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "a271f65cfbe9338a723ec685347b4fd9257adb477a47de0c5333854da596245d",
+  "client_sha256": "a8c929a6387c828bfbb90117552925f0794434b09a7e511a6ac3643ad5399a06",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2544,6 +2564,10 @@
     {
       "method": "POST",
       "path": "/api/agent/jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/knowledge"
     },
     {
       "method": "POST",
@@ -2654,8 +2678,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "a271f65cfbe9338a723ec685347b4fd9257adb477a47de0c5333854da596245d",
-    "src/api/agent.ts": "a10f31d2aee8d352ca05bcf3015c9ea4a78a0eefe061162f5e82c871834eecf2",
+    "factorio.py": "a8c929a6387c828bfbb90117552925f0794434b09a7e511a6ac3643ad5399a06",
+    "src/api/agent.ts": "f63bd5448bb53d3c7d0b291378c65a64908f54af2b9f71fe7ae7d3047f41c51d",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",
     "src/api/jobs.ts": "bafe8a5682632bb0d9359a15dfb028358507c9ad8e8ba7eb0aa27a949e53948a",

@@ -42,7 +42,7 @@ test("agentPrompt composes language, discipline and base instructions", () => {
   assert.match(fresh, /Batch at least five related actions or observations per tool call/);
   assert.match(
     fresh,
-    /Read AGENTS\.md, COOKBOOK\.md and TASK\.md, then play Factorio through the Python library/,
+    /Read AGENTS\.md, COOKBOOK\.md, KNOWLEDGE\.md and TASK\.md, then play Factorio through the Python library/,
   );
   assert.match(fresh, /proven layouts and the error-recovery matrix/);
   assert.match(fresh, /Do not manage game processes or access raw RCON\.$/);

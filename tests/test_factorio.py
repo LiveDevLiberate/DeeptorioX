@@ -1937,6 +1937,19 @@ class BlueprintCliTestsExtra(unittest.TestCase):
         self.assertIn("--source", factorio.COMMAND_USAGE["blueprint-save"])
 
 
+class KnowledgeClientTests(unittest.TestCase):
+    def test_knowledge_payload_and_cli_usage(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.knowledge("inserters")
+        request.assert_called_once_with("GET", "/api/agent/knowledge?topic=inserters")
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.knowledge()
+        request.assert_called_once_with("GET", "/api/agent/knowledge")
+        self.assertIn("knowledge", factorio.COMMAND_USAGE)
+        self.assertIn("knowledge", factorio.GLOBAL_USAGE)
+
+
 class EntityUsageClientTests(unittest.TestCase):
     def test_entity_usage_catalog_payload_and_cli_usage(self):
         client = factorio.FactorioClient(poll_interval=0)
