@@ -67,6 +67,10 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Blackout scoring UI.** The recording penalty row now shows the blackout
+  count with a bolt icon alongside manual mining/crafting and STATE penalties;
+  the tooltip spells out the blackout count. The run/comparison pages already
+  surface the count and −500-per-event penalty.
 - **Blackout scoring.** Once any electric network has produced positive
   capacity, each transition into a full blackout (demand > 0 and power
   satisfaction ≤ 0.5%) deducts 500 points. Outage state persists across

@@ -41,6 +41,8 @@ export const RUN_FIXTURE = {
     manual_mines: 1373,
     manual_crafts: 249,
     breakdown: { production: 1200, science: 400, power: 250, research: 50, rockets: 25 },
+    blackouts: 2,
+    blackout_penalty: 1000,
   },
   benchmark: {
     id: "fixture",

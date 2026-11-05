@@ -603,7 +603,7 @@
         ".metric": {
           "display": "table-row",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "none",
           "height": "22.375px",
@@ -787,7 +787,7 @@
         ".metrics-table": {
           "display": "table",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "100%",
           "height": "116.203px",
@@ -833,7 +833,7 @@
         ".metrics-table tr": {
           "display": "table-row",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "none",
           "height": "22.375px",
@@ -3420,7 +3420,7 @@
         ".metric": {
           "display": "table-row",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "none",
           "height": "22.375px",
@@ -3604,7 +3604,7 @@
         ".metrics-table": {
           "display": "table",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "100%",
           "height": "116.203px",
@@ -3650,7 +3650,7 @@
         ".metrics-table tr": {
           "display": "table-row",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "none",
           "height": "22.375px",
@@ -6237,7 +6237,7 @@
         ".metric": {
           "display": "table-row",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "none",
           "height": "22.375px",
@@ -6421,7 +6421,7 @@
         ".metrics-table": {
           "display": "table",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "100%",
           "height": "116.203px",
@@ -6467,7 +6467,7 @@
         ".metrics-table tr": {
           "display": "table-row",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "none",
           "height": "22.375px",
@@ -9054,7 +9054,7 @@
         ".metric": {
           "display": "table-row",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "none",
           "height": "22.375px",
@@ -9238,7 +9238,7 @@
         ".metrics-table": {
           "display": "table",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "100%",
           "height": "116.203px",
@@ -9284,7 +9284,7 @@
         ".metrics-table tr": {
           "display": "table-row",
           "position": "static",
-          "width": "250.891px",
+          "width": "277.547px",
           "minWidth": "0px",
           "maxWidth": "none",
           "height": "22.375px",

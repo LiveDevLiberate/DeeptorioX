@@ -2528,3 +2528,12 @@ body.recording main.transcript-pane {
 html[data-theme="light"] body.recording #codexOutput {
   scrollbar-color: #cbd8d3 transparent;
 }
+
+/* Blackout count shares the penalty trend slot but uses a power glyph. */
+.penalty-details .penalty-blackout {
+  color: var(--amber);
+  font-weight: 600;
+}
+.penalty-details .penalty-blackout-icon {
+  color: var(--amber);
+}

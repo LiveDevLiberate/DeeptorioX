@@ -141,6 +141,7 @@ const I18N = {
       penalty: "Penalty",
       manualMines: "mined",
       manualCrafts: "crafted",
+      blackouts: "blackouts",
     },
     sparkStable: "stable",
     sparkUp: "+{percent}%",
@@ -297,6 +298,7 @@ const I18N = {
       penalty: "惩罚",
       manualMines: "采矿",
       manualCrafts: "合成",
+      blackouts: "停电",
     },
     sparkStable: "稳定",
     sparkUp: "+{percent}%",
@@ -1503,7 +1505,17 @@ function renderMetrics() {
         element("span", `-${Math.round(Number(automation.state_penalty))}`, "penalty-state"),
       );
     }
-    details.title = `${text.metrics.penalty}: ${text.metrics.manualMines || "mined"} / ${text.metrics.manualCrafts || "crafted"}`;
+    if (Number(automation.blackouts) > 0) {
+      details.append(
+        icon("bolt", "icon penalty-blackout-icon"),
+        element("span", `${Math.round(Number(automation.blackouts))}`, "penalty-blackout"),
+      );
+    }
+    const blackoutText =
+      Number(automation.blackouts) > 0
+        ? ` / ${Math.round(Number(automation.blackouts))} ${text.metrics.blackouts || "blackouts"}`
+        : "";
+    details.title = `${text.metrics.penalty}: ${text.metrics.manualMines || "mined"} / ${text.metrics.manualCrafts || "crafted"}${blackoutText}`;
     penaltyTrend.append(details);
     penaltyRow.append(element("th", text.metrics.penalty, "metric-label"), penaltyValue, penaltyTrend);
     rows.push(penaltyRow);
