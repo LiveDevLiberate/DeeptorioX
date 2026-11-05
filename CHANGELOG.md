@@ -71,6 +71,12 @@ this file.
   `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
   changing its checkpoint; resuming a paused run then uses the new limit and
   watchdog.
+- **Pole-aware power planning.** `plan_power_network` now uses each base pole's
+  real supply grid (small/medium 5×5, substation 18×18) instead of a fixed 5-tile
+  grid, and `build-power-line` places a straight horizontal/vertical trunk with
+  wire-reach spacing (big poles default). Entity-usage rules and the COOKBOOK
+  explain that big poles are for 30-tile trunks, not dense local coverage, which
+  fixes the “too many poles / inefficient power” failure mode.
 - **Entity usage guidance.** `POST /api/agent/observe/entity-usage`,
   `FactorioClient.entity_usage()` and CLI `entity-usage` combine curated
   behavior/placement rules with live prototype metadata. Curated rules cover

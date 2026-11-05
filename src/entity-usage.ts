@@ -181,6 +181,42 @@ const BY_TYPE: Record<string, UsageTemplate> = {
 };
 
 const BY_NAME: Record<string, UsageTemplate> = {
+  "small-electric-pole": {
+    summary: "Cheap local pole: 5x5 supply area and 7.5 wire reach.",
+    rules: [
+      "Use rows/columns spaced about 5 tiles for local machine coverage; do not use small poles for long-distance trunks.",
+      "One small pole can cover a 5x5 block; extra poles inside that block are wasted.",
+    ],
+    common_mistakes: ["Placing a small pole next to every machine instead of once per 5x5 supply block."],
+  },
+  "medium-electric-pole": {
+    summary: "Local pole: 5x5 supply area and 9 wire reach.",
+    rules: [
+      "Same 5x5 supply footprint as small poles but longer wires; useful for slightly wider rows.",
+      "Still not a long-range transmission pole.",
+    ],
+  },
+  "big-electric-pole": {
+    summary: "Long-distance transmission pole: small 4x4 supply area but 30 wire reach.",
+    rules: [
+      "Use only for straight power trunks between bases; it does not efficiently cover machines locally.",
+      "For area coverage use small/medium poles or substations, not a dense grid of big poles.",
+      "Keep big-pole trunks in one straight row/column and leave the 4x4 supply to local poles.",
+    ],
+    common_mistakes: [
+      "Using big poles as a dense coverage grid: their supply area is tiny, so density and cost explode.",
+      "Expecting a big pole to power a large machine block by itself.",
+    ],
+  },
+  substation: {
+    summary: "Area-coverage pole: 18x18 supply area and 18 wire reach.",
+    rules: [
+      "Use a roughly 18-tile grid for large machine areas; one substation covers 18x18.",
+      "Substations are expensive but replace many small poles; keep them in aligned rows/columns.",
+      "Connect substations with wires within their 18-tile reach; use big poles only for much longer gaps.",
+    ],
+    common_mistakes: ["Mixing substations into an irregular, manually-spaced chain and losing coverage."],
+  },
   loader: {
     summary: "A loader transfers items between a belt/container and an adjacent inventory in one direction.",
     rules: [

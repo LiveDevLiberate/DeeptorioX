@@ -107,6 +107,7 @@ Commands:
   build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]
   build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]
   build-power-network (--target x,y[,w,h] [--target ...] | --area x,y,radius) [--pole name] [--big-pole-every n] [--no-clear]
+  build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]
   build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--no-clear]
   build-mining-outpost (--ore x,y [--ore ...] | --area x,y,radius) [--drill name] [--drill-size w,h] [--output name] [--no-clear]
   build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear]
@@ -180,7 +181,8 @@ COMMAND_USAGE = {
     "build-pipe-line": "build-pipe-line: Lay an L-shaped surface pipe line (x first, then y).\nUsage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]\nNote: surface pipes only; for straight runs under obstacles use build-underground-pipe.\n",
     "build-underground-belt": "build-underground-belt: Lay a straight underground-belt line (input/output pairs + surface belt connectors).\nUsage: factorio.py build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]\nName: transport-belt/fast-transport-belt/express-transport-belt (default distance 4/6/8); pass --max-distance to override.\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface belt\nconnector after each pair, surface belts for tails shorter than a pair. Straight horizontal/vertical only.\n",
     "build-underground-pipe": "build-underground-pipe: Lay a straight pipe-to-ground line (input/output pairs + surface pipe connectors).\nUsage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface pipe\nconnector after each pair, surface pipes for tails shorter than a pair (default distance 10). Straight only.\n",
-    "build-power-network": "build-power-network: Place a pole grid covering entity targets or a scan area.\nUsage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]\n   or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear]\nCoverage: small pole supply area 5x5, 5-tile grid so adjacent poles are within wire reach.\n",
+    "build-power-network": "build-power-network: Place a pole grid covering entity targets or a scan area.\nUsage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]\n   or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear]\nCoverage: small/medium poles 5x5 (5-tile grid), substations 18x18 (18-tile grid); big poles are for straight transmission trunks (30-tile reach) and have only a 4x4 supply area. Use build-power-line for trunks.\n",
+    "build-power-line": "build-power-line: Place a straight horizontal/vertical pole trunk with wire-reach spacing.\nUsage: factorio.py build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]\nUse big-electric-pole for long runs (30 reach); use build-power-network with substations for area coverage.\n",
     "build-inserter-pairs": "build-inserter-pairs: Place input+output inserters around rows of machines.\nUsage: factorio.py build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--name inserter] [--no-clear]\n   or: factorio.py build-inserter-pairs --entities-json <json> [--direction ...] [--no-clear]\nFootprints default to 3x3; pass w,h for other machine sizes. Shared machine-to-machine inserters are deduped.\n",
     "build-mining-outpost": "build-mining-outpost: Place mining drills on a grid over ore tiles with belt rows and an output chest.\nUsage: factorio.py build-mining-outpost --ore x,y [--ore ...] [--drill name] [--drill-size w,h] [--output name] [--no-clear]\n   or: factorio.py build-mining-outpost --area x,y,radius [--drill name] [--drill-size w,h] [--output name]\nWarning: one output-belt row between drill rows is not mined; electric drills need a power network.\n",
     "build-defense-line": "build-defense-line: Place 2x2 turrets spaced along a line with a single wall row in front.\nUsage: factorio.py build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear]\nFront side is +y for horizontal lines and +x for vertical lines; single wall layer, no gates/power.\n",
@@ -822,7 +824,16 @@ POWER_POLE_BIG = "big-electric-pole"
 POWER_POLE_NAMES = frozenset(
     {"small-electric-pole", "medium-electric-pole", "big-electric-pole", "substation"}
 )
-POWER_SUPPLY_HALF = 2  # small pole supply area is 5x5 centred on the pole tile
+# Normal-quality base-game pole properties: (supply width, wire reach).
+# Small/medium poles cover machines locally; big poles are for long-distance
+# trunks (small supply area); substations cover large blocks efficiently.
+POWER_POLE_SPECS: dict[str, tuple[int, float]] = {
+    "small-electric-pole": (5, 7.5),
+    "medium-electric-pole": (5, 9.0),
+    "big-electric-pole": (4, 30.0),
+    "substation": (18, 18.0),
+}
+POWER_SUPPLY_HALF = 2  # default small pole supply area is 5x5 centred on the tile
 POWER_TILE_STEP = POWER_SUPPLY_HALF * 2 + 1
 
 # Surface belt tier -> (underground entity, standard max underground distance).
@@ -942,15 +953,17 @@ def _sort_entities(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
     )
 
 
-def _cover_axis(low: int, high: int) -> list[int]:
-    """Pole tile coordinates whose 5x5 supply areas cover [low, high]."""
+def _cover_axis(low: int, high: int, supply: int = 5) -> list[int]:
+    """Pole tile coordinates whose `supply`-wide areas cover [low, high]."""
     if low > high:
         low, high = high, low
-    if high - low < POWER_TILE_STEP:
-        return [max(low, high - POWER_SUPPLY_HALF)]
-    positions = [low + POWER_SUPPLY_HALF]
-    while positions[-1] + POWER_SUPPLY_HALF < high:
-        positions.append(positions[-1] + POWER_TILE_STEP)
+    half = max(0, supply // 2)
+    stride = max(1, supply)
+    if high - low < stride:
+        return [max(low, high - half)]
+    positions = [low + half]
+    while positions[-1] + half < high:
+        positions.append(positions[-1] + stride)
     return positions
 
 
@@ -1164,6 +1177,55 @@ def plan_underground_pipe_line(
     )
 
 
+def plan_power_line(
+    from_xy: Any,
+    to_xy: Any,
+    *,
+    pole: str = POWER_POLE_DEFAULT,
+    spacing: int | None = None,
+) -> list[dict[str, Any]]:
+    """Place a straight horizontal/vertical power-pole line.
+
+    This is the recommended trunk layout: all poles share one axis, spacing is
+    bounded by the selected pole's wire reach, and the two endpoints are included
+    exactly. For long runs use big-electric-pole (30-tile reach); for local
+    machine coverage use build_power_network with small/medium poles or
+    substations. Diagonal lines are rejected so the result stays 横平竖直.
+    """
+    start_x, start_y = _planner_point(from_xy, "from")
+    end_x, end_y = _planner_point(to_xy, "to")
+    x1, y1, x2, y2 = int(start_x), int(start_y), int(end_x), int(end_y)
+    if x1 != x2 and y1 != y2:
+        raise ValueError("plan_power_line only supports a straight horizontal or vertical line")
+    if not isinstance(pole, str) or not pole:
+        raise ValueError("pole must be an entity name")
+    reach = int(POWER_POLE_SPECS.get(pole, (5, 7.5))[1])
+    step = int(spacing) if spacing is not None else max(1, reach)
+    if step < 1:
+        raise ValueError("spacing must be >= 1")
+    if step > reach:
+        raise ValueError(f"spacing {step} exceeds {pole} wire reach {reach}")
+    length = abs((x2 - x1) if y1 == y2 else (y2 - y1))
+    if length == 0:
+        return []
+    direction = 1 if (x2 - x1 if y1 == y2 else y2 - y1) > 0 else -1
+    positions = [0]
+    while positions[-1] + step < length:
+        positions.append(positions[-1] + step)
+    if positions[-1] != length:
+        positions.append(length)
+    return [
+        {
+            "name": pole,
+            "anchor": {
+                "x": x1 + (offset * direction if y1 == y2 else 0),
+                "y": y1 + (offset * direction if x1 == x2 else 0),
+            },
+        }
+        for offset in positions
+    ]
+
+
 def plan_power_network(
     targets_or_area: Any,
     *,
@@ -1182,6 +1244,10 @@ def plan_power_network(
     `targets_or_area` accepts a target list (each `{x,y}`, `(x, y)`, or
     `{anchor:{x,y},width?,height?}` entity) or an `{x,y,radius}` area. The area
     is the square that fits the scan, so poles can sit outside open entrances.
+    Pole spacing comes from `POWER_POLE_SPECS`: small/medium cover on a 5-tile
+    grid, substations on an 18-tile grid, while big poles have a tiny supply area
+    and should be used with :func:`plan_power_line` for transmission trunks.
+
     `big_pole_every` replaces every Nth generated pole (1-based row-major order)
     with a big-electric-pole for long-haul wiring; its smaller supply area is not
     re-tiled, so leave 0 unless that trade-off is intended.
@@ -1221,8 +1287,9 @@ def plan_power_network(
     max_y = max(box[3] for box in boxes)
     entities: list[dict[str, Any]] = []
     generated = 0
-    for y in _cover_axis(min_y, max_y):
-        for x in _cover_axis(min_x, max_x):
+    supply = POWER_POLE_SPECS.get(pole, (5, 7.5))[0]
+    for y in _cover_axis(min_y, max_y, supply):
+        for x in _cover_axis(min_x, max_x, supply):
             if (x, y) in existing:
                 continue
             generated += 1
@@ -2579,6 +2646,17 @@ class FactorioClient:
             warnings = []
         return self._submit_planned(entities, clear=clear, warnings=warnings)
 
+    def build_power_line(self, from_xy: Any, to_xy: Any, *, plan: Any = None,
+                         pole: str = POWER_POLE_BIG, spacing: int | None = None,
+                         clear: bool = True) -> dict[str, Any]:
+        """Plan (or accept) a straight horizontal/vertical pole trunk and build it."""
+        if plan is not None:
+            entities, warnings = self._resolve_plan(plan)
+        else:
+            entities = plan_power_line(from_xy, to_xy, pole=pole, spacing=spacing)
+            warnings = []
+        return self._submit_planned(entities, clear=clear, warnings=warnings)
+
     def build_power_network(self, targets_or_area: Any = None, *, plan: Any = None,
                             pole: str = POWER_POLE_DEFAULT, big_pole_every: int = 0,
                             clear: bool = True) -> dict[str, Any]:
@@ -3182,6 +3260,18 @@ def run(argv: list[str]) -> int:
                 parse_targets([from_value], False)[0],
                 parse_targets([to_value], False)[0],
                 max_distance=parse_number(flag("max-distance"), UNDERGROUND_PIPE_DEFAULT_DISTANCE),
+                clear=not bool(flag("no-clear")),
+            )
+            return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "build-power-line":
+            from_value, to_value = flag("from"), flag("to")
+            if not from_value or not to_value:
+                raise ValueError("Missing --from or --to")
+            planner_result = FactorioClient(parsed.base).build_power_line(
+                parse_targets([from_value], False)[0],
+                parse_targets([to_value], False)[0],
+                pole=flag("pole") or "big-electric-pole",
+                spacing=parse_number(flag("spacing"), None),
                 clear=not bool(flag("no-clear")),
             )
             return output(planner_result, ok=bool(planner_result.get("ok", True)))

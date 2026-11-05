@@ -109,9 +109,15 @@
       "usage": "Usage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]"
     },
     {
+      "command": "build-power-line",
+      "description": "Place a straight horizontal/vertical pole trunk with wire-reach spacing.",
+      "help": "Usage: factorio.py build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear] Use big-electric-pole for long runs (30 reach); use build-power-network with substations for area coverage.",
+      "usage": "Usage: factorio.py build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]"
+    },
+    {
       "command": "build-power-network",
       "description": "Place a pole grid covering entity targets or a scan area.",
-      "help": "Usage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]    or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear] Coverage: small pole supply area 5x5, 5-tile grid so adjacent poles are within wire reach.",
+      "help": "Usage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]    or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear] Coverage: small/medium poles 5x5 (5-tile grid), substations 18x18 (18-tile grid); big poles are for straight transmission trunks (30-tile reach) and have only a 4x4 supply area. Use build-power-line for trunks.",
       "usage": "Usage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]"
     },
     {
@@ -703,6 +709,55 @@
         }
       ],
       "signature": "build_pipe_line(self, from_xy: 'Any' = None, to_xy: 'Any' = None, *, plan: 'Any' = None, name: 'str' = 'pipe', clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Plan (or accept) a straight horizontal/vertical pole trunk and build it.",
+      "name": "build_power_line",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "from_xy",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "to_xy",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'big-electric-pole'",
+          "kind": "keyword_only",
+          "name": "pole",
+          "required": false
+        },
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "spacing",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "build_power_line(self, from_xy: 'Any', to_xy: 'Any', *, plan: 'Any' = None, pole: 'str' = 'big-electric-pole', spacing: 'int | None' = None, clear: 'bool' = True) -> 'dict[str, Any]'"
     },
     {
       "description": "Plan (or accept) a covering pole network and build it in chunks.",
@@ -2307,7 +2362,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "2cbf7708ed93658ab1793e72797688bab08bb5ba22f7cdc308fcb69b3075714c",
+  "client_sha256": "144842f2b001fd2aa41f15c3908ef7129fe946f2335a7d7566ab451c248dce59",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2466,7 +2521,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "2cbf7708ed93658ab1793e72797688bab08bb5ba22f7cdc308fcb69b3075714c",
+    "factorio.py": "144842f2b001fd2aa41f15c3908ef7129fe946f2335a7d7566ab451c248dce59",
     "src/api/agent.ts": "5082a30efd75abae0c51b13735de5ef9209d43f4903f52b2cf876ae8c400eb66",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",

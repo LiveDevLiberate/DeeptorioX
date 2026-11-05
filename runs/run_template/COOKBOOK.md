@@ -60,8 +60,15 @@ Belt direction = the direction items move. A compact smelting row:
   unsure). Pipe water into the boiler's input, engine next to the boiler output.
 - Typical ratio (verify with `observe-factory.power`): 1 offshore pump : 20 boilers : 40 steam
   engines; start with 1:1:2 for 900 kW-class demand.
-- Connect everything with `electric-pole` (small poles cover ~5x5 supply, 7.5 wire reach). Put
-  one pole per mining/smelting block; check `power.satisfaction` (must stay ~1.0).
+- **Pole choice matters**:
+  - small pole: 5×5 supply, 7.5 wire reach — local coverage only;
+  - medium pole: 5×5 supply, 9 wire reach — local coverage with longer wires;
+  - substation: 18×18 supply, 18 wire reach — best for large machine blocks;
+  - big pole: only 4×4 supply but 30 wire reach — use for straight transmission trunks, never as a dense coverage grid.
+- Use `build-power-network --pole substation` for an aligned local coverage grid, or
+  `build-power-line --from x,y --to x,y --pole big-electric-pole` for a straight trunk.
+  Keep rows/columns aligned; do not hand-place a pole beside every machine.
+- Check `power.satisfaction` (must stay ~1.0) and `observe-factory` for `no_power`.
 - Add a chest of coal next to boilers and an inserter to feed them automatically.
 
 ## 5. Assembler + inserter pattern (the core unit)

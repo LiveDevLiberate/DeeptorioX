@@ -1119,6 +1119,32 @@ class PlannerTests(unittest.TestCase):
             factorio.plan_power_network([{"name": "small-electric-pole",
                                           "anchor": {"x": 0, "y": 0}}])
 
+    def test_plan_power_line_is_straight_and_uses_wire_spacing(self):
+        self.assertEqual(
+            [pole["anchor"]["x"] for pole in factorio.plan_power_line(
+                (0, 0), (70, 0), pole="big-electric-pole")],
+            [0, 30, 60, 70],
+        )
+        self.assertEqual(
+            [pole["anchor"]["y"] for pole in factorio.plan_power_line(
+                (5, 0), (5, -9), pole="medium-electric-pole")],
+            [0, -9],
+        )
+        with self.assertRaisesRegex(ValueError, "straight horizontal or vertical"):
+            factorio.plan_power_line((0, 0), (5, 5), pole="big-electric-pole")
+        with self.assertRaisesRegex(ValueError, "spacing"):
+            factorio.plan_power_line((0, 0), (20, 0), pole="small-electric-pole", spacing=20)
+        self.assertIn("build-power-line", factorio.COMMAND_USAGE)
+        self.assertIn("build-power-line", factorio.GLOBAL_USAGE)
+
+    def test_substation_planner_uses_large_supply_grid(self):
+        small = factorio.plan_power_network({"x": 0, "y": 0, "radius": 17})
+        substations = factorio.plan_power_network(
+            {"x": 0, "y": 0, "radius": 17}, pole="substation")
+        self.assertLess(len(substations), len(small))
+        xs = [pole["anchor"]["x"] for pole in substations]
+        self.assertTrue(all((x + 8) % 18 == 0 for x in xs))
+
     def test_plan_inserter_pairs_places_and_dedupes(self):
         machines = [{"anchor": {"x": 0, "y": 0}},
                     {"anchor": {"x": 4, "y": 0}},

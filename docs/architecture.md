@@ -173,6 +173,12 @@ window expose totals/endpoint counts via
 action-loopback requests and polling are included, so the view reflects the
 agent's complete interface profile.
 
+**Power planning.** `plan_power_network` covers targets using the selected
+pole's real supply width (small/medium 5, substation 18); `plan_power_line`
+creates straight horizontal/vertical trunks with wire-reach spacing and includes
+both endpoints (big pole default, 30 reach). The planner avoids using big poles
+as a dense coverage grid.
+
 **Entity usage.** `src/entity-usage.ts` holds curated behavior rules by prototype
 type (one-way belts, splitter inputs/outputs, underground pairs, inserter pickup/
 drop, machines, fluids, power, logistics) and falls back to type-based observation

@@ -80,6 +80,7 @@ const BASE_TASK_PROMPT =
   "Before a long move or unseen terrain, call preview_path(x,y): water (~) and cliffs (#) are impassable, so route around a no_path target instead of retrying it; high avoid_count means blocked. " +
   "For a fast charted-area overview use observe_map_overview(x, y, radius, size); it returns compact rows/legend (or SVG/PNG) for already-charted chunks only, so it is a plan aid rather than a fog reveal. " +
   "Before placing an unfamiliar building or designing a junction, call entity-usage --name <entity> (client.entity_usage); belts/splitters/underground belts are directional, and a crossing is not a bidirectional output junction. " +
+  "For power, use substations or small/medium poles for local coverage and a straight build-power-line with big poles for long trunks; do not place a dense grid of big poles. " +
   "Watch the automation score in observe_factory().plan.automation: automate extraction and crafting instead of hand work (manual mines/crafts are penalty points). " +
   "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
 
