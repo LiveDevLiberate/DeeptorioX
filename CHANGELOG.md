@@ -44,8 +44,8 @@ this file.
   game through `POST /api/blueprints` (active run) or
   `POST /api/runs/:id/blueprints`; the API returns the run's available blueprints
   with decoded label/dimensions/entity counts, and a detail endpoint returns the
-  wire string plus payload. The run page has a Blueprints button/count and a
-  summary list with on-demand decoded detail. Python clients get
+  wire string plus payload. The run page and the live recording window have Blueprints buttons/counts and
+  summary lists with on-demand decoded detail. Python clients get
   `save_blueprint()` / `list_blueprints()`, and `build_blueprint()` auto-registers
   when the launched agent carries `AUTORIO_RUN_ID`.
 - Dependency-free browser UI regression (`npm run test:ui`): serves the real

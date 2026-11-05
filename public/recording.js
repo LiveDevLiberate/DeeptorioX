@@ -209,6 +209,19 @@ const I18N = {
       "Seed and autoplace overrides used to generate the benchmark map; blank values use Factorio defaults.",
     mapExtras: "Other map settings",
     mapRaw: "Raw map_gen",
+    blueprints: "Blueprints",
+    blueprintsTitle: "Run blueprints",
+    blueprintsClose: "Close blueprints",
+    blueprintsEmpty: "No blueprints saved for this run yet.",
+    blueprintsNote:
+      "Blueprints recorded by the agent during this run. Saved entries were designed without building; built entries were used with build_blueprint.",
+    blueprintsSaved: "saved",
+    blueprintsBuilt: "built",
+    blueprintsEntities: "entities",
+    blueprintsTiles: "tiles",
+    blueprintDecode: "Decode blueprint",
+    blueprintLoading: "Loading…",
+    blueprintError: "Could not decode blueprint.",
     light: "Light",
     dark: "Dark",
     switchLight: "Switch to light theme",
@@ -349,6 +362,19 @@ const I18N = {
       "生成基准地图时使用的种子与资源生成覆盖。这里只列出覆盖项，未列出的资源和空值使用 Factorio 默认配置。",
     mapExtras: "其他地图设置",
     mapRaw: "原始 map_gen",
+    blueprints: "蓝图",
+    blueprintsTitle: "本局蓝图",
+    blueprintsClose: "关闭蓝图列表",
+    blueprintsEmpty: "本局还没有保存的蓝图。",
+    blueprintsNote:
+      "agent 在本局创建的蓝图。saved 表示只设计未建造，built 表示通过 build_blueprint 实际建造。",
+    blueprintsSaved: "仅设计",
+    blueprintsBuilt: "已建造",
+    blueprintsEntities: "个实体",
+    blueprintsTiles: "个 tile",
+    blueprintDecode: "解析蓝图",
+    blueprintLoading: "加载中…",
+    blueprintError: "无法解析蓝图。",
     light: "浅色",
     dark: "深色",
     switchLight: "切换到浅色主题",
@@ -384,6 +410,12 @@ const mapInfoBody = document.getElementById("mapInfoBody");
 const mapInfoClose = document.getElementById("mapInfoClose");
 const mapInfoTitle = document.getElementById("mapInfoTitle");
 const mapInfoNote = document.getElementById("mapInfoNote");
+const blueprintToggle = document.getElementById("recordingBlueprintsToggle");
+const blueprintOverlay = document.getElementById("blueprintOverlay");
+const blueprintBody = document.getElementById("blueprintBody");
+const blueprintClose = document.getElementById("blueprintsClose");
+const blueprintTitle = document.getElementById("blueprintTitle");
+const blueprintNote = document.getElementById("blueprintNote");
 const themeToggle = document.getElementById("themeToggle");
 const stateTimer = document.getElementById("stateTimer");
 const STATUS_COLLAPSED_KEY = "autorio.statusCollapsed";
@@ -442,6 +474,16 @@ function updateMapToggleLabel() {
   if (mapInfoTitle) mapInfoTitle.textContent = strings.mapTitle;
   if (mapInfoClose) mapInfoClose.setAttribute("aria-label", strings.mapClose);
   if (mapInfoNote) mapInfoNote.textContent = strings.mapNote;
+}
+function updateBlueprintToggleLabel() {
+  if (!blueprintToggle) return;
+  const strings = I18N[uiLang || "en"];
+  blueprintToggle.replaceChildren(icon("book"), element("span", strings.blueprints, "status-map-label"));
+  blueprintToggle.setAttribute("aria-label", strings.blueprintsTitle);
+  blueprintToggle.setAttribute("title", strings.blueprintsTitle);
+  if (blueprintTitle) blueprintTitle.textContent = strings.blueprintsTitle;
+  if (blueprintClose) blueprintClose.setAttribute("aria-label", strings.blueprintsClose);
+  if (blueprintNote) blueprintNote.textContent = strings.blueprintsNote;
 }
 const THEME_KEY = "autorio.theme";
 function currentTheme() {
@@ -535,6 +577,103 @@ function renderMapInfo() {
   nodes.push(raw);
   mapInfoBody.replaceChildren(...nodes);
 }
+let blueprintsCache = null,
+  blueprintsLoading = false,
+  blueprintsError = false;
+function renderBlueprints() {
+  if (!blueprintBody) return;
+  const strings = I18N[uiLang || "en"];
+  if (blueprintsLoading) {
+    blueprintBody.replaceChildren(element("p", strings.blueprintLoading, "map-info-muted"));
+    return;
+  }
+  if (blueprintsError) {
+    blueprintBody.replaceChildren(element("p", strings.blueprintError, "map-info-muted"));
+    return;
+  }
+  if (!blueprintsCache?.length) {
+    blueprintBody.replaceChildren(element("p", strings.blueprintsEmpty, "map-info-muted"));
+    return;
+  }
+  blueprintBody.replaceChildren(
+    ...blueprintsCache.map((blueprint) => {
+      const card = element("article", "", "blueprint-card");
+      const head = element("div", "", "blueprint-card-head");
+      head.append(
+        element("h3", blueprint.label || "Untitled blueprint"),
+        element(
+          "span",
+          `${blueprint.source === "built" ? strings.blueprintsBuilt : strings.blueprintsSaved} · ${blueprint.width || 0}×${blueprint.height || 0} · ${blueprint.entity_count || 0} ${strings.blueprintsEntities} · ${blueprint.tile_count || 0} ${strings.blueprintsTiles}`,
+          "blueprint-meta",
+        ),
+      );
+      const entities = element(
+        "p",
+        (blueprint.top_entities || []).map((entry) => `${entry.name} × ${entry.count}`).join(" · "),
+        "blueprint-entities",
+      );
+      const details = element("details", "", "blueprint-details");
+      details.append(element("summary", strings.blueprintDecode));
+      details.addEventListener("toggle", async () => {
+        if (!details.open || details.dataset.loaded) return;
+        details.dataset.loaded = "1";
+        const pre = element("pre", strings.blueprintLoading);
+        details.append(pre);
+        try {
+          const response = await fetch(
+            `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(blueprint.id)}`,
+          );
+          if (!response.ok) throw new Error("blueprint detail unavailable");
+          const detail = await response.json();
+          pre.textContent = JSON.stringify(detail.payload, null, 2);
+        } catch {
+          pre.textContent = strings.blueprintError;
+        }
+      });
+      card.append(head, entities, details);
+      return card;
+    }),
+  );
+}
+async function loadBlueprints() {
+  if (!id || blueprintsLoading) return;
+  blueprintsLoading = true;
+  blueprintsError = false;
+  renderBlueprints();
+  try {
+    const response = await fetch(`/api/runs/${encodeURIComponent(id)}/blueprints`);
+    if (!response.ok) throw new Error("blueprints unavailable");
+    const payload = await response.json();
+    blueprintsCache = payload.blueprints || [];
+  } catch {
+    blueprintsError = true;
+  } finally {
+    blueprintsLoading = false;
+    renderBlueprints();
+  }
+}
+function openBlueprints() {
+  if (!blueprintOverlay) return;
+  if (mapInfoOverlay && !mapInfoOverlay.hidden) closeMapInfo();
+  const active = document.activeElement;
+  lastFocusedElement =
+    active && active !== document.body && active !== document.documentElement ? active : blueprintToggle;
+  setModalBackgroundInert(true);
+  renderBlueprints();
+  void loadBlueprints();
+  blueprintOverlay.hidden = false;
+  blueprintToggle?.setAttribute("aria-expanded", "true");
+  blueprintClose?.focus?.();
+}
+function closeBlueprints() {
+  if (!blueprintOverlay) return;
+  blueprintOverlay.hidden = true;
+  blueprintToggle?.setAttribute("aria-expanded", "false");
+  setModalBackgroundInert(false);
+  const target = lastFocusedElement?.isConnected ? lastFocusedElement : blueprintToggle;
+  target?.focus?.();
+  lastFocusedElement = null;
+}
 function openMapInfo() {
   if (!mapInfoOverlay) return;
   const active = document.activeElement;
@@ -578,25 +717,37 @@ mapInfoClose?.addEventListener("click", closeMapInfo);
 mapInfoOverlay?.addEventListener("click", (event) => {
   if (event.target === mapInfoOverlay) closeMapInfo();
 });
+blueprintToggle?.addEventListener("click", () => {
+  if (blueprintOverlay?.hidden) openBlueprints();
+  else closeBlueprints();
+});
+blueprintClose?.addEventListener("click", closeBlueprints);
+blueprintOverlay?.addEventListener("click", (event) => {
+  if (event.target === blueprintOverlay) closeBlueprints();
+});
 document.addEventListener?.("keydown", (event) => {
-  if (!mapInfoOverlay || mapInfoOverlay.hidden) return;
+  const openDialog =
+    mapInfoOverlay && !mapInfoOverlay.hidden
+      ? { dialog: document.getElementById("mapInfoDialog"), close: closeMapInfo }
+      : blueprintOverlay && !blueprintOverlay.hidden
+        ? { dialog: document.getElementById("blueprintDialog"), close: closeBlueprints }
+        : null;
+  if (!openDialog) return;
   if (event.key === "Escape") {
-    closeMapInfo();
+    openDialog.close();
     return;
   }
   if (event.key !== "Tab") return;
   const focusable = [
-    ...(document
-      .getElementById("mapInfoDialog")
-      ?.querySelectorAll(
-        'button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])',
-      ) || []),
+    ...(openDialog.dialog?.querySelectorAll(
+      'button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])',
+    ) || []),
   ].filter((node) => !node.disabled && node.getClientRects().length > 0);
   if (!focusable.length) return;
   const first = focusable[0];
   const last = focusable[focusable.length - 1];
   const active = document.activeElement;
-  const inDialog = active && document.getElementById("mapInfoDialog")?.contains(active);
+  const inDialog = active && openDialog.dialog?.contains(active);
   if (event.shiftKey && (active === first || !inDialog)) {
     event.preventDefault();
     last.focus();
@@ -782,6 +933,7 @@ function renderStatus(run) {
   const strings = I18N[uiLang] || I18N.en;
   updateTranscriptTools(strings);
   updateMapToggleLabel();
+  updateBlueprintToggleLabel();
   updateThemeToggleLabel();
   const state = run.state || "—";
   statusState.textContent = strings.states[state] || state;
