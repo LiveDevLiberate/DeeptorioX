@@ -81,6 +81,11 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Mining building protection.** Native `mine` targets now skip player-owned
+  buildings unless the target explicitly sets `allow_buildings`; a blocked mine
+  returns `protected_building` with the entity sample and a hint. `act-mine`
+  defaults to protection (use `--allow-buildings` only for intentional removal),
+  while `deconstruct-area` and crash-debris recovery opt in explicitly.
 - **Critical-alert gate.** `observe-factory` problems are deduplicated into a
   revisioned alert envelope attached to every `/api/agent/*` JSON response.
   Critical alerts older than 30s block mutating actions with `ALERTS_PENDING`

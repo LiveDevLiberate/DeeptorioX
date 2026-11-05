@@ -298,9 +298,12 @@ choose a reachable shore/waypoint and build the route in stages.
 - Use it to clear a build site, remove mistakes, or collect wood/stone; prefer mining a few
 - Rotate in place instead of rebuilding: `rotate([{"x": x, "y": y}], direction=4)` sets the
   final facing (0/4/8/12; CLI `act-rotate --target x,y --direction 4`). One entity per call.
-- Remove a single misplaced building with `mine([{"x": x, "y": y}])` (CLI `act-mine`); use
-  `deconstruct_area` for batches. Manager-created entities may lack `last_user`, so pass
-  `player_only=False` with explicit `types` for your own buildings.
+- Mine resources with `act-mine --resource` (safe: it only matches resources).
+- Player-owned buildings are protected from accidental mining: `act-mine` returns
+  `protected_building` unless you explicitly pass `--allow-buildings` (or a target
+  with `allow_buildings: true`). Use this only for an intentional removal.
+- For a single misplaced building use `deconstruct_area` (which opts into removal);
+  for batches use its `types`/`player_only` filters.
   targets at a time near the character (long radius runs take real time and can fail per entity
   when unreachable).
 

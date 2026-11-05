@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Mining safety.** The native miner filters player-owned non-resource entities
+unless the target carries `allow_buildings: true`. `act-mine`/`mine_continuous`
+stay protected, `deconstruct-area` and crash-debris recovery opt in; a protected
+target returns `protected_building` instead of silently dismantling the factory.
+
 **Critical alerts.** `src/alert-store.ts` deduplicates factory problem
 counts into revisioned critical/warning alerts. `/api/agent/*` responses are
 augmented with an `alerts` envelope, and critical alerts older than the gate

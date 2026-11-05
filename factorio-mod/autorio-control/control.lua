@@ -54,17 +54,25 @@ local function finish(a,ok,err)
 end
 local function find_entity(p,target,minable)
   local candidates={}
+  local protected=nil
   for _,e in pairs(p.surface.find_entities_filtered{area={{target.x,target.y},{target.x+1,target.y+1}}}) do
     if e.valid and e~=p.character and e.type~='character' and e.type~='item-entity' and e.type~='corpse'
       and (not minable or e.minable)
       and (not target.kind or (target.kind=='resource' and e.type=='resource') or (target.kind=='entity' and e.type~='resource'))
       and (not target.name or e.name==target.name) then
-      local d=distance(e.position,{x=target.x+0.5,y=target.y+0.5})
-      candidates[#candidates+1]={entity=e,score=(e.type=='resource' and 0 or 100)-d*d,key=e.name..':'..e.position.x..':'..e.position.y}
+      -- Manual/resource mining must not silently dismantle the player's own
+      -- buildings. Deconstruct-area/recovery explicitly opt in to that.
+      if minable and not target.allow_buildings and target.kind~='resource'
+        and e.force==p.force and e.type~='tree' and e.type~='simple-entity' then
+        protected=protected or e
+      else
+        local d=distance(e.position,{x=target.x+0.5,y=target.y+0.5})
+        candidates[#candidates+1]={entity=e,score=(e.type=='resource' and 0 or 100)-d*d,key=e.name..':'..e.position.x..':'..e.position.y}
+      end
     end
   end
   table.sort(candidates,function(a,b) if a.score==b.score then return a.key<b.key end return a.score>b.score end)
-  return candidates[1] and candidates[1].entity
+  return candidates[1] and candidates[1].entity, protected
 end
 local function reached(a,p)
   if a.entity then return a.entity.valid and p.can_reach_entity(a.entity) end
@@ -375,8 +383,14 @@ remote.add_interface('autorio-control',{
     if args.kind=='move' or args.kind=='path' then
       a.goal={x=args.x,y=args.y};a.radius=0.18
     elseif args.kind=='mine' or args.kind=='approach' then
-      a.entity=find_entity(p,args.target,args.kind=='mine')
-      if not a.entity then return {ok=false,status='done',error=args.target.kind=='resource' and 'no_resource' or 'no_entity'} end
+      local protected
+      a.entity,protected=find_entity(p,args.target,args.kind=='mine')
+      if not a.entity then
+        if protected then
+          return {ok=false,status='done',error='protected_building',entity={name=protected.name,type=protected.type,center={x=protected.position.x,y=protected.position.y}},hint='Use --allow-buildings with act-mine or deconstruct-area for an intentional removal.'}
+        end
+        return {ok=false,status='done',error=args.target.kind=='resource' and 'no_resource' or 'no_entity'}
+      end
       a.name=a.entity.name;a.target_x=args.target.x;a.target_y=args.target.y
       a.goal={x=a.entity.position.x,y=a.entity.position.y}
       a.entity_info={name=a.name,center=a.goal}

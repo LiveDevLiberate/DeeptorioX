@@ -86,6 +86,7 @@ const BASE_TASK_PROMPT =
   "Use build-line --kind pipe|belt|wall|pole --route auto for any linear installation across unknown terrain; it shares the pathfinder detour and orthogonal routing instead of a straight-only builder. " +
   "Belt rules: each tile has two lanes (two item types can share a belt), but junctions/crossings do not automatically sum flows; side-loading fills only one lane, splitters merge with a throughput cap, and underground pairs cross without mixing. " +
   "For resource veins, call act-mine --resource with one target and the default count=all; keep mining that vein until depleted instead of switching after each cycle. " +
+  "Never mine near a building with a generic act-mine: player-owned buildings are protected unless --allow-buildings is explicit; use deconstruct-area for intentional dismantling. " +
   "Use recover-debris for crash-site spaceship wreckage (extract loot, then mine), observe-container to inspect chest slots, and container-transfer to move/organize items. " +
   "If a mutating call returns ALERTS_PENDING, call alerts (CLI alerts --ack) after inspecting/fixing the critical causes; observations/state/alerts remain allowed while blocked. " +
   "For power, use substations or small/medium poles for local coverage and a straight build-power-line with big poles for long trunks; do not place a dense grid of big poles. " +

@@ -118,7 +118,7 @@ Commands:
   build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--no-clear]
   build-mining-outpost (--ore x,y [--ore ...] | --area x,y,radius) [--drill name] [--drill-size w,h] [--output name] [--no-clear]
   build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear]
-  act-mine --target x,y [--target ...] [--resource [name]] [--count n|all] [--targets-json <json>]
+  act-mine --target x,y [--target ...] [--resource [name]] [--count n|all] [--allow-buildings] [--targets-json <json>]
   act-rotate --target x,y [--target ...] [--direction 0|4|8|12] [--targets-json <json>]
   act-move --target x,y [--target ...] [--targets-json <json>]
   path-preview --target x,y [--target ...] [--targets-json <json>]
@@ -2184,7 +2184,7 @@ class FactorioClient:
                     removed = int(result.get("removed") or 0)
                     if removed:
                         recovered[item_name] = recovered.get(item_name, 0) + removed
-                mined = self.mine([{**target, "kind": "entity", "name": name}])
+                mined = self.mine([{**target, "kind": "entity", "name": name, "allow_buildings": True}])
                 result = _job_first_result(mined) or {}
                 results.append({"name": name, **target, "loot": loot, "mined": result.get("ok") is not False})
             except Exception as error:  # Per-debris failure must not abort the sweep.
@@ -2821,6 +2821,8 @@ class FactorioClient:
                 continue
             target: dict[str, Any] = {"x": target_x, "y": target_y}
             target["kind"] = "resource" if entity.get("type") == "resource" else "entity"
+            # Deconstruction is an explicit removal; allow player-owned entities.
+            target["allow_buildings"] = True
             name = entity.get("name")
             if isinstance(name, str) and name:
                 target["name"] = name
@@ -3866,6 +3868,8 @@ def run(argv: list[str]) -> int:
             resource = flag("resource") if cmd == "act-mine" else None
             if cmd == "act-mine" and resource:
                 targets = [dict(target, kind="resource", **({} if resource == "true" else {"name": resource})) for target in targets]
+            if cmd == "act-mine" and flag("allow-buildings"):
+                targets = [dict(target, allow_buildings=True) for target in targets]
             if cmd == "act-mine" and resource:
                 raw_count: Any = flag("count")
                 mine_count: Any = "all" if raw_count is None or str(raw_count).lower() == "all" else parse_number(raw_count, 1)
