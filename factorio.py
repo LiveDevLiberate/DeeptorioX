@@ -7,6 +7,7 @@ Provides both an importable client and a command-line interface for agents.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import math
 import os
@@ -14,6 +15,7 @@ import sys
 import time
 import zlib
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 from urllib.error import HTTPError
 from urllib.parse import quote
@@ -241,8 +243,14 @@ def tool_manifest() -> dict[str, Any]:
         })
     cli.sort(key=lambda item: item["command"])
     methods.sort(key=lambda item: item["name"])
+    try:
+        client_sha256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    except OSError:
+        client_sha256 = ""
     return {
         "schema_version": 1,
+        "manifest_version": 2,
+        "client_sha256": client_sha256,
         "notes": [
             "Generated from factorio.py (client methods + CLI usage) and src/api/agent.ts endpoints.",
             "Prefer this manifest over reading factorio.py source when choosing a tool.",
@@ -1637,12 +1645,46 @@ class FactorioClient:
         """Read the active run's STATE.md freshness/status."""
         return self.request("GET", "/api/agent/state")
 
-    def tools(self, query: str | None = None) -> Any:
-        """Fetch the generated tool manifest (signatures, usage, endpoints)."""
+    def tools(self, query: str | None = None, *, local: bool = False) -> Any:
+        """Fetch the generated manifest, falling back to local introspection.
+
+        A manager can legitimately be older than the workspace client; the
+        response carries ``source``/``client_outdated`` so agents know when to
+        trust the local manifest instead of assuming a missing method is absent.
+        """
+        if local:
+            return {
+                "schema_version": 2,
+                "ok": True,
+                "cmd": "tools",
+                "data": {**tool_manifest(), "source": "local"},
+                "local": True,
+            }
         path = "/api/agent/tools"
         if query:
             path += f"?q={quote(str(query), safe='')}"
-        return self.request("GET", path)
+        try:
+            response = self.request("GET", path)
+        except Exception as error:
+            return {
+                "schema_version": 2,
+                "ok": True,
+                "cmd": "tools",
+                "data": {**tool_manifest(), "source": "local", "fallback": True,
+                         "fallback_reason": str(error)},
+                "fallback": True,
+            }
+        data = data_value(response)
+        if isinstance(data, dict):
+            data["source"] = "manager"
+            manager_hash = (data.get("sources") or {}).get("factorio.py")
+            local_hash = (tool_manifest() or {}).get("client_sha256")
+            if manager_hash and local_hash and manager_hash != local_hash:
+                data["client_outdated"] = True
+                data["client_update_hint"] = (
+                    "workspace factorio.py differs from the manager manifest; "
+                    "start a fresh run or refresh the workspace client")
+        return response
 
     def write_state(self, current: str, *, scores: dict[str, int] | None = None,
                     done_when: str | None = None, next: str | None = None,
@@ -2839,13 +2881,9 @@ def run(argv: list[str]) -> int:
             )
             return output(data_value(response))
         if cmd == "tools":
-            if flag("local"):
-                return output(tool_manifest())
-            query = flag("query")
-            path = "/api/agent/tools"
-            if query:
-                path += f"?q={quote(str(query), safe='')}"
-            return output(data_value(request("GET", path)))
+            response = FactorioClient(parsed.base).tools(
+                query=flag("query"), local=bool(flag("local")))
+            return output(data_value(response), truncated=MISSING)
         if cmd == "state-show":
             return output(data_value(request("GET", "/api/agent/state")))
         if cmd == "state-write":

@@ -1924,7 +1924,7 @@
       "signature": "submit_action(self, action: 'str', payload: 'Any', *, detach: 'bool' = False, idempotency_key: 'str | None' = None, timeout: 'float | None' = None) -> 'Any'"
     },
     {
-      "description": "Fetch the generated tool manifest (signatures, usage, endpoints).",
+      "description": "Fetch the generated manifest, falling back to local introspection.",
       "name": "tools",
       "parameters": [
         {
@@ -1933,9 +1933,16 @@
           "kind": "positional_or_keyword",
           "name": "query",
           "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "False",
+          "kind": "keyword_only",
+          "name": "local",
+          "required": false
         }
       ],
-      "signature": "tools(self, query: 'str | None' = None) -> 'Any'"
+      "signature": "tools(self, query: 'str | None' = None, *, local: 'bool' = False) -> 'Any'"
     },
     {
       "description": "",
@@ -2246,6 +2253,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
+  "client_sha256": "df30b412437d92bcabe478e6afe523b0d8c87a18f0ee68c556f1fa487a324d5a",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2388,6 +2396,7 @@
       "path": "/api/agent/tools"
     }
   ],
+  "manifest_version": 2,
   "notes": [
     "Generated from factorio.py (client methods + CLI usage) and src/api/agent.ts endpoints.",
     "Prefer this manifest over reading factorio.py source when choosing a tool.",
@@ -2395,7 +2404,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "46b4e49fef150ec47aaff0fa5f44c0c860d537a7e68461079fa1d70f77f88a1c",
+    "factorio.py": "df30b412437d92bcabe478e6afe523b0d8c87a18f0ee68c556f1fa487a324d5a",
     "src/api/agent.ts": "945d75b5c11daf165fc684f7fefaf459c847f1cac39b810e40dd5a6e04687fc0",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",

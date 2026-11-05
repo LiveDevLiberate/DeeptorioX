@@ -1832,6 +1832,33 @@ class BlueprintCliTestsExtra(unittest.TestCase):
         self.assertIn("--source", factorio.COMMAND_USAGE["blueprint-save"])
 
 
+class ToolDiscoveryTests(unittest.TestCase):
+    def test_local_and_fallback_manifests_are_available(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        local = client.tools(local=True)
+        self.assertTrue(local["local"])
+        self.assertEqual(local["data"]["source"], "local")
+        self.assertTrue(local["data"]["client_methods"])
+        with patch.object(client, "request", side_effect=RuntimeError("offline")):
+            fallback = client.tools()
+        self.assertTrue(fallback["fallback"])
+        self.assertEqual(fallback["data"]["source"], "local")
+        self.assertTrue(fallback["data"]["client_methods"])
+
+    def test_manager_manifest_marks_outdated_workspace_client(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        manager = {
+            "schema_version": 1,
+            "sources": {"factorio.py": "different"},
+            "client_methods": [],
+            "cli_commands": [],
+        }
+        with patch.object(client, "request", return_value={"ok": True, "data": manager}):
+            response = client.tools()
+        self.assertTrue(response["data"]["client_outdated"])
+        self.assertEqual(response["data"]["source"], "manager")
+
+
 class BlueprintRegistryClientTests(unittest.TestCase):
     def test_save_and_list_blueprints(self):
         client = factorio.FactorioClient(poll_interval=0)

@@ -53,6 +53,11 @@ this file.
   shows `model <model_label>` (shortened with ellipsis at narrow widths) with the
   full label in the tooltip; the run page already exposes the model in Run
   information. This makes it visible which model is driving the current game.
+- **Resilient tool discovery.** `factorio.py tools` now falls back to local
+  introspection when the manager endpoint is unavailable, marks the manifest as
+  `source: local|manager`, compares the manager's `sources.factorio.py` hash with
+  the workspace client and sets `client_outdated`/`client_update_hint` when the
+  workspace is stale. Manifests carry `manifest_version` and `client_sha256`.
 - **Blueprint CLI and preview.** `blueprint-list` / `blueprint-save` make the
   per-run catalogue usable without writing Python; paid upload of a designed
   string does not build it. Blueprint details in the run page and recording
