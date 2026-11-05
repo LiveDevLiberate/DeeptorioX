@@ -165,6 +165,14 @@ is counted once per transition after any network reports positive production
 capacity: demand > 0 and satisfaction ≤ 0.5% subtracts 500 points; the count and
 active state persist in `run.json`.
 
+**Agent interface usage.** Every `/api/agent/...` request handled while a run is
+active is counted by `METHOD /path` (job IDs normalize to
+`/api/agent/jobs/:id`) and persisted in `run.json`; the run page and recording
+window expose totals/endpoint counts via
+`GET /api/runs/:id/tool-calls` (active shorthand `/api/tool-calls`). Internal
+action-loopback requests and polling are included, so the view reflects the
+agent's complete interface profile.
+
 **Prototype descriptions.** `POST /api/agent/observe/description` resolves an
 entity or technology `localised_description` in the game's current locale; it
 returns the raw LocalisedString and the rendered text, or

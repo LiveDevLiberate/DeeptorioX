@@ -215,6 +215,13 @@ const I18N = {
     mapThumbnailLoading: "Loading charted map…",
     mapThumbnailUnavailable: "Map thumbnail is unavailable while the game is not running.",
     blueprints: "Blueprints",
+    tools: "Tools",
+    toolsTitle: "Agent interface calls",
+    toolsClose: "Close interface usage",
+    toolsEmpty: "No agent interface calls recorded for this run yet.",
+    toolsLoading: "Loading interface usage…",
+    toolsNote:
+      "API endpoints called by the agent during this run, including observation, action jobs and polling.",
     blueprintsTitle: "Run blueprints",
     blueprintsClose: "Close blueprints",
     blueprintsEmpty: "No blueprints saved for this run yet.",
@@ -372,6 +379,12 @@ const I18N = {
     mapThumbnailLoading: "正在加载已探索地图…",
     mapThumbnailUnavailable: "游戏未运行时无法加载缩略地图。",
     blueprints: "蓝图",
+    tools: "工具",
+    toolsTitle: "Agent 接口调用",
+    toolsClose: "关闭接口调用统计",
+    toolsEmpty: "本局还没有 agent 接口调用记录。",
+    toolsLoading: "正在加载接口调用统计…",
+    toolsNote: "agent 在本局调用的 API 接口，包括观察、动作 job 和轮询请求。",
     blueprintsTitle: "本局蓝图",
     blueprintsClose: "关闭蓝图列表",
     blueprintsEmpty: "本局还没有保存的蓝图。",
@@ -426,6 +439,12 @@ const blueprintBody = document.getElementById("blueprintBody");
 const blueprintClose = document.getElementById("blueprintsClose");
 const blueprintTitle = document.getElementById("blueprintTitle");
 const blueprintNote = document.getElementById("blueprintNote");
+const toolCallsToggle = document.getElementById("toolCallsToggle");
+const toolCallsOverlay = document.getElementById("toolCallsOverlay");
+const toolCallsBody = document.getElementById("toolCallsBody");
+const toolCallsClose = document.getElementById("toolCallsClose");
+const toolCallsTitle = document.getElementById("toolCallsTitle");
+const toolCallsNote = document.getElementById("toolCallsNote");
 const themeToggle = document.getElementById("themeToggle");
 const stateTimer = document.getElementById("stateTimer");
 const STATUS_COLLAPSED_KEY = "autorio.statusCollapsed";
@@ -686,6 +705,91 @@ function closeBlueprints() {
   target?.focus?.();
   lastFocusedElement = null;
 }
+function updateToolCallsToggleLabel() {
+  if (!toolCallsToggle) return;
+  const strings = I18N[uiLang || "en"];
+  toolCallsToggle.replaceChildren(icon("server"), element("span", strings.tools, "status-map-label"));
+  toolCallsToggle.setAttribute("aria-label", strings.toolsTitle);
+  toolCallsToggle.setAttribute("title", strings.toolsTitle);
+  if (toolCallsTitle) toolCallsTitle.textContent = strings.toolsTitle;
+  if (toolCallsClose) toolCallsClose.setAttribute("aria-label", strings.toolsClose);
+  if (toolCallsNote) toolCallsNote.textContent = strings.toolsNote;
+}
+let toolCallsCache = null,
+  toolCallsLoading = false,
+  toolCallsError = false;
+function renderToolCalls() {
+  if (!toolCallsBody) return;
+  const strings = I18N[uiLang || "en"];
+  if (toolCallsLoading) {
+    toolCallsBody.replaceChildren(element("p", strings.toolsLoading, "map-info-muted"));
+    return;
+  }
+  if (toolCallsError) {
+    toolCallsBody.replaceChildren(element("p", strings.toolsEmpty, "map-info-muted"));
+    return;
+  }
+  if (!toolCallsCache?.calls?.length) {
+    toolCallsBody.replaceChildren(element("p", strings.toolsEmpty, "map-info-muted"));
+    return;
+  }
+  const summary = element(
+    "p",
+    `${toolCallsCache.total} calls · ${toolCallsCache.calls.length} endpoints`,
+    "map-info-muted",
+  );
+  const list = element("div", "", "tool-call-list");
+  for (const call of toolCallsCache.calls) {
+    const row = element("div", "", "tool-call-row");
+    row.append(
+      element("code", call.method || "GET", "tool-call-method"),
+      element("span", call.path || "—", "tool-call-path"),
+      element("strong", String(call.count || 0), "tool-call-count"),
+    );
+    list.append(row);
+  }
+  toolCallsBody.replaceChildren(summary, list);
+}
+async function loadToolCalls() {
+  if (!id || toolCallsLoading) return;
+  toolCallsLoading = true;
+  toolCallsError = false;
+  renderToolCalls();
+  try {
+    const response = await fetch(`/api/runs/${encodeURIComponent(id)}/tool-calls`);
+    if (!response.ok) throw new Error("tool calls unavailable");
+    toolCallsCache = await response.json();
+  } catch {
+    toolCallsCache = { total: 0, calls: [] };
+    toolCallsError = true;
+  } finally {
+    toolCallsLoading = false;
+    renderToolCalls();
+  }
+}
+function openToolCalls() {
+  if (!toolCallsOverlay) return;
+  if (mapInfoOverlay && !mapInfoOverlay.hidden) closeMapInfo();
+  if (blueprintOverlay && !blueprintOverlay.hidden) closeBlueprints();
+  const active = document.activeElement;
+  lastFocusedElement =
+    active && active !== document.body && active !== document.documentElement ? active : toolCallsToggle;
+  setModalBackgroundInert(true);
+  toolCallsOverlay.hidden = false;
+  toolCallsToggle?.setAttribute("aria-expanded", "true");
+  renderToolCalls();
+  void loadToolCalls();
+  toolCallsClose?.focus?.();
+}
+function closeToolCalls() {
+  if (!toolCallsOverlay) return;
+  toolCallsOverlay.hidden = true;
+  toolCallsToggle?.setAttribute("aria-expanded", "false");
+  setModalBackgroundInert(false);
+  const target = lastFocusedElement?.isConnected ? lastFocusedElement : toolCallsToggle;
+  target?.focus?.();
+  lastFocusedElement = null;
+}
 function loadMapThumbnail() {
   if (!mapThumbnail) return;
   const strings = I18N[uiLang || "en"];
@@ -750,13 +854,23 @@ blueprintClose?.addEventListener("click", closeBlueprints);
 blueprintOverlay?.addEventListener("click", (event) => {
   if (event.target === blueprintOverlay) closeBlueprints();
 });
+toolCallsToggle?.addEventListener("click", () => {
+  if (toolCallsOverlay?.hidden) openToolCalls();
+  else closeToolCalls();
+});
+toolCallsClose?.addEventListener("click", closeToolCalls);
+toolCallsOverlay?.addEventListener("click", (event) => {
+  if (event.target === toolCallsOverlay) closeToolCalls();
+});
 document.addEventListener?.("keydown", (event) => {
   const openDialog =
     mapInfoOverlay && !mapInfoOverlay.hidden
       ? { dialog: document.getElementById("mapInfoDialog"), close: closeMapInfo }
       : blueprintOverlay && !blueprintOverlay.hidden
         ? { dialog: document.getElementById("blueprintDialog"), close: closeBlueprints }
-        : null;
+        : toolCallsOverlay && !toolCallsOverlay.hidden
+          ? { dialog: document.getElementById("toolCallsDialog"), close: closeToolCalls }
+          : null;
   if (!openDialog) return;
   if (event.key === "Escape") {
     openDialog.close();
@@ -959,6 +1073,7 @@ function renderStatus(run) {
   updateTranscriptTools(strings);
   updateMapToggleLabel();
   updateBlueprintToggleLabel();
+  updateToolCallsToggleLabel();
   updateThemeToggleLabel();
   const state = run.state || "—";
   statusState.textContent = strings.states[state] || state;

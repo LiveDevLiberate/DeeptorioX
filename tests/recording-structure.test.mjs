@@ -102,6 +102,11 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(html, /id="blueprintDialog"[^>]*role="dialog"[^>]*aria-modal="true"/);
   assert.match(html, /id="blueprintBody"/);
   assert.match(html, /id="blueprintsClose"/);
+  assert.match(html, /id="toolCallsToggle"[^>]*aria-controls="toolCallsOverlay"/);
+  assert.match(html, /id="toolCallsOverlay"[^>]*hidden/);
+  assert.match(html, /id="toolCallsDialog"[^>]*role="dialog"[^>]*aria-modal="true"/);
+  assert.match(html, /id="toolCallsBody"/);
+  assert.match(html, /id="toolCallsClose"/);
   assert.match(html, /class="icon icon-layers"/);
   assert.match(html, /class="icon icon-brain"/);
   assert.match(html, /class="icon icon-wrench"/);

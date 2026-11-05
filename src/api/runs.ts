@@ -72,6 +72,33 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
 
   router.add({
     method: "GET",
+    path: "/api/tool-calls",
+    name: "/api/tool-calls",
+    handler: (request) => {
+      const { res } = request;
+      const runId = runManager.activeRunId();
+      if (!runId) return json(res, 200, { schema_version: 2, run_id: null, total: 0, calls: [] });
+      const usage = runManager.toolCalls(runId) || { calls: [] };
+      return json(res, 200, { ...usage, schema_version: 2, run_id: runId });
+    },
+  });
+
+  router.add({
+    path: /^\/api\/runs\/([^/]+)\/tool-calls$/,
+    name: "runToolCalls",
+    handler: (request) => {
+      const { res, url } = request;
+      const match = url.pathname.match(/^\/api\/runs\/([^/]+)\/tool-calls$/);
+      if (!match) return false;
+      const runId = decodeURIComponent(match[1]);
+      if (!runManager.get(runId)) return json(res, 404, { error: "Run not found" });
+      const usage = runManager.toolCalls(runId) || { total: 0, calls: [] };
+      return json(res, 200, { ...usage, schema_version: 2, run_id: runId });
+    },
+  });
+
+  router.add({
+    method: "GET",
     path: "/api/blueprints",
     name: "/api/blueprints",
     handler: (request) => {

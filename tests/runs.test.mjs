@@ -165,6 +165,27 @@ function setup(overrides = {}) {
   };
 }
 
+test("records agent interface call counts and normalizes job ids", async () => {
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    manager.recordToolCall("POST", "/api/agent/observe/world");
+    manager.recordToolCall("POST", "/api/agent/observe/world");
+    manager.recordToolCall("GET", "/api/agent/jobs/abc-123");
+    manager.recordToolCall("GET", "/api/agent/jobs/def-456");
+    manager.recordToolCall("GET", "/api/runs/not-an-agent-route");
+    const usage = manager.toolCalls(run.id);
+    assert.equal(usage.total, 4);
+    assert.deepEqual(usage.calls, [
+      { method: "GET", path: "/api/agent/jobs/:id", count: 2 },
+      { method: "POST", path: "/api/agent/observe/world", count: 2 },
+    ]);
+  } finally {
+    await manager.stop();
+  }
+});
+
 test("telemetry counts full blackouts once power is established and applies -500 each", async () => {
   const { manager, hooks } = setup();
   const run = manager.start({ agent: "manual", benchmark: "smoke" });

@@ -67,6 +67,11 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Agent interface-usage statistics.** Every `/api/agent/...` request made while
+  a run is active increments a per-endpoint counter (`METHOD /path`), with job
+  IDs normalized to `/api/agent/jobs/:id`. The run page and recording window have
+  separate Tools buttons/dialogs showing total calls and endpoint counts;
+  `GET /api/tool-calls` and `GET /api/runs/:id/tool-calls` expose the data.
 - **Prototype descriptions.** Added `POST /api/agent/observe/description`,
   `FactorioClient.describe()` and CLI `describe` for entity and technology
   `localised_description` values. The response includes the raw LocalisedString,

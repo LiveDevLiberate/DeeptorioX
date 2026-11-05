@@ -51,6 +51,17 @@ function fakeManager() {
   return {
     calls,
     blueprints: (id) => (id === "run-active" ? catalogue : []),
+    toolCalls: (id) =>
+      id === "run-active"
+        ? {
+            run_id: "run-active",
+            total: 3,
+            calls: [
+              { method: "POST", path: "/api/agent/observe/world", count: 2 },
+              { method: "GET", path: "/api/agent/jobs/:id", count: 1 },
+            ],
+          }
+        : undefined,
     activeRunId: () => "run-active",
     get: (id) => (id === "run-active" ? { id } : undefined),
     blueprint: (id, blueprintId) =>
@@ -141,4 +152,18 @@ test("PATCH and DELETE manage one run-scoped blueprint", async () => {
     runManager.calls.map((call) => call.action),
     ["update", "delete"],
   );
+});
+
+test("tool-call usage endpoints return active and run-scoped counts", async () => {
+  const runManager = fakeManager();
+  const router = new Router();
+  registerRunsRoutes(router, { runManager });
+  const active = await dispatch(router, fakeRequest("/api/tool-calls"));
+  assert.equal(active.statusCode, 200);
+  assert.equal(JSON.parse(active.body).total, 3);
+  const scoped = await dispatch(router, fakeRequest("/api/runs/run-active/tool-calls"));
+  assert.equal(scoped.statusCode, 200);
+  assert.equal(JSON.parse(scoped.body).calls[0].count, 2);
+  const missing = await dispatch(router, fakeRequest("/api/runs/missing/tool-calls"));
+  assert.equal(missing.statusCode, 404);
 });

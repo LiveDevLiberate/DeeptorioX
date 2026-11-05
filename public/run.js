@@ -9,6 +9,9 @@ let videoSegments = [],
 let blueprints = [];
 let blueprintsLoaded = false;
 let blueprintsLoading = false;
+let toolCalls = null;
+let toolCallsLoading = false;
+let toolCallsError = false;
 function renderVideo() {
   const segment = videoSegments.find((segment) => String(segment.index) === selectedVideoSegment);
   const video = segment?.video;
@@ -157,6 +160,60 @@ async function loadBlueprints() {
   }
 }
 
+function renderToolCalls() {
+  const list = $("toolCallList");
+  const summary = $("toolCallsSummary");
+  if (!list || !summary) return;
+  if (toolCallsLoading) {
+    summary.textContent = "Loading…";
+    list.replaceChildren();
+    return;
+  }
+  if (toolCallsError) {
+    summary.textContent = "Interface usage is unavailable for this run.";
+    list.replaceChildren();
+    return;
+  }
+  if (!toolCalls?.calls?.length) {
+    summary.textContent = "No agent interface calls recorded for this run.";
+    list.replaceChildren();
+    return;
+  }
+  summary.textContent = `${toolCalls.total} calls · ${toolCalls.calls.length} endpoints`;
+  list.replaceChildren(
+    ...toolCalls.calls.map((call) => {
+      const row = document.createElement("div");
+      row.className = "tool-call-row";
+      const method = text("code", call.method || "GET", "tool-call-method");
+      const path = text("span", call.path || "—", "tool-call-path");
+      const count = text("strong", String(call.count || 0), "tool-call-count");
+      row.append(method, path, count);
+      return row;
+    }),
+  );
+}
+async function loadToolCalls() {
+  if (!id || toolCallsLoading) return;
+  toolCallsLoading = true;
+  toolCallsError = false;
+  renderToolCalls();
+  try {
+    toolCalls = await api(`/api/runs/${encodeURIComponent(id)}/tool-calls`);
+    $("toolCallCount").textContent = String(toolCalls.total || 0);
+  } catch {
+    toolCalls = { total: 0, calls: [] };
+    toolCallsError = true;
+  } finally {
+    toolCallsLoading = false;
+    renderToolCalls();
+  }
+}
+$("toolCallsToggle").onclick = () => {
+  const panel = $("toolCallsPanel");
+  panel.hidden = !panel.hidden;
+  $("toolCallsToggle").setAttribute("aria-expanded", String(!panel.hidden));
+  if (!panel.hidden) void loadToolCalls();
+};
 $("blueprintsToggle").onclick = () => {
   const panel = $("blueprintsPanel");
   panel.hidden = !panel.hidden;
@@ -268,6 +325,7 @@ async function refresh() {
     $("videoSegment").value = selectedVideoSegment;
     renderVideo();
     if (!blueprintsLoaded) void loadBlueprints();
+    if (!toolCalls && !toolCallsLoading) void loadToolCalls();
     $("recordingLink").href = recordingUrl(id);
     $("recordingLink").hidden = false;
     const info = {

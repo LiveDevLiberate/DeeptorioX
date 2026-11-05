@@ -283,3 +283,35 @@ html:not([data-theme="light"]) body.overlay #agentStatus {
 .blueprint-actions button.danger {
   color: var(--danger, #d46a5a);
 }
+
+.tool-call-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+.tool-call-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--panel);
+  font-size: 11px;
+}
+.tool-call-method {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+}
+.tool-call-path {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-call-count {
+  color: var(--text);
+}

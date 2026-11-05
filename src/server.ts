@@ -635,6 +635,14 @@ registerTelemetryRoutes(apiRouter, apiContext, telemetrySampler);
 telemetrySampler.start();
 
 async function handleApi(req: IncomingMessage, res: ServerResponse) {
+  if (req.url) {
+    try {
+      const pathname = new URL(req.url, "http://127.0.0.1").pathname;
+      runManager.recordToolCall(req.method || "GET", pathname);
+    } catch {
+      /* malformed URL is handled by the router */
+    }
+  }
   if (await apiRouter.dispatch(req, res)) return;
   return json(res, 404, { error: "Not found" });
 }

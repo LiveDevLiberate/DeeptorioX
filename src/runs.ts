@@ -194,6 +194,8 @@ type Run = {
   power_blackout_active?: boolean;
   /** Number of full-blackout transitions counted since power was established. */
   power_blackouts?: number;
+  /** HTTP agent-interface call counts keyed by "METHOD /path". */
+  tool_calls?: Record<string, number>;
   /** Last emitted STATE.md reminder stage, so markers are not duplicated. */
   state_reminder?: "due" | "blocked";
 };
@@ -323,6 +325,8 @@ export class RunManager {
   private videoRecorder?: { stop(): Promise<string> };
   /** Last digest per run for consecutive-duplicate suppression (recovered from disk). */
   private digestTail = new Map<string, string | null>();
+  /** Last time tool-call counters were flushed to run.json. */
+  private toolCallPersist = new Map<string, number>();
 
   constructor(private hooks: Hooks) {
     fs.mkdirSync(this.root, { recursive: true });
@@ -511,6 +515,44 @@ export class RunManager {
   /** The run currently owning the game/agent, if any. */
   activeRunId(): string | undefined {
     return this.active?.id;
+  }
+
+  /**
+   * Count one API call made by the active agent. Internal loopback action
+   * dispatches and polling requests are intentionally included: this is the
+   * agent's interface-usage profile, not just user-visible observations.
+   */
+  recordToolCall(method: string, pathname: string): void {
+    const run = this.active;
+    if (!run || !pathname.startsWith("/api/agent/")) return;
+    const path = pathname
+      .replace(/^\/api\/agent\/jobs\/[^/]+$/, "/api/agent/jobs/:id")
+      .replace(/^\/api\/agent\/jobs\/[^/]+\/cancel$/, "/api/agent/jobs/:id/cancel");
+    const key = `${method.toUpperCase()} ${path}`;
+    run.tool_calls ||= {};
+    run.tool_calls[key] = (run.tool_calls[key] || 0) + 1;
+    const now = Date.now();
+    if (now - (this.toolCallPersist.get(run.id) || 0) > 1000) {
+      this.toolCallPersist.set(run.id, now);
+      this.persist(run);
+    }
+  }
+
+  /** Tool/interface usage for one run, sorted by call count. */
+  toolCalls(runId: string) {
+    const run = this.runs.get(runId);
+    if (!run) return undefined;
+    const calls = Object.entries(run.tool_calls || {})
+      .map(([key, count]) => {
+        const [method, ...pathParts] = key.split(" ");
+        return { method, path: pathParts.join(" "), count };
+      })
+      .sort((a, b) => b.count - a.count || a.path.localeCompare(b.path));
+    return {
+      run_id: run.id,
+      total: calls.reduce((sum, call) => sum + call.count, 0),
+      calls,
+    };
   }
 
   /** Blueprints registered for this run, newest first. */
