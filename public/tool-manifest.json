@@ -97,6 +97,12 @@
       "usage": "Usage: factorio.py build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--name inserter] [--no-clear]"
     },
     {
+      "command": "build-line",
+      "description": "Unified linear builder for pipes/belts/walls/poles, with auto pathfinding around lakes/cliffs or a straight L plan.",
+      "help": "Usage: factorio.py build-line --kind pipe|belt|wall|pole|underground-pipe|underground-belt --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n] [--no-clear] route=auto uses path-preview and lays an orthogonal route; underground variants are straight-only.",
+      "usage": "Usage: factorio.py build-line --kind pipe|belt|wall|pole|underground-pipe|underground-belt --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n] [--no-clear]"
+    },
+    {
       "command": "build-mining-outpost",
       "description": "Place mining drills on a grid over ore tiles with belt rows and an output chest.",
       "help": "Usage: factorio.py build-mining-outpost --ore x,y [--ore ...] [--drill name] [--drill-size w,h] [--output name] [--no-clear]    or: factorio.py build-mining-outpost --area x,y,radius [--drill name] [--drill-size w,h] [--output name] Warning: one output-belt row between drill rows is not mined; electric drills need a power network.",
@@ -588,6 +594,69 @@
         }
       ],
       "signature": "build_inserter_pairs(self, machines: 'Any' = None, *, plan: 'Any' = None, direction: 'Any' = 'east', inserter: 'str' = 'inserter', width: 'int' = 3, height: 'int' = 3, clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Unified linear builder for pipes, belts, walls, poles and underground pairs.",
+      "name": "build_line",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "kind",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "from_xy",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "to_xy",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "name",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'auto'",
+          "kind": "keyword_only",
+          "name": "route",
+          "required": false
+        },
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "spacing",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "build_line(self, kind: 'str', from_xy: 'Any' = None, to_xy: 'Any' = None, *, name: 'str | None' = None, route: 'str' = 'auto', spacing: 'int | None' = None, plan: 'Any' = None, clear: 'bool' = True) -> 'dict[str, Any]'"
     },
     {
       "description": "",
@@ -2422,7 +2491,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "6e0f480ead3e176ff081ee3ea4d9a853c9060f8accddca289110f922b662df4d",
+  "client_sha256": "a271f65cfbe9338a723ec685347b4fd9257adb477a47de0c5333854da596245d",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2585,7 +2654,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "6e0f480ead3e176ff081ee3ea4d9a853c9060f8accddca289110f922b662df4d",
+    "factorio.py": "a271f65cfbe9338a723ec685347b4fd9257adb477a47de0c5333854da596245d",
     "src/api/agent.ts": "a10f31d2aee8d352ca05bcf3015c9ea4a78a0eefe061162f5e82c871834eecf2",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",

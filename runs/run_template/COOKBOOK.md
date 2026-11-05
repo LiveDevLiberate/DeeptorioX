@@ -235,6 +235,29 @@ Practical checks before a junction:
 4. If two item types share a belt, keep one type per lane and use a splitter filter
    to separate them if needed.
 
+## 10.9 Unified linear builder
+
+Use one command for every linear installation that may hit terrain:
+
+```bash
+factorio.py build-line --kind pipe|belt|wall|pole \
+  --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n]
+```
+
+- `route=auto` (default) asks the native pathfinder for a walkable corridor and
+  lays an orthogonal route, so lakes/cliffs are detoured instead of retried.
+- `route=straight` uses the old L-shaped/straight plan; use it only when the
+  corridor is known open.
+- `--kind underground-pipe` and `--kind underground-belt` are straight-only;
+  segment long routes at waypoints.
+- `--kind pole` places poles at wire-reach intervals; `--spacing` can make it
+  denser (never exceed the pole's reach).
+- `--kind wall` lays one wall tile per route tile (defense lines with turrets
+  still use `build-defense-line`).
+
+Do not keep retrying a straight line into water. If `auto` returns `no_path`,
+choose a reachable shore/waypoint and build the route in stages.
+
 ## 11. Blueprint workflow
 
 - `decode_blueprint_string(text)` / `encode_blueprint_string(dict)` for inspection.

@@ -71,6 +71,11 @@ this file.
   `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
   changing its checkpoint; resuming a paused run then uses the new limit and
   watchdog.
+- **Unified linear builder.** `build-line --kind pipe|belt|wall|pole` uses the
+  native pathfinder (`route=auto`, default) to detour lakes/cliffs and lays each
+  type on the same orthogonal route; `route=straight` preserves the old L/straight
+  behavior, and underground-pipe/underground-belt remain straight-only. This
+  replaces the inconsistent per-builder obstacle handling for continuous lines.
 - **Belt lane/junction rules.** Curated `transport-belt`/`splitter` guidance now
   spells out the wiki rules the agent was missing: two lanes can carry two item
   types; junctions/crossings never sum flows automatically; side-loading feeds

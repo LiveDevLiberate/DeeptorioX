@@ -108,6 +108,7 @@ Commands:
   build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]
   build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]
   build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear]
+  build-line --kind pipe|belt|wall|pole|underground-pipe|underground-belt --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n] [--no-clear]
   build-power-network (--target x,y[,w,h] [--target ...] | --area x,y,radius) [--pole name] [--big-pole-every n] [--no-clear]
   build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]
   build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--no-clear]
@@ -184,6 +185,7 @@ COMMAND_USAGE = {
     "build-pipe-line": "build-pipe-line: Lay an L-shaped surface pipe line (x first, then y).\nUsage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]\nNote: surface pipes only; for straight runs under obstacles use build-underground-pipe.\n",
     "build-underground-belt": "build-underground-belt: Lay a straight underground-belt line (input/output pairs + surface belt connectors).\nUsage: factorio.py build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]\nName: transport-belt/fast-transport-belt/express-transport-belt (default distance 4/6/8); pass --max-distance to override.\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface belt\nconnector after each pair, surface belts for tails shorter than a pair. Straight horizontal/vertical only.\n",
     "build-underground-pipe": "build-underground-pipe: Lay a straight pipe-to-ground line (input/output pairs + surface pipe connectors).\nUsage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface pipe\nconnector after each pair, surface pipes for tails shorter than a pair (default distance 10). Straight only.\n",
+    "build-line": "build-line: Unified linear builder for pipes/belts/walls/poles, with auto pathfinding around lakes/cliffs or a straight L plan.\nUsage: factorio.py build-line --kind pipe|belt|wall|pole|underground-pipe|underground-belt --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n] [--no-clear]\nroute=auto uses path-preview and lays an orthogonal route; underground variants are straight-only.\n",
     "build-pipe-route": "build-pipe-route: Ask the native pathfinder for a walkable route and lay connected orthogonal pipes around lakes/cliffs.\nUsage: factorio.py build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear]\nFails with no_path if the destination is unreachable; choose a different endpoint instead of retrying a straight line.\n",
     "build-power-network": "build-power-network: Place a pole grid covering entity targets or a scan area.\nUsage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]\n   or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear]\nCoverage: small/medium poles 5x5 (5-tile grid), substations 18x18 (18-tile grid); big poles are for straight transmission trunks (30-tile reach) and have only a 4x4 supply area. Use build-power-line for trunks.\n",
     "build-power-line": "build-power-line: Place a straight horizontal/vertical pole trunk with wire-reach spacing.\nUsage: factorio.py build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]\nUse big-electric-pole for long runs (30 reach); use build-power-network with substations for area coverage.\n",
@@ -1001,22 +1003,14 @@ def plan_pipe_line(from_xy: Any, to_xy: Any, *, name: str = "pipe") -> list[dict
     return entities
 
 
-def plan_pipe_route(
+def _path_route_tiles(
     path_points: Any,
     *,
-    name: str = "pipe",
     from_xy: Any = None,
     to_xy: Any = None,
-) -> list[dict[str, Any]]:
-    """Turn a native walkable path into a connected orthogonal pipe route.
-
-    The path may contain diagonal waypoints; each diagonal step is expanded into
-    L-shaped pipe tiles. For one-tile diagonals both corner variants are emitted so
-    at least one remains buildable at a water/cliff corner (a failed pipe is
-    skipped by the build job; the other corner keeps the route connected).
-    """
-    if not isinstance(name, str) or not name:
-        raise ValueError("name must be an entity name")
+    both_corners: bool = False,
+) -> list[tuple[int, int]]:
+    """Expand native path waypoints into orthogonal, adjacent tile coordinates."""
     points: list[tuple[int, int]] = []
     for index, raw in enumerate(_planner_sequence(path_points, "path_points")):
         x, y = _planner_point(raw, f"path point {index}", integer=False)
@@ -1051,16 +1045,14 @@ def plan_pipe_route(
                 y += step_y
                 add((x, y))
             continue
-        # A short diagonal can cut a lake corner. Emit both orthogonal corners;
-        # the build job keeps whichever is placeable and the network still links
-        # through that corner.
         if abs(dx) == 1 and abs(dy) == 1:
-            add((target[0], y))
-            add((x, target[1]))
+            if both_corners:
+                add((target[0], y))
+                add((x, target[1]))
+            else:
+                add((target[0], y))
             add(target)
             continue
-        # Longer compressed waypoints: deterministic x-first L, preserving
-        # adjacency and avoiding a diagonal pipe gap.
         step_x = (dx > 0) - (dx < 0)
         while x != target[0]:
             x += step_x
@@ -1069,9 +1061,100 @@ def plan_pipe_route(
         while y != target[1]:
             y += step_y
             add((target[0], y))
+    return route
+
+
+def plan_pipe_route(
+    path_points: Any,
+    *,
+    name: str = "pipe",
+    from_xy: Any = None,
+    to_xy: Any = None,
+) -> list[dict[str, Any]]:
+    """Turn a native walkable path into a connected orthogonal pipe route.
+
+    The path may contain diagonal waypoints; each diagonal step is expanded into
+    L-shaped pipe tiles. For one-tile diagonals both corner variants are emitted so
+    at least one remains buildable at a water/cliff corner (a failed pipe is
+    skipped by the build job; the other corner keeps the route connected).
+    """
+    if not isinstance(name, str) or not name:
+        raise ValueError("name must be an entity name")
+    route = _path_route_tiles(
+        path_points, from_xy=from_xy, to_xy=to_xy, both_corners=True)
     return [
         {"name": name, "anchor": {"x": x, "y": y}, "direction": 0}
         for x, y in route
+    ]
+
+
+def _route_direction(route: list[tuple[int, int]], index: int) -> int:
+    """Belt/pipe direction from a route's next tile (0 north, 4 east, 8 south, 12 west)."""
+    if not route:
+        return 0
+    if index + 1 < len(route):
+        nx, ny = route[index + 1]
+    else:
+        px, py = route[index - 1]
+        nx, ny = 2 * route[index][0] - px, 2 * route[index][1] - py
+    x, y = route[index]
+    dx, dy = nx - x, ny - y
+    if abs(dx) >= abs(dy):
+        return 4 if dx > 0 else 12
+    return 8 if dy > 0 else 0
+
+
+def plan_belt_route(
+    path_points: Any,
+    *,
+    name: str = "transport-belt",
+    from_xy: Any = None,
+    to_xy: Any = None,
+) -> list[dict[str, Any]]:
+    """Lay one directed belt per tile along a walkable path."""
+    route = _path_route_tiles(path_points, from_xy=from_xy, to_xy=to_xy)
+    return [
+        {"name": name, "anchor": {"x": x, "y": y}, "direction": _route_direction(route, i)}
+        for i, (x, y) in enumerate(route)
+    ]
+
+
+def plan_wall_route(
+    path_points: Any,
+    *,
+    name: str = "stone-wall",
+    from_xy: Any = None,
+    to_xy: Any = None,
+) -> list[dict[str, Any]]:
+    """Lay one wall tile per tile along a walkable path."""
+    route = _path_route_tiles(path_points, from_xy=from_xy, to_xy=to_xy)
+    return [{"name": name, "anchor": {"x": x, "y": y}} for x, y in route]
+
+
+def plan_pole_route(
+    path_points: Any,
+    *,
+    name: str = "big-electric-pole",
+    spacing: int | None = None,
+    from_xy: Any = None,
+    to_xy: Any = None,
+) -> list[dict[str, Any]]:
+    """Place poles along a walkable route at wire-reach intervals."""
+    route = _path_route_tiles(path_points, from_xy=from_xy, to_xy=to_xy)
+    if not route:
+        return []
+    reach = int(POWER_POLE_SPECS.get(name, (5, 7.5))[1])
+    step = int(spacing) if spacing is not None else max(1, reach)
+    if step < 1:
+        raise ValueError("spacing must be >= 1")
+    if step > reach:
+        raise ValueError(f"spacing {step} exceeds {name} wire reach {reach}")
+    indices = list(range(0, len(route), step))
+    if indices[-1] != len(route) - 1:
+        indices.append(len(route) - 1)
+    return [
+        {"name": name, "anchor": {"x": route[i][0], "y": route[i][1]}}
+        for i in indices
     ]
 
 
@@ -2708,6 +2791,80 @@ class FactorioClient:
             warnings = []
         return self._submit_planned(entities, clear=clear, warnings=warnings)
 
+    def build_line(self, kind: str, from_xy: Any = None, to_xy: Any = None, *,
+                   name: str | None = None, route: str = "auto",
+                   spacing: int | None = None, plan: Any = None,
+                   clear: bool = True) -> dict[str, Any]:
+        """Unified linear builder for pipes, belts, walls, poles and underground pairs.
+
+        ``route="auto"`` asks the native pathfinder for a walkable corridor and
+        lays the selected entity along an orthogonal route, avoiding lakes and
+        cliffs the same way a character walks. ``route="straight"`` keeps the
+        historical L-shaped/straight plan. Underground variants are straight-only.
+        """
+        if plan is not None:
+            entities, warnings = self._resolve_plan(plan)
+            return self._submit_planned(entities, clear=clear, warnings=warnings)
+        if from_xy is None or to_xy is None:
+            raise ValueError("build_line needs from/to points or a plan")
+        canonical = str(kind).strip().lower()
+        if canonical in ("underground-pipe", "pipe-to-ground"):
+            if route != "straight":
+                raise ValueError("underground pipe is straight-only; use route='straight' or segment the route")
+            return self.build_underground_pipe_line(from_xy, to_xy, clear=clear)
+        if canonical in ("underground-belt", "underground"):
+            if route != "straight":
+                raise ValueError("underground belt is straight-only; use route='straight' or segment the route")
+            return self.build_underground_belt_line(
+                from_xy, to_xy, name=name or "transport-belt", clear=clear)
+        if canonical not in ("pipe", "belt", "wall", "pole"):
+            raise ValueError("kind must be pipe, belt, wall, pole, underground-pipe or underground-belt")
+        if route not in ("auto", "straight"):
+            raise ValueError("route must be auto or straight")
+        if route == "auto":
+            x, y = _planner_point(to_xy, "to")
+            path = _job_path_points(self.preview_path(float(x) + 0.5, float(y) + 0.5))
+            if not path:
+                raise ValueError("pathfinder did not return a route; choose a reachable waypoint")
+            if canonical == "pipe":
+                entities = plan_pipe_route(
+                    path, name=name or "pipe", from_xy=from_xy, to_xy=to_xy)
+            elif canonical == "belt":
+                entities = plan_belt_route(
+                    path, name=name or "transport-belt", from_xy=from_xy, to_xy=to_xy)
+            elif canonical == "wall":
+                entities = plan_wall_route(
+                    path, name=name or "stone-wall", from_xy=from_xy, to_xy=to_xy)
+            else:
+                entities = plan_pole_route(
+                    path, name=name or "big-electric-pole",
+                    spacing=spacing, from_xy=from_xy, to_xy=to_xy)
+            warnings = []
+        elif canonical == "pipe":
+            entities, warnings = plan_pipe_line(from_xy, to_xy, name=name or "pipe"), []
+        elif canonical == "belt":
+            path = _path_route_tiles([from_xy, to_xy])
+            entities = [
+                {"name": name or "transport-belt", "anchor": {"x": x, "y": y},
+                 "direction": _route_direction(path, i)}
+                for i, (x, y) in enumerate(path)
+            ]
+            warnings = []
+        elif canonical == "wall":
+            path = _path_route_tiles([from_xy, to_xy])
+            entities = [
+                {"name": name or "stone-wall", "anchor": {"x": x, "y": y}}
+                for x, y in path
+            ]
+            warnings = []
+        else:
+            path = _path_route_tiles([from_xy, to_xy])
+            entities = plan_pole_route(
+                [{"x": x + 0.5, "y": y + 0.5} for x, y in path],
+                name=name or "big-electric-pole", spacing=spacing)
+            warnings = []
+        return self._submit_planned(entities, clear=clear, warnings=warnings)
+
     def build_underground_belt_line(self, from_xy: Any = None, to_xy: Any = None, *,
                                     plan: Any = None, name: str = "transport-belt",
                                     max_distance: Any = None,
@@ -3392,6 +3549,23 @@ def run(argv: list[str]) -> int:
                 parse_targets([from_value], False)[0],
                 parse_targets([to_value], False)[0],
                 pole=flag("pole") or "big-electric-pole",
+                spacing=parse_number(flag("spacing"), None),
+                clear=not bool(flag("no-clear")),
+            )
+            return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "build-line":
+            from_value, to_value = flag("from"), flag("to")
+            if not from_value or not to_value:
+                raise ValueError("Missing --from or --to")
+            kind = flag("kind")
+            if not kind:
+                raise ValueError("Missing --kind")
+            planner_result = FactorioClient(parsed.base).build_line(
+                kind,
+                parse_targets([from_value], False)[0],
+                parse_targets([to_value], False)[0],
+                name=flag("name"),
+                route=flag("route") or "auto",
                 spacing=parse_number(flag("spacing"), None),
                 clear=not bool(flag("no-clear")),
             )

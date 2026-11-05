@@ -1136,6 +1136,7 @@ class PlannerTests(unittest.TestCase):
             factorio.plan_power_line((0, 0), (20, 0), pole="small-electric-pole", spacing=20)
         self.assertIn("build-power-line", factorio.COMMAND_USAGE)
         self.assertIn("build-power-line", factorio.GLOBAL_USAGE)
+        self.assertIn("build-line", factorio.COMMAND_USAGE)
 
     def test_substation_planner_uses_large_supply_grid(self):
         small = factorio.plan_power_network({"x": 0, "y": 0, "radius": 17})
@@ -1296,6 +1297,37 @@ class PlanBuildAndBuilderTests(unittest.TestCase):
             [(0, 0), (1, 0), (0, 1), (1, 1), (2, 1), (1, 2), (2, 2)],
         )
         self.assertTrue(all(entity["name"] == "pipe" for entity in route))
+
+    def test_unified_linear_route_plans_belts_walls_poles(self):
+        path = [
+            {"x": 0.5, "y": 0.5},
+            {"x": 0.5, "y": 2.5},
+            {"x": 2.5, "y": 2.5},
+        ]
+        belts = factorio.plan_belt_route(path)
+        self.assertEqual(
+            [(b["anchor"]["x"], b["anchor"]["y"], b["direction"]) for b in belts],
+            [(0, 0, 8), (0, 1, 8), (0, 2, 4), (1, 2, 4), (2, 2, 4)],
+        )
+        walls = factorio.plan_wall_route(path)
+        self.assertEqual(len(walls), 5)
+        poles = factorio.plan_pole_route(path, spacing=2)
+        self.assertEqual(
+            [(p["anchor"]["x"], p["anchor"]["y"]) for p in poles],
+            [(0, 0), (0, 2), (2, 2)],
+        )
+
+    def test_build_line_dispatches_auto_and_rejects_bad_underground_route(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "preview_path", return_value={
+            "results": [{"path": [{"x": 0.5, "y": 0.5}, {"x": 0.5, "y": 2.5}]}]
+        }), patch.object(client, "_submit_planned", return_value={"ok": True}) as submit:
+            result = client.build_line("belt", (0, 0), (0, 2))
+        self.assertTrue(result["ok"])
+        entities = submit.call_args.args[0]
+        self.assertTrue(all(entity["direction"] == 8 for entity in entities))
+        with self.assertRaisesRegex(ValueError, "straight-only"):
+            client.build_line("underground-pipe", (0, 0), (0, 2))
 
     def test_build_pipe_route_uses_path_preview_result(self):
         client = factorio.FactorioClient(poll_interval=0)

@@ -179,6 +179,13 @@ creates straight horizontal/vertical trunks with wire-reach spacing and includes
 both endpoints (big pole default, 30 reach). The planner avoids using big poles
 as a dense coverage grid.
 
+**Unified linear builder.** `FactorioClient.build_line`/CLI `build-line`
+dispatches pipe, belt, wall and pole plans over a shared route: `auto` uses the
+native pathfinder and `_path_route_tiles` for an orthogonal corridor,
+`straight` retains the historical L/straight builders, and underground variants
+are explicit straight-only. This centralizes obstacle handling for continuous
+installations.
+
 **Belt rules.** `BELT_RULES` in `entity-usage.ts` encodes the base-game lane and
 junction rules (two lanes, no automatic summing at crossings/head-on meetings,
 one-lane side-loading, splitter merge/cap, underground crossing, belt throughput).
