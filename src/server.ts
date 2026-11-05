@@ -34,6 +34,7 @@ import { configureLogger, logger } from "./logger.js";
 import { Router } from "./http/router.js";
 import { json } from "./http/plumbing.js";
 import { handleStatic } from "./http/static.js";
+import { isAgentMutationRequest, stateGateNudge } from "./state-gate.js";
 import { rconConfigured } from "./api/shared.js";
 import { asRecord, errorMessage } from "./validation.js";
 import type { ApiContext } from "./api/context.js";
@@ -638,7 +639,21 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
   if (req.url) {
     try {
       const pathname = new URL(req.url, "http://127.0.0.1").pathname;
-      runManager.recordToolCall(req.method || "GET", pathname);
+      const method = req.method || "GET";
+      runManager.recordToolCall(method, pathname);
+      const internal = req.headers["x-autorio-internal"] === INTERNAL_JOB_KEY;
+      if (!internal && isAgentMutationRequest(method, pathname)) {
+        const stateGate = runManager.stateGate();
+        if (stateGate?.gate.blocked) {
+          return json(res, 409, {
+            schema_version: 2,
+            error: "STATE_UPDATE_REQUIRED",
+            message: stateGate.gate.hint,
+            state: stateGate.status,
+            nudge: stateGateNudge(stateGate.gate),
+          });
+        }
+      }
     } catch {
       /* malformed URL is handled by the router */
     }

@@ -165,6 +165,38 @@ function setup(overrides = {}) {
   };
 }
 
+test("state metadata ignores touch-only changes and records external content revisions", async () => {
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    const first = manager.writeState({ current: "first plan", done_when: "one" });
+    assert.equal(first.revision, 1);
+    assert.equal(first.updated_by, "api");
+    const statePath = path.join(temp, "runs", run.id, "workspace", "STATE.md");
+    // Touching the file does not change its content hash, so it must not reset freshness.
+    const future = new Date(Date.now() + 60_000);
+    fs.utimesSync(statePath, future, future);
+    const touched = manager.stateStatus();
+    assert.equal(touched.revision, 1);
+    assert.equal(touched.updated_by, "api");
+    assert.equal(touched.external_changed, false);
+    // An external content change is accepted as a real new revision.
+    fs.appendFileSync(statePath, "\nExternal note: build next iron line.\n");
+    const external = manager.stateStatus();
+    assert.equal(external.external_changed, true);
+    assert.equal(external.updated_by, "external");
+    assert.ok(external.revision > first.revision);
+    // The history contains both written plans, and a second API write increments again.
+    manager.writeState({ current: "second plan", done_when: "two" });
+    const history = manager.stateHistory(run.id);
+    assert.ok(history.revisions.length >= 2);
+    assert.ok(history.revisions.some((entry) => entry.current === "second plan"));
+  } finally {
+    await manager.stop();
+  }
+});
+
 test("records agent interface call counts and normalizes job ids", async () => {
   const { manager } = setup();
   const run = manager.start({ agent: "manual", benchmark: "smoke" });

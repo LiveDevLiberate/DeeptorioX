@@ -77,6 +77,9 @@ test("run page exposes the agent blueprint catalogue and its toggle", () => {
   assert.match(html, /id="runMapThumbnail"/);
   assert.match(html, /id="toolCallsToggle"[^>]*aria-controls="toolCallsPanel"/);
   assert.match(html, /id="toolCallList"/);
+  assert.match(html, /id="stateToggle"[^>]*aria-controls="statePanel"/);
+  assert.match(html, /id="statePanel"/);
+  assert.match(html, /id="stateHistory"/);
   assert.match(html, /id="blueprintList"/);
   assert.match(js, /\/api\/runs\/\$\{encodeURIComponent\(id\)\}\/blueprints/);
   assert.match(js, /Decode blueprint/);

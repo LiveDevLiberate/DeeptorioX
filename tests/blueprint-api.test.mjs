@@ -51,6 +51,21 @@ function fakeManager() {
   return {
     calls,
     blueprints: (id) => (id === "run-active" ? catalogue : []),
+    stateHistory: (id) =>
+      id === "run-active"
+        ? {
+            run_id: "run-active",
+            revisions: [
+              {
+                revision: 1,
+                updated_at: "2026-11-05T00:00:00.000Z",
+                current: "first plan",
+                done_when: "one",
+                markdown: "# STATE\nCurrent: first plan\n",
+              },
+            ],
+          }
+        : undefined,
     toolCalls: (id) =>
       id === "run-active"
         ? {
@@ -165,5 +180,16 @@ test("tool-call usage endpoints return active and run-scoped counts", async () =
   assert.equal(scoped.statusCode, 200);
   assert.equal(JSON.parse(scoped.body).calls[0].count, 2);
   const missing = await dispatch(router, fakeRequest("/api/runs/missing/tool-calls"));
+  assert.equal(missing.statusCode, 404);
+});
+
+test("run-scoped state history route returns revisions", async () => {
+  const runManager = fakeManager();
+  const router = new Router();
+  registerRunsRoutes(router, { runManager });
+  const history = await dispatch(router, fakeRequest("/api/runs/run-active/state/history"));
+  assert.equal(history.statusCode, 200);
+  assert.equal(JSON.parse(history.body).revisions[0].current, "first plan");
+  const missing = await dispatch(router, fakeRequest("/api/runs/missing/state/history"));
   assert.equal(missing.statusCode, 404);
 });

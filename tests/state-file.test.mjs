@@ -14,6 +14,30 @@ test("state gate warns at soft interval and blocks at hard interval", () => {
   assert.match(blocked.hint, /POST \/api\/agent\/state/);
 });
 
+test("resume grace allows an old plan briefly, then blocks again", () => {
+  const during = evaluateStateGate({
+    hasState: true,
+    ageSeconds: 900,
+    elapsedSeconds: 900,
+    segmentElapsedSeconds: 30,
+    resumeGraceSeconds: 120,
+  });
+  assert.equal(during.blocked, false);
+  assert.equal(during.due, false);
+  assert.equal(during.resume_grace_active, true);
+  assert.equal(during.resume_grace_remaining_seconds, 90);
+  const after = evaluateStateGate({
+    hasState: true,
+    ageSeconds: 900,
+    elapsedSeconds: 900,
+    segmentElapsedSeconds: 130,
+    resumeGraceSeconds: 120,
+  });
+  assert.equal(after.blocked, true);
+  assert.equal(after.resume_grace_active, false);
+  assert.equal(after.resume_grace_remaining_seconds, null);
+});
+
 test("missing STATE.md is blocked only after the startup grace period", () => {
   const grace = evaluateStateGate({ hasState: false, ageSeconds: null, elapsedSeconds: 30 });
   assert.equal(grace.due, true);

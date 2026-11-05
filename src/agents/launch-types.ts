@@ -64,7 +64,7 @@ export type AgentLaunchInput = {
 const DISCIPLINE_PROMPT =
   "Never run a shell `sleep` longer than 10 seconds. Use wait_for_item, wait_for_research, wait_for_factory or wait_until, and keep doing useful work while production runs. Batch at least five related actions or observations per tool call and print only a short summary. ";
 const RESUME_PROMPT =
-  "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. ";
+  "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. If STATE.md is missing or stale, refresh it with state-write before any mutating action. ";
 const RESTART_PROMPT =
   "Continue the same benchmark. The previous agent session was reset because its context reached the configured limit. Read AGENTS.md, STATE.md and RESUME.md, re-observe the game, then continue. ";
 const BASE_TASK_PROMPT =

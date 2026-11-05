@@ -125,6 +125,14 @@ type Segment = {
   save_file?: string;
   video?: Video;
 };
+type StateMeta = {
+  schema_version: 1;
+  revision: number;
+  updated_at: string;
+  content_sha256: string;
+  updated_by: "api" | "external";
+};
+
 type Run = {
   id: string;
   name?: string;
@@ -198,6 +206,10 @@ type Run = {
   tool_calls?: Record<string, number>;
   /** Last emitted STATE.md reminder stage, so markers are not duplicated. */
   state_reminder?: "due" | "blocked";
+  /** First time the plan entered the hard-blocked stage. */
+  state_blocked_since?: string;
+  /** One active nudge/restart attempt per blocked cycle. */
+  state_nudge_restarted?: boolean;
 };
 /** Metadata reported by timelapse rendering; persisted into run.json verbatim. */
 export type VideoRenderResult = {
@@ -312,6 +324,7 @@ export class RunManager {
   private agent?: ChildProcess;
   private opencodeRemote?: { distro: string; pidFile: string; pid?: number };
   private contextResetting = false;
+  private stateNudging = false;
   private abort?: AbortController;
   private monitor?: NodeJS.Timeout;
   private watchdog?: NodeJS.Timeout;
@@ -591,13 +604,48 @@ export class RunManager {
     if (!run) throw new Error("Run not found");
     return deleteRunBlueprint(this.dir(run), run.id, blueprintId);
   }
+  private stateMetaPath(run: Run): string {
+    return path.join(this.dir(run), "workspace", "state-meta.json");
+  }
+  private readStateMeta(run: Run): StateMeta | undefined {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(this.stateMetaPath(run), "utf8")) as StateMeta;
+      if (parsed?.schema_version !== 1 || !Number.isFinite(parsed.revision)) return undefined;
+      return parsed;
+    } catch {
+      return undefined;
+    }
+  }
   private stateFile(run: Run) {
     for (const relative of ["workspace/STATE.md", "STATE.md"]) {
       try {
         const file = path.join(this.dir(run), relative);
         const stat = fs.statSync(file);
         if (!stat.isFile()) continue;
-        return { text: fs.readFileSync(file, "utf8").slice(0, 8000), updated_at: stat.mtime.toISOString() };
+        const text = fs.readFileSync(file, "utf8").slice(0, 8000);
+        const hash = sha256(text);
+        const meta = this.readStateMeta(run);
+        if (meta && meta.content_sha256 === hash) {
+          return {
+            text,
+            updated_at: meta.updated_at,
+            content_sha256: hash,
+            revision: meta.revision,
+            updated_by: meta.updated_by,
+            external_changed: false,
+          };
+        }
+        // A legacy state has no metadata; a hash mismatch means the file was
+        // edited outside the API. Both are real content updates, but only the
+        // mismatch gets marked external.
+        return {
+          text,
+          updated_at: stat.mtime.toISOString(),
+          content_sha256: hash,
+          revision: (meta?.revision ?? 0) + 1,
+          updated_by: "external" as const,
+          external_changed: Boolean(meta),
+        };
       } catch {
         /* try the other location */
       }
@@ -631,6 +679,12 @@ export class RunManager {
     const state = this.stateFile(run);
     const updated = state?.updated_at ? Date.parse(state.updated_at) : null;
     const age = updated ? Math.max(0, (Date.now() - updated) / 1000) : null;
+    const segment = run.segments?.at(-1);
+    const segmentElapsed = segment?.started_at
+      ? Math.max(0, (Date.now() - Date.parse(segment.started_at)) / 1000)
+      : null;
+    const resumeGraceSeconds =
+      segment && segment.index > 1 ? Number(process.env.AUTORIO_STATE_RESUME_GRACE_SECONDS || 0) || 120 : 0;
     const gate = evaluateStateGate({
       hasState: Boolean(state),
       ageSeconds: age,
@@ -638,15 +692,26 @@ export class RunManager {
       softSeconds: Number(process.env.AUTORIO_STATE_SOFT_SECONDS || 0) || undefined,
       hardSeconds: Number(process.env.AUTORIO_STATE_HARD_SECONDS || 0) || undefined,
       graceSeconds: Number(process.env.AUTORIO_STATE_GRACE_SECONDS || 0) || undefined,
+      segmentElapsedSeconds: segmentElapsed,
+      resumeGraceSeconds,
     });
     return {
       run_id: run.id,
       state_md: state?.text,
       updated_at: state?.updated_at,
+      revision: state?.revision ?? 0,
+      content_sha256: state?.content_sha256 ?? null,
+      updated_by: state?.updated_by ?? "external",
+      external_changed: state?.external_changed ?? false,
+      scores_source: state ? "agent_self_reported" : "missing",
       age_seconds: gate.age_seconds,
       soft_seconds: gate.soft_seconds,
       hard_seconds: gate.hard_seconds,
       grace_seconds: gate.grace_seconds,
+      segment_elapsed_seconds: segmentElapsed === null ? null : Math.round(segmentElapsed),
+      resume_grace_seconds: gate.resume_grace_seconds,
+      resume_grace_active: gate.resume_grace_active,
+      resume_grace_remaining_seconds: gate.resume_grace_remaining_seconds,
       due: gate.due,
       blocked: gate.blocked,
       hint: gate.hint,
@@ -664,8 +729,55 @@ export class RunManager {
       softSeconds: status.soft_seconds,
       hardSeconds: status.hard_seconds,
       graceSeconds: status.grace_seconds,
+      segmentElapsedSeconds: status.segment_elapsed_seconds,
+      resumeGraceSeconds: status.resume_grace_seconds,
     });
     return { gate, status };
+  }
+
+  private stateHistoryDir(run: Run): string {
+    return path.join(this.dir(run), "workspace", "state-history");
+  }
+
+  /** Save one revision, keeping only the newest 20 files. */
+  private saveStateHistory(run: Run, revision: number, markdown: string): void {
+    const dir = this.stateHistoryDir(run);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, `${String(revision).padStart(6, "0")}.md`), markdown);
+    const files = fs
+      .readdirSync(dir)
+      .filter((file) => /^\d+\.md$/.test(file))
+      .sort();
+    for (const stale of files.slice(0, Math.max(0, files.length - 20))) {
+      fs.rmSync(path.join(dir, stale), { force: true });
+    }
+  }
+
+  /** Recent plan revisions, oldest first. */
+  stateHistory(runId: string) {
+    const run = this.runs.get(runId);
+    if (!run) return undefined;
+    const dir = this.stateHistoryDir(run);
+    let files: string[] = [];
+    try {
+      files = fs
+        .readdirSync(dir)
+        .filter((file) => /^\d+\.md$/.test(file))
+        .sort();
+    } catch {
+      /* no history yet */
+    }
+    return {
+      run_id: run.id,
+      revisions: files.map((file) => {
+        const revision = Number(file.slice(0, -3));
+        const text = fs.readFileSync(path.join(dir, file), "utf8");
+        const current = (text.match(/^Current:\s*(.+)$/m) || [])[1] || "";
+        const doneWhen = (text.match(/^Done when:\s*(.+)$/m) || [])[1] || "";
+        const updated = (text.match(/^Updated:\s*(.+)$/m) || [])[1] || "";
+        return { revision, updated_at: updated || null, current, done_when: doneWhen, markdown: text };
+      }),
+    };
   }
 
   /** Write the canonical STATE.md from structured fields and refresh the deadline. */
@@ -676,9 +788,25 @@ export class RunManager {
       throw new Error("Missing current subtask");
     const workspace = path.join(this.dir(run), "workspace");
     fs.mkdirSync(workspace, { recursive: true });
-    const markdown = renderStateMarkdown(input);
+    const previous = this.stateFile(run);
+    const timestamp = new Date();
+    const markdown = renderStateMarkdown(input, timestamp);
+    const hash = sha256(markdown);
+    const changed = previous?.content_sha256 !== hash;
+    const revision = (previous?.revision ?? 0) + (changed ? 1 : 0);
+    if (previous && changed) this.saveStateHistory(run, previous.revision, previous.text);
     fs.writeFileSync(path.join(workspace, "STATE.md"), markdown);
-    this.event(run, `STATE.md updated: ${input.current.trim().slice(0, 120)}`);
+    const meta: StateMeta = {
+      schema_version: 1,
+      revision: revision || 1,
+      updated_at: timestamp.toISOString(),
+      content_sha256: hash,
+      updated_by: "api",
+    };
+    fs.mkdirSync(path.dirname(this.stateMetaPath(run)), { recursive: true });
+    fs.writeFileSync(this.stateMetaPath(run), JSON.stringify(meta, null, 2) + "\n");
+    if (changed) this.saveStateHistory(run, meta.revision, markdown);
+    this.event(run, `STATE.md updated: ${input.current.trim().slice(0, 120)} (revision ${meta.revision})`);
     this.checkStateReminder(run);
     return this.stateStatus();
   }
@@ -696,6 +824,35 @@ export class RunManager {
     const status = this.stateStatus();
     if (!status) return;
     const stage: "" | "due" | "blocked" = status.blocked ? "blocked" : status.due ? "due" : "";
+    if (stage === "blocked") {
+      if (!run.state_blocked_since) {
+        run.state_blocked_since = new Date().toISOString();
+        this.persist(run);
+      }
+      const nudgeAfter = Number(process.env.AUTORIO_STATE_NUDGE_RESTART_SECONDS || 0);
+      const blockedFor = (Date.now() - Date.parse(run.state_blocked_since)) / 1000;
+      if (
+        nudgeAfter > 0 &&
+        !run.state_nudge_restarted &&
+        blockedFor >= nudgeAfter &&
+        run.state === "running" &&
+        !this.ending &&
+        run.session_id
+      ) {
+        run.state_nudge_restarted = true;
+        this.event(run, `STATE.md overdue for ${Math.round(blockedFor)}s; requesting an agent plan refresh`);
+        this.persist(run);
+        void this.nudgeStalePlan(run).catch((error) =>
+          this.finish("paused", `STATE nudge failed: ${errorText(error)}`),
+        );
+      }
+    } else {
+      if (run.state_blocked_since || run.state_nudge_restarted) {
+        delete run.state_blocked_since;
+        delete run.state_nudge_restarted;
+        this.persist(run);
+      }
+    }
     if ((run.state_reminder || "") === stage) return;
     const previous = run.state_reminder;
     run.state_reminder = stage || undefined;
@@ -761,6 +918,15 @@ export class RunManager {
       ...run,
       state_md: state?.text,
       state_updated_at: state?.updated_at,
+      state_info: state
+        ? {
+            revision: state.revision,
+            updated_by: state.updated_by,
+            external_changed: state.external_changed,
+            content_sha256: state.content_sha256,
+            age_seconds: Math.max(0, Math.round((Date.now() - Date.parse(state.updated_at)) / 1000)),
+          }
+        : undefined,
       state_status: stateStatus
         ? {
             age_seconds: stateStatus.age_seconds,
@@ -990,6 +1156,8 @@ export class RunManager {
     delete run.reason;
     delete run.agent_exit;
     delete run.failure_kind;
+    delete run.state_blocked_since;
+    delete run.state_nudge_restarted;
     run.auto_continues = 0;
     if (run.usage) run.usage_status = "last_reported";
     this.elapsedBefore = run.elapsed_seconds;
@@ -1147,7 +1315,7 @@ export class RunManager {
         throw new Error("Loaded checkpoint is older than the recorded game state");
       fs.writeFileSync(
         path.join(workspace, "RESUME.md"),
-        `Continue the same benchmark from its saved game. Active play time so far: ${run.elapsed_seconds.toFixed(2)} seconds. Waiting and loading time are excluded.\n\nMilestones: ${JSON.stringify(run.milestones)}\n\nCurrent game snapshot: ${JSON.stringify(loaded)}\n`,
+        `Continue the same benchmark from its saved game. Active play time so far: ${run.elapsed_seconds.toFixed(2)} seconds. Waiting and loading time are excluded.\n\nMilestones: ${JSON.stringify(run.milestones)}\n\nCurrent game snapshot: ${JSON.stringify(loaded)}\n\nIf STATE.md is missing or stale, call state-write to refresh it before any mutating action. A short resume grace applies, then stale-state gating resumes.\n`,
       );
     }
     await this.hooks.command(
@@ -1492,7 +1660,7 @@ Milestones: ${JSON.stringify(run.milestones)}
 
 Current game snapshot: ${JSON.stringify(run.latest || {})}
 
-Re-read AGENTS.md and STATE.md, re-observe the player/world, then continue. Do not repeat completed work.
+Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-observe the player/world, then continue. Do not repeat completed work.
 `,
     );
     this.event(run, `Auto-continuing agent session (${attempt}/${limit})`);
@@ -1502,6 +1670,49 @@ Re-read AGENTS.md and STATE.md, re-observe the player/world, then continue. Do n
     else if (run.agent === "dsh") this.launchDsh(run, workspace, true, false);
     else return false;
     return true;
+  }
+
+  /**
+   * One controlled agent restart when a blocked plan proves the agent is not
+   * refreshing STATE.md on its own. Uses the same session and live game; only
+   * enabled by AUTORIO_STATE_NUDGE_RESTART_SECONDS.
+   */
+  private async nudgeStalePlan(run: Run): Promise<void> {
+    if (this.stateNudging || this.contextResetting || this.ending || run.state !== "running") return;
+    if (!run.session_id) return;
+    this.stateNudging = true;
+    try {
+      const child = this.agent;
+      const remote = this.opencodeRemote;
+      this.agent = undefined;
+      this.opencodeRemote = undefined;
+      if (remote?.pid) {
+        await execExecutable("wsl.exe", ["-d", remote.distro, "-e", "kill", "-TERM", String(remote.pid)], {
+          timeout: 5_000,
+        }).catch(() => {});
+      }
+      if (child?.pid) killProcessTree(child.pid, true);
+      if (remote?.pid) {
+        await execExecutable("wsl.exe", ["-d", remote.distro, "-e", "kill", "-KILL", String(remote.pid)], {
+          timeout: 5_000,
+        }).catch(() => {});
+      }
+      await sleep(1000);
+      if (run.state !== "running" || this.ending) return;
+      const workspace = path.join(this.dir(run), "workspace");
+      fs.mkdirSync(workspace, { recursive: true });
+      fs.writeFileSync(
+        path.join(workspace, "RESUME.md"),
+        `Continue the same benchmark. STATE.md has been overdue long enough that the manager restarted the agent once to recover the plan. Active play time: ${run.elapsed_seconds.toFixed(2)} seconds.\n\nFIRST: call state-write / POST /api/agent/state to refresh current, done_when, next and scores. Then re-observe the player/world and continue.\n\nCurrent game snapshot: ${JSON.stringify(run.latest || {})}\n`,
+      );
+      this.event(run, "Restarting the agent once to refresh the stale plan");
+      this.persist(run);
+      if (run.agent === "opencode") this.launchOpenCode(run, workspace, true, false);
+      else if (run.agent === "codex") this.launchCodex(run, workspace, true, false);
+      else if (run.agent === "dsh") this.launchDsh(run, workspace, true, false);
+    } finally {
+      this.stateNudging = false;
+    }
   }
 
   /** DSH headless reports JSONL events; translate them to the transcript schema the UI already renders. */

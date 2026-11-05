@@ -2537,3 +2537,10 @@ html[data-theme="light"] body.recording #codexOutput {
 .penalty-details .penalty-blackout-icon {
   color: var(--amber);
 }
+
+.state-timer.grace {
+  color: #7fd8e8;
+}
+.state-timer.grace .icon {
+  color: #7fd8e8;
+}

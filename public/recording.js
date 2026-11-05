@@ -175,6 +175,7 @@ const I18N = {
     stateTimer: "Plan",
     stateBlocked: "update plan",
     stateGrace: "plan grace",
+    stateResumeGrace: "resume grace",
     stateTimerTitle: "STATE.md freshness: actions are blocked when the hard deadline expires",
     planPenalty: "plan",
     runStatusLabel: "Run status",
@@ -339,6 +340,7 @@ const I18N = {
     stateTimer: "计划",
     stateBlocked: "需更新计划",
     stateGrace: "计划宽限",
+    stateResumeGrace: "恢复宽限",
     stateTimerTitle: "STATE.md 新鲜度：超过硬性期限后动作会被阻止",
     planPenalty: "计划",
     runStatusLabel: "运行状态",
@@ -995,6 +997,9 @@ function updateStateTimer(run) {
   if (status.blocked) {
     content = `⚠ ${text.stateBlocked}`;
     state = "blocked";
+  } else if (status.resume_grace_active) {
+    content = `${text.stateResumeGrace} ${formatStateRemaining(status.resume_grace_remaining_seconds)}`;
+    state = "grace";
   } else if (status.age_seconds === null) {
     const remaining = Math.max(0, (status.grace_seconds ?? 120) - (run.elapsed_seconds || 0));
     content = `${text.stateGrace} ${formatStateRemaining(remaining)}`;
@@ -1006,7 +1011,7 @@ function updateStateTimer(run) {
   }
   stateTimer.replaceChildren(icon("clock"), element("span", content, "state-timer-text"));
   stateTimer.className = `state-timer ${state}`;
-  stateTimer.title = text.stateTimerTitle;
+  stateTimer.title = `${text.stateTimerTitle} · revision ${status.revision ?? 0}`;
   stateTimer.hidden = false;
 }
 function svgElement(tag, attributes = {}) {

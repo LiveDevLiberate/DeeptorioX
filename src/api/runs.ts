@@ -84,6 +84,19 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
   });
 
   router.add({
+    path: /^\/api\/runs\/([^/]+)\/state\/history$/,
+    name: "runStateHistory",
+    handler: (request) => {
+      const { res, url } = request;
+      const match = url.pathname.match(/^\/api\/runs\/([^/]+)\/state\/history$/);
+      if (!match) return false;
+      const runId = decodeURIComponent(match[1]);
+      if (!runManager.get(runId)) return json(res, 404, { error: "Run not found" });
+      return json(res, 200, { schema_version: 2, ...(runManager.stateHistory(runId) || { revisions: [] }) });
+    },
+  });
+
+  router.add({
     path: /^\/api\/runs\/([^/]+)\/tool-calls$/,
     name: "runToolCalls",
     handler: (request) => {

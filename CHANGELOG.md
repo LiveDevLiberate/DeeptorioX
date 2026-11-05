@@ -67,6 +67,15 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **STATE.md gate hardening.** Mutating agent requests now pass through a
+  central STATE gate (observations, state/tools/job status remain allowed), with
+  structured `state`+`nudge` responses. Resumed segments get a configurable grace
+  before an old plan blocks actions; `state-meta.json` adds revision/content-hash/
+  updated-by tracking so mtime-only touch does not refresh the plan, external
+  content edits are still accepted, history keeps the newest 20 revisions at
+  `/api/runs/:id/state/history`, and an optional blocked-state nudge can restart
+  the agent once with the same session to refresh STATE.md. Run UI shows plan
+  revision/age/status/penalty/history and marks scores as self-reported.
 - **Agent interface-usage statistics.** Every `/api/agent/...` request made while
   a run is active increments a per-endpoint counter (`METHOD /path`), with job
   IDs normalized to `/api/agent/jobs/:id`. The run page and recording window have

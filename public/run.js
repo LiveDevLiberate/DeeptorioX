@@ -12,6 +12,8 @@ let blueprintsLoading = false;
 let toolCalls = null;
 let toolCallsLoading = false;
 let toolCallsError = false;
+let stateHistory = null;
+let stateHistoryLoading = false;
 function renderVideo() {
   const segment = videoSegments.find((segment) => String(segment.index) === selectedVideoSegment);
   const video = segment?.video;
@@ -160,6 +162,81 @@ async function loadBlueprints() {
   }
 }
 
+function renderStatePanel(run) {
+  const info = run.state_info || {};
+  const status = run.state_status || {};
+  $("stateRevision").textContent = String(info.revision || 0);
+  const plan = (run.state_md || "").match(/^Current:\s*(.+)$/m)?.[1] || "";
+  const doneWhen = (run.state_md || "").match(/^Done when:\s*(.+)$/m)?.[1] || "";
+  const statusText = status.blocked
+    ? "blocked"
+    : status.resume_grace_active
+      ? "resume grace"
+      : status.due
+        ? "due"
+        : "fresh";
+  $("stateSummary").textContent = plan ? `revision ${info.revision || 0} · ${statusText}` : "";
+  const stats = [
+    ["Revision", String(info.revision || 0)],
+    ["Age", info.age_seconds == null ? "—" : `${info.age_seconds}s`],
+    ["Updated by", info.updated_by || "—"],
+    ["Status", statusText],
+    ["State penalty", String(run.automation?.state_penalty || 0)],
+    ["Scores", status.scores_source === "agent_self_reported" ? "agent self-reported" : "missing"],
+  ];
+  $("stateStats").replaceChildren(
+    ...stats.flatMap(([key, value]) => [text("dt", key), text("dd", String(value))]),
+  );
+  $("statePlan").textContent = [plan && `Current: ${plan}`, doneWhen && `Done when: ${doneWhen}`]
+    .filter(Boolean)
+    .join(" · ");
+}
+function renderStateHistory() {
+  const container = $("stateHistory");
+  if (!container) return;
+  if (stateHistoryLoading) {
+    container.textContent = "Loading…";
+    return;
+  }
+  if (!stateHistory?.revisions?.length) {
+    container.textContent = "No STATE.md history recorded yet.";
+    return;
+  }
+  container.replaceChildren(
+    ...stateHistory.revisions
+      .slice()
+      .reverse()
+      .map((entry) => {
+        const row = document.createElement("div");
+        row.className = "state-history-row";
+        row.append(
+          text("strong", `r${entry.revision}`),
+          text("span", entry.current || entry.updated_at || "—"),
+        );
+        return row;
+      }),
+  );
+}
+async function loadStateHistory() {
+  if (!id || stateHistoryLoading) return;
+  stateHistoryLoading = true;
+  renderStateHistory();
+  try {
+    stateHistory = await api(`/api/runs/${encodeURIComponent(id)}/state/history`);
+  } catch {
+    stateHistory = { revisions: [] };
+  } finally {
+    stateHistoryLoading = false;
+    $("stateHistoryDetails").hidden = !stateHistory?.revisions?.length;
+    renderStateHistory();
+  }
+}
+$("stateToggle").onclick = () => {
+  const panel = $("statePanel");
+  panel.hidden = !panel.hidden;
+  $("stateToggle").setAttribute("aria-expanded", String(!panel.hidden));
+  if (!panel.hidden) void loadStateHistory();
+};
 function renderToolCalls() {
   const list = $("toolCallList");
   const summary = $("toolCallsSummary");
@@ -251,6 +328,7 @@ async function refresh() {
     $("runContent").hidden = false;
     document.title = `${run.name || run.id} · Autorio`;
     renderProgress(run);
+    renderStatePanel(run);
     $("resume").hidden = !run.resumable;
     $("resume").disabled = !run.resumable || run.video?.state === "rendering";
     $("resume").textContent =

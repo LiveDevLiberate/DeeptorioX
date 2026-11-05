@@ -3,6 +3,7 @@
 export const DEFAULT_STATE_SOFT_SECONDS = 300;
 export const DEFAULT_STATE_HARD_SECONDS = 600;
 export const DEFAULT_STATE_GRACE_SECONDS = 120;
+export const DEFAULT_STATE_RESUME_GRACE_SECONDS = 120;
 
 export type StateGateInput = {
   hasState: boolean;
@@ -11,6 +12,10 @@ export type StateGateInput = {
   softSeconds?: number;
   hardSeconds?: number;
   graceSeconds?: number;
+  /** Seconds since the current segment started; only resumed segments get grace. */
+  segmentElapsedSeconds?: number | null;
+  /** Grace granted after resume before an old/missing plan blocks actions. */
+  resumeGraceSeconds?: number;
 };
 
 export type StateGate = {
@@ -23,6 +28,10 @@ export type StateGate = {
   due: boolean;
   /** Mutating actions must be refused until STATE.md is written/updated. */
   blocked: boolean;
+  /** A post-resume grace currently permits actions with an old plan. */
+  resume_grace_active: boolean;
+  resume_grace_seconds: number;
+  resume_grace_remaining_seconds: number | null;
   hint: string;
 };
 
@@ -32,8 +41,16 @@ export function evaluateStateGate(input: StateGateInput): StateGate {
   const hard = Math.max(soft, positive(input.hardSeconds, DEFAULT_STATE_HARD_SECONDS));
   const grace = Math.max(0, Math.round(Number(input.graceSeconds ?? DEFAULT_STATE_GRACE_SECONDS)));
   const age = Number.isFinite(input.ageSeconds) && input.ageSeconds !== null ? input.ageSeconds : null;
-  const blocked = !input.hasState ? input.elapsedSeconds >= grace : age === null || age >= hard;
-  const due = !input.hasState || age === null || age >= soft;
+  const resumeGrace = Math.max(0, Math.round(Number(input.resumeGraceSeconds ?? 0)));
+  const segmentElapsed =
+    Number.isFinite(input.segmentElapsedSeconds) && input.segmentElapsedSeconds !== null
+      ? Math.max(0, Number(input.segmentElapsedSeconds))
+      : null;
+  const resumeGraceActive =
+    Boolean(input.hasState) && resumeGrace > 0 && segmentElapsed !== null && segmentElapsed < resumeGrace;
+  const blocked =
+    !resumeGraceActive && (!input.hasState ? input.elapsedSeconds >= grace : age === null || age >= hard);
+  const due = !resumeGraceActive && (!input.hasState || age === null || age >= soft);
   const reason = !input.hasState
     ? `Write STATE.md before acting (grace ${grace}s)`
     : `STATE.md is ${Math.round(age ?? 0)}s old (soft ${soft}s, hard ${hard}s)`;
@@ -45,6 +62,10 @@ export function evaluateStateGate(input: StateGateInput): StateGate {
     grace_seconds: grace,
     due,
     blocked,
+    resume_grace_active: resumeGraceActive,
+    resume_grace_seconds: resumeGrace,
+    resume_grace_remaining_seconds:
+      resumeGraceActive && segmentElapsed !== null ? Math.round(resumeGrace - segmentElapsed) : null,
     hint: `${reason}; call POST /api/agent/state (client.write_state) to update it.`,
   };
 }
