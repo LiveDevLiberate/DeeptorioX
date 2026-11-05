@@ -13,6 +13,8 @@ export const RUN_FIXTURE = {
   id: "fixture-run",
   name: "fixture run",
   state: "paused",
+  agent: "dsh",
+  model_label: "deepseek-official/deepseek-flash",
   language: "Chinese",
   output_format: "events",
   elapsed_seconds: 10574,

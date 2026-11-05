@@ -40,6 +40,10 @@ this file.
 
 ### Added
 
+- **Agent model in the recording header.** The live recording status line now
+  shows `model <model_label>` (shortened with ellipsis at narrow widths) with the
+  full label in the tooltip; the run page already exposes the model in Run
+  information. This makes it visible which model is driving the current game.
 - **Map-overview thumbnail API.** `POST /api/agent/observe/map-overview`
   downsamples player-charted chunks into compact ASCII rows with a legend for
   uncharted/water/land/player-force entities/resources/player. Supports radius

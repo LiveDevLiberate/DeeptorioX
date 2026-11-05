@@ -61,6 +61,7 @@ test("recording page keeps its semantic structure and information surfaces", () 
     "statusToggle",
     "statusState",
     "statusActivity",
+    "statusModel",
     "stateTimer",
     "statusMeta",
     "statusCurrent",

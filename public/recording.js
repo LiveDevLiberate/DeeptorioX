@@ -58,6 +58,7 @@ const overlayMode = params.get("overlay") === "1";
 if (overlayMode) document.body.classList.add("overlay");
 const statusState = document.getElementById("statusState");
 const statusActivity = document.getElementById("statusActivity");
+const statusModel = document.getElementById("statusModel");
 const statusMeta = document.getElementById("statusMeta");
 const statusCurrent = document.getElementById("statusCurrent");
 const statusDone = document.getElementById("statusDone");
@@ -185,6 +186,7 @@ const I18N = {
     telemetryKicker: "Readouts",
     documentTitle: "Autorio factory log",
     factoryLog: "factory log",
+    modelLabel: "model",
     elapsedLabel: "elapsed",
     tokensLabel: "tokens",
     contextLabel: "context",
@@ -338,6 +340,7 @@ const I18N = {
     telemetryKicker: "运行读数",
     documentTitle: "Autorio 工厂日志",
     factoryLog: "工厂日志",
+    modelLabel: "模型",
     elapsedLabel: "已用时",
     tokensLabel: "令牌",
     contextLabel: "上下文",
@@ -949,6 +952,15 @@ function renderStatus(run) {
     ? ""
     : `${strings.activity[activeKey] || activeKey}${waitSeconds ? ` ${waitSeconds}s` : ""}`;
   updateStateTimer(run);
+  const model = run.model_label || run.model || run.agent || "";
+  if (statusModel) {
+    statusModel.hidden = !model;
+    statusModel.title = model;
+    statusModel.replaceChildren(
+      icon("laptop"),
+      element("span", `${strings.modelLabel} ${model}`, "status-model-text"),
+    );
+  }
   const usage = run.usage || {};
   const tokens = usage.total_tokens ?? (usage.input_tokens || 0) + (usage.output_tokens || 0);
   const context = run.context_limit

@@ -1266,3 +1266,34 @@ body.recording .metric-bar {
 body.recording .metric {
   white-space: nowrap;
 }
+
+/* Current agent model, kept compact next to the activity state. */
+body.recording .status-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 260px;
+  padding-left: 9px;
+  border-left: 1px solid var(--rule);
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+body.recording .status-model .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex: 0 0 auto;
+  color: var(--steel);
+}
+body.recording .status-model-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 560px) {
+  body.recording .status-model {
+    max-width: 108px;
+    padding-left: 6px;
+  }
+}
