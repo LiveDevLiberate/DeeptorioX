@@ -15,6 +15,7 @@ const {
   agentInsertCommand,
   agentLayoutCommand,
   agentMapCommand,
+  agentMapOverviewCommand,
   agentNativeBuildCommand,
   agentObserveEntityCommand,
   agentPlayerCommand,
@@ -140,6 +141,17 @@ test("agentBuildDestinationCommand returns early in reach and computes staging o
   assert.ok(forced.includes("local force=true"));
   // The force walk follows the early return, so it must not be skipped.
   assert.ok(forced.includes("if in_reach and not force then"));
+});
+
+test("agentMapOverviewCommand downsamples a charted window into ASCII rows", () => {
+  const lua = agentMapOverviewCommand({ x: 0, y: 0, radius: 128, size: 96 });
+  assert.ok(lua.startsWith("/sc "));
+  assert.ok(lua.includes("local min_x=-128"));
+  assert.ok(lua.includes("local step=3"));
+  assert.ok(lua.includes("local width=86"));
+  assert.ok(lua.includes("is_chunk_charted"));
+  assert.ok(lua.includes("table.concat(rows"));
+  assert.ok(lua.includes('"@":"player"'));
 });
 
 test("agentMapCommand builds a bounded chart window with chunk and symbol JSON arrays", () => {

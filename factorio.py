@@ -71,6 +71,7 @@ Commands:
   server-saves
   observe-world --window-x <n> --window-y <n> --radius <n> --include terrain,entities
   observe-map --center-x <n> --center-y <n> --radius <n>
+  observe-map-overview --center-x <n> --center-y <n> --radius <n> --size <n>
   observe-player --limit-inventory <n> --limit-equipment <n>
   observe-research --limit-available <n> --limit-locked <n> --limit-completed <n>
   observe-recipes --limit-recipes <n> [--unlocked-only]
@@ -142,6 +143,7 @@ COMMAND_USAGE = {
     "server-saves": "server-saves: List available save files on the server.\nUsage: factorio.py server-saves\n",
     "observe-world": "observe-world: Fetch compact RLE terrain and entities in a charted window.\nUsage: factorio.py observe-world --window-x <n> --window-y <n> --radius <n> --include terrain,entities\n",
     "observe-map": "observe-map: Read a player-charted map window; uncharted chunks are masked.\nUsage: factorio.py observe-map --center-x <n> --center-y <n> --radius <n>\n",
+    "observe-map-overview": "observe-map-overview: Compact downsampled charted map thumbnail with uncharted/water/land/entity/resource/player glyphs.\nUsage: factorio.py observe-map-overview --center-x <n> --center-y <n> --radius <n> --size <n>\nRadius is clamped to 1024 tiles and size to 160 cells; only charted chunks are revealed.",
     "observe-player": "observe-player: Inspect player position, health, inventories, and equipment.\nUsage: factorio.py observe-player --limit-inventory <n> --limit-equipment <n>\n",
     "observe-research": "observe-research: Get current, queued, available, locked, and completed technologies with costs.\nUsage: factorio.py observe-research --limit-available <n> --limit-locked <n> --limit-completed <n>\n",
     "observe-recipes": "observe-recipes: List available recipes and their ingredients/products.\nUsage: factorio.py observe-recipes --limit-recipes <n> [--unlocked-only]\n",
@@ -1569,6 +1571,15 @@ class FactorioClient:
             "window": {"x": x, "y": y, "radius": radius},
         })
 
+    def observe_map_overview(
+        self, *, x: float = 0, y: float = 0, radius: float = 128, size: int = 96
+    ) -> Any:
+        """Compact downsampled charted map thumbnail (ASCII rows plus legend)."""
+        return self.request("POST", "/api/agent/observe/map-overview", {
+            "window": {"x": x, "y": y, "radius": radius},
+            "size": size,
+        })
+
     def observe_player(self, *, inventory_slots: int | None = None,
                        equipment_slots: int | None = None) -> Any:
         return self.request("POST", "/api/agent/observe/player", {"limits": {
@@ -2750,6 +2761,13 @@ def run(argv: list[str]) -> int:
             })
             truncated = response["truncated"] if isinstance(response, dict) and "truncated" in response else MISSING
             return output(data_value(response), truncated=truncated)
+        if cmd == "observe-map-overview":
+            response = request("POST", "/api/agent/observe/map-overview", {"window": {
+                "x": parse_number(flag("center-x"), 0),
+                "y": parse_number(flag("center-y"), 0),
+                "radius": parse_number(flag("radius"), 128),
+            }, "size": parse_number(flag("size"), 96)})
+            return output(data_value(response))
         if cmd == "observe-map":
             response = request("POST", "/api/agent/observe/map", {"window": {
                 "x": parse_number(flag("center-x"), 0),

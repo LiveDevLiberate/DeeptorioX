@@ -133,7 +133,7 @@ behind a small `ActionJobQueue` interface (injected logging/native-stop/run-busy
 handlers in `src/api/jobs.ts` are thin delegates.
 
 **Observations and telemetry.** Read-only endpoints
-`/api/agent/observe/{world,map,player,research,recipes,connections,layout,factory,placement,resources,entity,entity-prototype}`
+`/api/agent/observe/{world,map,map-overview,player,research,recipes,connections,layout,factory,placement,resources,entity,entity-prototype}`
 build Lua returning normalized JSON, alongside the capability observations
 `/observe/{production,fluids,combat,area}` (production rates come from the independent
 `src/telemetry-sampler.ts` ring buffer; fluids/combat/area are bounded Lua area scans). The pure
@@ -143,6 +143,12 @@ while RCON dispatch and shared state stay in `src/server.ts`. Benchmark telemetr
 snapshot per sample (`TELEMETRY_COMMAND`: tick, production, research, rockets, plus an optional
 power summary from electric networks within 128 tiles of the player) parsed by `benchmarks.ts`;
 the sampler reuses that parser outside runs.
+
+**Map thumbnail.** `POST /api/agent/observe/map-overview` renders a compact, downsampled
+ASCII map (`rows`, `legend`, window/step metadata) from charted chunks only. It
+samples terrain, player-force entities, resources and the player at up to
+1024-tile radius / 160-cell size; the Lua builder keeps the response bounded.
+Python: `FactorioClient.observe_map_overview()` / CLI `observe-map-overview`.
 
 **Health and operational logs.** `GET /api/health` returns 200 when every probe passes and 503
 `degraded` (with a `problems` list) when a probe throws; an idle manager is healthy. The structured

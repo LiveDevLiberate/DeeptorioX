@@ -478,6 +478,19 @@ class BlueprintCodecTests(unittest.TestCase):
 
 
 class BlueprintClientTests(unittest.TestCase):
+    def test_observe_map_overview_payload(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"rows": ["?@."]}) as request:
+            self.assertEqual(
+                client.observe_map_overview(x=10, y=-20, radius=256, size=80),
+                {"rows": ["?@."]},
+            )
+        request.assert_called_once_with(
+            "POST",
+            "/api/agent/observe/map-overview",
+            {"window": {"x": 10, "y": -20, "radius": 256}, "size": 80},
+        )
+
     def test_build_blueprint_chunks_builds_and_aggregates(self):
         client = factorio.FactorioClient(poll_interval=0)
         calls = []

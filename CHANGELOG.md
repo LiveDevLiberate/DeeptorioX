@@ -40,6 +40,11 @@ this file.
 
 ### Added
 
+- **Map-overview thumbnail API.** `POST /api/agent/observe/map-overview`
+  downsamples player-charted chunks into compact ASCII rows with a legend for
+  uncharted/water/land/player-force entities/resources/player. Supports radius
+  up to 1024 tiles and 160 grid cells, with Python `observe_map_overview()` and
+  CLI `observe-map-overview`.
 - **Per-run blueprint catalogue.** Agents can persist blueprints for the current
   game through `POST /api/blueprints` (active run) or
   `POST /api/runs/:id/blueprints`; the API returns the run's available blueprints

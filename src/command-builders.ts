@@ -1080,3 +1080,46 @@ export function agentEntityPrototypeCommand(name: string): string {
     "rcon.print(helpers.table_to_json(out))",
   ].join(" ");
 }
+/**
+ * Compact, downsampled map thumbnail for agent planning.
+ *
+ * The grid is rendered in Lua so the response stays small: each cell samples one
+ * tile at `step`-tile intervals, labels charted/uncharted/terrain and overlays
+ * player-force entities, resources and the player. The API clamps radius/size.
+ */
+export function agentMapOverviewCommand(params: {
+  x: number;
+  y: number;
+  radius: number;
+  size: number;
+}): string {
+  const minX = Math.floor(params.x - params.radius);
+  const minY = Math.floor(params.y - params.radius);
+  const span = params.radius * 2 + 1;
+  const step = Math.max(1, Math.ceil(span / params.size));
+  const width = Math.ceil(span / step);
+  const height = width;
+  const maxX = minX + width * step;
+  const maxY = minY + height * step;
+  const output = String.raw`rcon.print('{"min_x":'..min_x..',"min_y":'..min_y..',"max_x":'..max_x..',"max_y":'..max_y..',"step":'..step..',"width":'..width..',"height":'..height..',"samples":'..samples..',"charted_samples":'..charted_samples..',"rows":["'..table.concat(rows,'","')..'"],"legend":{"?":"uncharted","~":"water",".":"land","#":"player-force entity","*":"resource","@":"player"}}')`;
+  return [
+    "/sc",
+    "local s=game.surfaces[1]",
+    "local force=game.forces.player or game.forces[1]",
+    `local min_x=${minX} local min_y=${minY} local step=${step} local width=${width} local height=${height}`,
+    `local max_x=${maxX} local max_y=${maxY}`,
+    "local built={} local resources={}",
+    "local function mark(target,pos)",
+    "local gx=math.floor((pos.x-min_x)/step) local gy=math.floor((pos.y-min_y)/step)",
+    "if gx>=0 and gx<width and gy>=0 and gy<height then target[gy*width+gx]=true end",
+    "end",
+    "for _,e in pairs(s.find_entities_filtered{area={{min_x,min_y},{max_x,max_y}},force=force} or {}) do if e.valid then mark(built,e.position) end end",
+    "for _,e in pairs(s.find_entities_filtered{area={{min_x,min_y},{max_x,max_y}},type='resource'} or {}) do if e.valid then mark(resources,e.position) end end",
+    "local p=game.players[1]",
+    "local px=math.floor(((p and p.valid and p.position.x or -1e9)-min_x)/step)",
+    "local py=math.floor(((p and p.valid and p.position.y or -1e9)-min_y)/step)",
+    "local rows={} local samples=0 local charted_samples=0",
+    "for gy=0,height-1 do local chars={} local sy=min_y+gy*step for gx=0,width-1 do local sx=min_x+gx*step samples=samples+1 local is_charted=force.is_chunk_charted(s,{x=math.floor(sx/32),y=math.floor(sy/32)}) local ch='?' if is_charted then charted_samples=charted_samples+1 local key=gy*width+gx if gx==px and gy==py then ch='@' elseif built[key] then ch='#' elseif resources[key] then ch='*' else local name=s.get_tile(math.floor(sx),math.floor(sy)).name if name:find('water',1,true) then ch='~' else ch='.' end end end chars[#chars+1]=ch end rows[#rows+1]=table.concat(chars) end",
+    output,
+  ].join(" ");
+}

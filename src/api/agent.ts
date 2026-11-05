@@ -17,6 +17,7 @@ import {
   agentInsertCommand,
   agentLayoutCommand,
   agentMapCommand,
+  agentMapOverviewCommand,
   agentNativeBuildCommand,
   agentObserveEntityCommand,
   agentPlayerCommand,
@@ -414,6 +415,34 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           ok: true,
           data: normalized,
           truncated,
+        });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/agent/observe/map-overview",
+    name: "/api/agent/observe/map-overview",
+    handler: async (request) => {
+      const { req, res } = request;
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
+      if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
+      if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
+      const window = recordOrEmpty(body.window);
+      const x = clampInt(window.x, 0, -1000000, 1000000);
+      const y = clampInt(window.y, 0, -1000000, 1000000);
+      const radius = clampInt(window.radius, 128, 1, 1024);
+      const size = clampInt(body.size, 96, 8, 160);
+      try {
+        const response = await rconCommand(agentMapOverviewCommand({ x, y, radius, size }));
+        return json(res, 200, {
+          ok: true,
+          data: parseRconJson(response, "RCON map overview returned invalid JSON"),
         });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
