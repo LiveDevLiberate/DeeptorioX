@@ -5,7 +5,7 @@ import { rconConfigured } from "./shared.js";
 import { launchRocket } from "../rocket.js";
 import { visualObservation } from "../vision.js";
 import { mapOverviewPng, mapOverviewSvg } from "../map-overview.js";
-import { entityUsage } from "../entity-usage.js";
+import { entityUsage, entityUsageCatalog } from "../entity-usage.js";
 import {
   agentBuildDestinationCommand,
   agentChartedResourcesCommand,
@@ -1401,6 +1401,16 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
   });
 
   router.add({
+    method: "GET",
+    path: "/api/agent/observe/entity-usage-catalog",
+    name: "/api/agent/observe/entity-usage-catalog",
+    handler: (request) => {
+      const { res } = request;
+      return json(res, 200, { ok: true, data: entityUsageCatalog() });
+    },
+  });
+
+  router.add({
     method: "POST",
     path: "/api/agent/observe/entity-usage",
     name: "/api/agent/observe/entity-usage",
@@ -1420,7 +1430,18 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         if (!record || record.ok === false) return json(res, 404, { error: "Unknown entity", name });
         return json(res, 200, {
           ok: true,
-          data: { ...entityUsage({ name: record.name, type: record.type }), prototype: data },
+          data: {
+            ...entityUsage({ name: record.name, type: record.type }),
+            limits: {
+              tile_size: record.tile_size ?? null,
+              rotatable: record.rotatable ?? null,
+              energy_source: record.energy_source ?? null,
+              fluid_boxes: Array.isArray(record.fluid_boxes) ? record.fluid_boxes.length : 0,
+              placeable_by: record.placeable_by ?? [],
+              max_health: record.max_health ?? null,
+            },
+            prototype: data,
+          },
         });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });

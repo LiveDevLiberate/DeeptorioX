@@ -179,6 +179,12 @@ creates straight horizontal/vertical trunks with wire-reach spacing and includes
 both endpoints (big pole default, 30 reach). The planner avoids using big poles
 as a dense coverage grid.
 
+**Entity usage catalog.** `entityUsageCatalog()` serializes every curated
+type/name rule for offline lookup; the per-entity endpoint adds live prototype
+limits (tile size, rotation, energy source, fluid boxes, placement item, health)
+and falls back to type/observation guidance for modded entities. The COOKBOOK
+and prompt direct agents to the catalog before designing unfamiliar blocks.
+
 **Entity usage.** `src/entity-usage.ts` holds curated behavior rules by prototype
 type (one-way belts, splitter inputs/outputs, underground pairs, inserter pickup/
 drop, machines, fluids, power, logistics) and falls back to type-based observation

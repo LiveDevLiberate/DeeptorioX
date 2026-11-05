@@ -243,3 +243,267 @@ export function entityUsage(prototype: { name?: unknown; type?: unknown }): Enti
     ],
   };
 }
+
+// Additional base-game building types. Type-level rules apply to every tier/name
+// of that type, so `entity-usage --name electric-furnace` inherits furnace rules.
+Object.assign(BY_TYPE, {
+  "chemical-plant": {
+    summary: "A 3x3 chemical plant runs one fluid/solid recipe.",
+    rules: [
+      "Ingredients and products can be fluids and items; use pipes for fluids and inserters for items.",
+      "Set the recipe first; modules and beacon effects apply while running.",
+    ],
+  },
+  "oil-refinery": {
+    summary: "A multi-output refinery runs refining recipes using crude oil and water.",
+    rules: [
+      "Pipe crude oil/water in and route each fluid product out; products are not interchangeable.",
+      "Set the refinery recipe first; recipes have different input/output layouts.",
+    ],
+  },
+  centrifuge: {
+    summary: "A centrifuge processes uranium/nuclear-related recipes.",
+    rules: [
+      "Set the recipe; uranium processing produces multiple outputs and consumes acid in some recipes.",
+    ],
+  },
+  recycler: {
+    summary: "A recycler breaks items back into a fraction of their ingredients.",
+    rules: ["Set a recyclable recipe; output is probabilistic and the machine is not a storage chest."],
+  },
+  "solar-panel": {
+    summary: "A solar panel produces electricity only during daylight.",
+    rules: [
+      "No fuel/fluid input; connect it to the electric network with poles.",
+      "Pair with accumulators for night-time demand.",
+    ],
+  },
+  accumulator: {
+    summary: "An accumulator stores electric energy and discharges during shortages.",
+    rules: [
+      "Connect to a network; it charges only when production exceeds demand.",
+      "It is not a generator and cannot bootstrap a blacked-out network.",
+    ],
+  },
+  reactor: {
+    summary: "A nuclear reactor produces heat from fuel cells; heat must be converted to steam/electricity.",
+    rules: [
+      "Needs a fuel-cell inserter and heat pipes/exchangers; it does not directly output electricity.",
+      "Neighbouring reactors receive a neighbour bonus; heat and fluid connections are directional.",
+    ],
+  },
+  "heat-exchanger": {
+    summary: "A heat exchanger converts reactor heat and water into steam.",
+    rules: ["Heat pipe input, water input, steam output; steam turbines convert the steam to electricity."],
+  },
+  "steam-turbine": {
+    summary: "A steam turbine converts high-temperature steam into electricity.",
+    rules: ["Steam input and electric output; it does not store fuel or water."],
+  },
+  pump: {
+    summary: "A pump moves fluid in one direction and can extend pipeline flow.",
+    rules: [
+      "Pumps are directional; rotate to face the flow direction.",
+      "They can be powered by electricity or burn fuel depending on tier.",
+    ],
+  },
+  "offshore-pump": {
+    summary: "An offshore pump extracts water from a lake/ocean edge.",
+    rules: [
+      "Must be placed on the shoreline with water adjacent; output is a fluid pipe connection.",
+      "Water flows from the pump to connected pipes/machines.",
+    ],
+  },
+  "pipe-to-ground": {
+    summary: "A pipe-to-ground pair crosses obstacles while keeping fluid flow on one axis.",
+    rules: [
+      "Paired input/output segments must face/connect correctly; use for crossings, not item flow.",
+      "Fluid networks merge only through valid pipe connections.",
+    ],
+  },
+  "storage-tank": {
+    summary: "A storage tank buffers one fluid network.",
+    rules: [
+      "Pipes connect to its fluid boxes; it stores a single fluid.",
+      "It does not generate or consume fluid.",
+    ],
+  },
+  radar: {
+    summary: "A radar reveals surrounding chunks and can transmit circuit signals.",
+    rules: [
+      "Needs power; continuous scanning reveals nearby chunks over time.",
+      "It does not automatically build or mine.",
+    ],
+  },
+  beacon: {
+    summary: "A beacon broadcasts module effects to nearby machines.",
+    rules: [
+      "Needs power and modules; only machines in range receive effects.",
+      "Beacon effects do not stack from multiple beacons for the same stat beyond the game's rules.",
+    ],
+  },
+  "rocket-silo": {
+    summary: "A rocket silo builds and launches rockets from supplied parts.",
+    rules: [
+      "Insert rocket parts and satellite/payload items; it needs power and a launch trigger.",
+      "Rockets are launched at the silo; output is not a normal item inventory.",
+    ],
+  },
+  locomotive: {
+    summary: "A locomotive powers a train on rails.",
+    rules: [
+      "Needs fuel and a rail network; it pulls wagons and uses rail signals for safe blocks.",
+      "It cannot drive off rails or through unconnected rail.",
+    ],
+  },
+  "cargo-wagon": {
+    summary: "A cargo wagon stores solid items for train transport.",
+    rules: [
+      "Must be coupled to a locomotive and loaded/unloaded with inserters at a stop.",
+      "It has no engine and no automatic item transfer.",
+    ],
+  },
+  "fluid-wagon": {
+    summary: "A fluid wagon transports one fluid by train.",
+    rules: ["Must be coupled and connected via pumps to load/unload; it cannot carry solids."],
+  },
+  "train-stop": {
+    summary: "A train stop names a station for automatic train schedules.",
+    rules: [
+      "Trains path to stops by schedule; signals determine safe blocks.",
+      "The stop itself does not load cargo; use inserters/pumps.",
+    ],
+  },
+  "rail-signal": {
+    summary: "A rail signal divides rail into blocks and permits one train per block.",
+    rules: [
+      "Place on the right side of the direction of travel; red blocks block entry.",
+      "Chain signals preview the next block; do not rely on them to stop a train physically.",
+    ],
+  },
+  "rail-chain-signal": {
+    summary: "A chain signal checks the next signal/block before allowing entry.",
+    rules: ["Use before junctions and crossings; it does not reserve the following block by itself."],
+  },
+  "gun-turret": {
+    summary: "A gun turret shoots enemies using inserted ammunition.",
+    rules: [
+      "Needs an ammo inventory; insert magazines with an inserter.",
+      "It is not a laser turret and does not use electricity.",
+    ],
+  },
+  "laser-turret": {
+    summary: "A laser turret shoots enemies using electricity.",
+    rules: [
+      "Needs a connected electric network and a large power reserve; it has no ammo inventory.",
+      "Power shortages reduce its fire rate.",
+    ],
+  },
+  "flamethrower-turret": {
+    summary: "A flamethrower turret sprays burning fluid at enemies.",
+    rules: [
+      "Needs crude oil/heavy oil plus power; pipe the fluid to its fluid box.",
+      "It has a limited arc and can set fires.",
+    ],
+  },
+  "artillery-turret": {
+    summary: "An artillery turret fires shells at distant enemy structures.",
+    rules: [
+      "Needs artillery shells and power; it cannot hit nearby fast units reliably.",
+      "It reveals/clears hostile nests at long range.",
+    ],
+  },
+  gate: {
+    summary: "A gate opens for the player/vehicles while blocking enemies.",
+    rules: [
+      "Must be placed in a wall line aligned with walls; it opens toward a player nearby.",
+      "It needs power for normal automatic operation; it is not a wall segment when open.",
+    ],
+  },
+  "land-mine": {
+    summary: "A land mine detonates when enemies enter its tile.",
+    rules: [
+      "It is consumed on detonation; it does not distinguish friendly units from enemies unless configured by the game.",
+      "Place with spacing; do not put it where your own pathing must cross.",
+    ],
+  },
+  lamp: {
+    summary: "A lamp emits light and can be controlled by circuit signals.",
+    rules: ["Needs power; color/brightness can be set by circuit conditions."],
+  },
+  "arithmetic-combinator": {
+    summary: "A circuit combinator performs arithmetic on signals.",
+    rules: [
+      "Needs no power; connect red/green wires and set input/output signals.",
+      "Circuit signals are separate from the electric network.",
+    ],
+  },
+  "decider-combinator": {
+    summary: "A circuit combinator outputs signals when conditions are true.",
+    rules: ["Needs no power; configure conditions and output signals via wires."],
+  },
+  "constant-combinator": {
+    summary: "A constant combinator emits configured signals.",
+    rules: [
+      "It has no inputs; set its signal values in the GUI.",
+      "It needs no power and does not control machines directly.",
+    ],
+  },
+  "power-switch": {
+    summary: "A power switch connects/disconnects two electric networks.",
+    rules: [
+      "It is controlled manually or by circuit conditions; an open switch splits the network.",
+      "It is not a generator and cannot create power.",
+    ],
+  },
+  "display-panel": {
+    summary: "A display panel shows text/icons; it does not produce items.",
+    rules: ["Configure text or circuit signals; it needs power."],
+  },
+  "programmable-speaker": {
+    summary: "A speaker plays sounds based on circuit conditions.",
+    rules: ["It needs power and circuit inputs; it has no gameplay effect on production."],
+  },
+  "straight-rail": {
+    summary: "Straight rail is the track for trains.",
+    rules: [
+      "Rails must connect continuously; signals determine blocks.",
+      "Trains cannot leave rails and rail direction matters.",
+    ],
+  },
+  "curved-rail": {
+    summary: "Curved rail connects track at an angle.",
+    rules: [
+      "Curves must align with straight rail endpoints; signals need clear placement.",
+      "Use rail planner or mirror placement for consistent networks.",
+    ],
+  },
+});
+
+/** Full curated catalog for agents and offline inspection. */
+export function entityUsageCatalog() {
+  const serialize = (template: UsageTemplate) => ({
+    summary: template.summary,
+    flow: template.flow,
+    placement: template.placement,
+    rules: template.rules,
+    common_mistakes: template.common_mistakes,
+    examples: template.examples,
+  });
+  return {
+    schema_version: 1,
+    types: Object.entries(BY_TYPE)
+      .map(([type, template]) => ({ type, ...serialize(template) }))
+      .sort((a, b) => a.type.localeCompare(b.type)),
+    names: Object.entries(BY_NAME)
+      .map(([name, template]) => ({ name, ...serialize(template) }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    fallback: {
+      summary: "Unknown/modded entity: use prototype metadata plus observation.",
+      rules: [
+        "Call observe-entity-prototype for type, tile size, rotatable, energy, fluids and placement item.",
+        "Call observe-layout/observe-connections and inspect its status/inventories before assuming behavior.",
+      ],
+    },
+  };
+}

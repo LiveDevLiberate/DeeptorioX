@@ -71,6 +71,14 @@ this file.
   `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
   changing its checkpoint; resuming a paused run then uses the new limit and
   watchdog.
+- **Entity usage catalog.** `entity-usage-catalog` / `GET
+  /api/agent/observe/entity-usage-catalog` returns every curated type and
+  name-specific rule without a game call. `entity-usage --name` now also returns
+  derived prototype limits (tile size, rotation, energy source, fluid boxes,
+  placement item, max health); unknown/modded entities get a structured
+  observation fallback. Coverage now includes belts, inserters, machines,
+  power/fluids, logistics, trains, turrets, walls/gates, circuit entities and
+  more.
 - **Pole-aware power planning.** `plan_power_network` now uses each base pole's
   real supply grid (small/medium 5×5, substation 18×18) instead of a fixed 5-tile
   grid, and `build-power-line` places a straight horizontal/vertical trunk with

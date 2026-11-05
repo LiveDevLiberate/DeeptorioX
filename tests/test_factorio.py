@@ -1879,6 +1879,14 @@ class BlueprintCliTestsExtra(unittest.TestCase):
 
 
 class EntityUsageClientTests(unittest.TestCase):
+    def test_entity_usage_catalog_payload_and_cli_usage(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.entity_usage_catalog()
+        request.assert_called_once_with("GET", "/api/agent/observe/entity-usage-catalog")
+        self.assertIn("entity-usage-catalog", factorio.COMMAND_USAGE)
+        self.assertIn("entity-usage-catalog", factorio.GLOBAL_USAGE)
+
     def test_entity_usage_payload_and_cli_usage(self):
         client = factorio.FactorioClient(poll_interval=0)
         with patch.object(client, "request", return_value={"ok": True}) as request:

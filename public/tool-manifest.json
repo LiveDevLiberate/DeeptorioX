@@ -151,6 +151,12 @@
       "usage": "Usage: factorio.py entity-usage --name <entity-name>"
     },
     {
+      "command": "entity-usage-catalog",
+      "description": "List all curated entity behavior, flow, placement rules and common mistakes (no game call required).",
+      "help": "Usage: factorio.py entity-usage-catalog",
+      "usage": "Usage: factorio.py entity-usage-catalog"
+    },
+    {
       "command": "job-cancel",
       "description": "Request cancellation after the current atomic action.",
       "help": "Usage: factorio.py job-cancel --job-id <id>",
@@ -1087,6 +1093,12 @@
         }
       ],
       "signature": "entity_usage(self, name: 'str') -> 'Any'"
+    },
+    {
+      "description": "All curated entity behavior/placement rules, no game RCON needed.",
+      "name": "entity_usage_catalog",
+      "parameters": [],
+      "signature": "entity_usage_catalog(self) -> 'Any'"
     },
     {
       "description": "",
@@ -2362,7 +2374,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "144842f2b001fd2aa41f15c3908ef7129fe946f2335a7d7566ab451c248dce59",
+  "client_sha256": "b2d512be87fcc8ed5d2c7459950b99c941e8cb352bb3daf2ca1a953948facad6",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2449,6 +2461,10 @@
       "path": "/api/agent/observe/entity-usage"
     },
     {
+      "method": "GET",
+      "path": "/api/agent/observe/entity-usage-catalog"
+    },
+    {
       "method": "POST",
       "path": "/api/agent/observe/factory"
     },
@@ -2521,8 +2537,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "144842f2b001fd2aa41f15c3908ef7129fe946f2335a7d7566ab451c248dce59",
-    "src/api/agent.ts": "5082a30efd75abae0c51b13735de5ef9209d43f4903f52b2cf876ae8c400eb66",
+    "factorio.py": "b2d512be87fcc8ed5d2c7459950b99c941e8cb352bb3daf2ca1a953948facad6",
+    "src/api/agent.ts": "0483b578de60aea8aa8af8b9db05c002653e086fba19b18e8a31de37559d1942",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",
     "src/api/jobs.ts": "bafe8a5682632bb0d9359a15dfb028358507c9ad8e8ba7eb0aa27a949e53948a",

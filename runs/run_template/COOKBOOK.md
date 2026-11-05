@@ -173,6 +173,10 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
   `entity-usage --name <entity>` / `client.entity_usage(name)`. It returns a
   curated behavior summary, flow direction, placement rules and common mistakes,
   plus the entity prototype metadata.
+- `entity-usage-catalog` / `client.entity_usage_catalog()` returns all curated
+  type/name rules in one response; use it when you need to look up several
+  buildings. `entity-usage --name` returns the matching rule plus live prototype
+  limits (tile size, rotation, energy, fluid boxes, placement item, health).
 - **Belts are one-way**: a surface crossing is not a bidirectional output
   junction. To cross/merge flows use an underground-belt pair, a splitter, or
   side-loading; each belt still has a single flow direction.
