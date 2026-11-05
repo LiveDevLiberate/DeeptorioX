@@ -54,6 +54,16 @@ test("json() wraps non-object bodies in data and lets objects override schema_ve
   assert.deepEqual(JSON.parse(overrideRes.body), { schema_version: 99, ok: true });
 });
 
+test("compact agent responses omit schema_version and expose it in a header", () => {
+  const res = fakeResponse();
+  res.__autorioCompact = true;
+  json(res, 200, { ok: true, schema_version: 999, data: { value: 1 } });
+  const parsed = JSON.parse(res.body);
+  assert.equal(parsed.schema_version, undefined);
+  assert.deepEqual(parsed, { ok: true, data: { value: 1 } });
+  assert.equal(res.headers["X-Autorio-Schema-Version"], String(API_SCHEMA_VERSION));
+});
+
 test("readJson() parses bodies, returns null for empty bodies and rejects oversized ones", async () => {
   assert.deepEqual(await readJson(Readable.from([Buffer.from('{"a":1}')])), { a: 1 });
   assert.equal(await readJson(Readable.from([])), null);

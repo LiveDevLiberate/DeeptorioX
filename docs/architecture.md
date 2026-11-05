@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Agent envelope version.** Agent JSON omits `schema_version`; the
+`X-Autorio-Schema-Version` response header and `/api/health.versions.api_schema`
+carry it instead. Non-agent/operator API envelopes keep the field for existing
+clients.
+
 **Agent response compaction.** `src/http/agent-compact.ts` trims manager-only
 bookkeeping from `/api/agent/*` JSON while preserving errors, alerts, inventories,
 observations and job results. CLI JSON no longer includes local `timing_ms`.

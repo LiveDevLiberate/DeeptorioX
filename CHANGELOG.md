@@ -81,6 +81,10 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Agent envelope version moved to a header.** `/api/agent/*` JSON no longer
+  carries the redundant `schema_version` field; clients can read
+  `X-Autorio-Schema-Version` instead. `/api/health.versions.api_schema` and
+  non-agent API envelopes still expose the version. CLI JSON also drops the field.
 - **Compact agent responses.** `/api/agent/*` JSON now drops manager-only
   bookkeeping (timing fields, null job timestamps/idempotency keys, false
   `truncated`/`cancel_requested`, empty clearing reports) and trims movement

@@ -3360,7 +3360,7 @@ def _observation_inventory_items(observation: Any) -> list[dict[str, Any]]:
 
 def write_response(*, ok: bool, cmd: str, started: float, data: Any = MISSING,
                    error: str | None = None, truncated: Any = MISSING) -> None:
-    response: dict[str, Any] = {"schema_version": API_SCHEMA_VERSION, "ok": ok, "cmd": cmd}
+    response: dict[str, Any] = {"ok": ok, "cmd": cmd}
     if data is not MISSING:
         response["data"] = data
     if error is not None:

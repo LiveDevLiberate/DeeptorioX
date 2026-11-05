@@ -18,14 +18,25 @@ export function json(res: ServerResponse, status: number, data: unknown) {
   const augment = response.__autorioAugment;
   const enriched = augment ? augment(data) : data;
   const compacted = response.__autorioCompact ? compactAgentPayload(enriched) : enriched;
-  const payload =
-    compacted && typeof compacted === "object" && !Array.isArray(compacted)
-      ? { schema_version: API_SCHEMA_VERSION, ...(compacted as Record<string, unknown>) }
-      : { schema_version: API_SCHEMA_VERSION, data: compacted };
+  let payload: Record<string, unknown>;
+  if (response.__autorioCompact) {
+    payload =
+      compacted && typeof compacted === "object" && !Array.isArray(compacted)
+        ? { ...(compacted as Record<string, unknown>) }
+        : { data: compacted };
+    // Version negotiation for agent clients lives in the header, not the body.
+    delete payload.schema_version;
+  } else {
+    payload =
+      compacted && typeof compacted === "object" && !Array.isArray(compacted)
+        ? { schema_version: API_SCHEMA_VERSION, ...(compacted as Record<string, unknown>) }
+        : { schema_version: API_SCHEMA_VERSION, data: compacted };
+  }
   const body = JSON.stringify(payload);
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Content-Length": Buffer.byteLength(body),
+    ...(response.__autorioCompact ? { "X-Autorio-Schema-Version": String(API_SCHEMA_VERSION) } : {}),
   });
   res.end(body);
 }
