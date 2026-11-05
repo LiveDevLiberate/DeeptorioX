@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { compactAgentPayload } from "./agent-compact.js";
 import { asRecord, errorMessage, parseJson, type JsonObject } from "../validation.js";
 
 /** Envelope schema version shared by every JSON response and `/api/health`. */
@@ -10,13 +11,17 @@ export const API_SCHEMA_VERSION = 2;
  * `Content-Type`/`Content-Length` headers are identical to the legacy helper.
  */
 export function json(res: ServerResponse, status: number, data: unknown) {
-  const augment = (res as ServerResponse & { __autorioAugment?: (value: unknown) => unknown })
-    .__autorioAugment;
+  const response = res as ServerResponse & {
+    __autorioAugment?: (value: unknown) => unknown;
+    __autorioCompact?: boolean;
+  };
+  const augment = response.__autorioAugment;
   const enriched = augment ? augment(data) : data;
+  const compacted = response.__autorioCompact ? compactAgentPayload(enriched) : enriched;
   const payload =
-    enriched && typeof enriched === "object" && !Array.isArray(enriched)
-      ? { schema_version: API_SCHEMA_VERSION, ...enriched }
-      : { schema_version: API_SCHEMA_VERSION, data: enriched };
+    compacted && typeof compacted === "object" && !Array.isArray(compacted)
+      ? { schema_version: API_SCHEMA_VERSION, ...(compacted as Record<string, unknown>) }
+      : { schema_version: API_SCHEMA_VERSION, data: compacted };
   const body = JSON.stringify(payload);
   res.writeHead(status, {
     "Content-Type": "application/json",

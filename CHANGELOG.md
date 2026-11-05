@@ -81,6 +81,11 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Compact agent responses.** `/api/agent/*` JSON now drops manager-only
+  bookkeeping (timing fields, null job timestamps/idempotency keys, false
+  `truncated`/`cancel_requested`, empty clearing reports) and trims movement
+  objects to final position/distance. CLI responses no longer add `timing_ms`.
+  Actionable errors, alerts, inventories and job results are retained.
 - **Mining building protection.** Native `mine` targets now skip player-owned
   buildings unless the target explicitly sets `allow_buildings`; a blocked mine
   returns `protected_building` with the entity sample and a hint. `act-mine`

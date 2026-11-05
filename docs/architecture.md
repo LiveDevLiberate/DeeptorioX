@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Agent response compaction.** `src/http/agent-compact.ts` trims manager-only
+bookkeeping from `/api/agent/*` JSON while preserving errors, alerts, inventories,
+observations and job results. CLI JSON no longer includes local `timing_ms`.
+The public non-agent API envelope is unchanged.
+
 **Mining safety.** The native miner filters player-owned non-resource entities
 unless the target carries `allow_buildings: true`. `act-mine`/`mine_continuous`
 stay protected, `deconstruct-area` and crash-debris recovery opt in; a protected

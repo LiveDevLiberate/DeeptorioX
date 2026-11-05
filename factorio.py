@@ -3367,7 +3367,6 @@ def write_response(*, ok: bool, cmd: str, started: float, data: Any = MISSING,
         response["error"] = error
     if truncated is not MISSING:
         response["truncated"] = truncated
-    response["timing_ms"] = int((time.monotonic() - started) * 1000)
     print(json.dumps(response, separators=(",", ":"), ensure_ascii=False))
 
 
