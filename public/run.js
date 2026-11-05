@@ -1,5 +1,5 @@
 import { ProductionChart } from "./production-chart.js";
-import { $, api, text, renderProgress, recordingUrl } from "./run-view.js";
+import { $, api, apiRequest, text, renderProgress, recordingUrl } from "./run-view.js";
 const id = new URLSearchParams(location.search).get("run"),
   chart = new ProductionChart();
 let offset = 0,
@@ -55,6 +55,42 @@ function renderBlueprints() {
         "blueprint-meta",
       );
       head.append(title, source);
+      const actions = document.createElement("div");
+      actions.className = "blueprint-actions";
+      const rename = text("button", "Rename");
+      rename.type = "button";
+      rename.addEventListener("click", async () => {
+        const next = globalThis.prompt?.("Blueprint label", blueprint.label || "");
+        if (next === null || next === undefined || !next.trim()) return;
+        try {
+          const result = await apiRequest(
+            "PATCH",
+            `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(blueprint.id)}`,
+            { label: next.trim() },
+          );
+          blueprint.label = result.blueprint?.label || next.trim();
+          renderBlueprints();
+        } catch (error) {
+          globalThis.alert?.(error.message);
+        }
+      });
+      const remove = text("button", "Delete");
+      remove.type = "button";
+      remove.className = "danger";
+      remove.addEventListener("click", async () => {
+        if (!globalThis.confirm?.(`Delete "${blueprint.label || blueprint.id}"?`)) return;
+        try {
+          await apiRequest(
+            "DELETE",
+            `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(blueprint.id)}`,
+          );
+          blueprints = blueprints.filter((entry) => entry.id !== blueprint.id);
+          renderBlueprints();
+        } catch (error) {
+          globalThis.alert?.(error.message);
+        }
+      });
+      actions.append(rename, remove);
       const entities = text(
         "p",
         (blueprint.top_entities || []).map((entry) => `${entry.name} × ${entry.count}`).join(" · "),
@@ -97,6 +133,7 @@ function renderBlueprints() {
           pre.textContent = `Could not decode blueprint: ${error.message}`;
         }
       });
+      head.append(actions);
       card.append(head, entities, details);
       return card;
     }),

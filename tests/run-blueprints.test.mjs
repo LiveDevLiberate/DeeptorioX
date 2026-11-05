@@ -6,7 +6,13 @@ import path from "node:path";
 import zlib from "node:zlib";
 
 import { decodeBlueprintString } from "../dist/blueprints.js";
-import { listRunBlueprints, readRunBlueprint, registerRunBlueprint } from "../dist/run-blueprints.js";
+import {
+  listRunBlueprints,
+  readRunBlueprint,
+  registerRunBlueprint,
+  updateRunBlueprint,
+  deleteRunBlueprint,
+} from "../dist/run-blueprints.js";
 
 function blueprintWire(payload, { prefix = "0" } = {}) {
   return `${prefix}${zlib.deflateSync(Buffer.from(JSON.stringify(payload))).toString("base64")}`;
@@ -98,6 +104,29 @@ test("rejects unavailable sources for a registered blueprint", () => {
       () => registerRunBlueprint(runDir, "run-1", { blueprint: "0", source: "unknown" }),
       /source|zlib|blueprint|base64/,
     );
+  } finally {
+    fs.rmSync(runDir, { recursive: true, force: true });
+  }
+});
+
+test("updates and deletes an indexed blueprint", () => {
+  const runDir = fs.mkdtempSync(path.join(os.tmpdir(), "autorio-blueprints-"));
+  try {
+    const wire = blueprintWire(
+      payload([{ entity_number: 1, name: "stone-furnace", position: { x: 0.5, y: 0.5 } }]),
+    );
+    const registered = registerRunBlueprint(runDir, "run-1", { blueprint: wire, source: "saved" });
+    const updated = updateRunBlueprint(runDir, "run-1", registered.blueprint.id, {
+      label: "Renamed smelting",
+      description: "Reusable block",
+    });
+    assert.equal(updated.label, "Renamed smelting");
+    assert.equal(updated.description, "Reusable block");
+    assert.equal(listRunBlueprints(runDir, "run-1")[0].label, "Renamed smelting");
+    assert.equal(deleteRunBlueprint(runDir, "run-1", registered.blueprint.id), true);
+    assert.equal(listRunBlueprints(runDir, "run-1").length, 0);
+    assert.equal(fs.existsSync(path.join(runDir, "blueprints", `${registered.blueprint.sha256}.txt`)), false);
+    assert.equal(deleteRunBlueprint(runDir, "run-1", registered.blueprint.id), false);
   } finally {
     fs.rmSync(runDir, { recursive: true, force: true });
   }

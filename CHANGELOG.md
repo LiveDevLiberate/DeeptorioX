@@ -58,6 +58,10 @@ this file.
   `source: local|manager`, compares the manager's `sources.factorio.py` hash with
   the workspace client and sets `client_outdated`/`client_update_hint` when the
   workspace is stale. Manifests carry `manifest_version` and `client_sha256`.
+- **Blueprint catalogue management.** Run details can rename or delete a
+  blueprint (`PATCH`/`DELETE /api/runs/:id/blueprints/:id`); the store removes
+  the raw wire file when the last reference is deleted. CLI preview and
+  list/save remain available.
 - **Blueprint CLI and preview.** `blueprint-list` / `blueprint-save` make the
   per-run catalogue usable without writing Python; paid upload of a designed
   string does not build it. Blueprint details in the run page and recording

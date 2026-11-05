@@ -270,3 +270,16 @@ html:not([data-theme="light"]) body.overlay #agentStatus {
   color: var(--muted);
   font-size: 10px;
 }
+
+.blueprint-actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.blueprint-actions button {
+  font-size: 10px;
+  padding: 2px 7px;
+}
+.blueprint-actions button.danger {
+  color: var(--danger, #d46a5a);
+}

@@ -118,10 +118,31 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
       const runId = decodeURIComponent(match[1]);
       if (!runManager.get(runId)) return json(res, 404, { error: "Run not found" });
       if (match[2]) {
-        if (req.method !== "GET") return json(res, 405, { error: "Method not allowed" });
-        const detail = runManager.blueprint(runId, match[2]);
-        if (!detail) return json(res, 404, { error: "Blueprint not found" });
-        return json(res, 200, { schema_version: 2, run_id: runId, ...detail });
+        if (req.method === "GET") {
+          const detail = runManager.blueprint(runId, match[2]);
+          if (!detail) return json(res, 404, { error: "Blueprint not found" });
+          return json(res, 200, { schema_version: 2, run_id: runId, ...detail });
+        }
+        if (req.method === "DELETE") {
+          if (!runManager.deleteBlueprint(runId, match[2]))
+            return json(res, 404, { error: "Blueprint not found" });
+          return json(res, 200, { schema_version: 2, run_id: runId, deleted: match[2] });
+        }
+        if (req.method === "PATCH") {
+          try {
+            const payload = asRecord(await readJson(req));
+            if (!payload) throw new Error("Request body must be a JSON object");
+            const blueprint = runManager.updateBlueprint(runId, match[2], {
+              label: payload.label,
+              description: payload.description,
+            });
+            if (!blueprint) return json(res, 404, { error: "Blueprint not found" });
+            return json(res, 200, { schema_version: 2, run_id: runId, blueprint });
+          } catch (error) {
+            return json(res, 400, { error: errorMessage(error) });
+          }
+        }
+        return json(res, 405, { error: "Method not allowed" });
       }
       if (req.method === "GET") {
         const blueprints = runManager.blueprints(runId) ?? [];

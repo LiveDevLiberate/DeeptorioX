@@ -43,6 +43,8 @@ import {
   listRunBlueprints,
   readRunBlueprint,
   registerRunBlueprint,
+  updateRunBlueprint,
+  deleteRunBlueprint,
   type RegisterBlueprintInput,
   type RunBlueprintDetail,
   type RunBlueprintSummary,
@@ -519,6 +521,24 @@ export class RunManager {
     const run = this.runs.get(runId);
     if (!run) throw new Error("Run not found");
     return registerRunBlueprint(this.dir(run), run.id, input).blueprint;
+  }
+
+  /** Rename or annotate an existing blueprint. */
+  updateBlueprint(
+    runId: string,
+    blueprintId: string,
+    input: { label?: unknown; description?: unknown },
+  ): RunBlueprintSummary | undefined {
+    const run = this.runs.get(runId);
+    if (!run) throw new Error("Run not found");
+    return updateRunBlueprint(this.dir(run), run.id, blueprintId, input);
+  }
+
+  /** Delete one blueprint from the run catalogue. */
+  deleteBlueprint(runId: string, blueprintId: string): boolean {
+    const run = this.runs.get(runId);
+    if (!run) throw new Error("Run not found");
+    return deleteRunBlueprint(this.dir(run), run.id, blueprintId);
   }
   private stateFile(run: Run) {
     for (const relative of ["workspace/STATE.md", "STATE.md"]) {

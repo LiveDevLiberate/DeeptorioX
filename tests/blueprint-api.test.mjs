@@ -61,6 +61,14 @@ function fakeManager() {
       calls.push({ id, input });
       return catalogue[0];
     },
+    updateBlueprint: (id, blueprintId, input) => {
+      calls.push({ id, blueprintId, input, action: "update" });
+      return { ...catalogue[0], ...input };
+    },
+    deleteBlueprint: (id, blueprintId) => {
+      calls.push({ id, blueprintId, action: "delete" });
+      return true;
+    },
   };
 }
 
@@ -111,4 +119,26 @@ test("run-scoped blueprint list and detail routes", async () => {
   assert.equal(JSON.parse(detail.body).wire, "0wire");
   const missing = await dispatch(router, fakeRequest("/api/runs/missing/blueprints"));
   assert.equal(missing.statusCode, 404);
+});
+
+test("PATCH and DELETE manage one run-scoped blueprint", async () => {
+  const runManager = fakeManager();
+  const router = new Router();
+  registerRunsRoutes(router, { runManager });
+  const patched = await dispatch(
+    router,
+    fakeRequest("/api/runs/run-active/blueprints/0123456789abcdef", "PATCH", { label: "Renamed" }),
+  );
+  assert.equal(patched.statusCode, 200);
+  assert.equal(JSON.parse(patched.body).blueprint.label, "Renamed");
+  const deleted = await dispatch(
+    router,
+    fakeRequest("/api/runs/run-active/blueprints/0123456789abcdef", "DELETE"),
+  );
+  assert.equal(deleted.statusCode, 200);
+  assert.equal(JSON.parse(deleted.body).deleted, "0123456789abcdef");
+  assert.deepEqual(
+    runManager.calls.map((call) => call.action),
+    ["update", "delete"],
+  );
 });

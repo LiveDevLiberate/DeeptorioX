@@ -154,6 +154,38 @@ export function readRunBlueprint(
   return { ...summary, wire, payload: decoded.payload };
 }
 
+/** Rename/annotate one indexed blueprint without touching its wire string. */
+export function updateRunBlueprint(
+  runDir: string,
+  runId: string,
+  blueprintId: string,
+  input: { label?: unknown; description?: unknown },
+): RunBlueprintSummary | undefined {
+  if (!/^[a-f0-9]{16}$/.test(blueprintId)) return undefined;
+  const index = readIndex(runDir, runId);
+  const entry = index.blueprints.find((blueprint) => blueprint.id === blueprintId);
+  if (!entry) return undefined;
+  if (input.label !== undefined) entry.label = normalizeLabel(input.label, entry.label);
+  if (input.description !== undefined)
+    entry.description = normalizeDescription(input.description, entry.description);
+  writeIndex(runDir, index);
+  return entry;
+}
+
+/** Remove one blueprint and its raw wire file. */
+export function deleteRunBlueprint(runDir: string, runId: string, blueprintId: string): boolean {
+  if (!/^[a-f0-9]{16}$/.test(blueprintId)) return false;
+  const index = readIndex(runDir, runId);
+  const entry = index.blueprints.find((blueprint) => blueprint.id === blueprintId);
+  if (!entry) return false;
+  index.blueprints = index.blueprints.filter((blueprint) => blueprint.id !== blueprintId);
+  writeIndex(runDir, index);
+  if (!index.blueprints.some((blueprint) => blueprint.sha256 === entry.sha256)) {
+    fs.rmSync(blueprintFile(runDir, entry.sha256), { force: true });
+  }
+  return true;
+}
+
 /** Validate and persist a blueprint for one run; repeated hashes are idempotent. */
 export function registerRunBlueprint(
   runDir: string,

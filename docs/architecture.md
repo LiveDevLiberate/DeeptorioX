@@ -160,7 +160,8 @@ secret-looking keys, and records HTTP requests (method, path, status, duration; 
 available to the agent and operator:
 `GET /api/blueprints` lists the active run, `POST /api/blueprints` registers into
 it; run-scoped equivalents are `GET|POST /api/runs/:id/blueprints` and
-`GET /api/runs/:id/blueprints/:blueprintId` for decoded detail. Registration
+`GET /api/runs/:id/blueprints/:blueprintId` for decoded detail, with `PATCH`
+  (label/description) and `DELETE` management. Registration
 validates and summarizes the Factorio wire string (base64/zlib/JSON), dedupes by
 SHA-256, and stores raw text plus an index under the run directory. The run page and the live recording window show a **Blueprints** count and toggle with decoded summaries, an SVG layout preview and raw-wire download; the Python client also exposes `blueprint-list` / `blueprint-save` CLI commands. Python clients use
 `FactorioClient.list_blueprints()` / `save_blueprint()`; `build_blueprint()` also

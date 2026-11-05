@@ -1,14 +1,17 @@
 export const $ = (id) => document.getElementById(id);
 export const activeStates = ["preparing", "launching", "running", "saving"];
-export async function api(path, body) {
+export async function apiRequest(method, path, body) {
   const response = await fetch(path, {
-    method: body === undefined ? "GET" : "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
+}
+export async function api(path, body) {
+  return apiRequest(body === undefined ? "GET" : "POST", path, body);
 }
 export function text(tag, value, className) {
   const node = document.createElement(tag);
