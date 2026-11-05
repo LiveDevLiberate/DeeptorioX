@@ -158,6 +158,13 @@ logger writes JSONL to `<data-dir>/manager.log`, mirrors one human line per reco
 secret-looking keys, and records HTTP requests (method, path, status, duration; health polls excluded).
 `AUTORIO_LOG_LEVEL` selects `debug|info|warn|error`.
 
+**Automation scoring.** `src/automation-score.ts` computes the agent score from
+automated production, science, power satisfaction, research and rockets, minus
+manual mining/crafting, stale STATE.md and full-blackout penalties. A blackout
+is counted once per transition after any network reports positive production
+capacity: demand > 0 and satisfaction ≤ 0.5% subtracts 500 points; the count and
+active state persist in `run.json`.
+
 **Blueprint catalogue.** Blueprints created by an agent are registered per run and are
 available to the agent and operator:
 `GET /api/blueprints` lists the active run, `POST /api/blueprints` registers into

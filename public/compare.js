@@ -30,6 +30,11 @@ try {
       },
     ],
     ["Automation score", (r) => (r.automation?.score == null ? "—" : String(r.automation.score))],
+    [
+      "Blackouts",
+      (r) =>
+        r.automation?.blackouts ? `${r.automation.blackouts} (-${r.automation.blackout_penalty || 0})` : "—",
+    ],
     ["Active play time", (r) => duration(r.elapsed_seconds)],
     ["Input tokens", (r) => r.usage?.input_tokens?.toLocaleString() ?? "—"],
     ["Output tokens", (r) => r.usage?.output_tokens?.toLocaleString() ?? "—"],

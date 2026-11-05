@@ -277,6 +277,11 @@ async function refresh() {
       ...(run.failure_kind ? { "Failure kind": run.failure_kind } : {}),
       ...(run.auto_continues ? { "Auto-continues": String(run.auto_continues) } : {}),
       ...(run.automation?.score == null ? {} : { "Automation score": String(run.automation.score) }),
+      ...(run.automation?.blackouts
+        ? {
+            Blackouts: `${run.automation.blackouts} (-${run.automation.blackout_penalty || 0})`,
+          }
+        : {}),
       ...(run.benchmark?.milestones?.length
         ? {
             Milestones: `${Object.keys(run.milestones || {}).length}/${run.benchmark.milestones.length}`,

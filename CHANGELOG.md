@@ -67,6 +67,11 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Blackout scoring.** Once any electric network has produced positive
+  capacity, each transition into a full blackout (demand > 0 and power
+  satisfaction ≤ 0.5%) deducts 500 points. Outage state persists across
+  telemetry samples and restarts so one continuous outage counts once; the
+  run page and comparison show the blackout count/penalty.
 - **Build-payload validation.** `act-build --entities-json` now normalizes the
   canonical `{name, anchor:{x,y}}` schema and the `x`/`y` shorthand, rejects
   malformed entities with a clear error, and the manager returns 400 when a

@@ -21,6 +21,7 @@ import {
   computeAutomationScore,
   manualCraftUnits,
   manualMineUnits,
+  trackPowerBlackout,
   type AutomationScore,
 } from "./automation-score.js";
 import {
@@ -187,6 +188,12 @@ type Run = {
   };
   /** Automated production score and manual-work penalty (updated with telemetry). */
   automation?: AutomationScore & { updated_at?: string };
+  /** A power plant/generator has produced capacity at least once. */
+  power_plant_seen?: boolean;
+  /** Previous telemetry sample was a full blackout. */
+  power_blackout_active?: boolean;
+  /** Number of full-blackout transitions counted since power was established. */
+  power_blackouts?: number;
   /** Last emitted STATE.md reminder stage, so markers are not duplicated. */
   state_reminder?: "due" | "blocked";
 };
@@ -368,6 +375,8 @@ export class RunManager {
           positive: 0,
           penalty,
           state_penalty: 0,
+          blackout_penalty: 0,
+          blackouts: 0,
           manual_mines: mines,
           manual_crafts: crafts,
           breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0 },
@@ -830,6 +839,8 @@ export class RunManager {
         positive: 0,
         penalty: 0,
         state_penalty: 0,
+        blackout_penalty: 0,
+        blackouts: 0,
         manual_mines: 0,
         manual_crafts: 0,
         breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0 },
@@ -1878,6 +1889,23 @@ Re-read AGENTS.md and STATE.md, re-observe the player/world, then continue. Do n
         count - (run.baseline?.production[name] || 0),
       ]),
     );
+    const blackout = trackPowerBlackout(
+      {
+        power_plant_seen: run.power_plant_seen ?? false,
+        blackout_active: run.power_blackout_active ?? false,
+        blackouts: run.power_blackouts ?? 0,
+      },
+      snapshot.power,
+    );
+    run.power_plant_seen = blackout.state.power_plant_seen;
+    run.power_blackout_active = blackout.state.blackout_active;
+    run.power_blackouts = blackout.state.blackouts;
+    if (blackout.blackout_started) {
+      this.event(
+        run,
+        `Power blackout #${run.power_blackouts} detected after power was established (-500 points)`,
+      );
+    }
     const stateStatus = this.stateStatus();
     const statePenalty = stateStatus?.blocked
       ? STATE_BLOCKED_PENALTY
@@ -1893,6 +1921,7 @@ Re-read AGENTS.md and STATE.md, re-observe the player/world, then continue. Do n
         manualMines: run.automation?.manual_mines ?? 0,
         manualCrafts: run.automation?.manual_crafts ?? 0,
         statePenalty,
+        blackouts: run.power_blackouts ?? 0,
       }),
       updated_at: now,
     };

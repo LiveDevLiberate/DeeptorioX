@@ -56,6 +56,25 @@ export const CRAFT_PENALTY_POINTS = 2;
 /** Penalty while STATE.md is older than the soft/hard deadline. */
 export const STATE_DUE_PENALTY = 25;
 export const STATE_BLOCKED_PENALTY = 100;
+/** Penalty for each full blackout after the first power generation is observed. */
+export const BLACKOUT_PENALTY_POINTS = 500;
+
+/** Best-effort electric-network summary returned in telemetry. */
+export type SnapshotPower = {
+  networks?: number;
+  maximum_production?: number;
+  maximum_consumption?: number;
+  total_transfer?: number;
+  satisfaction?: number;
+};
+
+export type PowerBlackoutState = {
+  /** A power plant/generator has produced capacity at least once. */
+  power_plant_seen: boolean;
+  /** The previous sample was a blackout; only transitions are counted. */
+  blackout_active: boolean;
+  blackouts: number;
+};
 
 export type AutomationCounters = { manual_mines: number; manual_crafts: number };
 
@@ -74,6 +93,10 @@ export type AutomationScore = AutomationCounters & {
   penalty: number;
   /** Part of the penalty caused by a stale/missing STATE.md. */
   state_penalty: number;
+  /** Part of the penalty caused by full blackouts after power was established. */
+  blackout_penalty: number;
+  /** Count of full-blackout transitions counted for this penalty. */
+  blackouts: number;
   breakdown: AutomationBreakdown;
 };
 
@@ -86,7 +109,37 @@ export type AutomationScoreInput = {
   manualMines: number;
   manualCrafts: number;
   statePenalty?: number;
+  blackouts?: number;
 };
+
+/**
+ * Track full blackout transitions.
+ *
+ * A run becomes eligible once its electric network reports positive production
+ * capacity. A blackout is a sample with real demand but satisfaction at or below
+ * 0.5%; only the transition into the blackout is counted, so a long outage costs
+ * one penalty.
+ */
+export function trackPowerBlackout(
+  state: PowerBlackoutState,
+  power: SnapshotPower | null | undefined,
+): { state: PowerBlackoutState; blackout_started: boolean } {
+  const capacity = Number(power?.maximum_production);
+  const demand = Number(power?.maximum_consumption);
+  const satisfaction = Number(power?.satisfaction);
+  const seen = state.power_plant_seen || (Number.isFinite(capacity) && capacity > 0);
+  const eligible = seen && Number.isFinite(demand) && demand > 0;
+  const blackout = eligible && (!Number.isFinite(satisfaction) || satisfaction <= 0.005);
+  const blackoutStarted = eligible && blackout && !state.blackout_active;
+  return {
+    state: {
+      power_plant_seen: seen,
+      blackout_active: blackout,
+      blackouts: state.blackouts + (blackoutStarted ? 1 : 0),
+    },
+    blackout_started: blackoutStarted,
+  };
+}
 
 /** Count natural-resource units mined by hand from finished mine job results. */
 export function manualMineUnits(results: unknown[]): number {
@@ -171,12 +224,16 @@ export function computeAutomationScore(input: AutomationScoreInput): AutomationS
   const manualCrafts = Math.max(0, Math.round(Number(input.manualCrafts) || 0));
   const manualPenalty = manualMines + manualCrafts * CRAFT_PENALTY_POINTS;
   const statePenalty = Math.max(0, Math.round(Number(input.statePenalty) || 0));
-  const penalty = manualPenalty + statePenalty;
+  const blackouts = Math.max(0, Math.round(Number(input.blackouts) || 0));
+  const blackoutPenalty = blackouts * BLACKOUT_PENALTY_POINTS;
+  const penalty = manualPenalty + statePenalty + blackoutPenalty;
   return {
     score: positive - penalty,
     positive,
     penalty,
     state_penalty: statePenalty,
+    blackout_penalty: blackoutPenalty,
+    blackouts,
     manual_mines: manualMines,
     manual_crafts: manualCrafts,
     breakdown,

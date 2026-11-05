@@ -6,6 +6,7 @@ import {
   manualMineUnits,
   productionPoints,
   sciencePoints,
+  trackPowerBlackout,
 } from "../dist/automation-score.js";
 
 test("manual mining counts only natural resources, not deconstructed buildings", () => {
@@ -65,4 +66,48 @@ test("automation score rewards automated production and subtracts manual penalti
   assert.equal(stale.penalty, 100);
   assert.equal(stale.state_penalty, 100);
   assert.equal(stale.score, -100);
+});
+
+test("counts one 500-point penalty per full blackout after power is established", () => {
+  let state = { power_plant_seen: false, blackout_active: false, blackouts: 0 };
+  // No power plant yet: demand/no satisfaction is not a countable blackout.
+  let tick = trackPowerBlackout(state, { maximum_production: 0, maximum_consumption: 10 });
+  assert.equal(tick.blackout_started, false);
+  assert.equal(tick.state.blackouts, 0);
+  assert.equal(tick.state.power_plant_seen, false);
+  state = tick.state;
+  // First generator capacity is observed.
+  tick = trackPowerBlackout(state, { maximum_production: 100, maximum_consumption: 20, satisfaction: 1 });
+  assert.equal(tick.state.power_plant_seen, true);
+  assert.equal(tick.blackout_started, false);
+  state = tick.state;
+  // One continuous outage counts exactly once.
+  tick = trackPowerBlackout(state, { maximum_production: 100, maximum_consumption: 30, satisfaction: 0 });
+  assert.equal(tick.blackout_started, true);
+  assert.equal(tick.state.blackouts, 1);
+  state = tick.state;
+  tick = trackPowerBlackout(state, { maximum_production: 100, maximum_consumption: 30, satisfaction: 0 });
+  assert.equal(tick.blackout_started, false);
+  assert.equal(tick.state.blackouts, 1);
+  state = tick.state;
+  // Recovery, then a second outage.
+  tick = trackPowerBlackout(state, { maximum_production: 100, maximum_consumption: 30, satisfaction: 1 });
+  assert.equal(tick.blackout_started, false);
+  state = tick.state;
+  tick = trackPowerBlackout(state, { maximum_production: 100, maximum_consumption: 30, satisfaction: 0.004 });
+  assert.equal(tick.blackout_started, true);
+  assert.equal(tick.state.blackouts, 2);
+  const score = computeAutomationScore({
+    productionTotals: {},
+    powerSatisfaction: 1,
+    researchProgress: 0,
+    rocketsLaunched: 0,
+    manualMines: 0,
+    manualCrafts: 0,
+    blackouts: 2,
+  });
+  assert.equal(score.blackouts, 2);
+  assert.equal(score.blackout_penalty, 1000);
+  assert.equal(score.penalty, 1000);
+  assert.equal(score.score, -950); // power 50 - 1000
 });

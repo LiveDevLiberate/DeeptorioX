@@ -165,6 +165,46 @@ function setup(overrides = {}) {
   };
 }
 
+test("telemetry counts full blackouts once power is established and applies -500 each", async () => {
+  const { manager, hooks } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  await waitFor(() => manager.get(run.id).state === "running");
+  const original = hooks.command;
+  let phase = 0;
+  hooks.command = async (lua) => {
+    if (lua.includes("get_item_production_statistics")) {
+      return JSON.stringify({
+        ...snapshot(),
+        power: {
+          networks: 1,
+          maximum_production: 100,
+          maximum_consumption: 50,
+          total_transfer: phase === 0 || phase === 2 ? 50 : 0,
+          satisfaction: phase === 0 || phase === 2 ? 1 : 0,
+        },
+      });
+    }
+    return original(lua);
+  };
+  try {
+    await manager.sample();
+    phase = 1;
+    await manager.sample();
+    assert.equal(manager.get(run.id).power_blackouts, 1);
+    assert.equal(manager.get(run.id).automation.blackout_penalty, 500);
+    await manager.sample();
+    assert.equal(manager.get(run.id).power_blackouts, 1, "one continuous outage is one event");
+    phase = 2;
+    await manager.sample();
+    phase = 3;
+    await manager.sample();
+    assert.equal(manager.get(run.id).power_blackouts, 2);
+    assert.equal(manager.get(run.id).automation.blackout_penalty, 1000);
+  } finally {
+    await manager.shutdown();
+  }
+});
+
 test("milestones subtract initial production, validate player readiness, and require actual research", () => {
   const m = { id: "plates", kind: "production", name: "iron-plate", count: 10 };
   assert.equal(reached(m, snapshot({ "iron-plate": 25 }), snapshot({ "iron-plate": 20 })), false);

@@ -369,6 +369,7 @@ const AUDIT_SCRIPT = String.raw`
       const collapsedStyles = styleSnapshot(stateStyleSelectors);
       statusHeader.classList.remove("collapsed");
       document.body.classList.add("overlay");
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const overlayStyles = styleSnapshot(stateStyleSelectors);
       document.body.classList.remove("overlay");
       const overflow = [...document.querySelectorAll("body *")]
