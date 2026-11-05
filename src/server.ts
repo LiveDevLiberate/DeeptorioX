@@ -671,6 +671,8 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, "127.0.0.1", () => {
   logger.info("Server listening", { url: `http://localhost:${PORT}`, port: PORT, data_dir: DATA_DIR });
+  const resumed = runManager.autoResumeInterrupted();
+  if (resumed) logger.info("Auto-resumed interrupted run", { run_id: resumed });
 });
 
 let shuttingDown = false;

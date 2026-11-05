@@ -271,6 +271,31 @@ test("a successful agent exit does not count as game success", async () => {
   assert.deepEqual(manager.get(run.id).milestones, {});
 });
 
+test("AUTORIO_AUTO_RESUME resumes the newest interrupted run on manager start", async () => {
+  const previous = process.env.AUTORIO_AUTO_RESUME;
+  process.env.AUTORIO_AUTO_RESUME = "1";
+  const env = setup();
+  const manager = env.manager;
+  try {
+    const run = manager.start({ benchmark: "smoke", agent: "manual" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    await manager.stop();
+    const folder = path.join(temp, "runs", run.id);
+    const stored = JSON.parse(fs.readFileSync(path.join(folder, "run.json"), "utf8"));
+    stored.state = "interrupted";
+    stored.reason = "simulated manager crash";
+    fs.writeFileSync(path.join(folder, "run.json"), JSON.stringify(stored));
+    const reloaded = env.reload();
+    assert.equal(reloaded.autoResumeInterrupted(), run.id);
+    await waitFor(() => reloaded.get(run.id).state === "running");
+    await reloaded.stop();
+    assert.equal(reloaded.get(run.id).state, "stopped");
+  } finally {
+    await manager.shutdown();
+    process.env.AUTORIO_AUTO_RESUME = previous;
+  }
+});
+
 test("a failed run with a current checkpoint can be retried", async () => {
   const { manager } = setup();
   try {

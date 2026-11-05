@@ -888,6 +888,26 @@ export class RunManager {
   private videoDir(run: Run) {
     return this.segment(run).index === 1 ? this.dir(run) : this.segmentDir(run);
   }
+  /**
+   * Optional startup recovery: with AUTORIO_AUTO_RESUME=1, resume the newest
+   * interrupted run that still has a current checkpoint. Never resumes a
+   * run that an operator explicitly stopped or completed.
+   */
+  autoResumeInterrupted(): string | undefined {
+    if (process.env.AUTORIO_AUTO_RESUME !== "1") return undefined;
+    const candidates = this.list()
+      .filter((run) => run.state === "interrupted" && run.resumable)
+      .sort((a, b) => String(b.ended_at || b.created_at).localeCompare(String(a.ended_at || a.created_at)));
+    const candidate = candidates[0];
+    if (!candidate) return undefined;
+    try {
+      this.resume(candidate.id);
+      return candidate.id;
+    } catch {
+      return undefined;
+    }
+  }
+
   /** A checkpoint is resumable when it belongs to the current segment, not a stale save. */
   private canResume(run: Run): boolean {
     const checkpoint = run.checkpoint;

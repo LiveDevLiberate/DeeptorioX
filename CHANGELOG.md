@@ -67,6 +67,12 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Run-page visual regression.** The browser regression suite now loads the real
+  run page against the fixture API, checks the header/blueprint/map controls and
+  model label, and stores a deterministic screenshot artifact.
+- **Optional startup recovery.** `AUTORIO_AUTO_RESUME=1` resumes the newest
+  interrupted run with a current checkpoint when the manager starts; otherwise
+  interrupted runs remain manually retryable from the run page.
 - **Failure/partial-progress diagnostics.** Run pages show failure kind,
   auto-continues, automation score and milestone completion; run history and
   comparison add the same partial-progress columns so failed runs remain

@@ -30,6 +30,9 @@ export const RUN_FIXTURE = {
     "Next: 把锅炉与铁/铜炉的插入器旋转180°",
   ].join("\n"),
   latest: { current_research: "logistics", research_progress: 0.1 },
+  milestones: {},
+  created_at: "2020-01-01T00:00:00.000Z",
+  hashes: { benchmark: "fixture", baseline_save: "fixture", client: "fixture" },
   automation: {
     score: 54,
     positive: 1925,

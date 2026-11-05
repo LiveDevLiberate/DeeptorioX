@@ -399,6 +399,23 @@ async function main() {
       });
     }
 
+    const runUrl = `http://127.0.0.1:${port}/run.html?run=${encodeURIComponent(RUN_FIXTURE.id)}`;
+    const runDom = (await runBrowser(browser, runUrl, { width: 1280, height: 1000, profile })).dom;
+    check("run page: renders details and management controls", () => {
+      assert.match(runDom, /Run Details/);
+      assert.match(runDom, /Blueprints/);
+      assert.match(runDom, /id="mapToggle"/);
+      assert.match(runDom, /Fixture factory/);
+      assert.match(runDom, /deepseek-official\/deepseek-flash/);
+    });
+    if (ARTIFACT_ENABLED) {
+      const screenshot = join(ARTIFACTS, "run-page-light-1280.png");
+      await runBrowser(browser, runUrl, { width: 1280, height: 1000, screenshot, profile });
+      check("run page: screenshot", () => {
+        assert.deepEqual(pngSize(screenshot), { width: 1280, height: 1000 });
+      });
+    }
+
     const errorUrl = `${base}?theme=dark&status=expanded&fail=1`;
     const errorDom = (await runBrowser(browser, errorUrl, { width: 1280, height: 900, profile })).dom;
     const errorAudit = decodeAudit(errorDom);
