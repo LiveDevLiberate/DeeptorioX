@@ -58,6 +58,8 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Run page map thumbnail.** Run details now has a Map toggle that paints the same
+  charted overview canvas for the active run, alongside the recording Map dialog.
 - **Recording map thumbnail.** The recording Map dialog now loads the
   map-overview endpoint and paints the charted ASCII rows as a pixel canvas,
   with glyph colors, legend and charted/radius metadata; the existing map

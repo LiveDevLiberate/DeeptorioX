@@ -127,6 +127,28 @@ $("blueprintsToggle").onclick = () => {
   if (!panel.hidden) loadBlueprints();
 };
 
+async function loadRunMap() {
+  const container = $("runMapThumbnail");
+  const summary = $("mapSummary");
+  container.hidden = false;
+  summary.textContent = "Loading…";
+  await globalThis.renderMapThumbnail?.(container, {
+    x: 0,
+    y: 0,
+    radius: 256,
+    size: 96,
+    loading: "Loading charted map…",
+    unavailable: "Map is unavailable because the game is not running.",
+  });
+  summary.textContent = "";
+}
+$("mapToggle").onclick = () => {
+  const panel = $("mapPanel");
+  panel.hidden = !panel.hidden;
+  $("mapToggle").setAttribute("aria-expanded", String(!panel.hidden));
+  if (!panel.hidden) void loadRunMap();
+};
+
 async function refresh() {
   if (polling || !id) return;
   polling = true;

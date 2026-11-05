@@ -235,3 +235,38 @@ html:not([data-theme="light"]) body.overlay #agentStatus {
   font-size: 11px;
   text-align: center;
 }
+
+.map-thumbnail {
+  margin-top: 10px;
+}
+.map-thumbnail-canvas {
+  display: block;
+  width: 100%;
+  max-height: 340px;
+  border: 1px solid var(--border);
+  background: #111a1e;
+  image-rendering: pixelated;
+}
+.map-thumbnail-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.map-thumbnail-legend-item::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  background: var(--map-color);
+  border: 1px solid var(--border);
+  vertical-align: -1px;
+}
+.map-thumbnail-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
