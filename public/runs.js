@@ -154,7 +154,7 @@ function renderHistory() {
       for (const value of [
         run.benchmark.id,
         run.model_label || run.model || run.agent,
-        run.state,
+        `${run.state}${run.failure_kind ? ` (${run.failure_kind})` : ""}`,
         duration(run.elapsed_seconds),
       ])
         row.append(text("td", value));

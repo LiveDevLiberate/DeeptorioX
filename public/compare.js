@@ -21,6 +21,15 @@ try {
   const rows = [
     ["Agent", (r) => r.model_label || r.model || r.agent],
     ["Result", (r) => r.state],
+    ["Failure kind", (r) => r.failure_kind || "—"],
+    [
+      "Milestones",
+      (r) => {
+        const total = r.benchmark?.milestones?.length || 0;
+        return `${Object.keys(r.milestones || {}).length}/${total}`;
+      },
+    ],
+    ["Automation score", (r) => (r.automation?.score == null ? "—" : String(r.automation.score))],
     ["Active play time", (r) => duration(r.elapsed_seconds)],
     ["Input tokens", (r) => r.usage?.input_tokens?.toLocaleString() ?? "—"],
     ["Output tokens", (r) => r.usage?.output_tokens?.toLocaleString() ?? "—"],

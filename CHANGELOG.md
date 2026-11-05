@@ -67,6 +67,10 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Failure/partial-progress diagnostics.** Run pages show failure kind,
+  auto-continues, automation score and milestone completion; run history and
+  comparison add the same partial-progress columns so failed runs remain
+  comparable.
 - **SVG map overview output.** `POST /api/agent/observe/map-overview` accepts
   `format: "svg"` and returns compact same-color SVG runs alongside window
   metadata; Python/CLI expose `observe_map_overview(..., format="svg")` /

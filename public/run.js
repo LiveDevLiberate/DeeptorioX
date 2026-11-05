@@ -276,6 +276,12 @@ async function refresh() {
       Model: run.model_label || run.agent,
       ...(run.failure_kind ? { "Failure kind": run.failure_kind } : {}),
       ...(run.auto_continues ? { "Auto-continues": String(run.auto_continues) } : {}),
+      ...(run.automation?.score == null ? {} : { "Automation score": String(run.automation.score) }),
+      ...(run.benchmark?.milestones?.length
+        ? {
+            Milestones: `${Object.keys(run.milestones || {}).length}/${run.benchmark.milestones.length}`,
+          }
+        : {}),
       "Time limit": `${run.max_seconds}s`,
       "Sampling interval": `${run.benchmark.sample_seconds}s`,
       "Created (Pacific)": new Date(run.created_at).toLocaleString("en-US", {
