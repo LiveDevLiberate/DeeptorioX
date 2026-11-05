@@ -78,6 +78,8 @@ Commands:
   observe-research --limit-available <n> --limit-locked <n> --limit-completed <n>
   observe-recipes --limit-recipes <n> [--unlocked-only]
   observe-entity --target x,y [--target ...] [--targets-json <json>]
+  observe-container --target x,y
+  recover-debris [--center-x n --center-y n --radius n]
   observe-resources --window-x <n> --window-y <n> --radius <n>
   tools [--json] [--local] [--query <text>]
   blueprint-list [--run-id <id>]
@@ -125,6 +127,7 @@ Commands:
   act-craft --item <name> --count <n> [--no-wait]
   act-insert --entity x,y --item <name> --count <n>
   act-extract --entity x,y --item <name> --count <n|all>
+  container-transfer --from x,y --to x,y [--item name] [--count n|all]
   wait --ms <n>
   wait-for-item --item <name> --count <n> --timeout <s>
   wait-for-research --technology <name> --timeout <s>
@@ -204,6 +207,9 @@ COMMAND_USAGE = {
     "act-craft": "act-craft: Queue a handcraft and verify its products appear (or use --no-wait).\nUsage: factorio.py act-craft --item <name> --count <n> [--no-wait]\n",
     "act-insert": "act-insert: Move items from player inventory into an entity at x,y.\nUsage: factorio.py act-insert --entity x,y --item <name> --count <n>\nNote: The character walks into reach using native pathfinding.\n",
     "act-extract": "act-extract: Remove items from an entity at x,y into player inventory.\nUsage: factorio.py act-extract --entity x,y --item <name> --count <n|all>\nNote: The character walks into reach using native pathfinding.\n",
+    "observe-container": "observe-container: Show a chest/container inventory at a tile.\nUsage: factorio.py observe-container --target x,y\n",
+    "container-transfer": "container-transfer: Move items between containers through the player inventory; omit --item to move all stacks.\nUsage: factorio.py container-transfer --from x,y --to x,y [--item name] [--count n|all]\n",
+    "recover-debris": "recover-debris: Scan crash-site spaceship debris, extract loot into the player inventory, then mine each piece.\nUsage: factorio.py recover-debris [--center-x n --center-y n --radius n]\n",
     "wait": "wait: Sleep locally for N milliseconds between actions.\nUsage: factorio.py wait --ms <n>\n",
     "job-status": "job-status: Read action job progress.\nUsage: factorio.py job-status --job-id <id>\n",
     "job-cancel": "job-cancel: Request cancellation after the current atomic action.\nUsage: factorio.py job-cancel --job-id <id>\n",
@@ -2089,6 +2095,93 @@ class FactorioClient:
             "player_only": player_only,
         })
 
+    def container_contents(self, x: float, y: float) -> dict[str, Any]:
+        """Observe a chest/container at a tile and return its inventory stacks."""
+        observation = self.observe_entities([{"x": x, "y": y}])
+        data = data_value(observation)
+        if isinstance(data, dict):
+            results = data.get("results")
+            if isinstance(results, list) and results:
+                data = results[0]
+        items = _observation_inventory_items(observation)
+        return {"ok": bool(isinstance(data, dict) and data.get("ok")), "entity": data, "items": items}
+
+    def container_transfer(self, source: dict[str, Any], target: dict[str, Any],
+                           *, item: str | None = None,
+                           count: int | str | None = None) -> dict[str, Any]:
+        """Move items from one container to another through the player inventory.
+
+        ``item=None`` moves every stack; ``count=None/'all'`` moves all matching
+        items. The source is emptied before the target is filled, so a full target
+        leaves leftovers in the player inventory (report them).
+        """
+        contents = self.container_contents(float(source["x"]), float(source["y"]))
+        stacks = contents.get("items") if isinstance(contents.get("items"), list) else []
+        wanted: dict[str, int] = {}
+        for stack in stacks:
+            name = stack.get("name") if isinstance(stack, dict) else None
+            amount = stack.get("count") if isinstance(stack, dict) else None
+            if not isinstance(name, str) or (item and name != item):
+                continue
+            wanted[name] = wanted.get(name, 0) + int(amount or 0)
+        moved: dict[str, int] = {}
+        errors: list[str] = []
+        for name, available in wanted.items():
+            amount = available if count is None or count == "all" else min(available, int(count))
+            if amount <= 0:
+                continue
+            extracted = self.extract(source, name, "all")
+            removed = int((_job_first_result(extracted) or {}).get("removed") or 0)
+            if removed <= 0:
+                errors.append(f"extract failed for {name}")
+                continue
+            inserted = self.insert(target, name, removed)
+            placed = int((_job_first_result(inserted) or {}).get("inserted") or 0)
+            moved[name] = moved.get(name, 0) + placed
+            if placed < removed:
+                errors.append(f"target full for {name}: {removed - placed} left in player inventory")
+        return {"ok": not errors, "moved": moved, "left_in_player": bool(errors), "errors": errors}
+
+    def recover_debris(self, *, x: float = 0, y: float = 0, radius: int = 64,
+                       limit: int = 300) -> dict[str, Any]:
+        """Recover crash-site spaceship debris near a point.
+
+        Scans containers and simple entities whose name starts with
+        ``crash-site-spaceship``, extracts their loot into the player inventory,
+        then mines each piece. Returns recovered items and per-entity errors.
+        """
+        response = self.observe_area(x, y, radius, limit=limit, player_only=False,
+                                     types=["container", "simple-entity-with-owner"])
+        data = data_value(response)
+        entities = data.get("entities") if isinstance(data, dict) else None
+        debris = [entity for entity in entities if isinstance(entity, dict)
+                  and isinstance(entity.get("name"), str)
+                  and entity["name"].startswith("crash-site-spaceship")] if isinstance(entities, list) else []
+        recovered: dict[str, int] = {}
+        results: list[dict[str, Any]] = []
+        for entity in debris:
+            target = {"x": int(entity["x"]), "y": int(entity["y"])}
+            name = str(entity["name"])
+            loot: dict[str, int] = {}
+            try:
+                contents = self.container_contents(target["x"], target["y"])
+                for stack in contents.get("items", []) if isinstance(contents.get("items"), list) else []:
+                    if isinstance(stack, dict) and isinstance(stack.get("name"), str):
+                        loot[stack["name"]] = loot.get(stack["name"], 0) + int(stack.get("count") or 0)
+                for item_name in loot:
+                    job = self.extract(target, item_name, "all")
+                    result = _job_first_result(job) or {}
+                    removed = int(result.get("removed") or 0)
+                    if removed:
+                        recovered[item_name] = recovered.get(item_name, 0) + removed
+                mined = self.mine([{**target, "kind": "entity", "name": name}])
+                result = _job_first_result(mined) or {}
+                results.append({"name": name, **target, "loot": loot, "mined": result.get("ok") is not False})
+            except Exception as error:  # Per-debris failure must not abort the sweep.
+                results.append({"name": name, **target, "error": str(error)})
+        return {"ok": not any("error" in item for item in results), "debris": len(debris),
+                "recovered": recovered, "results": results}
+
     def copy_settings(self, targets: list[dict[str, Any]], *, dry_run: bool = False) -> Any:
         """Copy entity settings between source/target pairs.
 
@@ -3222,6 +3315,37 @@ def data_value(response: Any) -> Any:
     return response
 
 
+def _job_first_result(job: Any) -> dict[str, Any] | None:
+    """Return the first per-target result from an action-job response."""
+    if not isinstance(job, dict):
+        return None
+    data = job.get("data")
+    results = data.get("results") if isinstance(data, dict) else None
+    if not isinstance(results, list) and isinstance(job.get("results"), list):
+        results = job["results"]
+    if isinstance(results, list) and results and isinstance(results[0], dict):
+        return results[0]
+    return None
+
+
+def _observation_inventory_items(observation: Any) -> list[dict[str, Any]]:
+    """Flatten inventories from an observe-entity result into slot entries."""
+    data = data_value(observation)
+    if not isinstance(data, dict):
+        return []
+    results = data.get("results") if isinstance(data.get("results"), list) else []
+    first = results[0] if results and isinstance(results[0], dict) else {}
+    inventories = first.get("inventories") if isinstance(first.get("inventories"), list) else []
+    items: list[dict[str, Any]] = []
+    for inventory in inventories:
+        if not isinstance(inventory, dict):
+            continue
+        for item in inventory.get("items") if isinstance(inventory.get("items"), list) else []:
+            if isinstance(item, dict) and isinstance(item.get("name"), str):
+                items.append(item)
+    return items
+
+
 def write_response(*, ok: bool, cmd: str, started: float, data: Any = MISSING,
                    error: str | None = None, truncated: Any = MISSING) -> None:
     response: dict[str, Any] = {"schema_version": API_SCHEMA_VERSION, "ok": ok, "cmd": cmd}
@@ -3765,6 +3889,29 @@ def run(argv: list[str]) -> int:
             raw_count = flag("count")
             count: Any = "all" if cmd == "act-extract" and raw_count == "all" else parse_number(raw_count, 1)
             job = submit(cmd.removeprefix("act-"), {"entity": target, "item": item, "count": count})
+        elif cmd == "observe-container":
+            target = parse_targets([flag("target") or ""], False)[0] if flag("target") else None
+            if not target:
+                raise ValueError("Missing --target")
+            return output(FactorioClient(parsed.base).container_contents(target["x"], target["y"]))
+        elif cmd == "container-transfer":
+            from_value, to_value = flag("from"), flag("to")
+            if not from_value or not to_value:
+                raise ValueError("Missing --from or --to")
+            raw_count = flag("count")
+            count: Any = None if raw_count is None or raw_count == "all" else parse_number(raw_count, None)
+            result = FactorioClient(parsed.base).container_transfer(
+                parse_targets([from_value], False)[0], parse_targets([to_value], False)[0],
+                item=flag("item"), count=count,
+            )
+            return output(result, ok=bool(result.get("ok")))
+        elif cmd == "recover-debris":
+            result = FactorioClient(parsed.base).recover_debris(
+                x=parse_number(flag("center-x"), 0) or 0,
+                y=parse_number(flag("center-y"), 0) or 0,
+                radius=parse_number(flag("radius"), 64) or 64,
+            )
+            return output(result, ok=bool(result.get("ok")))
         elif cmd == "wait":
             milliseconds = max(0, parse_number(flag("ms"), 0) or 0)
             time.sleep(milliseconds / 1000)

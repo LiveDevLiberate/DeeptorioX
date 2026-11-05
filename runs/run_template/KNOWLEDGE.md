@@ -60,7 +60,15 @@ section below.
 - Balance lanes; buffers only cover spikes; modules/beacons need more power/inputs.
 - Prefer parallel lines over one overloaded line.
 
-## 8. Blueprints (`blueprints`)
+## 8. Containers and crash debris (`containers`)
+
+- `observe-container --target x,y` (or `observe-entity`) shows slot/name/count stacks.
+- `container-transfer --from x,y --to x,y` moves all stacks through the player inventory; use `--item`/`--count` to filter. A full target leaves leftovers in the player inventory.
+- Chests need inserters or logistics to load/unload in normal production.
+- Crash-site spaceship debris is mineable and some pieces contain loot. `recover-debris` extracts the loot first, then mines the pieces.
+- Do not destroy a loot container before extracting its contents.
+
+## 9. Blueprints (`blueprints`)
 
 - Create/save from a known-good layout; list with `blueprint-list`.
 - `act-build-blueprint` places relative to an anchor; dry-run first and pass the top-left anchor.

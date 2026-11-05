@@ -145,6 +145,12 @@
       "usage": "Usage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]"
     },
     {
+      "command": "container-transfer",
+      "description": "Move items between containers through the player inventory; omit --item to move all stacks.",
+      "help": "Usage: factorio.py container-transfer --from x,y --to x,y [--item name] [--count n|all]",
+      "usage": "Usage: factorio.py container-transfer --from x,y --to x,y [--item name] [--count n|all]"
+    },
+    {
       "command": "deconstruct-area",
       "description": "Observe an area and remove the entities with native mining (chunked).",
       "help": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run] Defaults: radius 64, limit server default (300), player_only=true (last_user heuristic). --include-all sets player_only=false; add --types tree,simple-entity for passability or --types resource for ore. Removal is the normal native miner: the character walks, mining takes real time, and unreachable targets fail per entity. Jobs are split into batches of at most 50 targets (--max-per-job smaller). --dry-run plans only.",
@@ -203,6 +209,12 @@
       "description": "Audit inserter/belt/machine links and report dead ends or reversed links.",
       "help": "Usage: factorio.py observe-connections --center-x <n> --center-y <n> --radius <n>",
       "usage": "Usage: factorio.py observe-connections --center-x <n> --center-y <n> --radius <n>"
+    },
+    {
+      "command": "observe-container",
+      "description": "Show a chest/container inventory at a tile.",
+      "help": "Usage: factorio.py observe-container --target x,y",
+      "usage": "Usage: factorio.py observe-container --target x,y"
     },
     {
       "command": "observe-copy-settings",
@@ -305,6 +317,12 @@
       "description": "Ask the native pathfinder for a route without walking it.",
       "help": "Usage: factorio.py path-preview --target x,y Returns ok=true with path waypoints when reachable; ok=false error=no_path when blocked (water/cliff/buildings). Use this before long or unseen-terrain moves; route around water/cliff instead of retrying the same no_path target.",
       "usage": "Usage: factorio.py path-preview --target x,y"
+    },
+    {
+      "command": "recover-debris",
+      "description": "Scan crash-site spaceship debris, extract loot into the player inventory, then mine each piece.",
+      "help": "Usage: factorio.py recover-debris [--center-x n --center-y n --radius n]",
+      "usage": "Usage: factorio.py recover-debris [--center-x n --center-y n --radius n]"
     },
     {
       "command": "server-saves",
@@ -1020,6 +1038,62 @@
         }
       ],
       "signature": "build_underground_pipe_line(self, from_xy: 'Any' = None, to_xy: 'Any' = None, *, plan: 'Any' = None, max_distance: 'Any' = 10, clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Observe a chest/container at a tile and return its inventory stacks.",
+      "name": "container_contents",
+      "parameters": [
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "x",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "y",
+          "required": true
+        }
+      ],
+      "signature": "container_contents(self, x: 'float', y: 'float') -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Move items from one container to another through the player inventory.",
+      "name": "container_transfer",
+      "parameters": [
+        {
+          "annotation": "dict[str, Any]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "source",
+          "required": true
+        },
+        {
+          "annotation": "dict[str, Any]",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "target",
+          "required": true
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "item",
+          "required": false
+        },
+        {
+          "annotation": "int | str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "count",
+          "required": false
+        }
+      ],
+      "signature": "container_transfer(self, source: 'dict[str, Any]', target: 'dict[str, Any]', *, item: 'str | None' = None, count: 'int | str | None' = None) -> 'dict[str, Any]'"
     },
     {
       "description": "Copy entity settings between source/target pairs.",
@@ -1998,6 +2072,41 @@
       "signature": "preview_path(self, x: 'float', y: 'float', **options: 'Any') -> 'Any'"
     },
     {
+      "description": "Recover crash-site spaceship debris near a point.",
+      "name": "recover_debris",
+      "parameters": [
+        {
+          "annotation": "float",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "64",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "300",
+          "kind": "keyword_only",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "signature": "recover_debris(self, *, x: 'float' = 0, y: 'float' = 0, radius: 'int' = 64, limit: 'int' = 300) -> 'dict[str, Any]'"
+    },
+    {
       "description": "",
       "name": "request",
       "parameters": [
@@ -2553,7 +2662,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "0ca53b3a177095631f78df421fe7b46c323f60403ad90c5a65a514dddb1056fd",
+  "client_sha256": "4a9a0bc00606697740c68ea04b157d6620d4eecd8551d6ceebc329390441a526",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2720,7 +2829,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "0ca53b3a177095631f78df421fe7b46c323f60403ad90c5a65a514dddb1056fd",
+    "factorio.py": "4a9a0bc00606697740c68ea04b157d6620d4eecd8551d6ceebc329390441a526",
     "src/api/agent.ts": "f63bd5448bb53d3c7d0b291378c65a64908f54af2b9f71fe7ae7d3047f41c51d",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",

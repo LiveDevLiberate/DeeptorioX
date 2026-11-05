@@ -159,6 +159,26 @@ export const AGENT_KNOWLEDGE: KnowledgeTopic[] = [
     references: ["https://wiki.factorio.com/Production", "https://wiki.factorio.com/Balancer_mechanics"],
   },
   {
+    id: "containers",
+    title: "Containers and crash debris",
+    aliases: ["chests", "inventory", "debris", "salvage"],
+    summary:
+      "Containers expose slot inventories; crash-site spaceship wreckage is a lootable, mineable salvage source.",
+    rules: [
+      "observe-container --target x,y (or observe-entity) shows slot/name/count stacks; chests do not move items by themselves.",
+      "container-transfer --from x,y --to x,y moves every stack through the player inventory; add --item/--count to filter. A full target leaves leftovers in the player inventory.",
+      "Chests need inserters (or a logistic network) to load/unload in normal production; the transfer command is for manual organization.",
+      "Crash-site spaceship names start with crash-site-spaceship; they are mineable and some are containers with loot.",
+      "recover-debris scans that wreckage, extracts loot into the player inventory, then mines each piece; collect the loot before destroying it.",
+    ],
+    mistakes: [
+      "Mining a loot container before extracting its contents.",
+      "Expecting a chest to feed a machine without an inserter.",
+      "Transferring into a full chest and losing track of leftovers in the player inventory.",
+    ],
+    references: ["https://wiki.factorio.com/Container"],
+  },
+  {
     id: "blueprints",
     title: "Blueprints",
     aliases: ["blueprint", "copy-paste", "design"],

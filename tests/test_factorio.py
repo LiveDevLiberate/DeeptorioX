@@ -68,6 +68,60 @@ def area_observation(entity_count, *, types=None, total=100, truncated=False):
     }
 
 
+class ContainerAndDebrisTests(unittest.TestCase):
+    def test_container_contents_reads_observed_inventories(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        observation = {"data": {"results": [{
+            "ok": True,
+            "inventories": [{"items": [
+                {"slot": 1, "name": "iron-plate", "count": 4},
+                {"slot": 2, "name": "coal", "count": 2},
+            ]}],
+        }]}}
+        with patch.object(client, "observe_entities", return_value=observation):
+            result = client.container_contents(10, 20)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["items"], [
+            {"slot": 1, "name": "iron-plate", "count": 4},
+            {"slot": 2, "name": "coal", "count": 2},
+        ])
+
+    def test_container_transfer_extracts_then_inserts(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "container_contents", return_value={
+            "ok": True, "items": [{"name": "iron-plate", "count": 5}],
+        }), patch.object(client, "extract", return_value={
+            "data": {"results": [{"ok": True, "removed": 5, "inserted": 5}]},
+        }) as extract, patch.object(client, "insert", return_value={
+            "data": {"results": [{"ok": True, "inserted": 5}]},
+        }) as insert:
+            result = client.container_transfer({"x": 1, "y": 2}, {"x": 3, "y": 4})
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["moved"], {"iron-plate": 5})
+        extract.assert_called_once_with({"x": 1, "y": 2}, "iron-plate", "all")
+        insert.assert_called_once_with({"x": 3, "y": 4}, "iron-plate", 5)
+
+    def test_recover_debris_extracts_loot_then_mines(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "observe_area", return_value={"data": {"entities": [
+            {"name": "crash-site-spaceship-wreck-big-1", "type": "container", "x": -34, "y": -5},
+            {"name": "crash-site-spaceship-wreck-small-1", "type": "simple-entity-with-owner", "x": -31, "y": 6},
+            {"name": "wooden-chest", "type": "container", "x": 0, "y": 0},
+        ]}}), patch.object(client, "container_contents", return_value={
+            "ok": True, "items": [{"name": "iron-plate", "count": 2}],
+        }), patch.object(client, "extract", return_value={
+            "data": {"results": [{"ok": True, "removed": 2}]},
+        }) as extract, patch.object(client, "mine", return_value={
+            "data": {"results": [{"ok": True}]},
+        }) as mine:
+            result = client.recover_debris(x=0, y=0, radius=64)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["debris"], 2)
+        self.assertEqual(result["recovered"], {"iron-plate": 4})
+        self.assertEqual(mine.call_count, 2)
+        self.assertEqual(extract.call_count, 2)
+
+
 class ContinuousMiningTests(unittest.TestCase):
     def test_mine_continuous_stays_on_one_target_and_aggregates(self):
         client = factorio.FactorioClient(poll_interval=0)

@@ -315,6 +315,20 @@ choose a reachable shore/waypoint and build the route in stages.
 - `act-mine` without `--resource` is for normal entities (trees, chests,
   buildings); it still mines one target at a time.
 
+## 12.2 Debris and container logistics
+
+- Crash-site spaceship debris (`crash-site-spaceship*`) is mineable; some pieces
+  are containers with loot. Use `recover-debris --center-x X --center-y Y
+  --radius R` to extract their contents into the player inventory and then mine
+  every piece.
+- Inspect a chest with `observe-container --target x,y` (or `observe-entity`);
+  it returns slot/name/count stacks.
+- Move contents with `container-transfer --from x,y --to x,y` (all stacks) or
+  add `--item name [--count N|all]`. It transfers through the player inventory;
+  a full target leaves leftovers in the player inventory.
+- Normal chests are passive: use inserters or a logistics network for automated
+  loading/unloading. Do not mine a loot container before extracting it.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

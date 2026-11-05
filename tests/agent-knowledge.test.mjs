@@ -31,5 +31,5 @@ test("knowledge topic lookup accepts aliases and rejects unknown topics", () => 
   assert.equal(knowledgeTopic("power-grid").id, "power");
   assert.equal(knowledgeTopic("optimization").id, "production");
   assert.equal(knowledgeTopic("nope"), undefined);
-  assert.equal(knowledgeCatalog().count, 8);
+  assert.equal(knowledgeCatalog().count, 9);
 });
