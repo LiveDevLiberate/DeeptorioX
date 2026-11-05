@@ -1297,3 +1297,40 @@ body.recording .status-model-text {
     padding-left: 6px;
   }
 }
+
+body.recording .map-thumbnail {
+  padding: 12px 16px 2px;
+}
+body.recording .map-thumbnail-canvas {
+  display: block;
+  width: 100%;
+  max-height: min(42dvh, 340px);
+  border: 1px solid var(--rule);
+  background: #111a1e;
+  image-rendering: pixelated;
+}
+body.recording .map-thumbnail-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+}
+body.recording .map-thumbnail-legend-item::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  background: var(--map-color);
+  border: 1px solid var(--rule);
+  vertical-align: -1px;
+}
+body.recording .map-thumbnail-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+}

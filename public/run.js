@@ -92,7 +92,7 @@ function renderBlueprints() {
           });
           pre.textContent = JSON.stringify(detail.payload, null, 2);
           const preview = globalThis.blueprintPreview?.(detail.payload);
-          if (preview) details.append(preview);
+          if (preview) details.insertBefore(preview, pre);
         } catch (error) {
           pre.textContent = `Could not decode blueprint: ${error.message}`;
         }

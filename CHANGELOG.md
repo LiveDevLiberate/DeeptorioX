@@ -58,6 +58,10 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Recording map thumbnail.** The recording Map dialog now loads the
+  map-overview endpoint and paints the charted ASCII rows as a pixel canvas,
+  with glyph colors, legend and charted/radius metadata; the existing map
+  settings remain below it.
 - **Map-overview thumbnail API.** `POST /api/agent/observe/map-overview`
   downsamples player-charted chunks into compact ASCII rows with a legend for
   uncharted/water/land/player-force entities/resources/player. Supports radius

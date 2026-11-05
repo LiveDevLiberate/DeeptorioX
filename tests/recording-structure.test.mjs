@@ -95,6 +95,8 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(html, /id="mapInfoOverlay"[^>]*hidden/);
   assert.match(html, /id="mapInfoDialog"[^>]*role="dialog"[^>]*aria-modal="true"/);
   assert.match(html, /id="mapInfoClose"/);
+  assert.match(html, /id="mapThumbnail"/);
+  assert.match(html, /src="\/map-thumbnail.js"/);
   assert.match(html, /id="recordingBlueprintsToggle"[^>]*aria-controls="blueprintOverlay"/);
   assert.match(html, /id="blueprintOverlay"[^>]*hidden/);
   assert.match(html, /id="blueprintDialog"[^>]*role="dialog"[^>]*aria-modal="true"/);

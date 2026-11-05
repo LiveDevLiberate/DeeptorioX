@@ -211,6 +211,8 @@ const I18N = {
       "Seed and autoplace overrides used to generate the benchmark map; blank values use Factorio defaults.",
     mapExtras: "Other map settings",
     mapRaw: "Raw map_gen",
+    mapThumbnailLoading: "Loading charted map…",
+    mapThumbnailUnavailable: "Map thumbnail is unavailable while the game is not running.",
     blueprints: "Blueprints",
     blueprintsTitle: "Run blueprints",
     blueprintsClose: "Close blueprints",
@@ -365,6 +367,8 @@ const I18N = {
       "生成基准地图时使用的种子与资源生成覆盖。这里只列出覆盖项，未列出的资源和空值使用 Factorio 默认配置。",
     mapExtras: "其他地图设置",
     mapRaw: "原始 map_gen",
+    mapThumbnailLoading: "正在加载已探索地图…",
+    mapThumbnailUnavailable: "游戏未运行时无法加载缩略地图。",
     blueprints: "蓝图",
     blueprintsTitle: "本局蓝图",
     blueprintsClose: "关闭蓝图列表",
@@ -409,6 +413,7 @@ const connectionRetry = document.getElementById("connectionRetry");
 const statusToggle = document.getElementById("statusToggle");
 const mapInfoToggle = document.getElementById("mapInfoToggle");
 const mapInfoOverlay = document.getElementById("mapInfoOverlay");
+const mapThumbnail = document.getElementById("mapThumbnail");
 const mapInfoBody = document.getElementById("mapInfoBody");
 const mapInfoClose = document.getElementById("mapInfoClose");
 const mapInfoTitle = document.getElementById("mapInfoTitle");
@@ -630,7 +635,7 @@ function renderBlueprints() {
           const detail = await response.json();
           pre.textContent = JSON.stringify(detail.payload, null, 2);
           const preview = globalThis.blueprintPreview?.(detail.payload);
-          if (preview) details.append(preview);
+          if (preview) details.insertBefore(preview, pre);
         } catch {
           pre.textContent = strings.blueprintError;
         }
@@ -679,6 +684,18 @@ function closeBlueprints() {
   target?.focus?.();
   lastFocusedElement = null;
 }
+function loadMapThumbnail() {
+  if (!mapThumbnail) return;
+  const strings = I18N[uiLang || "en"];
+  void globalThis.renderMapThumbnail?.(mapThumbnail, {
+    x: 0,
+    y: 0,
+    radius: 256,
+    size: 96,
+    loading: strings.mapThumbnailLoading,
+    unavailable: strings.mapThumbnailUnavailable,
+  });
+}
 function openMapInfo() {
   if (!mapInfoOverlay) return;
   const active = document.activeElement;
@@ -688,6 +705,7 @@ function openMapInfo() {
   renderMapInfo();
   mapInfoOverlay.hidden = false;
   mapInfoToggle?.setAttribute("aria-expanded", "true");
+  loadMapThumbnail();
   mapInfoClose?.focus?.();
 }
 function closeMapInfo() {
