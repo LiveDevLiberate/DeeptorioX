@@ -71,6 +71,12 @@ this file.
   `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
   changing its checkpoint; resuming a paused run then uses the new limit and
   watchdog.
+- **Entity type/interface annotation.** `observe-entities` now returns an
+  `interfaces[]` list with machine type context: inserter pickup/drop ports,
+  belt/underground/splitter input/output tiles, fluid connection points
+  (position/direction/fluidbox/target), and power roles. `observe-layout`
+  entities also include their prototype type; connection summaries already carry
+  source/target types.
 - **Entity footprint observation.** `observe-entities` now returns `anchor` (top-left
   occupied tile), `footprint` (left/top/right/bottom/width/height), `tile_size`
   and `collision_bounds` in addition to the entity center. This prevents agents

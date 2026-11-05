@@ -179,6 +179,14 @@ creates straight horizontal/vertical trunks with wire-reach spacing and includes
 both endpoints (big pole default, 30 reach). The planner avoids using big poles
 as a dense coverage grid.
 
+**Entity interfaces.** `observe-entities` annotates each result with
+`type` and an `interfaces[]` list: inserter `pickup`/`drop`, belt/splitter
+`input`/`output`, fluid connection points (position/direction/fluidbox/target),
+and power-pole role. `observe-layout` entity summaries include the prototype
+`type`; `observe-connections` carries types on both endpoints. Interface
+positions are tile coordinates, so they can be fed directly into build/placement
+planning.
+
 **Footprints.** `observe-entities` returns each entity's `anchor` (top-left
 occupied tile), `footprint`/`collision_bounds`, `tile_size`, center and occupied
 tile; `observe-layout` fills full bounding boxes, `observe-placement` uses the

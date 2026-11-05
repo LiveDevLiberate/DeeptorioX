@@ -210,6 +210,9 @@ test("agentObserveEntityCommand reports footprint and anchor for multi-tile buil
   assert.ok(lua.includes("footprint={left="));
   assert.ok(lua.includes("anchor={x=footprint.left,y=footprint.top}"));
   assert.ok(lua.includes("collision_bounds="));
+  assert.ok(lua.includes("interfaces={}"));
+  assert.ok(lua.includes("port('pickup'"));
+  assert.ok(lua.includes("kind='fluid'"));
 });
 
 test("agentObserveEntityCommand emits one observe() call per target with optional kind and name filters", () => {
