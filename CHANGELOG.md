@@ -53,6 +53,11 @@ this file.
   shows `model <model_label>` (shortened with ellipsis at narrow widths) with the
   full label in the tooltip; the run page already exposes the model in Run
   information. This makes it visible which model is driving the current game.
+- **Blueprint CLI and preview.** `blueprint-list` / `blueprint-save` make the
+  per-run catalogue usable without writing Python; paid upload of a designed
+  string does not build it. Blueprint details in the run page and recording
+  window now include an SVG layout preview (entity positions, rough prototype
+  sizes and category colors) alongside the decoded JSON.
 - **Map-overview thumbnail API.** `POST /api/agent/observe/map-overview`
   downsamples player-charted chunks into compact ASCII rows with a legend for
   uncharted/water/land/player-force entities/resources/player. Supports radius

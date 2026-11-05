@@ -1823,6 +1823,15 @@ class ConstructionCliTests(unittest.TestCase):
         self.assertIn("--from x,y --to x,y", stderr.getvalue())
 
 
+class BlueprintCliTestsExtra(unittest.TestCase):
+    def test_blueprint_cli_commands_are_documented(self):
+        self.assertIn("blueprint-list", factorio.COMMAND_USAGE)
+        self.assertIn("blueprint-save", factorio.COMMAND_USAGE)
+        self.assertIn("blueprint-list", factorio.GLOBAL_USAGE)
+        self.assertIn("blueprint-save", factorio.GLOBAL_USAGE)
+        self.assertIn("--source", factorio.COMMAND_USAGE["blueprint-save"])
+
+
 class BlueprintRegistryClientTests(unittest.TestCase):
     def test_save_and_list_blueprints(self):
         client = factorio.FactorioClient(poll_interval=0)

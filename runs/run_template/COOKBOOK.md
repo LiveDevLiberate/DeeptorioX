@@ -147,6 +147,8 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 - `build_blueprint(text, anchor=(x,y), dry_run=True)` returns expanded entities, placement
   diagnostics and missing items; fix those first.
 - `build_blueprint(text, anchor=(x,y))` executes in <=50-entity chunks and aggregates results.
+- CLI: `factorio.py blueprint-save --blueprint-file plan.txt --label "..."` (or `--blueprint <wire>`)
+  and `factorio.py blueprint-list` do the same without writing a script.
 - `save_blueprint(payload_or_text, label="...", description="...")` stores a blueprint in the
   current run's blueprint catalogue. When `AUTORIO_RUN_ID` is present, `build_blueprint` also
   registers the blueprint automatically; use `list_blueprints()` to see what is already available.

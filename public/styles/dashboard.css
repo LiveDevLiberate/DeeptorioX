@@ -214,3 +214,24 @@ html:not([data-theme="light"]) body.overlay #agentStatus {
 .blueprint-details button {
   cursor: pointer;
 }
+
+.blueprint-preview {
+  margin: 10px 0 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.blueprint-preview svg {
+  display: block;
+  width: 100%;
+  max-height: 300px;
+  margin: 0 auto;
+  image-rendering: pixelated;
+}
+.blueprint-preview figcaption {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}

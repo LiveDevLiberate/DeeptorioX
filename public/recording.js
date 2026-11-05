@@ -629,6 +629,8 @@ function renderBlueprints() {
           if (!response.ok) throw new Error("blueprint detail unavailable");
           const detail = await response.json();
           pre.textContent = JSON.stringify(detail.payload, null, 2);
+          const preview = globalThis.blueprintPreview?.(detail.payload);
+          if (preview) details.append(preview);
         } catch {
           pre.textContent = strings.blueprintError;
         }

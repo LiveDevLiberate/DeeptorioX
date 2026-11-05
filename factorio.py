@@ -78,6 +78,8 @@ Commands:
   observe-entity --target x,y [--target ...] [--targets-json <json>]
   observe-resources --window-x <n> --window-y <n> --radius <n>
   tools [--json] [--local] [--query <text>]
+  blueprint-list [--run-id <id>]
+  blueprint-save (--blueprint-file <path>|--blueprint <string>) [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]
   state-show
   state-write --current <text> [--done-when <text>] [--next <text>] [--scores k=v,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]
   observe-factory --center-x <n> --center-y <n> --radius <n>
@@ -151,6 +153,8 @@ COMMAND_USAGE = {
     "observe-resources": "observe-resources: Scan for resource patches in a radius.\nUsage: factorio.py observe-resources --window-x <n> --window-y <n> --radius <n>\n",
     "observe-factory": "observe-factory: Summarize power, fuel, and entity status counts in a window.\nUsage: factorio.py observe-factory --center-x <n> --center-y <n> --radius <n>\n",
     "tools": "tools: Fetch the generated tool manifest (client methods, parameters, CLI usage, manager endpoints).\nUsage: factorio.py tools [--json] [--local] [--query <text>]\n--json prints the manifest as JSON; --local introspects factorio.py without the manager; --query filters matching commands/methods/endpoints. (The manager also serves GET /api/agent/tools?q=...)\n",
+    "blueprint-list": "blueprint-list: List blueprints recorded for a run (active run by default).\nUsage: factorio.py blueprint-list [--run-id <id>]\n",
+    "blueprint-save": "blueprint-save: Persist a designed blueprint string for the active run without building it.\nUsage: factorio.py blueprint-save --blueprint-file <path> [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]\n   or: factorio.py blueprint-save --blueprint <string> [--label <text>]\n",
     "state-show": "state-show: Read the active run's STATE.md freshness/status.\nUsage: factorio.py state-show\n",
     "state-write": "state-write: Write/refresh STATE.md (resets the update deadline gate).\nUsage: factorio.py state-write --current <text> [--done-when <text>] [--next <text>] [--scores production=50,logistics=40,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]\nMutating actions are refused with STATE_UPDATE_REQUIRED once STATE.md is too old; call this to continue.\n",
     "observe-layout": "observe-layout: Render a region as an ASCII map (belts, inserters, machines, terrain).\nUsage: factorio.py observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>\n",
@@ -2808,6 +2812,31 @@ def run(argv: list[str]) -> int:
                 "y": parse_number(flag("window-y"), 0),
                 "radius": parse_number(flag("radius"), 50),
             }})
+            return output(data_value(response))
+        if cmd == "blueprint-list":
+            response = FactorioClient(parsed.base).list_blueprints(flag("run-id"))
+            return output(data_value(response))
+        if cmd == "blueprint-save":
+            blueprint_file = flag("blueprint-file")
+            blueprint_string = flag("blueprint")
+            if blueprint_file:
+                try:
+                    with open(blueprint_file, "r", encoding="utf-8") as handle:
+                        blueprint_text = handle.read()
+                except OSError as error:
+                    raise ValueError(
+                        f"Cannot read --blueprint-file {blueprint_file!r}: {error}") from error
+            elif blueprint_string is not None:
+                blueprint_text = blueprint_string
+            else:
+                raise ValueError("Missing --blueprint or --blueprint-file")
+            response = FactorioClient(parsed.base).save_blueprint(
+                blueprint_text,
+                label=flag("label"),
+                description=flag("description"),
+                source=flag("source") or "saved",
+                run_id=flag("run-id"),
+            )
             return output(data_value(response))
         if cmd == "tools":
             if flag("local"):

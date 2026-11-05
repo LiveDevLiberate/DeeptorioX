@@ -73,6 +73,18 @@
       "usage": "Usage: factorio.py act-set-recipe --target x,y,recipe [--target ...]"
     },
     {
+      "command": "blueprint-list",
+      "description": "List blueprints recorded for a run (active run by default).",
+      "help": "Usage: factorio.py blueprint-list [--run-id <id>]",
+      "usage": "Usage: factorio.py blueprint-list [--run-id <id>]"
+    },
+    {
+      "command": "blueprint-save",
+      "description": "Persist a designed blueprint string for the active run without building it.",
+      "help": "Usage: factorio.py blueprint-save --blueprint-file <path> [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]    or: factorio.py blueprint-save --blueprint <string> [--label <text>]",
+      "usage": "Usage: factorio.py blueprint-save --blueprint-file <path> [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]"
+    },
+    {
       "command": "build-defense-line",
       "description": "Place 2x2 turrets spaced along a line with a single wall row in front.",
       "help": "Usage: factorio.py build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear] Front side is +y for horizontal lines and +x for vertical lines; single wall layer, no gates/power.",
@@ -2383,7 +2395,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "15d8e33a8ff5ab81f399bd7dd8bebd950de50b01438ea86c547dddcd7ee84fe9",
+    "factorio.py": "46b4e49fef150ec47aaff0fa5f44c0c860d537a7e68461079fa1d70f77f88a1c",
     "src/api/agent.ts": "945d75b5c11daf165fc684f7fefaf459c847f1cac39b810e40dd5a6e04687fc0",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",

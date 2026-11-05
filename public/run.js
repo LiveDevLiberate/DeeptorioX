@@ -91,6 +91,8 @@ function renderBlueprints() {
             copy.textContent = "Copied";
           });
           pre.textContent = JSON.stringify(detail.payload, null, 2);
+          const preview = globalThis.blueprintPreview?.(detail.payload);
+          if (preview) details.append(preview);
         } catch (error) {
           pre.textContent = `Could not decode blueprint: ${error.message}`;
         }
