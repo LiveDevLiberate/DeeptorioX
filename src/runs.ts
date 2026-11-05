@@ -162,6 +162,10 @@ type Run = {
     { wall_seconds: number; game_ticks: number; observed_at: string; initial?: boolean }
   >;
   agent_exit?: AgentExit;
+  /** Number of automatic same-session continuations after an early agent exit. */
+  auto_continues?: number;
+  /** Coarse failure category used by diagnostics and the run UI. */
+  failure_kind?: string;
   session_id?: string;
   usage?: Record<string, number>;
   usage_status?: "final" | "last_reported" | "unavailable";
@@ -194,6 +198,24 @@ export type VideoRenderResult = {
 
 /** Terminal child-process outcome recorded in run.json (`agent_exit`). */
 export type AgentExit = { code: number | null; signal: string | null };
+
+/** Automatic continuation budget; 0 disables the recovery loop. */
+function autoContinueLimit(): number {
+  const raw = process.env.AUTORIO_AUTO_CONTINUE_MAX;
+  if (raw === undefined || raw.trim() === "") return 3;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 3;
+}
+
+/** Coarse, UI-friendly failure category. */
+function classifyFailure(reason: string): string {
+  if (/quota|usage limit/i.test(reason)) return "quota";
+  if (/no valid game checkpoint|final save|checkpoint|save /i.test(reason)) return "save_failure";
+  if (/launch failed|exited with|spawn|ENOENT/i.test(reason)) return "agent_crash";
+  if (/telemetry failed|RCON/i.test(reason)) return "game_connection";
+  if (/objective/i.test(reason)) return "agent_early_exit";
+  return "run_failure";
+}
 
 type Hooks = {
   running(): boolean;
@@ -608,6 +630,36 @@ export class RunManager {
     run.state_reminder = stage || undefined;
     const zh = /chinese|中文|zh/i.test(run.language || "");
     const age = Math.round(status.age_seconds ?? 0);
+    // Materialize a nudge the operator/agent can read before actions are blocked.
+    const workspace = path.join(this.dir(run), "workspace");
+    const reminder = path.join(workspace, "PLAN_REMINDER.md");
+    try {
+      if (stage) {
+        fs.mkdirSync(workspace, { recursive: true });
+        fs.writeFileSync(
+          reminder,
+          [
+            zh ? "# 计划需要更新" : "# Plan needs updating",
+            "",
+            zh
+              ? `STATE.md 已 ${age} 秒未更新。请在继续动作前调用 state-write / POST /api/agent/state 更新 current、done_when、next 和 scores。`
+              : `STATE.md is ${age}s old. Call state-write / POST /api/agent/state to refresh current, done_when, next and scores before acting.`,
+            stage === "blocked"
+              ? zh
+                ? "当前状态：动作已被阻止。"
+                : "Current state: mutating actions are blocked."
+              : zh
+                ? "当前状态：即将超时，请立即更新。"
+                : "Current state: soft deadline passed; update now.",
+            "",
+          ].join("\n"),
+        );
+      } else {
+        fs.rmSync(reminder, { force: true });
+      }
+    } catch {
+      /* nudge is best-effort; the transcript marker below is authoritative */
+    }
     const text =
       stage === "blocked"
         ? zh
@@ -648,9 +700,7 @@ export class RunManager {
             grace_seconds: stateStatus.grace_seconds,
           }
         : undefined,
-      resumable:
-        run.state === "paused" &&
-        Boolean(run.checkpoint && fs.existsSync(path.join(this.dir(run), run.checkpoint.file))),
+      resumable: this.canResume(run),
       model_label: modelLabel(run),
       elapsed_seconds: run === this.active && run.state === "running" ? this.elapsed() : run.elapsed_seconds,
     };
@@ -818,14 +868,22 @@ export class RunManager {
   private videoDir(run: Run) {
     return this.segment(run).index === 1 ? this.dir(run) : this.segmentDir(run);
   }
+  /** A checkpoint is resumable when it belongs to the current segment, not a stale save. */
+  private canResume(run: Run): boolean {
+    const checkpoint = run.checkpoint;
+    if (!checkpoint || !fs.existsSync(path.join(this.dir(run), checkpoint.file))) return false;
+    if (!["paused", "failed", "interrupted"].includes(run.state)) return false;
+    return run.state === "paused" || checkpoint.segment === this.segment(run).index;
+  }
+
   resume(id: string) {
     if (this.active || this.hooks.running())
       throw new Error("Stop the active game/run before resuming another run");
     const run = this.runs.get(id);
-    if (!run || run.state !== "paused") throw new Error("Only a paused run can be resumed");
-    if (!run.checkpoint || !fs.existsSync(path.join(this.dir(run), run.checkpoint.file)))
-      throw new Error("This run has no saved checkpoint to resume");
-    if (sha256(fs.readFileSync(path.join(this.dir(run), run.checkpoint.file))) !== run.checkpoint.sha256)
+    if (!run || !this.canResume(run))
+      throw new Error("Only a paused or checkpointed failed/interrupted run can be resumed");
+    const checkpoint = run.checkpoint!;
+    if (sha256(fs.readFileSync(path.join(this.dir(run), checkpoint.file))) !== checkpoint.sha256)
       throw new Error("Checkpoint checksum changed; refusing to load a different game");
     if (run.elapsed_seconds >= run.max_seconds) throw new Error("The run has no active play time remaining");
     if (run.video?.state === "rendering")
@@ -838,6 +896,8 @@ export class RunManager {
     delete run.ended_at;
     delete run.reason;
     delete run.agent_exit;
+    delete run.failure_kind;
+    run.auto_continues = 0;
     if (run.usage) run.usage_status = "last_reported";
     this.elapsedBefore = run.elapsed_seconds;
     this.startedMono = 0;
@@ -1277,23 +1337,80 @@ export class RunManager {
       run.agent_exit = { code, signal };
       this.persist(run);
       this.event(run, `OpenCode exited (${signal || code})`);
-      if (run.state === "running" && !this.ending) {
-        void (async () => {
-          // Let any already-queued crafting finish, then verify the game independently.
-          await sleep(1000);
-          if (run.state !== "running" || this.ending) return;
-          await this.sample();
-          if (!this.ending)
-            await this.finish(
-              "failed",
-              code === 0
-                ? "Agent exited before the objective was verified"
-                : `OpenCode exited with ${signal || code}`,
-            );
-        })().catch((error) => this.finish("failed", errorText(error)));
-      }
+      this.agentExited(run, "OpenCode", code, signal);
     });
   }
+  /** Handle a closed agent process: continue the same session when it exited cleanly, or finish. */
+  private agentExited(run: Run, agentName: string, code: number | null, signal: string | null): void {
+    if (run.state !== "running" || this.ending) return;
+    void (async () => {
+      // Let already-queued crafting finish, then verify the game independently.
+      await sleep(1000);
+      if (run.state !== "running" || this.ending) return;
+      await this.sample();
+      if (this.ending) return;
+      const limit = autoContinueLimit();
+      const attempts = run.auto_continues || 0;
+      if (code === 0 && limit > 0 && attempts < limit && this.elapsed() < run.max_seconds) {
+        if (!this.continueAgent(run, limit)) {
+          await this.finish(
+            "paused",
+            "Agent exited before the objective was verified; automatic continuation is unavailable",
+          );
+          return;
+        }
+        run.auto_continues = attempts + 1;
+        this.event(run, `${agentName} exited; auto-continuing (${run.auto_continues}/${limit})`);
+        this.persist(run);
+        return;
+      }
+      if (code === 0 && limit > 0 && attempts >= limit) {
+        await this.finish(
+          "paused",
+          `Agent exited before the objective was verified; auto-continuation limit (${limit}) reached`,
+        );
+        return;
+      }
+      await this.finish(
+        "failed",
+        code === 0
+          ? "Agent exited before the objective was verified"
+          : `${agentName} exited with ${signal || code}`,
+      );
+    })().catch((error) => void this.finish("failed", errorText(error)));
+  }
+
+  /**
+   * Relaunch the current agent against the same live game and session after a
+   * clean early exit. Returns false when there is no session id to resume.
+   */
+  private continueAgent(run: Run, limit: number): boolean {
+    if (!run.session_id) return false;
+    const workspace = path.join(this.dir(run), "workspace");
+    fs.mkdirSync(workspace, { recursive: true });
+    const attempt = (run.auto_continues || 0) + 1;
+    fs.writeFileSync(
+      path.join(workspace, "RESUME.md"),
+      `Continue the same benchmark from its live game. The previous agent turn ended before the objective was verified; this is automatic continuation ${attempt}/${limit}.
+
+Active play time so far: ${run.elapsed_seconds.toFixed(2)} seconds.
+
+Milestones: ${JSON.stringify(run.milestones)}
+
+Current game snapshot: ${JSON.stringify(run.latest || {})}
+
+Re-read AGENTS.md and STATE.md, re-observe the player/world, then continue. Do not repeat completed work.
+`,
+    );
+    this.event(run, `Auto-continuing agent session (${attempt}/${limit})`);
+    this.persist(run);
+    if (run.agent === "opencode") this.launchOpenCode(run, workspace, true, false);
+    else if (run.agent === "codex") this.launchCodex(run, workspace, true, false);
+    else if (run.agent === "dsh") this.launchDsh(run, workspace, true, false);
+    else return false;
+    return true;
+  }
+
   /** DSH headless reports JSONL events; translate them to the transcript schema the UI already renders. */
   private launchDsh(run: Run, workspace: string, resuming = false, restarting = false) {
     const selection = parseDshModel(run.model);
@@ -1498,21 +1615,7 @@ export class RunManager {
       run.agent_exit = { code, signal };
       this.persist(run);
       this.event(run, `DSH exited (${signal || code})`);
-      if (run.state === "running" && !this.ending) {
-        void (async () => {
-          // Let any already-queued crafting finish, then verify the game independently.
-          await sleep(1000);
-          if (run.state !== "running" || this.ending) return;
-          await this.sample();
-          if (!this.ending)
-            await this.finish(
-              "failed",
-              code === 0
-                ? "Agent exited before the objective was verified"
-                : `DSH exited with ${signal || code}`,
-            );
-        })().catch((error) => this.finish("failed", errorText(error)));
-      }
+      this.agentExited(run, "DSH", code, signal);
     });
   }
   private async restartAgentForContext(run: Run) {
@@ -1672,21 +1775,7 @@ export class RunManager {
       run.agent_exit = { code, signal };
       this.persist(run);
       this.event(run, `Codex exited (${signal || code})`);
-      if (run.state === "running" && !this.ending) {
-        void (async () => {
-          // Let any already-queued crafting finish, then verify the game independently.
-          await sleep(1000);
-          if (run.state !== "running" || this.ending) return;
-          await this.sample();
-          if (!this.ending)
-            await this.finish(
-              "failed",
-              code === 0
-                ? "Agent exited before the objective was verified"
-                : `Codex exited with ${signal || code}`,
-            );
-        })().catch((error) => this.finish("failed", errorText(error)));
-      }
+      this.agentExited(run, "Codex", code, signal);
     });
   }
   private captureUsage(run: Run) {
@@ -1935,6 +2024,8 @@ export class RunManager {
       this.elapsedBefore = run.elapsed_seconds;
       run.state = state;
       run.reason = reason;
+      if (state === "failed") run.failure_kind = classifyFailure(reason);
+      else delete run.failure_kind;
       run.ended_at = new Date().toISOString();
       this.persist(run);
       fs.writeFileSync(
@@ -1945,6 +2036,7 @@ export class RunManager {
           `Run: ${run.name || run.id}`,
           `Result: ${state}`,
           `Reason: ${reason}`,
+          ...(run.failure_kind ? [`Failure kind: ${run.failure_kind}`] : []),
           `Agent: ${modelLabel(run)}`,
           `Language: ${run.language || "model default"}`,
           `Active play time: ${run.elapsed_seconds.toFixed(2)} seconds`,

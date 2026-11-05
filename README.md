@@ -319,6 +319,8 @@ Optional `.env` settings (process environment takes precedence):
 | `FACTORIO_DISABLE_AUDIO` | Set to `1` for silent runs |
 | `AUTORIO_STARTUP_SECONDS` | `180`; maximum graphical readiness wait |
 | `AUTORIO_CONTEXT_LIMIT` | Optional agent context limit in tokens; when reached, the agent session is restarted (game/workspace preserved) |
+| `AUTORIO_AUTO_CONTINUE_MAX` | `3`; automatic same-session continuations after a clean early agent exit (0 disables). When exhausted the run becomes paused/resumable instead of failed |
+| `AUTORIO_STATE_SOFT_SECONDS` / `AUTORIO_STATE_HARD_SECONDS` | `300` / `600`; STATE.md reminder and action-block deadlines |
 | `AUTORIO_MAX_MOVE_TILES` | `64`; the Python client rejects longer single moves so callers use waypoints and observe the route |
 | `AUTORIO_TERMINAL` | Set to `1` to use the optional terminal viewer instead of web recording view |
 | `AUTORIO_AGENT_LANGUAGE` | Optional language for agent messages/reasoning summaries and the game locale, e.g. `Chinese` → game `zh-CN`; code and commands stay unchanged |

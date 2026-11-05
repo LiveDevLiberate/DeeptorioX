@@ -183,7 +183,7 @@ async function refresh() {
     $("pause").disabled = !current || current.state !== "running";
     $("pause").hidden = !active;
     $("stop").disabled = !active;
-    $("resume").hidden = !current || current.state !== "paused" || !current.resumable;
+    $("resume").hidden = !current || !current.resumable;
     $("resume").disabled = !current?.resumable || current?.video?.state === "rendering";
     $("error").textContent = "";
   } catch (error) {

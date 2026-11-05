@@ -88,6 +88,8 @@ process.env.FACTORIO_BIN = fake;
 process.env.CODEX_BIN = fakeCodex;
 process.env.CODEX_HOME = path.join(temp, "codex-home");
 delete process.env.AUTORIO_TERMINAL;
+// Keep legacy tests deterministic; the auto-continuation test overrides this.
+process.env.AUTORIO_AUTO_CONTINUE_MAX = "0";
 const { RunManager } = await import("../dist/runs.js");
 const { reached, parseSnapshot, trackedMilestones } = await import("../dist/benchmarks.js");
 const snapshot = (production = {}) => ({
@@ -247,6 +249,7 @@ test("a successful agent exit does not count as game success", async () => {
   assert.match(run.id, /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_P[DS]T-[a-f0-9]{8}$/);
   await waitFor(() => manager.get(run.id).state === "failed");
   assert.match(manager.get(run.id).reason, /before the objective/);
+  assert.equal(manager.get(run.id).failure_kind, "agent_early_exit");
   assert.equal(manager.get(run.id).session_id, "test-session");
   assert.equal(manager.get(run.id).agent_exit.code, 0);
   const folder = path.join(temp, "runs", run.id);
@@ -266,6 +269,48 @@ test("a successful agent exit does not count as game success", async () => {
   assert.equal(manager.log(run.id, log.offset, "events").data, "");
   assert.deepEqual(Buffer.from(manager.log(run.id, 3, "events").data, "base64"), native.subarray(3));
   assert.deepEqual(manager.get(run.id).milestones, {});
+});
+
+test("a failed run with a current checkpoint can be retried", async () => {
+  const { manager } = setup();
+  try {
+    const run = manager.start({ benchmark: "smoke", agent: "codex" });
+    await waitFor(() => manager.get(run.id).state === "failed");
+    assert.equal(manager.get(run.id).resumable, true);
+    manager.resume(run.id);
+    await waitFor(() => manager.get(run.id).state === "running");
+    assert.equal(manager.get(run.id).segments.length, 2);
+    await manager.stop();
+    assert.equal(manager.get(run.id).state, "stopped");
+  } finally {
+    await manager.shutdown();
+  }
+});
+
+test("clean early exits auto-continue the same session, then pause when the budget is exhausted", async () => {
+  const previous = process.env.AUTORIO_AUTO_CONTINUE_MAX;
+  process.env.AUTORIO_AUTO_CONTINUE_MAX = "2";
+  const { manager } = setup();
+  try {
+    const run = manager.start({ benchmark: "smoke", agent: "codex" });
+    await waitFor(() => manager.get(run.id).state === "paused", 30000);
+    const result = manager.get(run.id);
+    assert.equal(result.auto_continues, 2);
+    assert.equal(result.resumable, true);
+    assert.equal(result.agent_exit.code, 0);
+    assert.equal(result.segments.length, 1, "automatic continuation stays in the same segment");
+    assert.match(result.reason, /auto-continuation limit \(2\) reached/);
+    const launch = JSON.parse(fs.readFileSync(path.join(temp, "runs", run.id, "agent-launch.json")));
+    assert.equal(launch.args.includes("resume"), true);
+    assert.ok(JSON.stringify(launch).includes("test-session"));
+    manager.resume(run.id);
+    await waitFor(() => manager.get(run.id).state === "running");
+    assert.equal(manager.get(run.id).auto_continues, 0, "manual retry resets the auto budget");
+    await manager.stop();
+  } finally {
+    await manager.shutdown();
+    process.env.AUTORIO_AUTO_CONTINUE_MAX = previous;
+  }
 });
 
 test("dsh agent runs headless, translates its event stream, and records usage", async () => {

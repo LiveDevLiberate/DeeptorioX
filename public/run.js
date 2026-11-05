@@ -133,9 +133,14 @@ async function refresh() {
     $("runContent").hidden = false;
     document.title = `${run.name || run.id} · Autorio`;
     renderProgress(run);
-    $("resume").hidden = run.state !== "paused";
+    $("resume").hidden = !run.resumable;
     $("resume").disabled = !run.resumable || run.video?.state === "rendering";
-    $("resume").textContent = run.video?.state === "rendering" ? "Finishing recording…" : "Resume run";
+    $("resume").textContent =
+      run.video?.state === "rendering"
+        ? "Finishing recording…"
+        : run.state === "failed" || run.state === "interrupted"
+          ? "Retry from checkpoint"
+          : "Resume run";
     $("pause").hidden = run.state !== "running";
     $("pause").disabled = run.state !== "running";
     $("segmentsPanel").hidden = !run.segments?.length;
@@ -143,9 +148,11 @@ async function refresh() {
       ? `Saved game: ${run.checkpoint.file} · ${new Date(run.checkpoint.saved_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" })}`
       : "No checkpoint saved yet.";
     $("resumeNote").textContent =
-      run.state === "paused"
-        ? "Waiting for you to resume after your agent quota resets. Waiting and game loading are excluded from play time. The same game, agent session, and workspace will continue."
-        : "Play time and measurements continue across segments; waiting time is excluded.";
+      run.state === "failed" || run.state === "interrupted"
+        ? "This run stopped before its objective was verified. Retry loads the latest saved checkpoint and continues the same agent session and workspace."
+        : run.state === "paused"
+          ? "Waiting for you to resume after your agent quota resets. Waiting and game loading are excluded from play time. The same game, agent session, and workspace will continue."
+          : "Play time and measurements continue across segments; waiting time is excluded.";
     $("segments").replaceChildren(
       ...(run.segments || []).map((segment) => {
         const row = text(
@@ -206,6 +213,8 @@ async function refresh() {
       Benchmark: run.benchmark.title,
       Seed: run.benchmark.map_gen.seed,
       Model: run.model_label || run.agent,
+      ...(run.failure_kind ? { "Failure kind": run.failure_kind } : {}),
+      ...(run.auto_continues ? { "Auto-continues": String(run.auto_continues) } : {}),
       "Time limit": `${run.max_seconds}s`,
       "Sampling interval": `${run.benchmark.sample_seconds}s`,
       "Created (Pacific)": new Date(run.created_at).toLocaleString("en-US", {

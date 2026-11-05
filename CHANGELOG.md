@@ -40,6 +40,15 @@ this file.
 
 ### Added
 
+- **Automatic same-session continuation.** When an agent exits cleanly before the
+  objective is verified, the manager reloads the same session with a resume
+  prompt, up to `AUTORIO_AUTO_CONTINUE_MAX` (default 3). Exhausting the budget
+  pauses the run with a valid checkpoint instead of marking it an unrecoverable
+  failure; failed/interrupted runs with a current checkpoint can be retried from
+  the run page. Runs now record `failure_kind` and `auto_continues`.
+- **STATE.md nudge artifact.** While the plan is due/blocked, the manager writes
+  `workspace/PLAN_REMINDER.md` with the exact state-write instruction and removes
+  it when STATE.md is refreshed.
 - **Agent model in the recording header.** The live recording status line now
   shows `model <model_label>` (shortened with ellipsis at narrow widths) with the
   full label in the tooltip; the run page already exposes the model in Run

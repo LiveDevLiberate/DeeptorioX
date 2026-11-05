@@ -62,6 +62,9 @@ const fakeDsh = toExecutable(fakeDshScript, "dsh");
 process.env.AUTORIO_DATA_DIR = temp;
 process.env.FACTORIO_BIN = fakeFactorio;
 delete process.env.AUTORIO_TERMINAL;
+// This fixture intentionally ends its DSH turn immediately; keep the legacy
+// failure assertion independent of the production auto-continuation budget.
+process.env.AUTORIO_AUTO_CONTINUE_MAX = "0";
 const { RunManager, digestThought, DIGEST_MAX_CHARS } = await import("../dist/runs.js");
 
 const waitFor = async (fn, timeout = 15000) => {
