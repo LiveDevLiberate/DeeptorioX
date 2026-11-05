@@ -67,6 +67,10 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Run wall-clock extension.** `POST /api/runs/:id/extend` with
+  `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
+  changing its checkpoint; resuming a paused run then uses the new limit and
+  watchdog.
 - **Entity usage guidance.** `POST /api/agent/observe/entity-usage`,
   `FactorioClient.entity_usage()` and CLI `entity-usage` combine curated
   behavior/placement rules with live prototype metadata. Curated rules cover

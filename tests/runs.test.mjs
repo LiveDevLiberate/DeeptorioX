@@ -197,6 +197,20 @@ test("state metadata ignores touch-only changes and records external content rev
   }
 });
 
+test("extends a paused run's wall-clock budget", async () => {
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    const before = manager.get(run.id).max_seconds;
+    manager.extend(run.id, 4 * 3600);
+    assert.equal(manager.get(run.id).max_seconds, before + 4 * 3600);
+    assert.throws(() => manager.extend(run.id, 0), /positive/);
+  } finally {
+    await manager.stop();
+  }
+});
+
 test("records agent interface call counts and normalizes job ids", async () => {
   const { manager } = setup();
   const run = manager.start({ agent: "manual", benchmark: "smoke" });

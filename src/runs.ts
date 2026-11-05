@@ -1136,6 +1136,28 @@ export class RunManager {
     return run.state === "paused" || checkpoint.segment === this.segment(run).index;
   }
 
+  /** Extend a run's wall-clock budget without touching its checkpoint. */
+  extend(id: string, seconds: number) {
+    const run = this.runs.get(id);
+    if (!run) throw new Error("Run not found");
+    const extra = Math.floor(Number(seconds));
+    if (!Number.isFinite(extra) || extra <= 0)
+      throw new Error("Extension must be a positive number of seconds");
+    if (extra > 30 * 24 * 3600) throw new Error("Extension is too large");
+    run.max_seconds = Math.round(run.max_seconds + extra);
+    if (this.active === run && run.state === "running") {
+      if (this.watchdog) clearTimeout(this.watchdog);
+      this.watchdog = setTimeout(
+        () => {
+          void this.finish("timed_out", "Wall-clock time limit reached");
+        },
+        Math.max(1, run.max_seconds - this.elapsed()) * 1000,
+      );
+    }
+    this.persist(run);
+    return this.view(run);
+  }
+
   resume(id: string) {
     if (this.active || this.hooks.running())
       throw new Error("Stop the active game/run before resuming another run");

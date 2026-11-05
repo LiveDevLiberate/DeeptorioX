@@ -208,11 +208,13 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
   });
 
   router.add({
-    path: /^\/api\/runs\/([^/]+)(?:\/(stop|resume|pause|log|video))?$/,
+    path: /^\/api\/runs\/([^/]+)(?:\/(stop|resume|pause|extend|log|video))?$/,
     name: "runMatch",
     handler: async (request) => {
       const { req, res, url } = request;
-      const runMatch = url.pathname.match(/^\/api\/runs\/([^/]+)(?:\/(stop|resume|pause|log|video))?$/);
+      const runMatch = url.pathname.match(
+        /^\/api\/runs\/([^/]+)(?:\/(stop|resume|pause|extend|log|video))?$/,
+      );
       if (runMatch) {
         const run = runManager.get(runMatch[1]);
         if (!run) return json(res, 404, { error: "Run not found" });
@@ -262,6 +264,17 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
                   : url.searchParams.get("source") === "codex",
             ),
           );
+        }
+        if (runMatch[2] === "extend" && req.method === "POST") {
+          try {
+            const payload = asRecord(await readJson(req));
+            const seconds = Number(payload?.seconds);
+            if (!Number.isFinite(seconds) || seconds <= 0)
+              return json(res, 400, { error: "seconds must be a positive number" });
+            return json(res, 200, runManager.extend(run.id, seconds));
+          } catch (error) {
+            return json(res, 400, { error: errorMessage(error) });
+          }
         }
         if (runMatch[2] === "resume" && req.method === "POST") {
           try {

@@ -66,6 +66,7 @@ function fakeManager() {
             ],
           }
         : undefined,
+    extend: (id, seconds) => ({ id, state: "paused", max_seconds: 28800 + seconds }),
     toolCalls: (id) =>
       id === "run-active"
         ? {
@@ -192,4 +193,18 @@ test("run-scoped state history route returns revisions", async () => {
   assert.equal(JSON.parse(history.body).revisions[0].current, "first plan");
   const missing = await dispatch(router, fakeRequest("/api/runs/missing/state/history"));
   assert.equal(missing.statusCode, 404);
+});
+
+test("POST /api/runs/:id/extend extends the wall-clock budget", async () => {
+  const runManager = fakeManager();
+  const router = new Router();
+  registerRunsRoutes(router, { runManager });
+  const extended = await dispatch(
+    router,
+    fakeRequest("/api/runs/run-active/extend", "POST", { seconds: 14400 }),
+  );
+  assert.equal(extended.statusCode, 200);
+  assert.equal(JSON.parse(extended.body).max_seconds, 43200);
+  const invalid = await dispatch(router, fakeRequest("/api/runs/run-active/extend", "POST", { seconds: 0 }));
+  assert.equal(invalid.statusCode, 400);
 });
