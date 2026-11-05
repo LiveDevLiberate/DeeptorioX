@@ -10,10 +10,13 @@ export const API_SCHEMA_VERSION = 2;
  * `Content-Type`/`Content-Length` headers are identical to the legacy helper.
  */
 export function json(res: ServerResponse, status: number, data: unknown) {
+  const augment = (res as ServerResponse & { __autorioAugment?: (value: unknown) => unknown })
+    .__autorioAugment;
+  const enriched = augment ? augment(data) : data;
   const payload =
-    data && typeof data === "object" && !Array.isArray(data)
-      ? { schema_version: API_SCHEMA_VERSION, ...data }
-      : { schema_version: API_SCHEMA_VERSION, data };
+    enriched && typeof enriched === "object" && !Array.isArray(enriched)
+      ? { schema_version: API_SCHEMA_VERSION, ...enriched }
+      : { schema_version: API_SCHEMA_VERSION, data: enriched };
   const body = JSON.stringify(payload);
   res.writeHead(status, {
     "Content-Type": "application/json",

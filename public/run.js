@@ -182,6 +182,7 @@ function renderStatePanel(run) {
     ["Updated by", info.updated_by || "—"],
     ["Status", statusText],
     ["State penalty", String(run.automation?.state_penalty || 0)],
+    ["Alert penalty", String(run.automation?.alert_penalty || 0)],
     ["Scores", status.scores_source === "agent_self_reported" ? "agent self-reported" : "missing"],
   ];
   $("stateStats").replaceChildren(

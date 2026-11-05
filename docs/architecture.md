@@ -189,6 +189,13 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Critical alerts.** `src/alert-store.ts` deduplicates factory problem
+counts into revisioned critical/warning alerts. `/api/agent/*` responses are
+augmented with an `alerts` envelope, and critical alerts older than the gate
+grace block mutating requests with `ALERTS_PENDING` until the current revision is
+acked. Long-unresolved critical alerts accrue a cumulative `alert_penalty` in the
+automation score; there is no agent restart path.
+
 **Agent knowledge.** `src/agent-knowledge.ts` is the canonical compact
 engineering reference (inserters, pipes, trains, power, chemistry, defense,
 production, blueprints) with aliases, common mistakes and wiki references. It is

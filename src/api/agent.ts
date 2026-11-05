@@ -1287,6 +1287,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         const data = normalizeFactoryData(
           parseRconJson<unknown>(response, "RCON factory observation returned invalid JSON"),
         );
+        ctx.alertStore.ingest(data);
+        ctx.runManager.setAlertPenalty(ctx.alertStore.penalty());
         const plan = runManager.plan();
         if (plan) (data as JsonObject).plan = plan;
         const state = runManager.stateStatus();

@@ -1,6 +1,7 @@
 import type { ActionJobQueue } from "../action-jobs.js";
 import type { NativeController } from "../native-control.js";
 import type { RunManager } from "../runs.js";
+import type { AlertStore } from "../alert-store.js";
 
 /**
  * Dependency surface handed to the API route groups.
@@ -37,6 +38,7 @@ export type ApiContext = {
   /** Live manager state (game save, log buffer, RCON connectivity). */
   state: ApiServerState;
   runManager: RunManager;
+  alertStore: AlertStore;
   actionJobs: ActionJobQueue;
   nativeController: NativeController;
   /** Loopback dispatch authorization header value (`X-Autorio-Internal`). */

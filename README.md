@@ -321,6 +321,10 @@ Optional `.env` settings (process environment takes precedence):
 | `AUTORIO_CONTEXT_LIMIT` | Optional agent context limit in tokens; when reached, the agent session is restarted (game/workspace preserved) |
 | `FACTORIO_API_BASE` | Override the manager URL used by the Python client; `factorio.py tools --local` works without a manager |
 | `AUTORIO_MAP_CACHE_MS` | `2000`; short cache for identical map-overview scans (0 disables) |
+| `AUTORIO_ALERT_GATE_GRACE_SECONDS` | `30`; critical alarms block mutating actions after this age until acked |
+| `AUTORIO_ALERT_PENALTY_GRACE_SECONDS` | `300`; grace before unresolved critical alerts accrue score penalty |
+| `AUTORIO_ALERT_PENALTY_INTERVAL_SECONDS` | `300`; penalty interval while critical alerts remain unresolved |
+| `AUTORIO_ALERT_PENALTY_POINTS` | `25`; points per interval per critical alert |
 | `AUTORIO_MANUAL_PENALTY_GRACE_SECONDS` | `1800`; manual mining/crafting penalties are ignored for this opening active-play window |
 | `AUTORIO_STATE_RESUME_GRACE_SECONDS` | `120`; grace before a stale plan blocks actions after resume |
 | `AUTORIO_STATE_NUDGE_RESTART_SECONDS` | `0`; when >0, restart the agent once with a plan-refresh prompt after this long blocked |

@@ -120,3 +120,15 @@ test("manual penalties start only after the 30-minute opening grace", () => {
   assert.equal(manualPenaltyGraceActive(1799), false);
   assert.equal(manualPenaltyGraceActive(1800), true);
 });
+
+test("alert penalties are added to the automation penalty", () => {
+  const score = computeAutomationScore({
+    productionTotals: {},
+    manualMines: 0,
+    manualCrafts: 0,
+    alertPenalty: 75,
+  });
+  assert.equal(score.alert_penalty, 75);
+  assert.equal(score.penalty, 75);
+  assert.equal(score.score, -75);
+});

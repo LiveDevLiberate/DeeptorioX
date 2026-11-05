@@ -102,6 +102,8 @@ export type AutomationScore = AutomationCounters & {
   state_penalty: number;
   /** Part of the penalty caused by full blackouts after power was established. */
   blackout_penalty: number;
+  /** Cumulative penalty for critical alerts left unresolved too long. */
+  alert_penalty: number;
   /** Count of full-blackout transitions counted for this penalty. */
   blackouts: number;
   breakdown: AutomationBreakdown;
@@ -117,6 +119,7 @@ export type AutomationScoreInput = {
   manualCrafts: number;
   statePenalty?: number;
   blackouts?: number;
+  alertPenalty?: number;
 };
 
 /**
@@ -233,13 +236,15 @@ export function computeAutomationScore(input: AutomationScoreInput): AutomationS
   const statePenalty = Math.max(0, Math.round(Number(input.statePenalty) || 0));
   const blackouts = Math.max(0, Math.round(Number(input.blackouts) || 0));
   const blackoutPenalty = blackouts * BLACKOUT_PENALTY_POINTS;
-  const penalty = manualPenalty + statePenalty + blackoutPenalty;
+  const alertPenalty = Math.max(0, Math.round(Number(input.alertPenalty) || 0));
+  const penalty = manualPenalty + statePenalty + blackoutPenalty + alertPenalty;
   return {
     score: positive - penalty,
     positive,
     penalty,
     state_penalty: statePenalty,
     blackout_penalty: blackoutPenalty,
+    alert_penalty: alertPenalty,
     blackouts,
     manual_mines: manualMines,
     manual_crafts: manualCrafts,

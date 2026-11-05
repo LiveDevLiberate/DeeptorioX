@@ -2713,6 +2713,14 @@
       "path": "/api/agent/act/set-recipe"
     },
     {
+      "method": "GET",
+      "path": "/api/agent/alerts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/alerts/ack"
+    },
+    {
       "method": "POST",
       "path": "/api/agent/jobs"
     },
@@ -2830,9 +2838,10 @@
   "schema_version": 1,
   "sources": {
     "factorio.py": "4a9a0bc00606697740c68ea04b157d6620d4eecd8551d6ceebc329390441a526",
-    "src/api/agent.ts": "f63bd5448bb53d3c7d0b291378c65a64908f54af2b9f71fe7ae7d3047f41c51d",
+    "src/api/agent.ts": "7d9917f8e19dc81337b8b48816f8c388897e8426c0fd9a4dbbefb6d3512270b3",
+    "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
-    "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",
+    "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",
     "src/api/jobs.ts": "bafe8a5682632bb0d9359a15dfb028358507c9ad8e8ba7eb0aa27a949e53948a",
     "src/api/manager.ts": "e6bcd846551415382491c67ce7c85ed2f47757fd7c2080b6e56c9a46a59b1642",
     "src/api/runs.ts": "6098bf128a9bad1a927e8b086f6c9f5e051933fd81c148effc4884eba15807de",

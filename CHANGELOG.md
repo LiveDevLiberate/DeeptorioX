@@ -81,6 +81,13 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Critical-alert gate.** `observe-factory` problems are deduplicated into a
+  revisioned alert envelope attached to every `/api/agent/*` JSON response.
+  Critical alerts older than 30s block mutating actions with `ALERTS_PENDING`
+  until `GET /api/agent/alerts` is inspected and `POST /api/agent/alerts/ack`
+  advances the ack revision; observations/state/tools/job status and ack remain
+  allowed. Unresolved critical alerts accrue a cumulative `alert_penalty`
+  (5min grace, 5min interval, 25 points) instead of restarting the agent.
 - **Agent engineering knowledge base.** New concise `knowledge` topics cover
   inserters, pipes/fluids, trains, power, chemistry, defense, production
   optimization and blueprints, with common mistakes and wiki references. Exposed

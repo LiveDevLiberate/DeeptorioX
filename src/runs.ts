@@ -395,6 +395,7 @@ export class RunManager {
           penalty,
           state_penalty: 0,
           blackout_penalty: 0,
+          alert_penalty: 0,
           blackouts: 0,
           manual_mines: mines,
           manual_crafts: crafts,
@@ -439,6 +440,23 @@ export class RunManager {
     return { mines, crafts };
   }
 
+  /** Record the cumulative alert-ignore penalty in the active run's score. */
+  setAlertPenalty(points: number) {
+    const run = this.active;
+    if (!run?.automation) return;
+    const value = Math.max(0, Math.round(Number(points) || 0));
+    if (run.automation.alert_penalty === value) return;
+    run.automation.alert_penalty = value;
+    run.automation.penalty =
+      (run.automation.manual_mines || 0) +
+      (run.automation.manual_crafts || 0) * CRAFT_PENALTY_POINTS +
+      (run.automation.state_penalty || 0) +
+      (run.automation.blackout_penalty || 0) +
+      value;
+    run.automation.score = run.automation.positive - run.automation.penalty;
+    this.persist(run);
+  }
+
   /** Effective manual-penalty grace; env override is useful for tests/operators. */
   private manualPenaltyGraceSeconds(): number {
     const raw = Number(process.env.AUTORIO_MANUAL_PENALTY_GRACE_SECONDS);
@@ -469,7 +487,8 @@ export class RunManager {
           run.automation.penalty =
             run.automation.manual_mines +
             run.automation.manual_crafts * CRAFT_PENALTY_POINTS +
-            (run.automation.state_penalty || 0);
+            (run.automation.state_penalty || 0) +
+            (run.automation.alert_penalty || 0);
           run.automation.score = run.automation.positive - run.automation.penalty;
         }
       }
@@ -1066,6 +1085,7 @@ export class RunManager {
         penalty: 0,
         state_penalty: 0,
         blackout_penalty: 0,
+        alert_penalty: 0,
         blackouts: 0,
         manual_mines: 0,
         manual_crafts: 0,
@@ -2256,6 +2276,7 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
         manualCrafts: run.automation?.manual_crafts ?? 0,
         statePenalty,
         blackouts: run.power_blackouts ?? 0,
+        alertPenalty: run.automation?.alert_penalty ?? 0,
       }),
       updated_at: now,
     };

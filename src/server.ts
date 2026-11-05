@@ -22,6 +22,7 @@ import {
 import { NativeController } from "./native-control.js";
 import { ActionJobQueue } from "./action-jobs.js";
 import { RunManager } from "./runs.js";
+import { AlertStore } from "./alert-store.js";
 import {
   IS_WINDOWS,
   isProcessExecutable,
@@ -38,7 +39,9 @@ import { isAgentMutationRequest, stateGateNudge } from "./state-gate.js";
 import { rconConfigured } from "./api/shared.js";
 import { asRecord, errorMessage } from "./validation.js";
 import type { ApiContext } from "./api/context.js";
-import { registerAgentRoutes } from "./api/agent.js";
+import { parseRconObservation, registerAgentRoutes } from "./api/agent.js";
+import { agentFactoryCommand } from "./command-builders.js";
+import { registerAlertRoutes } from "./api/alerts.js";
 import { registerAreaEditRoutes } from "./api/area-edit.js";
 import { registerJobsRoutes } from "./api/jobs.js";
 import { registerStateRoutes } from "./api/state.js";
@@ -586,6 +589,8 @@ const runManager = new RunManager({
   },
 });
 
+const alertStore = new AlertStore();
+
 const TERMINAL_RUN_STATES = new Set(["completed", "failed", "stopped", "timed_out", "interrupted", "paused"]);
 function activeRunSummary() {
   const run = runManager.list().find((entry) => !TERMINAL_RUN_STATES.has(entry.state));
@@ -599,6 +604,7 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const apiContext: ApiContext = {
   state,
   runManager,
+  alertStore,
   actionJobs,
   nativeController,
   internalKey: INTERNAL_JOB_KEY,
@@ -632,8 +638,43 @@ registerToolsRoutes(apiRouter);
 registerSavesRoutes(apiRouter, apiContext);
 registerServerRoutes(apiRouter, apiContext);
 registerAgentRoutes(apiRouter, apiContext);
+registerAlertRoutes(apiRouter, apiContext);
 registerTelemetryRoutes(apiRouter, apiContext, telemetrySampler);
 telemetrySampler.start();
+
+const ALERT_REFRESH_MS = Number(process.env.AUTORIO_ALERT_REFRESH_SECONDS || 0) * 1000 || 10_000;
+let lastAlertRefresh = 0;
+let lastAlertRunId: string | null = null;
+let alertRefreshPromise: Promise<void> | null = null;
+
+/** Refresh the alert cache from a lightweight observe-factory scan. */
+async function refreshAlerts(force = false): Promise<void> {
+  const activeId = runManager.activeRunId() ?? null;
+  if (activeId !== lastAlertRunId) {
+    alertStore.reset();
+    lastAlertRunId = activeId;
+    lastAlertRefresh = 0;
+  }
+  if (!state.rcon.connected) {
+    runManager.setAlertPenalty(alertStore.penalty());
+    return;
+  }
+  if (!force && Date.now() - lastAlertRefresh < ALERT_REFRESH_MS) return;
+  if (alertRefreshPromise) return alertRefreshPromise;
+  lastAlertRefresh = Date.now();
+  alertRefreshPromise = (async () => {
+    try {
+      const response = await rconCommand(agentFactoryCommand({ radius: 120 }));
+      alertStore.ingest(parseRconObservation(response));
+    } catch {
+      /* RCON hiccups leave the cached alert set intact. */
+    } finally {
+      runManager.setAlertPenalty(alertStore.penalty());
+      alertRefreshPromise = null;
+    }
+  })();
+  return alertRefreshPromise;
+}
 
 async function handleApi(req: IncomingMessage, res: ServerResponse) {
   if (req.url) {
@@ -642,6 +683,13 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
       const method = req.method || "GET";
       runManager.recordToolCall(method, pathname);
       const internal = req.headers["x-autorio-internal"] === INTERNAL_JOB_KEY;
+      const agentPath = pathname.startsWith("/api/agent/");
+      if (agentPath) {
+        (res as ServerResponse & { __autorioAugment?: (value: unknown) => unknown }).__autorioAugment = (
+          value,
+        ) => alertStore.attach(value);
+        await refreshAlerts();
+      }
       if (!internal && isAgentMutationRequest(method, pathname)) {
         const stateGate = runManager.stateGate();
         if (stateGate?.gate.blocked) {
@@ -651,6 +699,16 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
             message: stateGate.gate.hint,
             state: stateGate.status,
             nudge: stateGateNudge(stateGate.gate),
+          });
+        }
+        const alertGate = alertStore.gate();
+        if (alertGate.blocked) {
+          return json(res, 409, {
+            schema_version: 2,
+            error: "ALERTS_PENDING",
+            message: alertGate.message,
+            alerts: alertGate.alerts,
+            nudge: alertGate.nudge,
           });
         }
       }

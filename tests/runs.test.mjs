@@ -211,6 +211,21 @@ test("extends a paused run's wall-clock budget", async () => {
   }
 });
 
+test("records an alert-ignore penalty without restarting the run", async () => {
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    manager.setAlertPenalty(50);
+    const automation = manager.get(run.id).automation;
+    assert.equal(automation.alert_penalty, 50);
+    assert.ok(automation.penalty >= 50);
+    assert.equal(manager.get(run.id).state, "running");
+  } finally {
+    await manager.stop();
+  }
+});
+
 test("suppresses manual mining/crafting penalties during the opening 30 minutes", async () => {
   const { manager } = setup();
   const run = manager.start({ agent: "manual", benchmark: "smoke" });
