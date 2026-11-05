@@ -16,43 +16,59 @@ type UsageTemplate = Omit<EntityUsage, "name" | "type" | "source">;
 
 const BY_TYPE: Record<string, UsageTemplate> = {
   "transport-belt": {
-    summary: "A belt carries items in one direction only.",
+    summary:
+      "A belt has two lanes and carries items in one direction; it is not a junction that adds flows together.",
     flow: {
-      input: "Items enter from the side/back and move toward the facing direction.",
-      output: "Items leave at the far end; the same belt cannot emit from both ends.",
-    },
-    placement: "Direction 0=north, 4=east, 8=south, 12=west. Adjacent belts must face the same flow.",
-    rules: [
-      "One belt segment has one direction; it cannot output products in two opposite directions.",
-      "To cross two belts, use an underground-belt pair or a splitter; a surface crossing does not create a bidirectional junction.",
-      "Side-loading a belt merges items from one perpendicular belt; both lanes still share the belt's single flow direction.",
-      "To split flow use a splitter; to merge two inputs use side-loading or a splitter's two inputs.",
-    ],
-    common_mistakes: [
-      "Building a cross and expecting the two belts to exchange output in both directions.",
-      "Reversing one tile in a belt run: the reversed tile blocks the flow instead of making a reverse lane.",
-    ],
-    examples: ["Place a splitter upstream when one input must feed two downstream belts."],
-  },
-  splitter: {
-    summary: "A splitter takes one input side and distributes it to its two forward outputs.",
-    flow: {
-      input: "The rear/input side.",
-      output:
-        "The two front/left-right output sides; output direction follows the splitter's facing direction.",
+      input: "Items enter from the back or by side-loading; both lanes move toward the facing direction.",
+      output: "Items leave at the far end. The same belt cannot emit from both ends or in both directions.",
     },
     placement:
-      "The splitter's input is opposite its facing direction. Filter/priority settings are per output.",
+      "Direction 0=north, 4=east, 8=south, 12=west. Adjacent belts must face the same flow; a perpendicular belt only merges when side-loaded.",
     rules: [
-      "A splitter is not a bidirectional crossing: it has one input direction and two output directions.",
-      "Use filters to send one item type to a specific output, or priority to favor one output.",
-      "For a belt crossing, underground belts are usually simpler than chaining splitters.",
+      "Each belt tile has two lanes (left/right). The two lanes can carry two different item types side by side; a splitter or underground trick can unmerge them.",
+      "Belts do NOT automatically sum flows at an intersection or head-on meeting. Use side-loading, a splitter, or underground belts to join/cross flows.",
+      "Side-loading a perpendicular belt pushes items into one lane of the target belt only. If that lane is full, the side belt backs up; it does not add a second lane automatically.",
+      "A splitter has two inputs and two outputs (1:1 split); it can merge two input belts, but the output belt's throughput is still capped.",
+      "Base throughput is about 15/30/45 items per second for yellow/red/blue belts; merging two saturated inputs into one output causes a bottleneck. Add parallel belts or proper balancing.",
+      "To cross two independent belt flows use an underground-belt pair or a splitter; a surface crossing does not exchange items or sum flows.",
+      "To change the direction of a flow, a belt corner must face the new direction; items do not turn by themselves at a tile that still faces the old direction.",
     ],
     common_mistakes: [
-      "Expecting the two inputs to act as independent inputs in both directions.",
-      "Rotating only one splitter in a chain; every splitter must face the intended flow.",
+      "Building a + intersection and expecting the two crossing belts to exchange and sum flow.",
+      "Side-loading a full belt and expecting both input streams to keep their full throughput.",
+      "Trying to make one belt carry two directions; use two belts or an underground pair.",
+      "Feeding two full belts into one splitter output and assuming the combined throughput is preserved.",
+    ],
+    examples: [
+      "Two item types can share one belt, one per lane; use a splitter filter to separate them.",
+      "Use a splitter as a 2-input merger, or side-load a perpendicular belt to merge into one lane.",
     ],
   },
+
+  splitter: {
+    summary:
+      "A splitter has two input belts and two output belts and moves items 1:1; it can merge or divide flows.",
+    flow: {
+      input: "Two inputs from the rear (left/right sides).",
+      output: "Two forward outputs (left/right sides); lanes are preserved through the splitter.",
+    },
+    placement:
+      "The splitter's inputs are opposite its facing direction. Keep the splitter tier at least as fast as incoming belts.",
+    rules: [
+      "One input is split evenly across both outputs; if one output is backed up, all input can go to the other output.",
+      "Two inputs can be merged into one output; the merged belt still has the output belt's throughput limit.",
+      "Filters can send one item type to a chosen output; output/input priority can favor one side.",
+      "Splitters preserve left/right lanes, so they are the correct way to unmerge two different items riding one belt.",
+      "A splitter is not a bidirectional junction: it has one front direction and two rear inputs; it cannot reverse a belt's flow.",
+    ],
+    common_mistakes: [
+      "Expecting a splitter to merge two saturated input belts without loss at a single output.",
+      "Rotating only one splitter in a chain; every splitter must face the intended flow.",
+      "Using a splitter as a surface crossing without an underground pair; crossing flows are not exchanged for free.",
+      "Expecting a splitter to act as a bidirectional junction; it has one facing direction and two rear inputs.",
+    ],
+  },
+
   "underground-belt": {
     summary: "An underground belt moves items from an input tile to its paired output tile.",
     flow: {
@@ -225,6 +241,33 @@ const BY_NAME: Record<string, UsageTemplate> = {
     ],
     common_mistakes: ["Treating a loader as a bidirectional belt."],
   },
+};
+
+/** Canonical Factorio belt-junction rules shared by the catalog and prompts. */
+export const BELT_RULES = {
+  schema_version: 1,
+  lanes_per_belt: 2,
+  lane_capacity:
+    "Two lanes can carry two different item types side by side; a lane is not a second material flow at a junction.",
+  junction_rule:
+    "Belts do not automatically sum or exchange flows at an intersection, head-on meeting or surface crossing. Join flows only by side-loading, a splitter, or underground belts.",
+  side_loading:
+    "A perpendicular belt side-loads into one lane of the target belt. A full target lane backs up instead of accepting the second flow; it does not add throughput.",
+  splitter_rule:
+    "A splitter has two inputs and two outputs, splits 1:1, preserves lanes, supports priority/filter, and can merge inputs; its output is still limited by the output belt's throughput.",
+  underground_rule:
+    "An underground-belt pair crosses other belts/entities without mixing; it is directional, and the entrance half blocks side input while the belt half accepts side input.",
+  throughput_items_per_second: {
+    "transport-belt": 15,
+    "fast-transport-belt": 30,
+    "express-transport-belt": 45,
+  },
+  common_mistakes: [
+    "Expecting a + crossing to combine both belts' throughput.",
+    "Side-loading into a full lane and expecting the second flow to continue at full rate.",
+    "Merging two saturated belts into one output without a balancer.",
+    "Using one belt for two opposite directions.",
+  ],
 };
 
 export function entityUsage(prototype: { name?: unknown; type?: unknown }): EntityUsage {
@@ -498,6 +541,7 @@ export function entityUsageCatalog() {
     names: Object.entries(BY_NAME)
       .map(([name, template]) => ({ name, ...serialize(template) }))
       .sort((a, b) => a.name.localeCompare(b.name)),
+    belt_rules: BELT_RULES,
     fallback: {
       summary: "Unknown/modded entity: use prototype metadata plus observation.",
       rules: [

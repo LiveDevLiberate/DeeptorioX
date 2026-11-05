@@ -204,6 +204,37 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 - After building, inspect the route with `observe-connections` or
   `observe-fluids`; fluid networks connect only through adjacent pipe tiles.
 
+## 10.8 Belt lanes and junctions
+
+Official rules (Factorio wiki, Belt transport system):
+
+- Every belt tile has **2 lanes**. The lanes can carry two different item types
+  side by side; a splitter filter or underground-belt trick can unmerge them.
+- Belts **do not automatically sum flows** at a + crossing, a head-on meeting, or
+  a surface crossing. Use side-loading, a splitter, or underground belts.
+- Side-loading a perpendicular belt feeds **one lane** of the target belt. If that
+  lane is full, the side belt backs up; it does not add a second lane.
+- A splitter has **2 inputs and 2 outputs**, splits 1:1, preserves lanes, supports
+  input/output priority and item filters, and can merge two inputs — but the output
+  is still limited by the output belt's throughput.
+- Base throughput is **15/30/45 items/s** for yellow/red/blue belts. Merging two
+  saturated belts into one output is a bottleneck: use parallel belts, a balancer,
+  or separate outputs.
+- To cross two independent flows, use an underground-belt pair or a splitter. The
+  crossing itself does not exchange items or sum throughput.
+- A belt corner only turns items if the corner tile is rotated to the new direction.
+- Underground belts are directional pairs; they cross other flows without mixing
+  (the entrance half blocks side input, the belt half accepts side input).
+
+Practical checks before a junction:
+
+1. `observe-entities` / `observe-connections` to see belt directions.
+2. If two flows must merge, use a splitter or side-load; never rely on a crossing.
+3. If two full belts must merge, expect one belt's throughput cap; add a parallel
+   downstream belt or balancer instead of a single output.
+4. If two item types share a belt, keep one type per lane and use a splitter filter
+   to separate them if needed.
+
 ## 11. Blueprint workflow
 
 - `decode_blueprint_string(text)` / `encode_blueprint_string(dict)` for inspection.

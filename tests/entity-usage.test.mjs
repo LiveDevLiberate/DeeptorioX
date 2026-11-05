@@ -15,8 +15,8 @@ test("curated splitter usage is one input and two forward outputs", () => {
   const splitter = entityUsage({ name: "splitter", type: "splitter" });
   assert.equal(splitter.source, "curated");
   assert.match(splitter.flow.input, /rear/i);
-  assert.match(splitter.flow.output, /two front|left-right/i);
-  assert.ok(splitter.common_mistakes.some((note) => /both directions/i.test(note)));
+  assert.match(splitter.flow.output, /two (?:front|forward)|left\/right/i);
+  assert.ok(splitter.common_mistakes.some((note) => /both directions|bidirectional/i.test(note)));
 });
 
 test("unknown entities fall back to prototype-driven guidance", () => {
@@ -45,4 +45,18 @@ test("catalog exposes rules for every curated type and name", () => {
   }
   assert.ok(catalog.names.some((entry) => entry.name === "big-electric-pole"));
   assert.ok(catalog.fallback.rules.some((rule) => /observe-entity-prototype/.test(rule)));
+});
+
+test("belt rules explain two lanes and no automatic junction summing", () => {
+  const belt = entityUsage({ name: "transport-belt", type: "transport-belt" });
+  assert.ok(belt.rules.some((rule) => /two lanes/i.test(rule)));
+  assert.ok(belt.rules.some((rule) => /side-loading/i.test(rule)));
+  assert.ok(belt.rules.some((rule) => /throughput/i.test(rule)));
+  assert.ok(belt.common_mistakes.some((note) => /sum|intersection|cross/i.test(note)));
+  const splitter = entityUsage({ name: "splitter", type: "splitter" });
+  assert.ok(splitter.rules.some((rule) => /preserve.*lane/i.test(rule)));
+  const catalog = entityUsageCatalog();
+  assert.equal(catalog.belt_rules.lanes_per_belt, 2);
+  assert.match(catalog.belt_rules.junction_rule, /do not automatically sum/i);
+  assert.equal(catalog.belt_rules.throughput_items_per_second["transport-belt"], 15);
 });

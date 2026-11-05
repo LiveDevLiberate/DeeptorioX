@@ -71,6 +71,12 @@ this file.
   `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
   changing its checkpoint; resuming a paused run then uses the new limit and
   watchdog.
+- **Belt lane/junction rules.** Curated `transport-belt`/`splitter` guidance now
+  spells out the wiki rules the agent was missing: two lanes can carry two item
+  types; junctions/crossings never sum flows automatically; side-loading feeds
+  only one lane; splitters merge with a throughput cap; underground pairs cross
+  without mixing. A shared `BELT_RULES` catalog entry and COOKBOOK/prompt text
+  make this discoverable before layout design.
 - **Build anchor exactness.** `act-build` now rejects fractional anchors with
   `anchor_must_be_integer` (the common cause of one-tile offsets when an agent
   feeds a moving player position as a build anchor), waits two ticks after a

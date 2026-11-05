@@ -179,6 +179,12 @@ creates straight horizontal/vertical trunks with wire-reach spacing and includes
 both endpoints (big pole default, 30 reach). The planner avoids using big poles
 as a dense coverage grid.
 
+**Belt rules.** `BELT_RULES` in `entity-usage.ts` encodes the base-game lane and
+junction rules (two lanes, no automatic summing at crossings/head-on meetings,
+one-lane side-loading, splitter merge/cap, underground crossing, belt throughput).
+The per-entity guidance, `entity-usage-catalog`, COOKBOOK and agent prompt all
+reference the same notes.
+
 **Build exactness.** `act-build` accepts only integer top-left anchors; a
 fractional anchor is rejected with `anchor_must_be_integer` and a hint to use
 `observe-entities.anchor`. The manager waits two ticks after a native move so a
