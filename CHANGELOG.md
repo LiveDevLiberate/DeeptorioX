@@ -71,6 +71,11 @@ this file.
   `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
   changing its checkpoint; resuming a paused run then uses the new limit and
   watchdog.
+- **Entity footprint observation.** `observe-entities` now returns `anchor` (top-left
+  occupied tile), `footprint` (left/top/right/bottom/width/height), `tile_size`
+  and `collision_bounds` in addition to the entity center. This prevents agents
+  from treating a multi-tile building's center as its build anchor. Layout and
+  placement observations already used footprint bounding boxes.
 - **Entity usage catalog.** `entity-usage-catalog` / `GET
   /api/agent/observe/entity-usage-catalog` returns every curated type and
   name-specific rule without a game call. `entity-usage --name` now also returns

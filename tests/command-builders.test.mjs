@@ -204,6 +204,14 @@ test("agentWorldCommand and agentCompactWorldCommand serialise the window with t
   assert.ok(compact.includes("helpers.table_to_json{window={min_x=min_x"));
 });
 
+test("agentObserveEntityCommand reports footprint and anchor for multi-tile buildings", () => {
+  const lua = agentObserveEntityCommand([{ x: 1, y: 2 }]);
+  assert.ok(lua.includes("e.bounding_box"));
+  assert.ok(lua.includes("footprint={left="));
+  assert.ok(lua.includes("anchor={x=footprint.left,y=footprint.top}"));
+  assert.ok(lua.includes("collision_bounds="));
+});
+
 test("agentObserveEntityCommand emits one observe() call per target with optional kind and name filters", () => {
   const lua = agentObserveEntityCommand([
     { x: 10, y: 20 },

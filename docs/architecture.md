@@ -179,6 +179,13 @@ creates straight horizontal/vertical trunks with wire-reach spacing and includes
 both endpoints (big pole default, 30 reach). The planner avoids using big poles
 as a dense coverage grid.
 
+**Footprints.** `observe-entities` returns each entity's `anchor` (top-left
+occupied tile), `footprint`/`collision_bounds`, `tile_size`, center and occupied
+tile; `observe-layout` fills full bounding boxes, `observe-placement` uses the
+game's dry-run footprint validation, and `observe-entity-prototype` exposes
+tile/collision/selection boxes. Map symbols remain point markers and should not
+be used to infer footprint.
+
 **Entity usage catalog.** `entityUsageCatalog()` serializes every curated
 type/name rule for offline lookup; the per-entity endpoint adds live prototype
 limits (tile size, rotation, energy source, fluid boxes, placement item, health)
