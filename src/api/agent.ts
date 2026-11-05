@@ -4,7 +4,7 @@ import { asRecord, asString, errorMessage, type JsonObject } from "../validation
 import { rconConfigured } from "./shared.js";
 import { launchRocket } from "../rocket.js";
 import { visualObservation } from "../vision.js";
-import { mapOverviewSvg } from "../map-overview.js";
+import { mapOverviewPng, mapOverviewSvg } from "../map-overview.js";
 import {
   agentBuildDestinationCommand,
   agentChartedResourcesCommand,
@@ -37,6 +37,10 @@ const AGENT_MAX_EQUIPMENT_SLOTS = 50;
 const AGENT_MAX_RECIPES = 300;
 const AGENT_MAX_RESEARCH = 200;
 const AGENT_MAX_ACTIONS = 50;
+
+/** Short cache for the expensive charted-map scan (UI opens can overlap). */
+const mapOverviewCache = new Map<string, { at: number; data: Record<string, unknown> }>();
+const MAP_OVERVIEW_CACHE_MS = Math.max(0, Number(process.env.AUTORIO_MAP_CACHE_MS ?? 2000));
 
 /** Raw JSON array or empty array; keeps the handlers' historical `[]` fallback. */
 function arrayOrEmpty(value: unknown): unknown[] {
@@ -440,15 +444,33 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       const radius = clampInt(window.radius, 128, 1, 1024);
       const size = clampInt(body.size, 96, 8, 160);
       try {
-        const response = await rconCommand(agentMapOverviewCommand({ x, y, radius, size }));
-        const data = parseRconJson<Record<string, unknown>>(
-          response,
-          "RCON map overview returned invalid JSON",
-        );
+        const cacheKey = `${x},${y},${radius},${size}`;
+        const cached = mapOverviewCache.get(cacheKey);
+        let data: Record<string, unknown>;
+        if (cached && Date.now() - cached.at < MAP_OVERVIEW_CACHE_MS) {
+          data = cached.data;
+        } else {
+          const response = await rconCommand(agentMapOverviewCommand({ x, y, radius, size }));
+          data = parseRconJson<Record<string, unknown>>(response, "RCON map overview returned invalid JSON");
+          if (MAP_OVERVIEW_CACHE_MS > 0) {
+            mapOverviewCache.set(cacheKey, { at: Date.now(), data });
+            while (mapOverviewCache.size > 32) {
+              const oldest = mapOverviewCache.keys().next().value;
+              if (oldest === undefined) break;
+              mapOverviewCache.delete(oldest);
+            }
+          }
+        }
         if (body.format === "svg") {
           return json(res, 200, {
             ok: true,
             data: { ...data, format: "svg", svg: mapOverviewSvg(data) },
+          });
+        }
+        if (body.format === "png") {
+          return json(res, 200, {
+            ok: true,
+            data: { ...data, format: "png", png_base64: mapOverviewPng(data).toString("base64") },
           });
         }
         return json(res, 200, { ok: true, data });

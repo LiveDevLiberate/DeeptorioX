@@ -320,6 +320,7 @@ Optional `.env` settings (process environment takes precedence):
 | `AUTORIO_STARTUP_SECONDS` | `180`; maximum graphical readiness wait |
 | `AUTORIO_CONTEXT_LIMIT` | Optional agent context limit in tokens; when reached, the agent session is restarted (game/workspace preserved) |
 | `FACTORIO_API_BASE` | Override the manager URL used by the Python client; `factorio.py tools --local` works without a manager |
+| `AUTORIO_MAP_CACHE_MS` | `2000`; short cache for identical map-overview scans (0 disables) |
 | `AUTORIO_AUTO_RESUME` | `0`; set to `1` to resume the newest interrupted run with a current checkpoint when the manager starts |
 | `AUTORIO_AUTO_CONTINUE_MAX` | `3`; automatic same-session continuations after a clean early agent exit (0 disables). When exhausted the run becomes paused/resumable instead of failed |
 | `AUTORIO_STATE_SOFT_SECONDS` / `AUTORIO_STATE_HARD_SECONDS` | `300` / `600`; STATE.md reminder and action-block deadlines |

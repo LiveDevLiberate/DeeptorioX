@@ -141,6 +141,15 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 | `item inventory full` | build/inserter item shortage | craft/obtain item, check inventory counts |
 | movement timeout / `action_timeout` | long walk or stuck | move in waypoints, clear obstacles, retry once |
 
+## 10.5 Map overview
+
+- `observe_map_overview(x=..., y=..., radius=256, size=96)` (CLI
+  `observe-map-overview`) returns a downsampled view of **charted** chunks with
+  `.`/`~`/`#`/`*`/`@` glyphs. Use it to choose expansion direction or find water;
+  it cannot reveal uncharted terrain.
+- Pass `format="svg"` or `format="png"` when you need a compact picture for a
+  message; the default rows are best for planning in text.
+
 ## 11. Blueprint workflow
 
 - `decode_blueprint_string(text)` / `encode_blueprint_string(dict)` for inspection.

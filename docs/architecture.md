@@ -148,7 +148,9 @@ the sampler reuses that parser outside runs.
 ASCII map (`rows`, `legend`, window/step metadata) from charted chunks only. It
 samples terrain, player-force entities, resources and the player at up to
 1024-tile radius / 160-cell size; the Lua builder keeps the response bounded.
-Python: `FactorioClient.observe_map_overview()` / CLI `observe-map-overview`.
+Python: `FactorioClient.observe_map_overview()` / CLI `observe-map-overview`;
+  `format=svg|png` returns a compact image payload and identical requests are
+  cached briefly to avoid repeated RCON scans.
 
 **Health and operational logs.** `GET /api/health` returns 200 when every probe passes and 503
 `degraded` (with a `problems` list) when a probe throws; an idle manager is healthy. The structured

@@ -67,6 +67,11 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Map PNG output and scan cache.** The map-overview endpoint now also returns
+  `format=svg` or `format=png` (`png_base64` / `svg`), and identical center/radius/
+  size requests are served from a short cache (`AUTORIO_MAP_CACHE_MS`, default
+  2000 ms) to avoid repeated Lua/RCon scans. The agent prompt and COOKBOOK point
+  at `observe_map_overview` as a charted-area planning aid.
 - **CSS rule-local hygiene guard.** Added a dependency-free stylesheet parser
   test that fails on duplicate declarations or same-context fully shadowed
   rules; the audit found no safe remaining removals (the responsive
