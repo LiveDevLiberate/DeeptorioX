@@ -85,6 +85,7 @@ const BASE_TASK_PROMPT =
   "For pipes across lakes/cliffs use build-pipe-route (pathfinder route, orthogonal tiles); never keep retrying a straight build-pipe-line into water. " +
   "Use build-line --kind pipe|belt|wall|pole --route auto for any linear installation across unknown terrain; it shares the pathfinder detour and orthogonal routing instead of a straight-only builder. " +
   "Belt rules: each tile has two lanes (two item types can share a belt), but junctions/crossings do not automatically sum flows; side-loading fills only one lane, splitters merge with a throughput cap, and underground pairs cross without mixing. " +
+  "For resource veins, call act-mine --resource with one target and the default count=all; keep mining that vein until depleted instead of switching after each cycle. " +
   "For power, use substations or small/medium poles for local coverage and a straight build-power-line with big poles for long trunks; do not place a dense grid of big poles. " +
   "Watch the automation score in observe_factory().plan.automation: automate extraction and crafting instead of hand work (manual mines/crafts are penalty points). " +
   "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";

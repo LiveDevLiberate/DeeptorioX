@@ -68,6 +68,36 @@ def area_observation(entity_count, *, types=None, total=100, truncated=False):
     }
 
 
+class ContinuousMiningTests(unittest.TestCase):
+    def test_mine_continuous_stays_on_one_target_and_aggregates(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        jobs = [
+            {"data": {"results": [{"ok": True, "mined_count": 1, "items": {"iron-ore": 1}}]}},
+            {"data": {"results": [{"ok": True, "mined_count": 1, "items": {"iron-ore": 1}}]}},
+            {"data": {"results": [{"ok": False, "error": "no_resource"}]}},
+        ]
+        with patch.object(client, "mine", side_effect=jobs) as mine:
+            result = client.mine_continuous({"x": 10, "y": 20}, count="all", resource="iron-ore")
+        self.assertEqual(mine.call_count, 3)
+        for call in mine.call_args_list:
+            targets = call.args[0]
+            self.assertEqual(targets[0]["x"], 10)
+            self.assertEqual(targets[0]["y"], 20)
+            self.assertEqual(targets[0]["name"], "iron-ore")
+        self.assertEqual(result["cycles"], 2)
+        self.assertTrue(result["depleted"])
+        self.assertEqual(result["items"], {"iron-ore": 2})
+
+    def test_mine_continuous_respects_count(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        job = {"data": {"results": [{"ok": True, "mined_count": 1, "items": {"coal": 1}}]}}
+        with patch.object(client, "mine", return_value=job) as mine:
+            result = client.mine_continuous({"x": 1, "y": 2}, count=2)
+        self.assertEqual(mine.call_count, 2)
+        self.assertEqual(result["cycles"], 2)
+        self.assertFalse(result["depleted"])
+
+
 class ParsingTests(unittest.TestCase):
     def test_entities_and_targets_match_api_shapes(self):
         self.assertEqual(

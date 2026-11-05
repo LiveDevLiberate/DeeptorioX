@@ -304,6 +304,17 @@ choose a reachable shore/waypoint and build the route in stages.
   targets at a time near the character (long radius runs take real time and can fail per entity
   when unreachable).
 
+## 12.1 Resource mining
+
+- Mine a resource vein with **one target at a time**:
+  `act-mine --resource --target x,y` (defaults to `--count all`) or
+  `client.mine_continuous({"x": x, "y": y}, count="all", resource="iron-ore")`.
+- The default keeps the character on that target until the vein depletes/its
+  inventory fills; do not pass several ore targets and switch after one cycle.
+- Use a positive `--count N` only when you intentionally want N extraction cycles.
+- `act-mine` without `--resource` is for normal entities (trees, chests,
+  buildings); it still mines one target at a time.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

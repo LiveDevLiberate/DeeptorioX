@@ -179,6 +179,11 @@ creates straight horizontal/vertical trunks with wire-reach spacing and includes
 both endpoints (big pole default, 30 reach). The planner avoids using big poles
 as a dense coverage grid.
 
+**Resource mining.** `FactorioClient.mine_continuous` repeats the native mine
+action on the *same* target until no resource remains or a count is reached;
+`act-mine --resource` defaults to `--count all` and rejects multiple resource
+targets so the character cannot hop ore veins after one cycle.
+
 **Agent knowledge.** `src/agent-knowledge.ts` is the canonical compact
 engineering reference (inserters, pipes, trains, power, chemistry, defense,
 production, blueprints) with aliases, common mistakes and wiki references. It is

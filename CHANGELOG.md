@@ -71,6 +71,11 @@ this file.
   `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
   changing its checkpoint; resuming a paused run then uses the new limit and
   watchdog.
+- **Continuous resource mining.** `act-mine --resource` now mines one target
+  until the vein depletes or inventory fills (`--count all`, also exposed as
+  `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
+  longer switches ore tiles after a single extraction, and passing multiple
+  resource targets is rejected. Prompt/COOKBOOK updated.
 - **Agent engineering knowledge base.** New concise `knowledge` topics cover
   inserters, pipes/fluids, trains, power, chemistry, defense, production
   optimization and blueprints, with common mistakes and wiki references. Exposed

@@ -115,7 +115,7 @@ Commands:
   build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--no-clear]
   build-mining-outpost (--ore x,y [--ore ...] | --area x,y,radius) [--drill name] [--drill-size w,h] [--output name] [--no-clear]
   build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear]
-  act-mine --target x,y [--target ...] [--resource [name]] [--targets-json <json>]
+  act-mine --target x,y [--target ...] [--resource [name]] [--count n|all] [--targets-json <json>]
   act-rotate --target x,y [--target ...] [--direction 0|4|8|12] [--targets-json <json>]
   act-move --target x,y [--target ...] [--targets-json <json>]
   path-preview --target x,y [--target ...] [--targets-json <json>]
@@ -194,7 +194,7 @@ COMMAND_USAGE = {
     "build-inserter-pairs": "build-inserter-pairs: Place input+output inserters around rows of machines.\nUsage: factorio.py build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--name inserter] [--no-clear]\n   or: factorio.py build-inserter-pairs --entities-json <json> [--direction ...] [--no-clear]\nFootprints default to 3x3; pass w,h for other machine sizes. Shared machine-to-machine inserters are deduped.\n",
     "build-mining-outpost": "build-mining-outpost: Place mining drills on a grid over ore tiles with belt rows and an output chest.\nUsage: factorio.py build-mining-outpost --ore x,y [--ore ...] [--drill name] [--drill-size w,h] [--output name] [--no-clear]\n   or: factorio.py build-mining-outpost --area x,y,radius [--drill name] [--drill-size w,h] [--output name]\nWarning: one output-belt row between drill rows is not mined; electric drills need a power network.\n",
     "build-defense-line": "build-defense-line: Place 2x2 turrets spaced along a line with a single wall row in front.\nUsage: factorio.py build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear]\nFront side is +y for horizontal lines and +x for vertical lines; single wall layer, no gates/power.\n",
-    "act-mine": "act-mine: Mine a resource or entity at target tile coordinates.\nUsage: factorio.py act-mine --target x,y [--target ...] [--resource [name]]\n   or: factorio.py act-mine --targets-json <json>\nResource mode excludes the character and prioritizes the requested resource deterministically.\nNote: The character walks into reach and performs one native mining cycle per target (one extraction for a resource vein).\n",
+    "act-mine": "act-mine: Mine a resource or entity at target tile coordinates.\nUsage: factorio.py act-mine --target x,y [--target ...] [--resource [name]] [--count n|all]\n   or: factorio.py act-mine --targets-json <json>\nResource mode excludes the character and prioritizes the requested resource deterministically.\nResource mining defaults to count=all (same target until depletion/inventory full); pass a positive --count for a bounded run.\n",
     "act-rotate": "act-rotate: Rotate entities at target tile coordinates (first entity at each point).\nUsage: factorio.py act-rotate --target x,y [--target ...] [--direction 0|4|8|12]\n   or: factorio.py act-rotate --targets-json <json>\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nWith --direction the entity is rotated until it faces that direction (max 4 steps), so one call sets the final orientation.\nNote: The character walks into reach using native pathfinding.\n",
     "path-preview": "path-preview: Ask the native pathfinder for a route without walking it.\nUsage: factorio.py path-preview --target x,y\nReturns ok=true with path waypoints when reachable; ok=false error=no_path when blocked (water/cliff/buildings).\nUse this before long or unseen-terrain moves; route around water/cliff instead of retrying the same no_path target.\n",
     "act-move": "act-move: Move the player through paced, collision-checked steps to target tile coordinates.\nUsage: factorio.py act-move --target x,y [--target ...]\n   or: factorio.py act-move --targets-json <json>\nNote: Stops and returns partial progress if an intermediate step is blocked.\n",
@@ -3008,6 +3008,59 @@ class FactorioClient:
     def mine(self, targets: list[dict[str, Any]], **options: Any) -> Any:
         return self.submit_action("mine", {"targets": targets}, **options)
 
+    def mine_continuous(self, target: dict[str, Any], *, count: Any = 1,
+                        resource: str | None = None, max_cycles: int = 1000,
+                        **options: Any) -> dict[str, Any]:
+        """Mine one target repeatedly until it depletes or ``count`` cycles finish.
+
+        This deliberately keeps the same target across calls (the character does
+        not switch ore tiles after one extraction). Use ``count="all"`` to keep
+        mining until no resource is found at the target (or ``max_cycles``).
+        """
+        target = dict(target)
+        target["kind"] = "resource"
+        if resource:
+            target["name"] = resource
+        raw_count = "all" if isinstance(count, str) and count.lower() == "all" else int(count)
+        if raw_count != "all" and raw_count < 1:
+            raise ValueError("count must be >= 1 or 'all'")
+        items: dict[str, int] = {}
+        cycles = 0
+        last: Any = None
+        depleted = False
+        while raw_count == "all" or cycles < raw_count:
+            if cycles >= max_cycles:
+                break
+            job = self.mine([target], **options)
+            last = job
+            result = None
+            data = job.get("data") if isinstance(job, dict) else None
+            results = data.get("results") if isinstance(data, dict) else None
+            if isinstance(results, list) and results and isinstance(results[0], dict):
+                result = results[0]
+            if not isinstance(result, dict) or result.get("ok") is False:
+                error = result.get("error") if isinstance(result, dict) else None
+                depleted = error in ("no_resource", "target_disappeared")
+                break
+            cycles += 1
+            mined = result.get("items")
+            if isinstance(mined, dict):
+                for item, amount in mined.items():
+                    try:
+                        items[str(item)] = items.get(str(item), 0) + int(amount)
+                    except (TypeError, ValueError):
+                        continue
+            if not result.get("mined_count"):
+                depleted = True
+                break
+        return {
+            "ok": bool(cycles > 0),
+            "cycles": cycles,
+            "depleted": depleted,
+            "items": items,
+            "last": last,
+        }
+
     def rotate(
         self,
         targets: list[dict[str, Any]],
@@ -3672,9 +3725,19 @@ def run(argv: list[str]) -> int:
                 if rotate_direction not in (0, 4, 8, 12):
                     raise ValueError("--direction must be one of 0, 4, 8, 12")
                 targets = [dict(target, direction=rotate_direction) for target in targets]
-            if cmd == "act-mine" and flag("resource"):
-                resource = flag("resource")
+            resource = flag("resource") if cmd == "act-mine" else None
+            if cmd == "act-mine" and resource:
                 targets = [dict(target, kind="resource", **({} if resource == "true" else {"name": resource})) for target in targets]
+            if cmd == "act-mine" and resource:
+                raw_count: Any = flag("count")
+                mine_count: Any = "all" if raw_count is None or str(raw_count).lower() == "all" else parse_number(raw_count, 1)
+                if len(targets) != 1:
+                    raise ValueError("resource mining needs exactly one --target; mine one vein to depletion before switching")
+                result = FactorioClient(parsed.base).mine_continuous(
+                    targets[0], count=mine_count,
+                    resource=None if resource in (None, "true") else resource,
+                )
+                return output(result, ok=bool(result.get("ok")))
             action = {"act-mine": "mine", "act-rotate": "rotate", "act-move": "move", "act-set-recipe": "set-recipe", "act-launch-rocket": "launch-rocket"}[cmd]
             job = submit(action, {"targets": targets})
         elif cmd == "act-research":
