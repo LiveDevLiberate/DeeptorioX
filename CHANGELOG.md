@@ -67,6 +67,10 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **CSS rule-local hygiene guard.** Added a dependency-free stylesheet parser
+  test that fails on duplicate declarations or same-context fully shadowed
+  rules; the audit found no safe remaining removals (the responsive
+  `.status-line` pair is intentional).
 - **Run-page visual regression.** The browser regression suite now loads the real
   run page against the fixture API, checks the header/blueprint/map controls and
   model label, and stores a deterministic screenshot artifact.

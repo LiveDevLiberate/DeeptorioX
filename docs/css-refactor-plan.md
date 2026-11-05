@@ -215,3 +215,14 @@ Use one authoritative rule per property; retire earlier passes. Do not add new
   target sizes and overflow are asserted.
 - Gates: `npm run test:ui` passes; `npm run verify` passes (313 Node + 117
   Python); coverage gate passes.
+
+### Phase 3 progress (round 10)
+
+- Rule-local audit found no remaining same-context fully-shadowed rules and no
+  duplicate declarations inside a rule. The apparent exact `status-line`
+  duplicate is a global rule plus a responsive override, so it is intentional.
+- Added `tests/css-hygiene.test.mjs` as a dependency-free guard: it parses all
+  `public/styles/*.css` modules and fails on duplicate declarations or a later
+  same-context rule that covers every property of an earlier one.
+- No visual change; computed-style baseline and screenshot artifacts remain
+  stable.
