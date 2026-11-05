@@ -685,9 +685,12 @@ async function handleApi(req: IncomingMessage, res: ServerResponse) {
       const internal = req.headers["x-autorio-internal"] === INTERNAL_JOB_KEY;
       const agentPath = pathname.startsWith("/api/agent/");
       if (agentPath) {
-        (res as ServerResponse & { __autorioAugment?: (value: unknown) => unknown }).__autorioAugment = (
-          value,
-        ) => alertStore.attach(value);
+        const compactResponse = res as ServerResponse & {
+          __autorioAugment?: (value: unknown) => unknown;
+          __autorioCompact?: boolean;
+        };
+        compactResponse.__autorioAugment = (value) => alertStore.attach(value);
+        compactResponse.__autorioCompact = true;
         await refreshAlerts();
       }
       if (!internal && isAgentMutationRequest(method, pathname)) {
