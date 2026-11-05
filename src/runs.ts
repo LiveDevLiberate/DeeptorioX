@@ -875,11 +875,11 @@ export class RunManager {
     const client = fs.readFileSync(path.join(ROOT, "factorio.py"));
     const instructions = fs.readFileSync(path.join(ROOT, "runs/run_template/AGENTS.md"));
     const cookbook = fs.readFileSync(path.join(ROOT, "runs/run_template/COOKBOOK.md"));
-    if (!resuming) {
-      fs.writeFileSync(path.join(workspace, "factorio.py"), client);
-      fs.writeFileSync(path.join(workspace, "AGENTS.md"), instructions);
-      fs.writeFileSync(path.join(workspace, "COOKBOOK.md"), cookbook);
-    }
+    // Always refresh the bundled client/playbook. A resumed run must not keep an
+    // older factorio.py that predates tools/manifest commands the prompt expects.
+    fs.writeFileSync(path.join(workspace, "factorio.py"), client);
+    fs.writeFileSync(path.join(workspace, "AGENTS.md"), instructions);
+    fs.writeFileSync(path.join(workspace, "COOKBOOK.md"), cookbook);
     fs.writeFileSync(
       path.join(workspace, "TASK.md"),
       `# Task\n\n${run.benchmark.task}\n\nTime limit: ${run.max_seconds} wall-clock seconds.\n`,
@@ -906,6 +906,21 @@ export class RunManager {
             .join("\n"),
         ),
       };
+    if (resuming && run.hashes) {
+      const refreshed = {
+        client: sha256(client),
+        instructions: sha256(instructions),
+        cookbook: sha256(cookbook),
+      };
+      if (
+        refreshed.client !== run.hashes.client ||
+        refreshed.instructions !== run.hashes.instructions ||
+        refreshed.cookbook !== run.hashes.cookbook
+      ) {
+        this.event(run, "Refreshed agent workspace client/playbook files for this resume");
+        Object.assign(run.hashes, refreshed);
+      }
+    }
     if (!resuming) {
       const key = sha256(JSON.stringify({ version, map_gen: run.benchmark.map_gen, mods: controlModHash() }));
       const baselineDir = path.join(DATA_DIR, "baselines", key);

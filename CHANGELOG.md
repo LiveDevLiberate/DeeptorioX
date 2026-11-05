@@ -66,6 +66,11 @@ this file.
 
 ### Fixed
 
+- Resumed runs now refresh the bundled workspace `factorio.py`, `AGENTS.md` and
+  `COOKBOOK.md` (and record the new hashes) instead of keeping the client copied
+  at run start. This fixes agents on older runs seeing `Unknown command 'tools'`
+  and missing newer client methods such as blueprint registration.
+
 - **Readout alignment and hero-icon scale.** The metrics table and radar now
   share a stretched grid row and match exactly at 1280 (both 116.2 px tall,
   top y=208.5, bottom y=324.7). The table is transparent again: the old

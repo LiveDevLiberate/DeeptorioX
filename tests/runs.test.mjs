@@ -509,6 +509,7 @@ test("quota errors checkpoint immediately, survive manager restart, and resume t
     assert.equal(manager.get(run.id).state, "paused");
     assert.equal(manager.get(run.id).resumable, true);
     await new Promise((r) => setTimeout(r, 300));
+    fs.writeFileSync(path.join(folder, "workspace", "factorio.py"), "# stale client before resume\n");
     manager.resume(run.id);
     assert.throws(() => manager.resume(run.id), /active/);
     await waitFor(() => manager.get(run.id).state === "running");
@@ -525,6 +526,11 @@ test("quota errors checkpoint immediately, survive manager restart, and resume t
     assert.equal(
       fs.readFileSync(path.join(folder, "workspace", "agent-notes.txt"), "utf8"),
       "keep my factory plan",
+    );
+    assert.match(
+      fs.readFileSync(path.join(folder, "workspace", "factorio.py"), "utf8"),
+      /def list_blueprints/,
+      "resume must refresh the bundled workspace client",
     );
     const launch = JSON.parse(fs.readFileSync(path.join(folder, "agent-launch.json")));
     assert.equal(launch.args[launch.args.indexOf("resume") + 1], "quota-session");
