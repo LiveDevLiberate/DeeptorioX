@@ -133,7 +133,7 @@ behind a small `ActionJobQueue` interface (injected logging/native-stop/run-busy
 handlers in `src/api/jobs.ts` are thin delegates.
 
 **Observations and telemetry.** Read-only endpoints
-`/api/agent/observe/{world,map,map-overview,player,research,recipes,connections,layout,factory,placement,resources,entity,entity-prototype}`
+`/api/agent/observe/{world,map,map-overview,player,research,recipes,connections,layout,factory,placement,resources,entity,entity-prototype,description}`
 build Lua returning normalized JSON, alongside the capability observations
 `/observe/{production,fluids,combat,area}` (production rates come from the independent
 `src/telemetry-sampler.ts` ring buffer; fluids/combat/area are bounded Lua area scans). The pure
@@ -164,6 +164,13 @@ manual mining/crafting, stale STATE.md and full-blackout penalties. A blackout
 is counted once per transition after any network reports positive production
 capacity: demand > 0 and satisfaction ≤ 0.5% subtracts 500 points; the count and
 active state persist in `run.json`.
+
+**Prototype descriptions.** `POST /api/agent/observe/description` resolves an
+entity or technology `localised_description` in the game's current locale; it
+returns the raw LocalisedString and the rendered text, or
+`missing_translation: true` when the base game has no description for that
+prototype (common for many entities). Python `client.describe(name, kind=...)`
+/ CLI `describe --kind entity|technology --name ...`.
 
 **Blueprint catalogue.** Blueprints created by an agent are registered per run and are
 available to the agent and operator:

@@ -67,6 +67,12 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Prototype descriptions.** Added `POST /api/agent/observe/description`,
+  `FactorioClient.describe()` and CLI `describe` for entity and technology
+  `localised_description` values. The response includes the raw LocalisedString,
+  rendered current-locale text and a `missing_translation` flag; base-game
+  entities without a description are reported explicitly rather than as a
+  misleading empty string.
 - **Blackout scoring UI.** The recording penalty row now shows the blackout
   count with a bolt icon alongside manual mining/crafting and STATE penalties;
   the tooltip spells out the blackout count. The run/comparison pages already

@@ -133,6 +133,12 @@
       "usage": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run]"
     },
     {
+      "command": "describe",
+      "description": "Resolve an entity or technology localised description in the current game language.",
+      "help": "Usage: factorio.py describe --name <name> [--kind entity|technology]",
+      "usage": "Usage: factorio.py describe --name <name> [--kind entity|technology]"
+    },
+    {
       "command": "job-cancel",
       "description": "Request cancellation after the current atomic action.",
       "help": "Usage: factorio.py job-cancel --job-id <id>",
@@ -985,6 +991,27 @@
         }
       ],
       "signature": "deconstruct_area(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 64, *, limit: 'int | None' = None, types: 'list[str] | None' = None, filters: 'list[str] | None' = None, player_only: 'bool' = True, max_per_job: 'int' = 50, dry_run: 'bool' = False) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Resolve an entity/technology localised description in the game locale.",
+      "name": "describe",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "name",
+          "required": true
+        },
+        {
+          "annotation": "str",
+          "default": "'entity'",
+          "kind": "keyword_only",
+          "name": "kind",
+          "required": false
+        }
+      ],
+      "signature": "describe(self, name: 'str', *, kind: 'str' = 'entity') -> 'Any'"
     },
     {
       "description": "",
@@ -2260,7 +2287,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "df8529e0c62629ebf99fe898e6972e799e09769ea116181917f7096c73f83078",
+  "client_sha256": "90395be2a184d9227a5f11f176fb248381c12a5c664160e23a71625956ce2c78",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2329,6 +2356,10 @@
     {
       "method": "POST",
       "path": "/api/agent/observe/copy-settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/description"
     },
     {
       "method": "POST",
@@ -2411,8 +2442,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "df8529e0c62629ebf99fe898e6972e799e09769ea116181917f7096c73f83078",
-    "src/api/agent.ts": "af43f6f990a1f7bf69c72da48326cb25b4d5e552b0fa093824869d66bdcb7f41",
+    "factorio.py": "90395be2a184d9227a5f11f176fb248381c12a5c664160e23a71625956ce2c78",
+    "src/api/agent.ts": "acb5b88a4a731c5a0da3e08b715b31f94dd6dbbba5eb8190440baff1cbae30dd",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",
     "src/api/jobs.ts": "bafe8a5682632bb0d9359a15dfb028358507c9ad8e8ba7eb0aa27a949e53948a",

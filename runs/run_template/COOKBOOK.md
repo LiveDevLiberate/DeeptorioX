@@ -141,6 +141,16 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 | `item inventory full` | build/inserter item shortage | craft/obtain item, check inventory counts |
 | movement timeout / `action_timeout` | long walk or stuck | move in waypoints, clear obstacles, retry once |
 
+## 10.4 Descriptions
+
+- `client.describe("automation", kind="technology")` (CLI
+  `describe --kind technology --name automation`) returns the localized
+  technology description plus its raw LocalisedString key.
+- Use `kind="entity"` for buildings/entities, e.g. `describe("assembling-machine-2")`.
+  Not every base-game entity has a description; check `missing_translation`.
+- Get names from `observe_research` / `observe_recipes` / factory or blueprint
+  observations, then describe only the entries relevant to the current plan.
+
 ## 10.5 Map overview
 
 - `observe_map_overview(x=..., y=..., radius=256, size=96)` (CLI

@@ -1062,6 +1062,20 @@ export function agentResourcesCommand(params: { x: number; y: number; radius: nu
   return parts.join(" ");
 }
 
+/** Resolve a prototype's localised description in the game's current locale. */
+export function agentDescriptionCommand(kind: "entity" | "technology", name: string): string {
+  const prototype = kind === "entity" ? "prototypes.entity" : "prototypes.technology";
+  return [
+    "/sc",
+    `local p=${prototype}[${luaString(name)}]`,
+    "if not p then rcon.print('__AUTORIO_UNKNOWN__') return end",
+    "local ok,desc=pcall(function() return p.localised_description end)",
+    "if not ok or desc==nil then rcon.print(helpers.table_to_json{name=p.name,raw=nil}) return end",
+    "rcon.print(helpers.table_to_json{name=p.name,raw=desc})",
+    "rcon.print(desc)",
+  ].join(" ");
+}
+
 export function agentEntityPrototypeCommand(name: string): string {
   return [
     "/sc",

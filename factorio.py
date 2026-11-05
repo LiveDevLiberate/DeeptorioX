@@ -88,6 +88,7 @@ Commands:
   observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>
   observe-connections --center-x <n> --center-y <n> --radius <n>
   observe-entity-prototype --name <entity-name>
+  describe (--kind entity|technology) --name <name>
   observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]
   observe-production
   observe-fluids --center-x <n> --center-y <n> --radius <n>
@@ -161,6 +162,7 @@ COMMAND_USAGE = {
     "state-write": "state-write: Write/refresh STATE.md (resets the update deadline gate).\nUsage: factorio.py state-write --current <text> [--done-when <text>] [--next <text>] [--scores production=50,logistics=40,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]\nMutating actions are refused with STATE_UPDATE_REQUIRED once STATE.md is too old; call this to continue.\n",
     "observe-layout": "observe-layout: Render a region as an ASCII map (belts, inserters, machines, terrain).\nUsage: factorio.py observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>\n",
     "observe-connections": "observe-connections: Audit inserter/belt/machine links and report dead ends or reversed links.\nUsage: factorio.py observe-connections --center-x <n> --center-y <n> --radius <n>\n",
+    "describe": "describe: Resolve an entity or technology localised description in the current game language.\nUsage: factorio.py describe --name <name> [--kind entity|technology]\n",
     "observe-entity-prototype": "observe-entity-prototype: Look up entity dimensions, fluid connections, energy info.\nUsage: factorio.py observe-entity-prototype --name <entity-name>\n",
     "observe-placement": "observe-placement: Analyze buildability without consuming an item.\nUsage: factorio.py observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]\n",
     "observe-production": "observe-production: Read per-minute production/consumption rates from the manager's telemetry sampler.\nUsage: factorio.py observe-production\n",
@@ -1781,6 +1783,13 @@ class FactorioClient:
     def observe_entity_prototype(self, name: str) -> Any:
         return self.request("POST", "/api/agent/observe/entity-prototype", {"name": name})
 
+    def describe(self, name: str, *, kind: str = "entity") -> Any:
+        """Resolve an entity/technology localised description in the game locale."""
+        return self.request("POST", "/api/agent/observe/description", {
+            "kind": kind,
+            "name": name,
+        })
+
     def observe_placement(self, placements: list[dict[str, Any]]) -> Any:
         return self.request("POST", "/api/agent/observe/placement", {"placements": placements})
 
@@ -2985,6 +2994,15 @@ def run(argv: list[str]) -> int:
             if parse_number(flag("center-y")) is not None:
                 window["y"] = parse_number(flag("center-y"))
             return output(data_value(request("POST", "/api/agent/observe/layout", {"window": window})))
+        if cmd == "describe":
+            name = flag("name")
+            kind = flag("kind") or "entity"
+            if not name:
+                raise ValueError("Missing --name")
+            if kind not in ("entity", "technology"):
+                raise ValueError("--kind must be entity or technology")
+            response = FactorioClient(parsed.base).describe(name, kind=kind)
+            return output(data_value(response))
         if cmd == "observe-entity-prototype":
             name = flag("name")
             if not name:

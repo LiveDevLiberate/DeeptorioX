@@ -12,6 +12,7 @@ import {
   agentCompactWorldCommand,
   agentConnectionsCommand,
   agentCraftCommand,
+  agentDescriptionCommand,
   agentEntityPrototypeCommand,
   agentExtractCommand,
   agentFactoryCommand,
@@ -1392,6 +1393,49 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           record.shoreline_candidates = arrayOrEmpty(record.shoreline_candidates);
         }
         return json(res, 200, { ok: true, data });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/agent/observe/description",
+    name: "/api/agent/observe/description",
+    handler: async (request) => {
+      const { req, res } = request;
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
+      if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
+      if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
+      const kind = asString(body.kind)?.trim().toLowerCase();
+      const name = asString(body.name)?.trim();
+      if (kind !== "entity" && kind !== "technology")
+        return json(res, 400, { error: 'kind must be "entity" or "technology"' });
+      if (!name) return json(res, 400, { error: "Missing prototype name" });
+      try {
+        const response = await rconCommand(agentDescriptionCommand(kind, name));
+        if (response.trim() === "__AUTORIO_UNKNOWN__")
+          return json(res, 404, { error: "Prototype not found", kind, name });
+        const lines = response.replace(/\r\n/g, "\n").split("\n");
+        const meta = parseRconJson<Record<string, unknown>>(
+          lines.shift() || "{}",
+          "prototype description returned invalid JSON",
+        );
+        const text = lines.join("\n").trim();
+        const missing = /^Unknown key:/.test(text);
+        return json(res, 200, {
+          ok: true,
+          data: {
+            kind,
+            name: asString(meta.name) || name,
+            description_key: meta.raw ?? null,
+            description: missing || !text ? null : text,
+            missing_translation: missing || !text,
+          },
+        });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }

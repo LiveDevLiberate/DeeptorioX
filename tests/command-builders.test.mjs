@@ -9,6 +9,7 @@ const {
   agentCompactWorldCommand,
   agentConnectionsCommand,
   agentCraftCommand,
+  agentDescriptionCommand,
   agentEntityPrototypeCommand,
   agentExtractCommand,
   agentFactoryCommand,
@@ -141,6 +142,16 @@ test("agentBuildDestinationCommand returns early in reach and computes staging o
   assert.ok(forced.includes("local force=true"));
   // The force walk follows the early return, so it must not be skipped.
   assert.ok(forced.includes("if in_reach and not force then"));
+});
+
+test("agentDescriptionCommand resolves entity and technology descriptions", () => {
+  const entity = agentDescriptionCommand("entity", "stone-furnace");
+  assert.ok(entity.startsWith("/sc "));
+  assert.ok(entity.includes('prototypes.entity["stone-furnace"]'));
+  assert.ok(entity.includes("localised_description"));
+  assert.ok(entity.includes("rcon.print(desc)"));
+  const technology = agentDescriptionCommand("technology", "automation");
+  assert.ok(technology.includes('prototypes.technology["automation"]'));
 });
 
 test("agentMapOverviewCommand downsamples a charted window into ASCII rows", () => {
