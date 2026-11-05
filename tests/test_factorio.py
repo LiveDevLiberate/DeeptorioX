@@ -1810,5 +1810,54 @@ class ConstructionCliTests(unittest.TestCase):
         self.assertIn("--from x,y --to x,y", stderr.getvalue())
 
 
+class BlueprintRegistryClientTests(unittest.TestCase):
+    def test_save_and_list_blueprints(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        wire = blueprint_text([
+            {"entity_number": 1, "name": "stone-furnace", "position": {"x": 0.5, "y": 0.5}},
+        ])
+        with patch.object(client, "request", side_effect=[{"saved": True}, {"blueprints": []}]) as request:
+            self.assertEqual(
+                client.save_blueprint(
+                    blueprint_payload([{"name": "stone-furnace", "position": {"x": 0, "y": 0}}]),
+                    label="Smelting",
+                    source="saved",
+                    run_id="run-1",
+                ),
+                {"saved": True},
+            )
+            self.assertEqual(client.list_blueprints("run-1"), {"blueprints": []})
+        save_call, list_call = request.call_args_list
+        self.assertEqual(save_call.args[:2], ("POST", "/api/runs/run-1/blueprints"))
+        self.assertEqual(save_call.args[2]["label"], "Smelting")
+        self.assertEqual(list_call.args[:2], ("GET", "/api/runs/run-1/blueprints"))
+
+    def test_active_run_blueprint_paths(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.dict(os.environ, {"AUTORIO_RUN_ID": "run-active"}, clear=False):
+            with patch.object(client, "request", return_value={}) as request:
+                client.save_blueprint("0")
+        self.assertEqual(request.call_args.args[:2], ("POST", "/api/runs/run-active/blueprints"))
+
+    def test_build_blueprint_auto_registers_when_run_id_is_present(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        wire = belt_blueprint(1)
+        with patch.dict(os.environ, {"AUTORIO_RUN_ID": "run-auto"}, clear=False):
+            with patch.object(client, "save_blueprint") as save, patch.object(
+                client, "build", return_value={"status": "completed", "results": [{"ok": True}]}
+            ):
+                client.build_blueprint(wire, prototype_sizes=BELT_SIZES)
+        save.assert_called_once_with(wire, source="built", run_id="run-auto")
+
+    def test_build_blueprint_skips_registry_without_run_id(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.dict(os.environ, {}, clear=True):
+            with patch.object(client, "save_blueprint") as save, patch.object(
+                client, "build", return_value={"status": "completed", "results": [{"ok": True}]}
+            ):
+                client.build_blueprint(belt_blueprint(1), prototype_sizes=BELT_SIZES)
+        save.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

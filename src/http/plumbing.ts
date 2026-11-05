@@ -23,13 +23,13 @@ export function json(res: ServerResponse, status: number, data: unknown) {
 }
 
 /** Reads a JSON request body; empty bodies return null and oversized ones fail. */
-export async function readJson(req: IncomingMessage): Promise<unknown> {
+export async function readJson(req: IncomingMessage, maxBytes = 1_000_000): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += buf.length;
-    if (size > 1_000_000) {
+    if (size > maxBytes) {
       throw new Error("Request body too large");
     }
     chunks.push(buf);

@@ -14,7 +14,7 @@
 ## Key paths
 - `src/server.ts`: HTTP API + Factorio process management + RCON bridge; `observe-factory` aggregates power/fuel/entity status.
 - `public/index.html`, `public/runs.js`: run launch controls, live progress, and run history.
-- `public/run.html`, `public/run.js`: run details, activity, production graphs, and results.
+- `public/run.html`, `public/run.js`: run details, activity, production graphs, results, and the per-run agent blueprint catalogue; `src/blueprints.ts` / `src/run-blueprints.ts` decode and store blueprint strings.
 - `public/compare.html`, `public/compare.js`: comparisons of selected historical runs.
 - `src/runtime.ts`: installation/configuration, isolated profiles, and map creation on macOS and Windows.
 - `factorio-mod/autorio-control/control.lua`, `src/native-control.ts`: native character control, pathfinding, mining, polling and cancellation.

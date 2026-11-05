@@ -5,10 +5,15 @@
     <header><div><span class="eyebrow">FACTORIO · AGENT RUNS</span><h1>Run Details</h1></div><nav><a href="/">← All runs</a><a id="recordingLink" hidden>Recording view</a></nav></header>
     <p id="error" role="alert"></p><div id="runContent" hidden>
     <section id="current" aria-label="Run progress">
-      <div class="section-title"><h2 id="runTitle">No active run</h2><button id="resume" type="button" hidden>Resume run</button><button id="pause" type="button" hidden>Pause &amp; save</button><button id="stop" type="button" disabled>Stop run</button></div>
+      <div class="section-title"><h2 id="runTitle">No active run</h2><button id="resume" type="button" hidden>Resume run</button><button id="pause" type="button" hidden>Pause &amp; save</button><button id="stop" type="button" disabled>Stop run</button><button id="blueprintsToggle" type="button" aria-expanded="false" aria-controls="blueprintsPanel">Blueprints <span id="blueprintCount">0</span></button></div>
       <div class="stats"><div><span>STATE</span><strong id="state">—</strong></div><div><span>ACTIVE PLAY TIME</span><strong id="elapsed">—</strong></div><div><span>GAME TIME</span><strong id="gameTime">—</strong></div><div><span>AGENT</span><strong id="agent">—</strong></div></div>
       <p id="reason" class="muted"></p>
       <div id="milestones" class="milestones"></div>
+    </section>
+    <section id="blueprintsPanel" aria-label="Agent blueprints" hidden>
+      <div class="section-title"><h2>Blueprints created this run</h2><span id="blueprintsSummary" class="muted"></span></div>
+      <p id="blueprintsNote" class="muted">Loading blueprints…</p>
+      <div id="blueprintList" class="blueprint-list"></div>
     </section>
     <section aria-label="Run information"><h2>Run information</h2><dl id="runInfo" class="run-info"></dl><p id="task" class="muted"></p><p id="tokenUsage"></p><details><summary>Versions and configuration hashes</summary><pre id="configuration"></pre></details></section>
     <section id="segmentsPanel" hidden><h2>Run segments</h2><p id="checkpoint" class="muted"></p><p id="resumeNote" class="muted"></p><div id="segments"></div></section>

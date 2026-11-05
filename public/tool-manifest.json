@@ -1094,6 +1094,20 @@
       "signature": "launch_rocket(self, targets: 'list[dict[str, Any]]', **options: 'Any') -> 'Any'"
     },
     {
+      "description": "Return blueprints available for one run (or the active run).",
+      "name": "list_blueprints",
+      "parameters": [
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "run_id",
+          "required": false
+        }
+      ],
+      "signature": "list_blueprints(self, run_id: 'str | None' = None) -> 'Any'"
+    },
+    {
       "description": "",
       "name": "mine",
       "parameters": [
@@ -1714,6 +1728,48 @@
       "signature": "save_active_game(self) -> 'Any'"
     },
     {
+      "description": "Persist a blueprint string (or decoded payload) for the current run.",
+      "name": "save_blueprint",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "blueprint",
+          "required": true
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "label",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "description",
+          "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'saved'",
+          "kind": "keyword_only",
+          "name": "source",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "run_id",
+          "required": false
+        }
+      ],
+      "signature": "save_blueprint(self, blueprint: 'Any', *, label: 'str | None' = None, description: 'str | None' = None, source: 'str' = 'saved', run_id: 'str | None' = None) -> 'Any'"
+    },
+    {
       "description": "",
       "name": "server_saves",
       "parameters": [],
@@ -2282,13 +2338,13 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "2be6f2805b6b11118e2c718e2b97201fda1788ff786c27cc43a17d51eb5ea9a6",
+    "factorio.py": "707ab8a9f40868fc15b27d41c814ce04e73e1871ef658ac8a8249474c7bb0245",
     "src/api/agent.ts": "9ddcec1069072d21800e8d719320367a1dbb5e15c83df25f34fa5ca5ee2b8212",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",
     "src/api/jobs.ts": "bafe8a5682632bb0d9359a15dfb028358507c9ad8e8ba7eb0aa27a949e53948a",
     "src/api/manager.ts": "e6bcd846551415382491c67ce7c85ed2f47757fd7c2080b6e56c9a46a59b1642",
-    "src/api/runs.ts": "1ec0de4af9c7566323b497c8d78ffc1d836d47a61eea4a471cb392374a781b96",
+    "src/api/runs.ts": "73219f28bc4c376e393080f5b12d9d26314c8b3acb1e0fd20fdb82877efc06c7",
     "src/api/saves.ts": "8b958dc012a81bbae03e0374769b566b0c5b6ab5c11a75084fb52b1401b4024c",
     "src/api/server.ts": "31cb22a15706fc375920c27fe7739a25d4b46723a27b3814c3ee92efb825d62a",
     "src/api/shared.ts": "18ab5d4edec83b31841cbb32b243351f7b7f54876eff1e79e167052c761d70ed",

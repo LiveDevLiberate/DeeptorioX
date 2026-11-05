@@ -1511,6 +1511,34 @@ class FactorioClient:
     def request(self, method: str, path: str, body: Any = None) -> Any:
         return http_request(self.base_url, method, path, body)
 
+    def list_blueprints(self, run_id: str | None = None) -> Any:
+        """Return blueprints available for one run (or the active run)."""
+        path = f"/api/runs/{quote(run_id, safe='')}/blueprints" if run_id else "/api/blueprints"
+        return self.request("GET", path)
+
+    def save_blueprint(
+        self,
+        blueprint: Any,
+        *,
+        label: str | None = None,
+        description: str | None = None,
+        source: str = "saved",
+        run_id: str | None = None,
+    ) -> Any:
+        """Persist a blueprint string (or decoded payload) for the current run."""
+        if isinstance(blueprint, str):
+            wire = blueprint
+        else:
+            wire = encode_blueprint_string(blueprint)
+        body: dict[str, Any] = {"blueprint": wire, "source": source}
+        if label:
+            body["label"] = label
+        if description:
+            body["description"] = description
+        active_id = run_id or os.environ.get("AUTORIO_RUN_ID")
+        path = f"/api/runs/{quote(active_id, safe='')}/blueprints" if active_id else "/api/blueprints"
+        return self.request("POST", path, body)
+
     def server_status(self) -> Any:
         return self.request("GET", "/api/server/status")
 
@@ -1941,6 +1969,17 @@ class FactorioClient:
             sizes[name] = {"width": width, "height": height}
         return sizes, warnings
 
+    def _register_blueprint_best_effort(self, blueprint: Any, *, source: str = "built") -> None:
+        """Best-effort per-run registry write; a blueprint build must not fail if UI storage does."""
+        run_id = os.environ.get("AUTORIO_RUN_ID")
+        if not run_id:
+            return
+        try:
+            self.save_blueprint(blueprint, source=source, run_id=run_id)
+        except Exception:
+            if os.environ.get("AUTORIO_BLUEPRINT_REGISTRY_STRICT") == "1":
+                raise
+
     def build_blueprint(
         self,
         blueprint: Any,
@@ -1969,6 +2008,7 @@ class FactorioClient:
         :func:`expand_blueprint`; missing footprints are fetched from
         ``observe-entity-prototype`` (or pass ``prototype_sizes`` directly).
         """
+        self._register_blueprint_best_effort(blueprint, source="built")
         payload = _coerce_blueprint(blueprint)
         raw_entities = _blueprint_entities(payload)
         if not raw_entities:

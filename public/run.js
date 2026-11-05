@@ -6,6 +6,9 @@ let offset = 0,
   polling = false;
 let videoSegments = [],
   selectedVideoSegment = null;
+let blueprints = [];
+let blueprintsLoaded = false;
+let blueprintsLoading = false;
 function renderVideo() {
   const segment = videoSegments.find((segment) => String(segment.index) === selectedVideoSegment);
   const video = segment?.video;
@@ -30,6 +33,98 @@ $("videoSegment").onchange = () => {
   selectedVideoSegment = $("videoSegment").value;
   renderVideo();
 };
+function renderBlueprints() {
+  const count = $("blueprintCount");
+  count.textContent = String(blueprints.length);
+  $("blueprintsSummary").textContent = blueprints.length ? `${blueprints.length} available to the agent` : "";
+  $("blueprintsNote").hidden = blueprints.length > 0;
+  $("blueprintsNote").textContent = blueprints.length
+    ? ""
+    : "No blueprints saved yet. The agent can save one with factorio.py or the blueprint tools.";
+  const list = $("blueprintList");
+  list.replaceChildren(
+    ...blueprints.map((blueprint) => {
+      const card = document.createElement("article");
+      card.className = "blueprint-card";
+      const head = document.createElement("div");
+      head.className = "blueprint-card-head";
+      const title = text("h3", blueprint.label || "Untitled blueprint");
+      const source = text(
+        "span",
+        `${blueprint.source || "saved"} · ${blueprint.width || 0}×${blueprint.height || 0} · ${blueprint.entity_count || 0} entities · ${blueprint.tile_count || 0} tiles`,
+        "blueprint-meta",
+      );
+      head.append(title, source);
+      const entities = text(
+        "p",
+        (blueprint.top_entities || []).map((entry) => `${entry.name} × ${entry.count}`).join(" · "),
+        "blueprint-entities",
+      );
+      const details = document.createElement("details");
+      details.className = "blueprint-details";
+      const summary = document.createElement("summary");
+      summary.textContent = "Decode blueprint";
+      details.append(summary);
+      details.addEventListener("toggle", async () => {
+        if (!details.open || details.dataset.loaded) return;
+        details.dataset.loaded = "1";
+        const pre = document.createElement("pre");
+        pre.textContent = "Loading…";
+        const actions = document.createElement("p");
+        const download = document.createElement("a");
+        download.textContent = "Download .txt";
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.textContent = "Copy string";
+        actions.append(download, " ", copy);
+        details.append(actions, pre);
+        try {
+          const detail = await api(
+            `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(blueprint.id)}`,
+          );
+          const blob = new Blob([detail.wire || ""], { type: "text/plain" });
+          const href = URL.createObjectURL(blob);
+          download.href = href;
+          download.download = `${blueprint.label || blueprint.id}.txt`;
+          copy.addEventListener("click", async () => {
+            await navigator.clipboard?.writeText(detail.wire || "");
+            copy.textContent = "Copied";
+          });
+          pre.textContent = JSON.stringify(detail.payload, null, 2);
+        } catch (error) {
+          pre.textContent = `Could not decode blueprint: ${error.message}`;
+        }
+      });
+      card.append(head, entities, details);
+      return card;
+    }),
+  );
+}
+
+async function loadBlueprints() {
+  if (!id || blueprintsLoading) return;
+  blueprintsLoading = true;
+  try {
+    const payload = await api(`/api/runs/${encodeURIComponent(id)}/blueprints`);
+    blueprints = payload.blueprints || [];
+    blueprintsLoaded = true;
+    renderBlueprints();
+  } catch {
+    blueprintsLoaded = true;
+    $("blueprintsNote").hidden = false;
+    $("blueprintsNote").textContent = "Blueprints are unavailable for this run.";
+  } finally {
+    blueprintsLoading = false;
+  }
+}
+
+$("blueprintsToggle").onclick = () => {
+  const panel = $("blueprintsPanel");
+  panel.hidden = !panel.hidden;
+  $("blueprintsToggle").setAttribute("aria-expanded", String(!panel.hidden));
+  if (!panel.hidden) loadBlueprints();
+};
+
 async function refresh() {
   if (polling || !id) return;
   polling = true;
@@ -104,6 +199,7 @@ async function refresh() {
     }
     $("videoSegment").value = selectedVideoSegment;
     renderVideo();
+    if (!blueprintsLoaded) void loadBlueprints();
     $("recordingLink").href = recordingUrl(id);
     $("recordingLink").hidden = false;
     const info = {

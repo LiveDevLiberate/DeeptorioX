@@ -39,6 +39,14 @@ import {
   TELEMETRY_COMMAND,
 } from "./benchmarks.js";
 import { normalizeMapGen } from "./map-config.js";
+import {
+  listRunBlueprints,
+  readRunBlueprint,
+  registerRunBlueprint,
+  type RegisterBlueprintInput,
+  type RunBlueprintDetail,
+  type RunBlueprintSummary,
+} from "./run-blueprints.js";
 import { openRunTerminal } from "./run-terminal.js";
 import { pacificTimestamp, modelLabel, REASONING_LEVELS, ReasoningLevel } from "./run-labels.js";
 import { quotaError } from "./quota.js";
@@ -465,6 +473,30 @@ export class RunManager {
   get(id: string) {
     const run = this.runs.get(id);
     return run ? this.view(run) : undefined;
+  }
+
+  /** The run currently owning the game/agent, if any. */
+  activeRunId(): string | undefined {
+    return this.active?.id;
+  }
+
+  /** Blueprints registered for this run, newest first. */
+  blueprints(runId: string): RunBlueprintSummary[] | undefined {
+    const run = this.runs.get(runId);
+    return run ? listRunBlueprints(this.dir(run), run.id) : undefined;
+  }
+
+  /** One registered blueprint including its raw wire string and decoded payload. */
+  blueprint(runId: string, blueprintId: string): RunBlueprintDetail | undefined {
+    const run = this.runs.get(runId);
+    return run ? readRunBlueprint(this.dir(run), run.id, blueprintId) : undefined;
+  }
+
+  /** Persist an agent-created blueprint for this run. */
+  registerBlueprint(runId: string, input: RegisterBlueprintInput): RunBlueprintSummary {
+    const run = this.runs.get(runId);
+    if (!run) throw new Error("Run not found");
+    return registerRunBlueprint(this.dir(run), run.id, input).blueprint;
   }
   private stateFile(run: Run) {
     for (const relative of ["workspace/STATE.md", "STATE.md"]) {
@@ -1083,7 +1115,7 @@ export class RunManager {
     const transport = opencodeTransport();
     const spec = openCodeLaunchSpec({
       workspace,
-      env: process.env,
+      env: { ...process.env, AUTORIO_RUN_ID: run.id },
       apiBase: `http://127.0.0.1:${PORT}`,
       windows: IS_WINDOWS,
       resume: resuming,
@@ -1260,7 +1292,7 @@ export class RunManager {
     const windowsPython = windows ? Boolean(resolveExecutable("python") || resolveExecutable("py")) : false;
     const spec = dshLaunchSpec({
       workspace,
-      env: process.env,
+      env: { ...process.env, AUTORIO_RUN_ID: run.id },
       apiBase,
       windows,
       resume: resuming,
@@ -1512,7 +1544,7 @@ export class RunManager {
     this.persist(run);
     const spec = codexLaunchSpec({
       workspace,
-      env: process.env,
+      env: { ...process.env, AUTORIO_RUN_ID: run.id },
       apiBase: `http://127.0.0.1:${PORT}`,
       windows: IS_WINDOWS,
       resume: resuming,

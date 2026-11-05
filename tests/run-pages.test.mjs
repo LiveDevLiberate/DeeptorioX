@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { detailsUrl, recordingUrl } from "../public/run-view.js";
 
 test("run links keep details and recording navigation separate and encode IDs", () => {
@@ -62,4 +64,15 @@ test("comparison page shows model thinking levels, outcomes, tokens, and missing
     delete globalThis.document;
     delete globalThis.location;
   }
+});
+
+test("run page exposes the agent blueprint catalogue and its toggle", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "public", "run.html"), "utf8");
+  const js = fs.readFileSync(path.join(process.cwd(), "public", "run.js"), "utf8");
+  assert.match(html, /id="blueprintsToggle"[^>]*aria-controls="blueprintsPanel"/);
+  assert.match(html, /id="blueprintCount"/);
+  assert.match(html, /id="blueprintsPanel"/);
+  assert.match(html, /id="blueprintList"/);
+  assert.match(js, /\/api\/runs\/\$\{encodeURIComponent\(id\)\}\/blueprints/);
+  assert.match(js, /Decode blueprint/);
 });

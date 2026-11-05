@@ -147,6 +147,9 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 - `build_blueprint(text, anchor=(x,y), dry_run=True)` returns expanded entities, placement
   diagnostics and missing items; fix those first.
 - `build_blueprint(text, anchor=(x,y))` executes in <=50-entity chunks and aggregates results.
+- `save_blueprint(payload_or_text, label="...", description="...")` stores a blueprint in the
+  current run's blueprint catalogue. When `AUTORIO_RUN_ID` is present, `build_blueprint` also
+  registers the blueprint automatically; use `list_blueprints()` to see what is already available.
   Underground belt / pipe-to-ground input/output subtypes are preserved (the manager creates
   the explicit subtype and consumes the item); recipes/filters/modules still need a follow-up
   `act-set-recipe`/manual edit. Prefer proven community blueprints for smelting arrays,

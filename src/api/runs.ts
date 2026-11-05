@@ -1,7 +1,8 @@
 import fsSync from "node:fs";
 import { Router } from "../http/router.js";
 import { json, readJson } from "../http/plumbing.js";
-import { errorMessage } from "../validation.js";
+import { asRecord, errorMessage } from "../validation.js";
+import { BLUEPRINT_MAX_TEXT_BYTES } from "../blueprints.js";
 import { mapConfigMeta } from "../map-config.js";
 import { obsStatus } from "../obs.js";
 import type { ApiContext } from "./context.js";
@@ -66,6 +67,82 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
       } catch (error) {
         return json(res, 400, { error: errorMessage(error) });
       }
+    },
+  });
+
+  router.add({
+    method: "GET",
+    path: "/api/blueprints",
+    name: "/api/blueprints",
+    handler: (request) => {
+      const { res } = request;
+      const runId = runManager.activeRunId();
+      if (!runId) return json(res, 200, { schema_version: 2, run_id: null, count: 0, blueprints: [] });
+      const blueprints = runManager.blueprints(runId) ?? [];
+      return json(res, 200, { schema_version: 2, run_id: runId, count: blueprints.length, blueprints });
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/blueprints",
+    name: "/api/blueprints",
+    handler: async (request) => {
+      const { req, res } = request;
+      const runId = runManager.activeRunId();
+      if (!runId)
+        return json(res, 409, { error: "No active run; start or resume a run before saving a blueprint" });
+      try {
+        const payload = asRecord(await readJson(req, BLUEPRINT_MAX_TEXT_BYTES + 1_000_000));
+        if (!payload) throw new Error("Request body must be a JSON object");
+        const blueprint = runManager.registerBlueprint(runId, {
+          blueprint: payload.blueprint,
+          label: payload.label,
+          description: payload.description,
+          source: payload.source,
+        });
+        return json(res, 201, { schema_version: 2, run_id: runId, blueprint });
+      } catch (error) {
+        return json(res, 400, { error: errorMessage(error) });
+      }
+    },
+  });
+
+  router.add({
+    path: /^\/api\/runs\/([^/]+)\/blueprints(?:\/([a-f0-9]{16}))?$/,
+    name: "runBlueprints",
+    handler: async (request) => {
+      const { req, res, url } = request;
+      const match = url.pathname.match(/^\/api\/runs\/([^/]+)\/blueprints(?:\/([a-f0-9]{16}))?$/);
+      if (!match) return false;
+      const runId = decodeURIComponent(match[1]);
+      if (!runManager.get(runId)) return json(res, 404, { error: "Run not found" });
+      if (match[2]) {
+        if (req.method !== "GET") return json(res, 405, { error: "Method not allowed" });
+        const detail = runManager.blueprint(runId, match[2]);
+        if (!detail) return json(res, 404, { error: "Blueprint not found" });
+        return json(res, 200, { schema_version: 2, run_id: runId, ...detail });
+      }
+      if (req.method === "GET") {
+        const blueprints = runManager.blueprints(runId) ?? [];
+        return json(res, 200, { schema_version: 2, run_id: runId, count: blueprints.length, blueprints });
+      }
+      if (req.method === "POST") {
+        try {
+          const payload = asRecord(await readJson(req, BLUEPRINT_MAX_TEXT_BYTES + 1_000_000));
+          if (!payload) throw new Error("Request body must be a JSON object");
+          const blueprint = runManager.registerBlueprint(runId, {
+            blueprint: payload.blueprint,
+            label: payload.label,
+            description: payload.description,
+            source: payload.source,
+          });
+          return json(res, 201, { schema_version: 2, run_id: runId, blueprint });
+        } catch (error) {
+          return json(res, 400, { error: errorMessage(error) });
+        }
+      }
+      return json(res, 405, { error: "Method not allowed" });
     },
   });
 

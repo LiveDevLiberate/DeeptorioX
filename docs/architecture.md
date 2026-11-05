@@ -97,6 +97,7 @@ and `AUTORIO_DATA_DIR` (README "Parallel evaluation cluster").
 | Record | `src/obs-client.ts`, `src/obs.ts` | Localhost OBS v5 control, run-owned profile/scene, two-window composition, safe restore (`ObsRunRecorder`). |
 | Record | `src/timelapse.ts`, `native/timelapse.swift`, `scripts/narrate.ps1` | 5 fps → silent 30 fps H.264 MP4 (6×) via AVFoundation/FFmpeg with metadata verification; Windows TTS narration. |
 | Interfaces | `factorio.py` | Importable Python client + CLI: `FactorioClient`, action/job helpers, condition waits, belt/loader builders, blueprint-string codec + `build_blueprint` (chunked jobs, dry-run preflight), `observe_snapshot`/`observe_production`/`observe_fluids`/`observe_combat`/`observe_area`, copy-settings and pure construction planners (pipe/power/inserter/mining/defense). |
+| Blueprints | `src/blueprints.ts`, `src/run-blueprints.ts` | Blueprint-string decode/summary and the per-run catalogue (`blueprints/index.json` + raw `.txt` files); `save_blueprint`/`list_blueprints` client helpers and build-time auto-registration. |
 | Interfaces | `autorio_types.py`, `autorio_gym.py`, `autorio_trajectory.py` | Typed observation dataclasses; dependency-free Gym-style `FactorioEnv`; SQLite (WAL) episode/step store. |
 | Interfaces | `public/` | Operator UI: `index`+`runs.js` (launch/history), `run`+`run.js` (details), `compare`, `recording`+`recording.js` (live transcript/status bar), `transcript-view-model.js` (DOM-free reasoning/action summaries, loop detection, telemetry metrics/markers), renderers, `production-chart.js`, `runs.css`. |
 | Interfaces | `scripts/cluster.mjs`, `scripts/cluster-lib.mjs` | Cluster supervisor and side-effect-free helpers for instance planning, env, metadata, run requests. |
@@ -148,6 +149,18 @@ the sampler reuses that parser outside runs.
 logger writes JSONL to `<data-dir>/manager.log`, mirrors one human line per record to stderr, redacts
 secret-looking keys, and records HTTP requests (method, path, status, duration; health polls excluded).
 `AUTORIO_LOG_LEVEL` selects `debug|info|warn|error`.
+
+**Blueprint catalogue.** Blueprints created by an agent are registered per run and are
+available to the agent and operator:
+`GET /api/blueprints` lists the active run, `POST /api/blueprints` registers into
+it; run-scoped equivalents are `GET|POST /api/runs/:id/blueprints` and
+`GET /api/runs/:id/blueprints/:blueprintId` for decoded detail. Registration
+validates and summarizes the Factorio wire string (base64/zlib/JSON), dedupes by
+SHA-256, and stores raw text plus an index under the run directory. The run page
+shows a **Blueprints** count and toggle with decoded summaries. Python clients use
+`FactorioClient.list_blueprints()` / `save_blueprint()`; `build_blueprint()` also
+registers automatically when the launched agent has `AUTORIO_RUN_ID` (injected by
+`RunManager`).
 
 ## 5. Run lifecycle and data flow
 
@@ -217,7 +230,8 @@ Everything generated lives under `AUTORIO_DATA_DIR` (default `.autorio/`, git-ig
     run.json  benchmark.json  game.zip  final.zip  SUMMARY.md  recording-window.json
     telemetry.jsonl  milestones.jsonl  jobs.jsonl  activity.log  codex.log
     agent.{stdout,stderr}.log  agent.events.jsonl  agent-launch.json
-    thoughts.log  thoughts.txt  profile/  workspace/  segments/NNN/checkpoint.zip
+    thoughts.log  thoughts.txt  profile/  workspace/  blueprints/{index.json,<sha>.txt}
+    segments/NNN/checkpoint.zip
     video/{timelapse.mp4,timelapse.json}
 ```
 
