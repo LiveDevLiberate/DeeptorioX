@@ -89,6 +89,7 @@ Commands:
   observe-connections --center-x <n> --center-y <n> --radius <n>
   observe-entity-prototype --name <entity-name>
   describe (--kind entity|technology) --name <name>
+  entity-usage --name <entity-name>
   observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]
   observe-production
   observe-fluids --center-x <n> --center-y <n> --radius <n>
@@ -163,6 +164,7 @@ COMMAND_USAGE = {
     "observe-layout": "observe-layout: Render a region as an ASCII map (belts, inserters, machines, terrain).\nUsage: factorio.py observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>\n",
     "observe-connections": "observe-connections: Audit inserter/belt/machine links and report dead ends or reversed links.\nUsage: factorio.py observe-connections --center-x <n> --center-y <n> --radius <n>\n",
     "describe": "describe: Resolve an entity or technology localised description in the current game language.\nUsage: factorio.py describe --name <name> [--kind entity|technology]\n",
+    "entity-usage": "entity-usage: Curated behavior/placement rules plus prototype metadata for one entity.\nUsage: factorio.py entity-usage --name <entity-name>\n",
     "observe-entity-prototype": "observe-entity-prototype: Look up entity dimensions, fluid connections, energy info.\nUsage: factorio.py observe-entity-prototype --name <entity-name>\n",
     "observe-placement": "observe-placement: Analyze buildability without consuming an item.\nUsage: factorio.py observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]\n",
     "observe-production": "observe-production: Read per-minute production/consumption rates from the manager's telemetry sampler.\nUsage: factorio.py observe-production\n",
@@ -1790,6 +1792,10 @@ class FactorioClient:
             "name": name,
         })
 
+    def entity_usage(self, name: str) -> Any:
+        """Curated behavior/placement rules plus prototype metadata for an entity."""
+        return self.request("POST", "/api/agent/observe/entity-usage", {"name": name})
+
     def observe_placement(self, placements: list[dict[str, Any]]) -> Any:
         return self.request("POST", "/api/agent/observe/placement", {"placements": placements})
 
@@ -2994,6 +3000,11 @@ def run(argv: list[str]) -> int:
             if parse_number(flag("center-y")) is not None:
                 window["y"] = parse_number(flag("center-y"))
             return output(data_value(request("POST", "/api/agent/observe/layout", {"window": window})))
+        if cmd == "entity-usage":
+            name = flag("name")
+            if not name:
+                raise ValueError("Missing --name")
+            return output(data_value(FactorioClient(parsed.base).entity_usage(name)))
         if cmd == "describe":
             name = flag("name")
             kind = flag("kind") or "entity"

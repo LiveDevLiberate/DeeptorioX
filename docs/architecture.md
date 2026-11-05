@@ -173,6 +173,13 @@ window expose totals/endpoint counts via
 action-loopback requests and polling are included, so the view reflects the
 agent's complete interface profile.
 
+**Entity usage.** `src/entity-usage.ts` holds curated behavior rules by prototype
+type (one-way belts, splitter inputs/outputs, underground pairs, inserter pickup/
+drop, machines, fluids, power, logistics) and falls back to type-based observation
+guidance for modded/unknown entities. `POST /api/agent/observe/entity-usage`
+combines it with a live prototype lookup; the agent prompt/COOKBOOK require it
+before designing unfamiliar junctions.
+
 **Prototype descriptions.** `POST /api/agent/observe/description` resolves an
 entity or technology `localised_description` in the game's current locale; it
 returns the raw LocalisedString and the rendered text, or

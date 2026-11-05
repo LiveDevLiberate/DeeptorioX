@@ -5,6 +5,7 @@ import { rconConfigured } from "./shared.js";
 import { launchRocket } from "../rocket.js";
 import { visualObservation } from "../vision.js";
 import { mapOverviewPng, mapOverviewSvg } from "../map-overview.js";
+import { entityUsage } from "../entity-usage.js";
 import {
   agentBuildDestinationCommand,
   agentChartedResourcesCommand,
@@ -1393,6 +1394,34 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           record.shoreline_candidates = arrayOrEmpty(record.shoreline_candidates);
         }
         return json(res, 200, { ok: true, data });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/agent/observe/entity-usage",
+    name: "/api/agent/observe/entity-usage",
+    handler: async (request) => {
+      const { req, res } = request;
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
+      if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
+      if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
+      const name = asString(body.name)?.trim();
+      if (!name) return json(res, 400, { error: "Missing entity name" });
+      try {
+        const response = await rconCommand(agentEntityPrototypeCommand(name));
+        const data = normalizePrototypeData(parseRconObservation(response));
+        const record = asRecord(data);
+        if (!record || record.ok === false) return json(res, 404, { error: "Unknown entity", name });
+        return json(res, 200, {
+          ok: true,
+          data: { ...entityUsage({ name: record.name, type: record.type }), prototype: data },
+        });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }

@@ -67,6 +67,13 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Entity usage guidance.** `POST /api/agent/observe/entity-usage`,
+  `FactorioClient.entity_usage()` and CLI `entity-usage` combine curated
+  behavior/placement rules with live prototype metadata. Curated rules cover
+  belts, splitters, underground belts, inserters and common machines, including
+  the one-way belt rule and cross-junction mistakes; unknown entities fall back
+  to type-based observation guidance. The agent prompt and COOKBOOK now require
+  checking usage before unfamiliar junction builds.
 - **STATE.md gate hardening.** Mutating agent requests now pass through a
   central STATE gate (observations, state/tools/job status remain allowed), with
   structured `state`+`nudge` responses. Resumed segments get a configurable grace

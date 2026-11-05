@@ -160,6 +160,25 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 - Pass `format="svg"` or `format="png"` when you need a compact picture for a
   message; the default rows are best for planning in text.
 
+## 10.6 Entity usage and junctions
+
+- Before building an unfamiliar machine or junction, call
+  `entity-usage --name <entity>` / `client.entity_usage(name)`. It returns a
+  curated behavior summary, flow direction, placement rules and common mistakes,
+  plus the entity prototype metadata.
+- **Belts are one-way**: a surface crossing is not a bidirectional output
+  junction. To cross/merge flows use an underground-belt pair, a splitter, or
+  side-loading; each belt still has a single flow direction.
+- **Splitters** take one rear input and emit to two forward outputs. They cannot
+  emit backward or exchange two inputs in both directions.
+- **Underground belts** are paired input/output segments; both ends must face the
+  same travel direction.
+- **Inserters** pick from behind and drop in front; use two inserters for two
+  directions.
+- If `entity-usage` returns `source: "type_fallback"`, use
+  `observe-entity-prototype`, `observe-layout` and `observe-connections` to infer
+  behavior instead of assuming a bidirectional building.
+
 ## 11. Blueprint workflow
 
 - `decode_blueprint_string(text)` / `encode_blueprint_string(dict)` for inspection.

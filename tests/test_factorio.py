@@ -1852,6 +1852,21 @@ class BlueprintCliTestsExtra(unittest.TestCase):
         self.assertIn("--source", factorio.COMMAND_USAGE["blueprint-save"])
 
 
+class EntityUsageClientTests(unittest.TestCase):
+    def test_entity_usage_payload_and_cli_usage(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.entity_usage("splitter")
+        request.assert_called_once_with(
+            "POST",
+            "/api/agent/observe/entity-usage",
+            {"name": "splitter"},
+        )
+        self.assertIn("entity-usage", factorio.COMMAND_USAGE)
+        self.assertIn("--name", factorio.COMMAND_USAGE["entity-usage"])
+        self.assertIn("entity-usage", factorio.GLOBAL_USAGE)
+
+
 class DescriptionClientTests(unittest.TestCase):
     def test_describe_payload_and_cli_usage(self):
         client = factorio.FactorioClient(poll_interval=0)
