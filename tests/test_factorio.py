@@ -2021,6 +2021,19 @@ class BlueprintCliTestsExtra(unittest.TestCase):
         self.assertIn("--source", factorio.COMMAND_USAGE["blueprint-save"])
 
 
+class AlertClientTests(unittest.TestCase):
+    def test_alert_routes_and_cli_usage(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.alerts()
+        request.assert_called_once_with("GET", "/api/agent/alerts")
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.ack_alerts()
+        request.assert_called_once_with("POST", "/api/agent/alerts/ack")
+        self.assertIn("alerts", factorio.COMMAND_USAGE)
+        self.assertIn("alerts", factorio.GLOBAL_USAGE)
+
+
 class KnowledgeClientTests(unittest.TestCase):
     def test_knowledge_payload_and_cli_usage(self):
         client = factorio.FactorioClient(poll_interval=0)

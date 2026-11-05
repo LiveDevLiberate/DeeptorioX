@@ -73,6 +73,12 @@
       "usage": "Usage: factorio.py act-set-recipe --target x,y,recipe [--target ...]"
     },
     {
+      "command": "alerts",
+      "description": "Read current critical/warning alerts, or acknowledge them after fixing.",
+      "help": "Usage: factorio.py alerts [--ack] Critical alerts block mutating actions with ALERTS_PENDING until ack; observations/state/alerts remain allowed.",
+      "usage": "Usage: factorio.py alerts [--ack]"
+    },
+    {
       "command": "blueprint-list",
       "description": "List blueprints recorded for a run (active run by default).",
       "help": "Usage: factorio.py blueprint-list [--run-id <id>]",
@@ -374,6 +380,18 @@
     }
   ],
   "client_methods": [
+    {
+      "description": "Acknowledge the current alert revision (does not fix the alerts).",
+      "name": "ack_alerts",
+      "parameters": [],
+      "signature": "ack_alerts(self) -> 'Any'"
+    },
+    {
+      "description": "Read the manager's current critical/warning alert envelope.",
+      "name": "alerts",
+      "parameters": [],
+      "signature": "alerts(self) -> 'Any'"
+    },
     {
       "description": "Build entities after mining trees/rocks from their footprints.",
       "name": "build",
@@ -2662,7 +2680,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "4a9a0bc00606697740c68ea04b157d6620d4eecd8551d6ceebc329390441a526",
+  "client_sha256": "44140be616f710ed5f9b30999f662971f1fd30833554af37d1d3c1d70ded1ea2",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2837,7 +2855,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "4a9a0bc00606697740c68ea04b157d6620d4eecd8551d6ceebc329390441a526",
+    "factorio.py": "44140be616f710ed5f9b30999f662971f1fd30833554af37d1d3c1d70ded1ea2",
     "src/api/agent.ts": "7d9917f8e19dc81337b8b48816f8c388897e8426c0fd9a4dbbefb6d3512270b3",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",

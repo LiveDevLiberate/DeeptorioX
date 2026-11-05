@@ -93,6 +93,7 @@ Commands:
   describe (--kind entity|technology) --name <name>
   entity-usage --name <entity-name>
   knowledge [--topic inserters|pipes|trains|power|chemistry|defense|production|blueprints]
+  alerts [--ack]
   entity-usage-catalog
   observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]
   observe-production
@@ -172,6 +173,7 @@ COMMAND_USAGE = {
     "observe-layout": "observe-layout: Render a region as an ASCII map (belts, inserters, machines, terrain).\nUsage: factorio.py observe-layout --center-x <n> --center-y <n> --radius <n> --step <n>\n",
     "observe-connections": "observe-connections: Audit inserter/belt/machine links and report dead ends or reversed links.\nUsage: factorio.py observe-connections --center-x <n> --center-y <n> --radius <n>\n",
     "describe": "describe: Resolve an entity or technology localised description in the current game language.\nUsage: factorio.py describe --name <name> [--kind entity|technology]\n",
+    "alerts": "alerts: Read current critical/warning alerts, or acknowledge them after fixing.\nUsage: factorio.py alerts [--ack]\nCritical alerts block mutating actions with ALERTS_PENDING until ack; observations/state/alerts remain allowed.\n",
     "knowledge": "knowledge: Concise engineering knowledge for inserters, pipes, trains, power, chemistry, defense, production optimization and blueprints.\nUsage: factorio.py knowledge [--topic inserters|pipes|trains|power|chemistry|defense|production|blueprints]\n",
     "entity-usage-catalog": "entity-usage-catalog: List all curated entity behavior, flow, placement rules and common mistakes (no game call required).\nUsage: factorio.py entity-usage-catalog\n",
     "entity-usage": "entity-usage: Curated behavior/placement rules plus prototype metadata for one entity.\nUsage: factorio.py entity-usage --name <entity-name>\n",
@@ -2043,6 +2045,14 @@ class FactorioClient:
             path += "?topic=" + quote(str(topic), safe="")
         return self.request("GET", path)
 
+    def alerts(self) -> Any:
+        """Read the manager's current critical/warning alert envelope."""
+        return self.request("GET", "/api/agent/alerts")
+
+    def ack_alerts(self) -> Any:
+        """Acknowledge the current alert revision (does not fix the alerts)."""
+        return self.request("POST", "/api/agent/alerts/ack")
+
     def observe_placement(self, placements: list[dict[str, Any]]) -> Any:
         return self.request("POST", "/api/agent/observe/placement", {"placements": placements})
 
@@ -3540,6 +3550,10 @@ def run(argv: list[str]) -> int:
             if parse_number(flag("center-y")) is not None:
                 window["y"] = parse_number(flag("center-y"))
             return output(data_value(request("POST", "/api/agent/observe/layout", {"window": window})))
+        if cmd == "alerts":
+            client = FactorioClient(parsed.base)
+            result = client.ack_alerts() if flag("ack") else client.alerts()
+            return output(data_value(result))
         if cmd == "knowledge":
             return output(data_value(FactorioClient(parsed.base).knowledge(flag("topic"))))
         if cmd == "entity-usage-catalog":

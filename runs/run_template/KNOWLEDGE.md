@@ -68,6 +68,13 @@ section below.
 - Crash-site spaceship debris is mineable and some pieces contain loot. `recover-debris` extracts the loot first, then mines the pieces.
 - Do not destroy a loot container before extracting its contents.
 
+## 8.5 Critical alerts
+
+- Every agent response carries `alerts` (critical/warning, counts, first-seen).
+- Critical alerts older than the gate grace block mutating calls with
+  `ALERTS_PENDING`; inspect/fix, then `alerts --ack`.
+- Unresolved critical alerts accrue an `alert_penalty`; there is no restart.
+
 ## 9. Blueprints (`blueprints`)
 
 - Create/save from a known-good layout; list with `blueprint-list`.

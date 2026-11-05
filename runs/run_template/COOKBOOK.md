@@ -329,6 +329,16 @@ choose a reachable shore/waypoint and build the route in stages.
 - Normal chests are passive: use inserters or a logistics network for automated
   loading/unloading. Do not mine a loot container before extracting it.
 
+## 12.3 Critical alerts
+
+- Agent API responses include an `alerts` envelope. Critical alerts block
+  mutating actions with `ALERTS_PENDING` once they are older than the gate grace.
+- When blocked: run `alerts` / `observe-factory` to inspect the samples, fix
+  power/fuel/fluid/resource causes, then `alerts --ack` and retry.
+- Acknowledgements are revision-based: if the alert set changes, the gate
+  re-arms. Unresolved critical alerts accrue an `alert_penalty` instead of
+  restarting the agent.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.
