@@ -321,6 +321,7 @@ Optional `.env` settings (process environment takes precedence):
 | `AUTORIO_CONTEXT_LIMIT` | Optional agent context limit in tokens; when reached, the agent session is restarted (game/workspace preserved) |
 | `FACTORIO_API_BASE` | Override the manager URL used by the Python client; `factorio.py tools --local` works without a manager |
 | `AUTORIO_MAP_CACHE_MS` | `2000`; short cache for identical map-overview scans (0 disables) |
+| `AUTORIO_MAX_WAIT_SECONDS` | `5`; cap for blocking `wait_for_*` calls and idle waits |
 | `AUTORIO_ALERT_GATE_GRACE_SECONDS` | `30`; critical alarms block mutating actions after this age until acked |
 | `AUTORIO_ALERT_PENALTY_GRACE_SECONDS` | `300`; grace before unresolved critical alerts accrue score penalty |
 | `AUTORIO_ALERT_PENALTY_INTERVAL_SECONDS` | `300`; penalty interval while critical alerts remain unresolved |

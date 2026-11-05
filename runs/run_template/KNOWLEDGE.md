@@ -54,6 +54,9 @@ section below.
 
 ## 7. Production optimization (`production`)
 
+- Do not idle: keep a 3-task backlog and switch to building/fixing when a condition is not ready.
+- `wait` is disabled; blocking `wait_for_*` is capped at 5s. Use observe/status instead of sleeping.
+
 - Measure first (production/consumption/status), then fix the bottleneck.
 - Belt throughput ≈ 15/30/45 items/s; two full belts into one output is a bottleneck.
 - Inserter throughput matters; use fast/stack inserters or parallel inserters.

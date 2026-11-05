@@ -81,6 +81,12 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **No-idle agent policy.** Explicit CLI `wait` is disabled, blocking waits are
+  capped at 5 seconds (`AUTORIO_MAX_WAIT_SECONDS`), shell/Python sleep shims cap
+  at 2 seconds, and the prompt/AGENTS/COOKBOOK require a 3-item next-work queue:
+  when output/research is not ready, switch to building, power/fuel repair,
+  stocking, recipes, belts, site clearing or crafting. Timeouts now say to switch
+  tasks instead of retrying the wait.
 - **Agent envelope version moved to a header.** `/api/agent/*` JSON no longer
   carries the redundant `schema_version` field; clients can read
   `X-Autorio-Schema-Version` instead. `/api/health.versions.api_schema` and

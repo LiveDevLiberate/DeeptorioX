@@ -38,7 +38,7 @@ test("agentPrompt composes language, discipline and base instructions", () => {
     assert.match(languagePrompt(chinese), /Simplified Chinese \(简体中文\)/);
 
   const fresh = agentPrompt({ resume: false, restart: false });
-  assert.match(fresh, /Never run a shell `sleep` longer than 10 seconds\./);
+  assert.match(fresh, /Never wait or sleep idly\./);
   assert.match(fresh, /Batch at least five related actions or observations per tool call/);
   assert.match(
     fresh,
@@ -70,7 +70,7 @@ test("shortWaitGuardFiles plans the sleep shim and Python sitecustomize hook", (
   );
   assert.equal(files[0].mode, 0o755);
   assert.equal(files[1].mode, undefined);
-  assert.match(files[0].content, /capped to 10s; use wait_for_\*/);
+  assert.match(files[0].content, /capped to 2s; switch to the next useful task/);
   assert.match(files[0].content, /exec \/bin\/sleep "\$n"/);
   assert.match(files[1].content, /_autoriods_time\.sleep = _autoriods_sleep/);
 });

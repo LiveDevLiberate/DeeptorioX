@@ -524,7 +524,7 @@ test("dsh agent runs headless, translates its event stream, and records usage", 
     assert.match(stdinText, /Read AGENTS\.md, COOKBOOK\.md, KNOWLEDGE\.md and TASK\.md/);
     assert.ok(fs.existsSync(path.join(folder, "workspace", "COOKBOOK.md")));
     assert.match(stdinText, process.platform === "win32" ? /play\.(cmd|ps1)/ : /play\.sh/);
-    assert.match(stdinText, /never sleep longer than 10 seconds/i);
+    assert.match(stdinText, /never idle on waits/i);
     const childEnv = JSON.parse(fs.readFileSync(path.join(working, "dsh-env.json"), "utf8"));
     assert.equal(childEnv.key, "sk-test-key");
     assert.equal(childEnv.profile, "headless");

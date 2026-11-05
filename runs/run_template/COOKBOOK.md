@@ -345,6 +345,19 @@ choose a reachable shore/waypoint and build the route in stages.
   re-arms. Unresolved critical alerts accrue an `alert_penalty` instead of
   restarting the agent.
 
+## 12.4 Never idle
+
+- Do not call `wait`, `sleep`, or long `wait_for_*`. `wait` is disabled and
+  blocking waits are capped at 5 seconds (`AUTORIO_MAX_WAIT_SECONDS`).
+- Maintain a **3-item next-work queue** in STATE.md / your plan. When output,
+  research or a resource is not ready, immediately do the next item:
+  add drills/furnaces/inserters, fix power/fuel/water, stock chests/belts, set
+  recipes, expand belts, clear a future build site, craft intermediates.
+- Waiting is only acceptable inside a running action job; when a wait helper
+  times out, treat it as a signal to change subtask, not to retry the wait.
+- At every checkpoint ask: "what can be built or fixed right now?" and do that
+  before polling production again.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.
@@ -353,5 +366,5 @@ choose a reachable shore/waypoint and build the route in stages.
 - Keep STATE.md fresh (`state-write` / `write_state`) at least every 5 min; stale state blocks mutating actions after 10 min.
 - Dry-run placement before every multi-entity build; failures are cheaper than rebuilding.
 - Batch: up to 50 entities/targets per action; chain jobs instead of one call per entity.
-- Never sleep more than 10 seconds; use `wait_for_*` conditions and re-observe.
+- Never idle; keep a 3-task backlog. `wait` is disabled and `wait_for_*` is capped at 5s; switch tasks on timeout.
 - Keep `STATE.md` updated with the current subtask, score, `done_when`, and next action.

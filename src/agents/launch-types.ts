@@ -62,7 +62,7 @@ export type AgentLaunchInput = {
 };
 
 const DISCIPLINE_PROMPT =
-  "Never run a shell `sleep` longer than 10 seconds. Use wait_for_item, wait_for_research, wait_for_factory or wait_until, and keep doing useful work while production runs. Batch at least five related actions or observations per tool call and print only a short summary. ";
+  "Never wait or sleep idly. Keep a 3-item work queue and do the next useful task when a condition is not ready: add drills/furnaces/inserters, fix power/fuel/fluid, stock inputs, set recipes, expand belts, clear a future build site, or craft intermediates. `wait` is disabled and wait_for_* is capped at 5s (AUTORIO_MAX_WAIT_SECONDS); if it times out, switch tasks instead of retrying. Batch at least five related actions or observations per tool call and print only a short summary. ";
 const RESUME_PROMPT =
   "Continue the same benchmark from its saved game. Re-read AGENTS.md (automation-first rule) and RESUME.md, then re-observe the player/world before acting. If STATE.md is missing or stale, refresh it with state-write before any mutating action. ";
 const RESTART_PROMPT =
@@ -137,9 +137,9 @@ export function shortWaitGuardFiles(workspace: string): LaunchFile[] {
         "#!/bin/sh",
         'n="${1:-0}"',
         'case "$n" in ""|*[!0-9.]*) exec /bin/sleep "$@" ;; esac',
-        'if [ "${n%%.*}" -gt 10 ] 2>/dev/null; then',
-        '  echo "[autoriods] sleep ${n}s capped to 10s; use wait_for_*" >&2',
-        "  n=10",
+        'if [ "${n%%.*}" -gt 2 ] 2>/dev/null; then',
+        '  echo "[autoriods] sleep ${n}s capped to 2s; switch to the next useful task" >&2',
+        "  n=2",
         "fi",
         'exec /bin/sleep "$n"',
         "",
@@ -156,9 +156,9 @@ export function shortWaitGuardFiles(workspace: string): LaunchFile[] {
         "        value = float(seconds)",
         "    except (TypeError, ValueError):",
         "        return _autoriods_orig_sleep(seconds)",
-        "    if value > 10:",
-        '        print(f"[autoriods] sleep {value:g}s capped to 10s; use wait_for_*", file=_autoriods_sys.stderr, flush=True)',
-        "        value = 10",
+        "    if value > 2:",
+        '        print(f"[autoriods] sleep {value:g}s capped to 2s; switch to the next useful task", file=_autoriods_sys.stderr, flush=True)',
+        "        value = 2",
         "    return _autoriods_orig_sleep(value)",
         "_autoriods_time.sleep = _autoriods_sleep",
         "",

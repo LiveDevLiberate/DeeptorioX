@@ -189,6 +189,12 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**No-idle policy.** Explicit `wait` is rejected, `wait_for_*`/`wait_until`
+  deadlines are capped by `AUTORIO_MAX_WAIT_SECONDS` (default 5s), and the
+  shell/Python sleep shims cap at 2s. Prompt, AGENTS template and COOKBOOK require
+  a 3-item next-work queue so a blocked condition triggers the next build/fix
+  task instead of idle polling.
+
 **Agent envelope version.** Agent JSON omits `schema_version`; the
 `X-Autorio-Schema-Version` response header and `/api/health.versions.api_schema`
 carry it instead. Non-agent/operator API envelopes keep the field for existing

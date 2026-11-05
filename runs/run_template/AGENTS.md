@@ -84,7 +84,9 @@ Record scores and reasons in `STATE.md`.
 6. Verify with observations. If `done_when` is met, mark it done and re-score.
 7. If the timebox expires, re-score and switch. If an emergency appears, switch
    immediately.
-8. Keep the factory running while planning: use condition waits, not fixed sleeps.
+8. Keep the factory running while planning; never idle on waits. Maintain a
+   3-item work queue and switch to the next build/fix task when a condition is
+   not ready.
 
 Do not switch subtasks mid-task without an emergency or an expired timebox.
 Update `STATE.md` after every subtask so a resumed session can continue.
@@ -194,9 +196,10 @@ bootstrapping or an emergency, never for routine production.
   `observe-factory` and intervene only when an alert appears.
 - Batch work: one script or job should place a whole belt line, mine a list, or
   feed many machines. Do not use one model turn per entity when a loop can do it.
-- Use condition waits (`wait_for_item`, `wait_for_research`, `wait_for_factory`,
-  `wait_until`) instead of fixed sleeps. Sleep only when no game condition can
-  change.
+- Do not idle. Keep a 3-item next-work queue and do the next build/fix task when
+  output/research/resources are not ready. `wait` is disabled; `wait_for_*` is
+  capped at 5 seconds (`AUTORIO_MAX_WAIT_SECONDS`). If it times out, switch
+  tasks instead of retrying the wait.
 - Prefer electric automation once power is stable; keep burner inserters and
   drills fuelled automatically until then.
 - Verify automation with `observe-layout`, `observe-factory`, and production
@@ -224,10 +227,10 @@ bootstrapping or an emergency, never for routine production.
   build belts with `build_belt_line()` / `act-build-belt` and connect machines with
   `build_loader()` / `act-build-loader` (endpoints exactly two tiles apart on one
   axis). Chests are buffers, not transport.
-- Never sleep for production; use `wait_for_item`, `wait_for_research`,
-  `wait_for_factory`, or `wait_until` so work resumes the moment a condition is met.
-  **Hard cap: no shell `sleep` longer than 10 seconds.** Long sleeps waste the
-  run; poll a condition or switch to another useful subtask.
+- Never wait or sleep idly. `wait` is disabled and blocking `wait_for_*` calls
+  are capped at 5 seconds. Use the time for the next useful task: add
+  drills/furnaces/inserters, fix power/fuel/water, stock inputs, set recipes,
+  expand belts, clear a future build site, or craft intermediates.
 - Use `observe-layout` for a compact ASCII map of the current base (rows are
   north-to-south, one character per tile/step). `rows` is a composite layer
   (actor > built > natural > resource > terrain); `built_rows` and

@@ -152,6 +152,21 @@ class ContinuousMiningTests(unittest.TestCase):
         self.assertFalse(result["depleted"])
 
 
+class WaitPolicyTests(unittest.TestCase):
+    def test_wait_until_is_capped_and_explains_switch_tasks(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.dict(os.environ, {"AUTORIO_MAX_WAIT_SECONDS": "0.01"}):
+            with self.assertRaisesRegex(TimeoutError, "switch to the next useful task"):
+                client.wait_until(lambda: False, timeout=30)
+
+    def test_cli_wait_is_disabled(self):
+        with patch("factorio.time.sleep") as sleep, redirect_stdout(io.StringIO()) as stdout:
+            code = factorio.run(["wait", "--ms", "100"])
+        self.assertEqual(code, 1)
+        self.assertFalse(sleep.called)
+        self.assertIn("wait is disabled", stdout.getvalue())
+
+
 class ParsingTests(unittest.TestCase):
     def test_entities_and_targets_match_api_shapes(self):
         self.assertEqual(

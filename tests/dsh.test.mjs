@@ -150,7 +150,7 @@ test("dshEnvironmentPrompt teaches the right wrapper per platform", () => {
   });
   assert.match(windowsPython, /\.\\play\.cmd factorio\.py/);
   assert.match(windowsPython, /FACTORIO_API_BASE=http:\/\/127\.0\.0\.1:3000/);
-  assert.match(windowsPython, /never sleep longer than 10 seconds/i);
+  assert.match(windowsPython, /never idle on waits/gi);
   assert.match(windowsPython, /python factorio\.py/);
   const windowsWsl = dshEnvironmentPrompt({
     windows: true,

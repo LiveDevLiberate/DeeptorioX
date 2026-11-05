@@ -129,7 +129,6 @@ Commands:
   act-insert --entity x,y --item <name> --count <n>
   act-extract --entity x,y --item <name> --count <n|all>
   container-transfer --from x,y --to x,y [--item name] [--count n|all]
-  wait --ms <n>
   wait-for-item --item <name> --count <n> --timeout <s>
   wait-for-research --technology <name> --timeout <s>
   job-status --job-id <id>
@@ -212,7 +211,6 @@ COMMAND_USAGE = {
     "observe-container": "observe-container: Show a chest/container inventory at a tile.\nUsage: factorio.py observe-container --target x,y\n",
     "container-transfer": "container-transfer: Move items between containers through the player inventory; omit --item to move all stacks.\nUsage: factorio.py container-transfer --from x,y --to x,y [--item name] [--count n|all]\n",
     "recover-debris": "recover-debris: Scan crash-site spaceship debris, extract loot into the player inventory, then mine each piece.\nUsage: factorio.py recover-debris [--center-x n --center-y n --radius n]\n",
-    "wait": "wait: Sleep locally for N milliseconds between actions.\nUsage: factorio.py wait --ms <n>\n",
     "job-status": "job-status: Read action job progress.\nUsage: factorio.py job-status --job-id <id>\n",
     "job-cancel": "job-cancel: Request cancellation after the current atomic action.\nUsage: factorio.py job-cancel --job-id <id>\n",
 }
@@ -1800,6 +1798,12 @@ def _parse_area_flag(value: str, label: str = "area") -> dict[str, Any]:
     return {"x": x, "y": y, "radius": radius}
 
 
+def _wait_timeout(timeout: float) -> float:
+    """Cap blocking waits: the agent should switch to useful work instead."""
+    max_wait = float(os.environ.get("AUTORIO_MAX_WAIT_SECONDS", "5") or 5)
+    return max(0.0, min(float(timeout), max_wait))
+
+
 class FactorioClient:
     """Synchronous Python client for the Factorio manager API.
 
@@ -2256,14 +2260,17 @@ class FactorioClient:
                    interval: float | None = None) -> Any:
         """Poll a condition and return as soon as it is truthy."""
         delay = self.poll_interval if interval is None else max(0.05, interval)
-        deadline = time.monotonic() + max(0.0, timeout)
+        budget = _wait_timeout(timeout)
+        deadline = time.monotonic() + budget
         while True:
             value = predicate()
             if value:
                 return value
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise TimeoutError(f"condition not met within {timeout:g}s")
+                raise TimeoutError(
+                f"condition not met within {budget:g}s; do not wait — switch to the next useful task"
+            )
             time.sleep(min(delay, remaining))
 
     def wait_for_item(self, item: str, count: int = 1, *, timeout: float = 300,
@@ -2301,7 +2308,7 @@ class FactorioClient:
         """
         required = max(1, int(stable_polls))
         delay = max(0.05, float(interval))
-        deadline = time.monotonic() + max(0.0, float(timeout))
+        deadline = time.monotonic() + _wait_timeout(timeout)
         consecutive = 0
         timeouts = 0
         last: Any = None
@@ -3930,9 +3937,10 @@ def run(argv: list[str]) -> int:
             )
             return output(result, ok=bool(result.get("ok")))
         elif cmd == "wait":
-            milliseconds = max(0, parse_number(flag("ms"), 0) or 0)
-            time.sleep(milliseconds / 1000)
-            return output({"waited_ms": milliseconds})
+            raise ValueError(
+                "wait is disabled: do not idle. Pick the next useful task (add drills/furnaces, "
+                "fix power/fuel, stock inputs, set recipes, expand belts, or craft intermediates)."
+            )
         elif cmd == "wait-for-item":
             item = flag("item")
             if not item:

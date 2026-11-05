@@ -177,7 +177,7 @@ export function dshEnvironmentPrompt(options: {
       "Environment: run gameplay commands through the workspace wrapper: `sh ./play.sh factorio.py <command> ...`",
       "(`sh ./play.sh plan.py` for a script you write here).",
       `It exports FACTORIO_API_BASE=${options.apiBase}, PYTHONPATH and a short-sleep guard, then runs python3.`,
-      "The game is already running: never launch or kill the Factorio process, and never sleep longer than 10 seconds (use wait_for_* helpers).",
+      "The game is already running: never launch or kill the Factorio process, and never idle on waits; switch to the next useful task (wait_for_* is capped at 2s).",
     ].join(" ");
   }
   return [
@@ -191,7 +191,7 @@ export function dshEnvironmentPrompt(options: {
     options.windowsPython
       ? "A direct `python factorio.py <command> ...` also works when the wrapper is unavailable; the Windows Python client reaches the manager on 127.0.0.1."
       : `If the wrapper is unavailable, the equivalent command is \`wsl.exe -d ${options.distro} -e sh '${options.workspaceWsl}/play.sh' factorio.py ...\`.`,
-    "Never launch or kill the Factorio process, never use raw RCON, and never sleep longer than 10 seconds (use wait_for_* helpers instead).",
+    "Never launch or kill the Factorio process, never use raw RCON, and never idle on waits; switch to the next useful task (wait_for_* is capped at 2s).",
   ].join(" ");
 }
 
