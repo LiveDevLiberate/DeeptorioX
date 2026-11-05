@@ -7,6 +7,8 @@ import {
   productionPoints,
   sciencePoints,
   trackPowerBlackout,
+  MANUAL_PENALTY_GRACE_SECONDS,
+  manualPenaltyGraceActive,
 } from "../dist/automation-score.js";
 
 test("manual mining counts only natural resources, not deconstructed buildings", () => {
@@ -110,4 +112,11 @@ test("counts one 500-point penalty per full blackout after power is established"
   assert.equal(score.blackout_penalty, 1000);
   assert.equal(score.penalty, 1000);
   assert.equal(score.score, -950); // power 50 - 1000
+});
+
+test("manual penalties start only after the 30-minute opening grace", () => {
+  assert.equal(MANUAL_PENALTY_GRACE_SECONDS, 1800);
+  assert.equal(manualPenaltyGraceActive(0), false);
+  assert.equal(manualPenaltyGraceActive(1799), false);
+  assert.equal(manualPenaltyGraceActive(1800), true);
 });

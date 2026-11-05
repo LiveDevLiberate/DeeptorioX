@@ -71,6 +71,11 @@ this file.
   `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
   changing its checkpoint; resuming a paused run then uses the new limit and
   watchdog.
+- **Opening manual-work grace.** Manual mining/crafting penalties are ignored
+  during the first 30 minutes of active play (`AUTORIO_MANUAL_PENALTY_GRACE_SECONDS`,
+  default 1800; 0 disables the grace), so bootstrapping without automation does
+  not create an early score deficit. Existing penalties are not retroactively
+  removed.
 - **Continuous resource mining.** `act-mine --resource` now mines one target
   until the vein depletes or inventory fills (`--count all`, also exposed as
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no

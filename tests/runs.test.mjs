@@ -211,6 +211,24 @@ test("extends a paused run's wall-clock budget", async () => {
   }
 });
 
+test("suppresses manual mining/crafting penalties during the opening 30 minutes", async () => {
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    manager.recordJob("finished", {
+      action: "mine",
+      status: "completed",
+      payload: {},
+      results: [{ ok: true, name: "iron-ore", mined_count: 5 }],
+    });
+    assert.equal(manager.get(run.id).automation.manual_mines, 0);
+    assert.equal(manager.get(run.id).automation.manual_crafts, 0);
+  } finally {
+    await manager.stop();
+  }
+});
+
 test("records agent interface call counts and normalizes job ids", async () => {
   const { manager } = setup();
   const run = manager.start({ agent: "manual", benchmark: "smoke" });

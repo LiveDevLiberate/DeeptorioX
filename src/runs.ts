@@ -16,6 +16,8 @@ import {
 import { factorioLocale } from "./locale.js";
 import {
   CRAFT_PENALTY_POINTS,
+  MANUAL_PENALTY_GRACE_SECONDS,
+  manualPenaltyGraceActive,
   STATE_BLOCKED_PENALTY,
   STATE_DUE_PENALTY,
   computeAutomationScore,
@@ -415,6 +417,7 @@ export class RunManager {
   private recountManualActions(run: Run) {
     let mines = 0;
     let crafts = 0;
+    if (!manualPenaltyGraceActive(run.elapsed_seconds)) return { mines, crafts };
     try {
       const lines = fs.readFileSync(path.join(this.dir(run), "jobs.jsonl"), "utf8").split("\n");
       for (const line of lines) {
@@ -436,6 +439,12 @@ export class RunManager {
     return { mines, crafts };
   }
 
+  /** Effective manual-penalty grace; env override is useful for tests/operators. */
+  private manualPenaltyGraceSeconds(): number {
+    const raw = Number(process.env.AUTORIO_MANUAL_PENALTY_GRACE_SECONDS);
+    return Number.isFinite(raw) && raw >= 0 ? raw : MANUAL_PENALTY_GRACE_SECONDS;
+  }
+
   recordJob(phase: "submitted" | "finished", job: ActionJobRecord) {
     const run = this.active;
     if (!run || !["running", "saving"].includes(run.state)) return;
@@ -452,7 +461,9 @@ export class RunManager {
       if (job.status === "completed" && run.automation) {
         const mines = job.action === "mine" ? manualMineUnits(job.results) : 0;
         const crafts = job.action === "craft" ? manualCraftUnits(job.payload, job.results) : 0;
-        if (mines || crafts) {
+        // Opening grace: manual work is allowed without penalty while the
+        // character is still bootstrapping the first power/production loop.
+        if ((mines || crafts) && manualPenaltyGraceActive(this.elapsed())) {
           run.automation.manual_mines += mines;
           run.automation.manual_crafts += crafts;
           run.automation.penalty =
@@ -667,7 +678,13 @@ export class RunManager {
       age_seconds: age === null ? null : Math.round(age),
       research: run.latest?.current_research ?? null,
       research_progress: run.latest?.research_progress ?? null,
-      automation: run.automation,
+      automation: run.automation
+        ? {
+            ...run.automation,
+            manual_penalty_grace_seconds: this.manualPenaltyGraceSeconds(),
+            manual_penalty_grace_active: !manualPenaltyGraceActive(this.elapsed()),
+          }
+        : undefined,
       state: this.stateStatus(),
       remaining_seconds: Math.max(0, run.max_seconds - this.elapsed()),
     };

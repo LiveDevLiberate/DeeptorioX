@@ -53,6 +53,13 @@ const ITEM_WEIGHTS: Record<string, number> = {
 
 /** Extra points per hand-crafted item (mining is 1 point per resource unit). */
 export const CRAFT_PENALTY_POINTS = 2;
+/** Manual mining/crafting penalties are disabled for the opening 30 minutes. */
+export const MANUAL_PENALTY_GRACE_SECONDS = 30 * 60;
+/** Whether manual-work penalties are active at this active-play elapsed time. */
+export function manualPenaltyGraceActive(elapsedSeconds: number): boolean {
+  const elapsed = Number(elapsedSeconds);
+  return Number.isFinite(elapsed) && elapsed >= MANUAL_PENALTY_GRACE_SECONDS;
+}
 /** Penalty while STATE.md is older than the soft/hard deadline. */
 export const STATE_DUE_PENALTY = 25;
 export const STATE_BLOCKED_PENALTY = 100;

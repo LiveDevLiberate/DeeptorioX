@@ -179,6 +179,11 @@ creates straight horizontal/vertical trunks with wire-reach spacing and includes
 both endpoints (big pole default, 30 reach). The planner avoids using big poles
 as a dense coverage grid.
 
+**Manual-penalty grace.** `recordJob` counts manual mines/crafts only after
+`MANUAL_PENALTY_GRACE_SECONDS` (default 1800) of active play; the run view exposes
+`manual_penalty_grace_active`/`manual_penalty_grace_seconds`, and recovery
+recounting follows the same window. State/blackout penalties are unaffected.
+
 **Resource mining.** `FactorioClient.mine_continuous` repeats the native mine
 action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
