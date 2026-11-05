@@ -637,6 +637,11 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
       const trimmed = parseBuildRequests(entities, max);
+      if (entities.length > 0 && trimmed.length === 0) {
+        return json(res, 400, {
+          error: "No valid build entities; each entity needs a name and anchor {x,y} (or x/y shorthand)",
+        });
+      }
       try {
         const results: Record<string, unknown>[] = [];
         for (const entity of trimmed) {

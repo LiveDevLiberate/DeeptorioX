@@ -1852,6 +1852,34 @@ class BlueprintCliTestsExtra(unittest.TestCase):
         self.assertIn("--source", factorio.COMMAND_USAGE["blueprint-save"])
 
 
+class BuildEntityNormalizationTests(unittest.TestCase):
+    def test_canonical_and_shorthand_entities_are_normalized(self):
+        canonical = factorio.normalize_build_entities(
+            [{"name": "transport-belt", "anchor": {"x": 1, "y": 2}, "direction": 4}]
+        )
+        self.assertEqual(
+            canonical,
+            [{"name": "transport-belt", "anchor": {"x": 1, "y": 2}, "direction": 4}],
+        )
+        shorthand = factorio.normalize_build_entities(
+            [{"name": "inserter", "x": "3", "y": 4, "direction": 0}]
+        )
+        self.assertEqual(
+            shorthand,
+            [{"name": "inserter", "anchor": {"x": 3.0, "y": 4.0}, "direction": 0}],
+        )
+
+    def test_malformed_entities_raise_instead_of_silently_building_nothing(self):
+        with self.assertRaisesRegex(ValueError, "anchor"):
+            factorio.normalize_build_entities([{"name": "transport-belt", "x": 1}])
+        with self.assertRaisesRegex(ValueError, "name"):
+            factorio.normalize_build_entities([{"anchor": {"x": 1, "y": 2}}])
+        with self.assertRaisesRegex(ValueError, "JSON array"):
+            factorio.normalize_build_entities({"name": "x"})
+        with self.assertRaisesRegex(ValueError, "no entities"):
+            factorio.normalize_build_entities([])
+
+
 class ToolDiscoveryTests(unittest.TestCase):
     def test_local_and_fallback_manifests_are_available(self):
         client = factorio.FactorioClient(poll_interval=0)

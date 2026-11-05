@@ -153,6 +153,10 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
 ## 11. Blueprint workflow
 
 - `decode_blueprint_string(text)` / `encode_blueprint_string(dict)` for inspection.
+- Batch builds use `build([{"name":"transport-belt","anchor":{"x":10,"y":20},"direction":4}])`
+  or CLI `act-build --entities-json '<json>'`; `x`/`y` shorthand is accepted, but every
+  entity needs a name and anchor. An empty/invalid list now errors instead of silently
+  succeeding with zero placements.
 - `build_blueprint(text, anchor=(x,y), dry_run=True)` returns expanded entities, placement
   diagnostics and missing items; fix those first.
 - `build_blueprint(text, anchor=(x,y))` executes in <=50-entity chunks and aggregates results.

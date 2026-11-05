@@ -169,7 +169,7 @@ COMMAND_USAGE = {
     "observe-area": "observe-area: List entities for deconstruction planning in an area (name/type/position/status).\nUsage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only]\n",
     "observe-snapshot": "observe-snapshot: One call returning player, factory, research and production observations.\nUsage: factorio.py observe-snapshot --center-x <n> --center-y <n> --radius <n>\nNote: sequential requests; saves round trips and prompt tokens versus four separate calls.\n",
     "observe-copy-settings": "observe-copy-settings: Dry-run source/target compatibility and reach report for settings copy.\nUsage: factorio.py observe-copy-settings --target source-x,source-y,target-x,target-y [--target ...]\n   or: factorio.py observe-copy-settings --targets-json <json>\nNote: The character must be in reach of both entities; move first.\n",
-    "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]\n   or: factorio.py act-build --entities-json <json> [--no-clear]\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding. Trees and rocks in the\nfootprint are mined before placement unless --no-clear is given.\n",
+    "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]\n   or: factorio.py act-build --entities-json <json> [--no-clear]\nJSON shape: [{\"name\":\"transport-belt\",\"anchor\":{\"x\":10,\"y\":20},\"direction\":4}] (x,y shorthand accepted).\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding. Trees and rocks in the\nfootprint are mined before placement unless --no-clear is given.\n",
     "act-build-blueprint": "act-build-blueprint: Expand a Factorio blueprint string and build it in batches of at most 50 entities.\nUsage: factorio.py act-build-blueprint --blueprint-file <path> [--anchor x,y] [--dry-run] [--no-clear]\n   or: factorio.py act-build-blueprint --blueprint <string> [--anchor x,y] [--dry-run] [--no-clear]\nPosition: blueprint positions are map coordinates; --anchor moves the whole plan so its top-left tile lands there.\nDirections: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nUnderground: underground-belt/pipe-to-ground input/output subtypes are preserved as underground_type.\nDry run: prints the expanded entities, placement analysis, and missing items without building.\nNote: Recipes, filters and module settings inside the blueprint are NOT applied; set them with\nact-set-recipe afterwards. The character walks between entities, so a large plan takes many minutes.\n",
     "act-copy-settings": "act-copy-settings: Copy settings from source to target entities (synchronous, reach-checked).\nUsage: factorio.py act-copy-settings --target source-x,source-y,target-x,target-y [--target ...] [--dry-run]\n   or: factorio.py act-copy-settings --targets-json <json> [--dry-run]\nNote: Not a walking job; move the character into reach of every source and target first.\nUnreachable or incompatible pairs are reported and never mutated.\n",
     "deconstruct-area": "deconstruct-area: Observe an area and remove the entities with native mining (chunked).\nUsage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run]\nDefaults: radius 64, limit server default (300), player_only=true (last_user heuristic).\n--include-all sets player_only=false; add --types tree,simple-entity for passability or --types resource for ore.\nRemoval is the normal native miner: the character walks, mining takes real time, and unreachable targets\nfail per entity. Jobs are split into batches of at most 50 targets (--max-per-job smaller). --dry-run plans only.\n",
@@ -341,6 +341,55 @@ def parse_entities(values: list[str]) -> list[dict[str, Any]]:
         if len(parts) > 3:
             entity["direction"] = direction
         entities.append(entity)
+    return entities
+
+
+def normalize_build_entities(value: Any) -> list[dict[str, Any]]:
+    """Normalize --entities-json to the manager's build schema.
+
+    Canonical shape: [{"name": "transport-belt", "anchor": {"x": 1, "y": 2}}].
+    The shorthand {"name": "...", "x": 1, "y": 2} is accepted for convenience;
+    malformed entries error instead of producing a silent empty build job.
+    """
+    if not isinstance(value, list):
+        raise ValueError("--entities-json must be a JSON array")
+    entities: list[dict[str, Any]] = []
+    for index, raw in enumerate(value):
+        if not isinstance(raw, dict):
+            raise ValueError(f"entities[{index}] must be an object")
+        entity = dict(raw)
+        name = str(entity.get("name") or "").strip()
+        if not name:
+            raise ValueError(f"entities[{index}] is missing a name")
+        anchor = entity.get("anchor")
+        if anchor is None:
+            anchor = {"x": entity.pop("x", None), "y": entity.pop("y", None)}
+        if not isinstance(anchor, dict):
+            raise ValueError(f"entities[{index}] anchor must be an object")
+        def number_or_none(value: Any) -> float | None:
+            return None if value is None else parse_number(str(value), None)
+
+        x = number_or_none(anchor.get("x"))
+        y = number_or_none(anchor.get("y"))
+        if x is None or y is None:
+            raise ValueError(
+                f"entities[{index}] needs anchor {{x,y}} (or shorthand x,y); "
+                'example: [{"name":"transport-belt","anchor":{"x":10,"y":20}}]'
+            )
+        normalized: dict[str, Any] = {"name": name, "anchor": {"x": x, "y": y}}
+        if "direction" in entity:
+            direction = number_or_none(entity["direction"])
+            if direction is None:
+                raise ValueError(f"entities[{index}].direction must be a number")
+            normalized["direction"] = direction
+        if "underground_type" in entity:
+            underground = entity["underground_type"]
+            if underground not in ("input", "output"):
+                raise ValueError(f"entities[{index}].underground_type must be input or output")
+            normalized["underground_type"] = underground
+        entities.append(normalized)
+    if not entities:
+        raise ValueError("--entities-json contains no entities")
     return entities
 
 
@@ -2942,7 +2991,10 @@ def run(argv: list[str]) -> int:
                 raise ValueError("Missing --name")
             return output(data_value(request("POST", "/api/agent/observe/entity-prototype", {"name": name})))
         if cmd == "observe-placement":
-            placements = json.loads(flag("entities-json")) if flag("entities-json") else parse_entities(flags.get("entity", []))
+            placements = (
+                normalize_build_entities(json.loads(flag("entities-json")))
+                if flag("entities-json") else parse_entities(flags.get("entity", []))
+            )
             response = request("POST", "/api/agent/observe/placement", {"placements": placements})
             truncated = response["truncated"] if isinstance(response, dict) and "truncated" in response else MISSING
             return output(data_value(response), truncated=truncated)
@@ -3009,7 +3061,10 @@ def run(argv: list[str]) -> int:
                           ok=bool(deconstruct_result.get("ok", True)))
 
         if cmd == "act-build":
-            entities = json.loads(flag("entities-json")) if flag("entities-json") else parse_entities(flags.get("entity", []))
+            entities = (
+                normalize_build_entities(json.loads(flag("entities-json")))
+                if flag("entities-json") else parse_entities(flags.get("entity", []))
+            )
             job = submit("build", {"entities": entities, "clear_obstacles": not bool(flag("no-clear"))})
         elif cmd == "act-build-belt":
             start_value, end_value = flag("from"), flag("to")

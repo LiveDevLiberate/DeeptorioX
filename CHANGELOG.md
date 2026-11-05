@@ -67,6 +67,12 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **Build-payload validation.** `act-build --entities-json` now normalizes the
+  canonical `{name, anchor:{x,y}}` schema and the `x`/`y` shorthand, rejects
+  malformed entities with a clear error, and the manager returns 400 when a
+  non-empty request yields zero valid build entities. This fixes the silent
+  `ok:true / results:[]` build that occurred when an agent passed `x`/`y`
+  instead of `anchor`.
 - **Map PNG output and scan cache.** The map-overview endpoint now also returns
   `format=svg` or `format=png` (`png_base64` / `svg`), and identical center/radius/
   size requests are served from a short cache (`AUTORIO_MAP_CACHE_MS`, default

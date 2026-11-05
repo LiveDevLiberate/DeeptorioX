@@ -3,7 +3,7 @@
     {
       "command": "act-build",
       "description": "Place entities using the top-left occupied tile as the anchor.",
-      "help": "Usage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]    or: factorio.py act-build --entities-json <json> [--no-clear] Direction: 0=north (up), 4=east (right), 8=south (down), 12=west (left). Note: The character walks into reach using native pathfinding. Trees and rocks in the footprint are mined before placement unless --no-clear is given.",
+      "help": "Usage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]    or: factorio.py act-build --entities-json <json> [--no-clear] JSON shape: [{\"name\":\"transport-belt\",\"anchor\":{\"x\":10,\"y\":20},\"direction\":4}] (x,y shorthand accepted). Direction: 0=north (up), 4=east (right), 8=south (down), 12=west (left). Note: The character walks into reach using native pathfinding. Trees and rocks in the footprint are mined before placement unless --no-clear is given.",
       "usage": "Usage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]"
     },
     {
@@ -2260,7 +2260,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "f044eb2d6e4a729614f88d2bc8b3aa44efed74dec9bb1512d232ee97f797d357",
+  "client_sha256": "df8529e0c62629ebf99fe898e6972e799e09769ea116181917f7096c73f83078",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2411,8 +2411,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "f044eb2d6e4a729614f88d2bc8b3aa44efed74dec9bb1512d232ee97f797d357",
-    "src/api/agent.ts": "9c71c70c80f123e1ab74ded5a0966fc2497a669aac5a4e255e82f016f0ace3bd",
+    "factorio.py": "df8529e0c62629ebf99fe898e6972e799e09769ea116181917f7096c73f83078",
+    "src/api/agent.ts": "af43f6f990a1f7bf69c72da48326cb25b4d5e552b0fa093824869d66bdcb7f41",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",
     "src/api/jobs.ts": "bafe8a5682632bb0d9359a15dfb028358507c9ad8e8ba7eb0aa27a949e53948a",
