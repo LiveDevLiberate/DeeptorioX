@@ -796,6 +796,7 @@ export class RunManager {
     const revision = (previous?.revision ?? 0) + (changed ? 1 : 0);
     if (previous && changed) this.saveStateHistory(run, previous.revision, previous.text);
     fs.writeFileSync(path.join(workspace, "STATE.md"), markdown);
+    fs.rmSync(path.join(workspace, "PLAN_REMINDER.md"), { force: true });
     const meta: StateMeta = {
       schema_version: 1,
       revision: revision || 1,
@@ -1317,6 +1318,19 @@ export class RunManager {
         path.join(workspace, "RESUME.md"),
         `Continue the same benchmark from its saved game. Active play time so far: ${run.elapsed_seconds.toFixed(2)} seconds. Waiting and loading time are excluded.\n\nMilestones: ${JSON.stringify(run.milestones)}\n\nCurrent game snapshot: ${JSON.stringify(loaded)}\n\nIf STATE.md is missing or stale, call state-write to refresh it before any mutating action. A short resume grace applies, then stale-state gating resumes.\n`,
       );
+      const existingState = this.stateFile(run);
+      const existingAge = existingState ? (Date.now() - Date.parse(existingState.updated_at)) / 1000 : null;
+      if (!existingState || existingAge === null || existingAge > 300) {
+        fs.writeFileSync(
+          path.join(workspace, "PLAN_REMINDER.md"),
+          "Resume: STATE.md is missing or stale. Call state-write / POST /api/agent/state before any mutating action.\n",
+        );
+        this.emitTranscript(run, {
+          id: `state-resume-marker-${Date.now()}`,
+          type: "event_marker",
+          text: "Resume: refresh STATE.md before mutating actions",
+        });
+      }
     }
     await this.hooks.command(
       "/sc if remote.interfaces['autorio-control'] then remote.call('autorio-control','reset') end; rcon.print('controls_reset')",
@@ -1677,11 +1691,37 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
    * refreshing STATE.md on its own. Uses the same session and live game; only
    * enabled by AUTORIO_STATE_NUDGE_RESTART_SECONDS.
    */
+  /** Persist a recovery checkpoint without stopping the live game. */
+  private async saveNudgeCheckpoint(run: Run): Promise<void> {
+    if (!this.hooks.running()) return;
+    const saveName = `autorio-state-nudge-${this.segment(run).index}`;
+    const finalSave = path.join(this.dir(run), "profile", "saves", `${saveName}.zip`);
+    fs.rmSync(finalSave, { force: true });
+    await this.hooks.command(`/save ${saveName}`, 30_000);
+    const until = performance.now() + 30_000;
+    while (!fs.existsSync(finalSave) && performance.now() < until) await sleep(200);
+    if (!fs.existsSync(finalSave)) throw new Error("state-nudge save was not written");
+    fs.mkdirSync(this.segmentDir(run), { recursive: true });
+    const checkpoint = path.join(this.segmentDir(run), "checkpoint.zip");
+    fs.copyFileSync(finalSave, checkpoint);
+    run.checkpoint = {
+      file: path.relative(this.dir(run), checkpoint),
+      sha256: sha256(fs.readFileSync(checkpoint)),
+      saved_at: new Date().toISOString(),
+      segment: this.segment(run).index,
+    };
+    this.segment(run).save_file = run.checkpoint.file;
+    this.persist(run);
+  }
+
   private async nudgeStalePlan(run: Run): Promise<void> {
     if (this.stateNudging || this.contextResetting || this.ending || run.state !== "running") return;
     if (!run.session_id) return;
     this.stateNudging = true;
     try {
+      await this.saveNudgeCheckpoint(run).catch((error) => {
+        run.warnings.push(`STATE nudge checkpoint: ${errorText(error)}`);
+      });
       const child = this.agent;
       const remote = this.opencodeRemote;
       this.agent = undefined;
