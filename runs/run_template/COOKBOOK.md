@@ -212,6 +212,9 @@ Official rules (Factorio wiki, Belt transport system):
   side by side; a splitter filter or underground-belt trick can unmerge them.
 - Belts **do not automatically sum flows** at a + crossing, a head-on meeting, or
   a surface crossing. Use side-loading, a splitter, or underground belts.
+- Belts **cannot load or unload chests/machines/furnaces** by themselves. End the
+  belt next to the building and put an inserter between the belt and the
+  building; the same applies when taking products out.
 - Side-loading a perpendicular belt feeds **one lane** of the target belt. If that
   lane is full, the side belt backs up; it does not add a second lane.
 - A splitter has **2 inputs and 2 outputs**, splits 1:1, preserves lanes, supports

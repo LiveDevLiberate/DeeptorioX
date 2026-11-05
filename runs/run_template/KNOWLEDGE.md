@@ -10,6 +10,7 @@ section below.
 - Electric inserters need power; burner inserters need fuel. No power/fuel means no movement.
 - Base throughput ≈ 0.83 items/s; stack size/capacity research raises it. Long-handed reach 2, normal 1.
 - One inserter cannot serve two sources/destinations; use one pair per machine.
+- Belts cannot load/unload chests, machines or furnaces directly; put an inserter at the boundary.
 - Filter inserters control mixed belts/byproducts.
 
 ## 2. Pipes and fluids (`pipes`)

@@ -84,7 +84,7 @@ const BASE_TASK_PROMPT =
   "Before designing logistics, power, trains, chemistry, defense, production or blueprints, query knowledge --topic <inserters|pipes|trains|power|chemistry|defense|production|blueprints>; the run workspace also has KNOWLEDGE.md. " +
   "For pipes across lakes/cliffs use build-pipe-route (pathfinder route, orthogonal tiles); never keep retrying a straight build-pipe-line into water. " +
   "Use build-line --kind pipe|belt|wall|pole --route auto for any linear installation across unknown terrain; it shares the pathfinder detour and orthogonal routing instead of a straight-only builder. " +
-  "Belt rules: each tile has two lanes (two item types can share a belt), but junctions/crossings do not automatically sum flows; side-loading fills only one lane, splitters merge with a throughput cap, and underground pairs cross without mixing. " +
+  "Belt rules: each tile has two lanes (two item types can share a belt), but junctions/crossings do not automatically sum flows; side-loading fills only one lane, splitters merge with a throughput cap, and underground pairs cross without mixing. Belts cannot insert into or extract from chests/machines; use inserters at building boundaries. " +
   "For resource veins, call act-mine --resource with one target and the default count=all; keep mining that vein until depleted instead of switching after each cycle. " +
   "Never mine near a building with a generic act-mine: player-owned buildings are protected unless --allow-buildings is explicit; use deconstruct-area for intentional dismantling. " +
   "Use recover-debris for crash-site spaceship wreckage (extract loot, then mine), observe-container to inspect chest slots, and container-transfer to move/organize items. " +

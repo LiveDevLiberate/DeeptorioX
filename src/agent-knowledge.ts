@@ -23,6 +23,7 @@ export const AGENT_KNOWLEDGE: KnowledgeTopic[] = [
       "Base capacity is about 0.83 items/s; stack size and inserter-capacity research raise it. Long-handed inserters reach 2 tiles, normal 1.",
       "Filter inserters/stack filter inserters restrict item types; useful for mixed belts and byproducts.",
       "One inserter cannot serve two source or two destination tiles; give each machine its own inserter pair.",
+      "Belts cannot insert into or extract from chests/machines; an inserter is required at every building boundary.",
     ],
     mistakes: [
       "Expecting one inserter to feed two machines.",

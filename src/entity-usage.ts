@@ -26,6 +26,7 @@ const BY_TYPE: Record<string, UsageTemplate> = {
       "Direction 0=north, 4=east, 8=south, 12=west. Adjacent belts must face the same flow; a perpendicular belt only merges when side-loaded.",
     rules: [
       "Each belt tile has two lanes (left/right). The two lanes can carry two different item types side by side; a splitter or underground trick can unmerge them.",
+      "Belts only move items along themselves: they cannot insert into a chest, machine or furnace, and cannot extract from one. Put an inserter at the edge to load/unload a building.",
       "Belts do NOT automatically sum flows at an intersection or head-on meeting. Use side-loading, a splitter, or underground belts to join/cross flows.",
       "Side-loading a perpendicular belt pushes items into one lane of the target belt only. If that lane is full, the side belt backs up; it does not add a second lane automatically.",
       "A splitter has two inputs and two outputs (1:1 split); it can merge two input belts, but the output belt's throughput is still capped.",
@@ -35,6 +36,7 @@ const BY_TYPE: Record<string, UsageTemplate> = {
     ],
     common_mistakes: [
       "Building a + intersection and expecting the two crossing belts to exchange and sum flow.",
+      "Ending a belt at a chest/machine and expecting the belt itself to transfer items; inserters are required.",
       "Side-loading a full belt and expecting both input streams to keep their full throughput.",
       "Trying to make one belt carry two directions; use two belts or an underground pair.",
       "Feeding two full belts into one splitter output and assuming the combined throughput is preserved.",
@@ -253,6 +255,8 @@ export const BELT_RULES = {
     "Belts do not automatically sum or exchange flows at an intersection, head-on meeting or surface crossing. Join flows only by side-loading, a splitter, or underground belts.",
   side_loading:
     "A perpendicular belt side-loads into one lane of the target belt. A full target lane backs up instead of accepting the second flow; it does not add throughput.",
+  building_io_rule:
+    "Belts cannot load or unload chests, machines, furnaces or labs by themselves. An inserter is required at the boundary; belt endpoints only drop items on the ground/belt, not into inventories.",
   splitter_rule:
     "A splitter has two inputs and two outputs, splits 1:1, preserves lanes, supports priority/filter, and can merge inputs; its output is still limited by the output belt's throughput.",
   underground_rule:
