@@ -71,6 +71,11 @@ this file.
   `{"seconds": 14400}` extends a paused/failed/interrupted run budget without
   changing its checkpoint; resuming a paused run then uses the new limit and
   watchdog.
+- **Build anchor exactness.** `act-build` now rejects fractional anchors with
+  `anchor_must_be_integer` (the common cause of one-tile offsets when an agent
+  feeds a moving player position as a build anchor), waits two ticks after a
+  native move before using the cursor, and reports `actual_anchor`/`offset_tiles`/
+  `exact` so callers can verify the placed footprint.
 - **Entity type/interface annotation.** `observe-entities` now returns an
   `interfaces[]` list with machine type context: inserter pickup/drop ports,
   belt/underground/splitter input/output tiles, fluid connection points

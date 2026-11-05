@@ -85,6 +85,7 @@ export function agentNativeBuildCommand(item: BuildRequest, dryRun = false): str
     "local place_item=nil local place_count=1 for _,item in pairs(proto.items_to_place_this or {}) do place_item=item.name place_count=item.count or 1 break end",
     "if not place_item then done{ok=false,error='not_player_placeable',name=name} return end",
     "if direction~=0 and direction~=4 and direction~=8 and direction~=12 then done{ok=false,error='invalid_direction',direction=direction} return end",
+    "if anchor_x~=math.floor(anchor_x) or anchor_y~=math.floor(anchor_y) then done{ok=false,error='anchor_must_be_integer',requested_anchor={x=anchor_x,y=anchor_y},hint='Use the top-left occupied tile from observe-entities.anchor, never a moving player position.'} return end",
     "local width=proto.tile_width or math.ceil(proto.collision_box.right_bottom.x-proto.collision_box.left_top.x)",
     "local height=proto.tile_height or math.ceil(proto.collision_box.right_bottom.y-proto.collision_box.left_top.y)",
     "if direction==4 or direction==12 then width,height=height,width end",
@@ -113,7 +114,9 @@ export function agentNativeBuildCommand(item: BuildRequest, dryRun = false): str
     "local entities=p.surface.find_entities_filtered{position={x,y},name=name} or {}",
     "local e=entities[1]",
     "if not e then done{ok=false,error='build_result_not_found',requested_anchor={x=anchor_x,y=anchor_y},intended_center={x=x,y=y},cursor_cleared=true} return end",
-    "done{ok=true,name=name,placed_with_item=place_item,requested_anchor={x=anchor_x,y=anchor_y},actual_center={x=e.position.x,y=e.position.y},occupied_tiles=footprint,direction=e.direction,cursor_cleared=true}",
+    "local actual_anchor=nil local bb=e.bounding_box if bb then actual_anchor={x=math.floor(bb.left_top.x+0.001),y=math.floor(bb.left_top.y+0.001)} end",
+    "local offset=nil if actual_anchor then offset={x=actual_anchor.x-anchor_x,y=actual_anchor.y-anchor_y} end",
+    "done{ok=true,name=name,placed_with_item=place_item,requested_anchor={x=anchor_x,y=anchor_y},actual_anchor=actual_anchor,offset_tiles=offset,exact=(offset and offset.x==0 and offset.y==0) or false,actual_center={x=e.position.x,y=e.position.y},occupied_tiles=footprint,direction=e.direction,cursor_cleared=true}",
   ];
   return parts.join(" ");
 }

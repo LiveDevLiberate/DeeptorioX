@@ -139,6 +139,11 @@ export function parseRecipeTargets(value: unknown, max = AGENT_MAX_ACTIONS): Jso
 // action is aborted quickly instead of holding the whole job for ten minutes.
 const ACTION_TIMEOUT_MS = 120_000;
 const BUILD_MOVE_TIMEOUT_MS = 120_000;
+// The native move action finishes on the first tick at the goal; wait a couple
+// of ticks before using the cursor so a running character cannot place a build
+// from a stale cursor/movement frame.
+const BUILD_SETTLE_MS = 120;
+const settleBeforeBuild = () => new Promise<void>((resolve) => setTimeout(resolve, BUILD_SETTLE_MS));
 
 // Observation normalizers: the Lua builders always send these arrays/objects,
 // but older manager/game combinations can omit them. Each normalizer keeps the
@@ -678,6 +683,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             });
             continue;
           }
+          await settleBeforeBuild();
           let usedMovement = movement.movement;
           let clearing: ClearingSummary | null = null;
           const clearFootprint = async (acc: ClearingSummary) => {
@@ -734,6 +740,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
                   BUILD_MOVE_TIMEOUT_MS,
                 );
                 if (!walked.ok) break;
+                await settleBeforeBuild();
                 usedMovement = walked.movement;
               }
             }
@@ -759,6 +766,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
                 BUILD_MOVE_TIMEOUT_MS,
               );
               if (retryMovement.ok) {
+                await settleBeforeBuild();
                 usedMovement = retryMovement.movement;
                 if (clearing) await clearFootprint(clearing);
                 response = await rconCommand(agentNativeBuildCommand(entity));

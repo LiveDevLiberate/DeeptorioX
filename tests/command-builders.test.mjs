@@ -54,6 +54,10 @@ test("agentNativeBuildCommand anchors the build, derives the intended center and
   assert.ok(lua.includes("requested_anchor={x=anchor_x,y=anchor_y},intended_center={x=x,y=y}"));
   assert.ok(lua.includes("dx*dx+dy*dy > p.build_distance*p.build_distance"));
   assert.ok(lua.includes("error='out_of_reach'"));
+  assert.ok(lua.includes("error='anchor_must_be_integer'"));
+  assert.ok(lua.includes("actual_anchor="));
+  assert.ok(lua.includes("offset_tiles="));
+  assert.ok(lua.includes("exact=(offset"));
   assert.ok(lua.includes("helpers.table_to_json"));
   // Omitted direction defaults to north (0), and dry runs only check placement.
   const defaults = agentNativeBuildCommand({ name: "stone-furnace", anchor: { x: 0, y: 0 } });

@@ -179,6 +179,14 @@ creates straight horizontal/vertical trunks with wire-reach spacing and includes
 both endpoints (big pole default, 30 reach). The planner avoids using big poles
 as a dense coverage grid.
 
+**Build exactness.** `act-build` accepts only integer top-left anchors; a
+fractional anchor is rejected with `anchor_must_be_integer` and a hint to use
+`observe-entities.anchor`. The manager waits two ticks after a native move so a
+running character cannot place from a stale cursor frame, and every successful
+build reports `actual_anchor`, `offset_tiles` and `exact` computed from the live
+bounding box. The player-movement staging still uses pathfinder results; build
+positions themselves are absolute.
+
 **Entity interfaces.** `observe-entities` annotates each result with
 `type` and an `interfaces[]` list: inserter `pickup`/`drop`, belt/splitter
 `input`/`output`, fluid connection points (position/direction/fluidbox/target),
