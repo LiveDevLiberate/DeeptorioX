@@ -478,6 +478,16 @@ class BlueprintCodecTests(unittest.TestCase):
 
 
 class BlueprintClientTests(unittest.TestCase):
+    def test_observe_map_overview_svg_format(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"rows": []}) as request:
+            client.observe_map_overview(x=1, y=2, radius=64, size=32, format="svg")
+        request.assert_called_once_with(
+            "POST",
+            "/api/agent/observe/map-overview",
+            {"window": {"x": 1, "y": 2, "radius": 64}, "size": 32, "format": "svg"},
+        )
+
     def test_observe_map_overview_payload(self):
         client = factorio.FactorioClient(poll_interval=0)
         with patch.object(client, "request", return_value={"rows": ["?@."]}) as request:

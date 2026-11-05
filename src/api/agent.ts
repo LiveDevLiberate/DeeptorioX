@@ -4,6 +4,7 @@ import { asRecord, asString, errorMessage, type JsonObject } from "../validation
 import { rconConfigured } from "./shared.js";
 import { launchRocket } from "../rocket.js";
 import { visualObservation } from "../vision.js";
+import { mapOverviewSvg } from "../map-overview.js";
 import {
   agentBuildDestinationCommand,
   agentChartedResourcesCommand,
@@ -440,10 +441,17 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       const size = clampInt(body.size, 96, 8, 160);
       try {
         const response = await rconCommand(agentMapOverviewCommand({ x, y, radius, size }));
-        return json(res, 200, {
-          ok: true,
-          data: parseRconJson(response, "RCON map overview returned invalid JSON"),
-        });
+        const data = parseRconJson<Record<string, unknown>>(
+          response,
+          "RCON map overview returned invalid JSON",
+        );
+        if (body.format === "svg") {
+          return json(res, 200, {
+            ok: true,
+            data: { ...data, format: "svg", svg: mapOverviewSvg(data) },
+          });
+        }
+        return json(res, 200, { ok: true, data });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }

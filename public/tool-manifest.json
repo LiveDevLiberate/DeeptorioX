@@ -207,8 +207,8 @@
     {
       "command": "observe-map-overview",
       "description": "Compact downsampled charted map thumbnail with uncharted/water/land/entity/resource/player glyphs.",
-      "help": "Usage: factorio.py observe-map-overview --center-x <n> --center-y <n> --radius <n> --size <n> Radius is clamped to 1024 tiles and size to 160 cells; only charted chunks are revealed.",
-      "usage": "Usage: factorio.py observe-map-overview --center-x <n> --center-y <n> --radius <n> --size <n>"
+      "help": "Usage: factorio.py observe-map-overview --center-x <n> --center-y <n> --radius <n> --size <n> [--format svg] Radius is clamped to 1024 tiles and size to 160 cells; only charted chunks are revealed.",
+      "usage": "Usage: factorio.py observe-map-overview --center-x <n> --center-y <n> --radius <n> --size <n> [--format svg]"
     },
     {
       "command": "observe-placement",
@@ -1434,7 +1434,7 @@
       "signature": "observe_map(self, *, x: 'float' = 0, y: 'float' = 0, radius: 'float' = 48) -> 'Any'"
     },
     {
-      "description": "Compact downsampled charted map thumbnail (ASCII rows plus legend).",
+      "description": "Compact charted map thumbnail (ASCII rows by default; format=\"svg\").",
       "name": "observe_map_overview",
       "parameters": [
         {
@@ -1464,9 +1464,16 @@
           "kind": "keyword_only",
           "name": "size",
           "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "format",
+          "required": false
         }
       ],
-      "signature": "observe_map_overview(self, *, x: 'float' = 0, y: 'float' = 0, radius: 'float' = 128, size: 'int' = 96) -> 'Any'"
+      "signature": "observe_map_overview(self, *, x: 'float' = 0, y: 'float' = 0, radius: 'float' = 128, size: 'int' = 96, format: 'str | None' = None) -> 'Any'"
     },
     {
       "description": "",
@@ -2253,7 +2260,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "df30b412437d92bcabe478e6afe523b0d8c87a18f0ee68c556f1fa487a324d5a",
+  "client_sha256": "f044eb2d6e4a729614f88d2bc8b3aa44efed74dec9bb1512d232ee97f797d357",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2404,8 +2411,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "df30b412437d92bcabe478e6afe523b0d8c87a18f0ee68c556f1fa487a324d5a",
-    "src/api/agent.ts": "945d75b5c11daf165fc684f7fefaf459c847f1cac39b810e40dd5a6e04687fc0",
+    "factorio.py": "f044eb2d6e4a729614f88d2bc8b3aa44efed74dec9bb1512d232ee97f797d357",
+    "src/api/agent.ts": "e45eee63cc0e949346fd512de437b49863a7a23cdef709c1fe9e4422f1535f62",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",
     "src/api/jobs.ts": "bafe8a5682632bb0d9359a15dfb028358507c9ad8e8ba7eb0aa27a949e53948a",

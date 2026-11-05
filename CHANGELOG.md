@@ -67,6 +67,10 @@ this file.
   string does not build it. Blueprint details in the run page and recording
   window now include an SVG layout preview (entity positions, rough prototype
   sizes and category colors) alongside the decoded JSON.
+- **SVG map overview output.** `POST /api/agent/observe/map-overview` accepts
+  `format: "svg"` and returns compact same-color SVG runs alongside window
+  metadata; Python/CLI expose `observe_map_overview(..., format="svg")` /
+  `--format svg`.
 - **Run page map thumbnail.** Run details now has a Map toggle that paints the same
   charted overview canvas for the active run, alongside the recording Map dialog.
 - **Recording map thumbnail.** The recording Map dialog now loads the
