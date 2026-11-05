@@ -109,6 +109,12 @@
       "usage": "Usage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]"
     },
     {
+      "command": "build-pipe-route",
+      "description": "Ask the native pathfinder for a walkable route and lay connected orthogonal pipes around lakes/cliffs.",
+      "help": "Usage: factorio.py build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear] Fails with no_path if the destination is unreachable; choose a different endpoint instead of retrying a straight line.",
+      "usage": "Usage: factorio.py build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear]"
+    },
+    {
       "command": "build-power-line",
       "description": "Place a straight horizontal/vertical pole trunk with wire-reach spacing.",
       "help": "Usage: factorio.py build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear] Use big-electric-pole for long runs (30 reach); use build-power-network with substations for area coverage.",
@@ -715,6 +721,48 @@
         }
       ],
       "signature": "build_pipe_line(self, from_xy: 'Any' = None, to_xy: 'Any' = None, *, plan: 'Any' = None, name: 'str' = 'pipe', clear: 'bool' = True) -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Route pipes around water/cliffs using the native pathfinder, then build.",
+      "name": "build_pipe_route",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "from_xy",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "to_xy",
+          "required": true
+        },
+        {
+          "annotation": "str",
+          "default": "'pipe'",
+          "kind": "keyword_only",
+          "name": "name",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "True",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "build_pipe_route(self, from_xy: 'Any', to_xy: 'Any', *, name: 'str' = 'pipe', plan: 'Any' = None, clear: 'bool' = True) -> 'dict[str, Any]'"
     },
     {
       "description": "Plan (or accept) a straight horizontal/vertical pole trunk and build it.",
@@ -2374,7 +2422,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "b2d512be87fcc8ed5d2c7459950b99c941e8cb352bb3daf2ca1a953948facad6",
+  "client_sha256": "6e0f480ead3e176ff081ee3ea4d9a853c9060f8accddca289110f922b662df4d",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2537,7 +2585,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "b2d512be87fcc8ed5d2c7459950b99c941e8cb352bb3daf2ca1a953948facad6",
+    "factorio.py": "6e0f480ead3e176ff081ee3ea4d9a853c9060f8accddca289110f922b662df4d",
     "src/api/agent.ts": "a10f31d2aee8d352ca05bcf3015c9ea4a78a0eefe061162f5e82c871834eecf2",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "0229e2b61531c8ee4227ef4e0fd94e8809b4198e0c015c314194f9e819e9868d",

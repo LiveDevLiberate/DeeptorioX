@@ -190,6 +190,20 @@ Goal: steady `automation-science-pack` + `logistic-science-pack` into a lab.
   `observe-entity-prototype`, `observe-layout` and `observe-connections` to infer
   behavior instead of assuming a bidirectional building.
 
+## 10.7 Pipes around water and cliffs
+
+- `build-pipe-line` is only an L-shaped plan and `build-underground-pipe` is
+  straight; neither routes around a lake.
+- Use `build-pipe-route --from x,y --to x,y` when terrain is unseen or a lake is
+  between the endpoints. It asks the native pathfinder for a walkable route and
+  converts it into connected orthogonal pipes (`--name pipe` by default).
+- If the route fails with `no_path`, move the endpoint to a reachable shore /
+  waypoint and build in stages. Do not keep retrying the same straight line.
+- A diagonal route corner emits both orthogonal corner possibilities; a water
+  corner is skipped while the other corner keeps the pipe network connected.
+- After building, inspect the route with `observe-connections` or
+  `observe-fluids`; fluid networks connect only through adjacent pipe tiles.
+
 ## 11. Blueprint workflow
 
 - `decode_blueprint_string(text)` / `encode_blueprint_string(dict)` for inspection.

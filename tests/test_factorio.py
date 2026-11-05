@@ -1284,6 +1284,33 @@ class PlanBuildAndBuilderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "at least one entity"):
             client.plan_build([])
 
+    def test_plan_pipe_route_connects_diagonal_path_around_obstacles(self):
+        route = factorio.plan_pipe_route([
+            {"x": 0.5, "y": 0.5},
+            {"x": 1.5, "y": 1.5},
+            {"x": 2.5, "y": 2.5},
+        ])
+        anchors = [(entity["anchor"]["x"], entity["anchor"]["y"]) for entity in route]
+        self.assertEqual(
+            anchors,
+            [(0, 0), (1, 0), (0, 1), (1, 1), (2, 1), (1, 2), (2, 2)],
+        )
+        self.assertTrue(all(entity["name"] == "pipe" for entity in route))
+
+    def test_build_pipe_route_uses_path_preview_result(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "preview_path", return_value={
+            "results": [{"path": [{"x": 0.5, "y": 0.5}, {"x": 0.5, "y": 2.5}]}]
+        }), patch.object(client, "_submit_planned", return_value={"ok": True}) as submit:
+            result = client.build_pipe_route((0, 0), (0, 2))
+        self.assertTrue(result["ok"])
+        entities = submit.call_args.args[0]
+        self.assertEqual(
+            [(entity["anchor"]["x"], entity["anchor"]["y"]) for entity in entities],
+            [(0, 0), (0, 1), (0, 2)],
+        )
+        self.assertIn("build-pipe-route", factorio.COMMAND_USAGE)
+
     def test_build_pipe_line_plans_and_submits_chunks(self):
         client = factorio.FactorioClient(poll_interval=0)
         calls = []

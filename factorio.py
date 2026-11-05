@@ -107,6 +107,7 @@ Commands:
   build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]
   build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]
   build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]
+  build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear]
   build-power-network (--target x,y[,w,h] [--target ...] | --area x,y,radius) [--pole name] [--big-pole-every n] [--no-clear]
   build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]
   build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--no-clear]
@@ -183,6 +184,7 @@ COMMAND_USAGE = {
     "build-pipe-line": "build-pipe-line: Lay an L-shaped surface pipe line (x first, then y).\nUsage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]\nNote: surface pipes only; for straight runs under obstacles use build-underground-pipe.\n",
     "build-underground-belt": "build-underground-belt: Lay a straight underground-belt line (input/output pairs + surface belt connectors).\nUsage: factorio.py build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]\nName: transport-belt/fast-transport-belt/express-transport-belt (default distance 4/6/8); pass --max-distance to override.\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface belt\nconnector after each pair, surface belts for tails shorter than a pair. Straight horizontal/vertical only.\n",
     "build-underground-pipe": "build-underground-pipe: Lay a straight pipe-to-ground line (input/output pairs + surface pipe connectors).\nUsage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface pipe\nconnector after each pair, surface pipes for tails shorter than a pair (default distance 10). Straight only.\n",
+    "build-pipe-route": "build-pipe-route: Ask the native pathfinder for a walkable route and lay connected orthogonal pipes around lakes/cliffs.\nUsage: factorio.py build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear]\nFails with no_path if the destination is unreachable; choose a different endpoint instead of retrying a straight line.\n",
     "build-power-network": "build-power-network: Place a pole grid covering entity targets or a scan area.\nUsage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]\n   or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear]\nCoverage: small/medium poles 5x5 (5-tile grid), substations 18x18 (18-tile grid); big poles are for straight transmission trunks (30-tile reach) and have only a 4x4 supply area. Use build-power-line for trunks.\n",
     "build-power-line": "build-power-line: Place a straight horizontal/vertical pole trunk with wire-reach spacing.\nUsage: factorio.py build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]\nUse big-electric-pole for long runs (30 reach); use build-power-network with substations for area coverage.\n",
     "build-inserter-pairs": "build-inserter-pairs: Place input+output inserters around rows of machines.\nUsage: factorio.py build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--name inserter] [--no-clear]\n   or: factorio.py build-inserter-pairs --entities-json <json> [--direction ...] [--no-clear]\nFootprints default to 3x3; pass w,h for other machine sizes. Shared machine-to-machine inserters are deduped.\n",
@@ -997,6 +999,80 @@ def plan_pipe_line(from_xy: Any, to_xy: Any, *, name: str = "pipe") -> list[dict
         y += step
         entities.append(pipe(x2, y))
     return entities
+
+
+def plan_pipe_route(
+    path_points: Any,
+    *,
+    name: str = "pipe",
+    from_xy: Any = None,
+    to_xy: Any = None,
+) -> list[dict[str, Any]]:
+    """Turn a native walkable path into a connected orthogonal pipe route.
+
+    The path may contain diagonal waypoints; each diagonal step is expanded into
+    L-shaped pipe tiles. For one-tile diagonals both corner variants are emitted so
+    at least one remains buildable at a water/cliff corner (a failed pipe is
+    skipped by the build job; the other corner keeps the route connected).
+    """
+    if not isinstance(name, str) or not name:
+        raise ValueError("name must be an entity name")
+    points: list[tuple[int, int]] = []
+    for index, raw in enumerate(_planner_sequence(path_points, "path_points")):
+        x, y = _planner_point(raw, f"path point {index}", integer=False)
+        points.append((int(math.floor(x)), int(math.floor(y))))
+    if from_xy is not None:
+        x, y = _planner_point(from_xy, "from", integer=False)
+        points.insert(0, (int(math.floor(x)), int(math.floor(y))))
+    if to_xy is not None:
+        x, y = _planner_point(to_xy, "to", integer=False)
+        points.append((int(math.floor(x)), int(math.floor(y))))
+    if not points:
+        return []
+    route: list[tuple[int, int]] = []
+    seen: set[tuple[int, int]] = set()
+
+    def add(tile: tuple[int, int]) -> None:
+        if tile not in seen:
+            seen.add(tile)
+            route.append(tile)
+
+    add(points[0])
+    for target in points[1:]:
+        x, y = route[-1]
+        dx, dy = target[0] - x, target[1] - y
+        if dx == 0 and dy == 0:
+            continue
+        if dx == 0 or dy == 0:
+            step_x = (dx > 0) - (dx < 0)
+            step_y = (dy > 0) - (dy < 0)
+            while (x, y) != target:
+                x += step_x
+                y += step_y
+                add((x, y))
+            continue
+        # A short diagonal can cut a lake corner. Emit both orthogonal corners;
+        # the build job keeps whichever is placeable and the network still links
+        # through that corner.
+        if abs(dx) == 1 and abs(dy) == 1:
+            add((target[0], y))
+            add((x, target[1]))
+            add(target)
+            continue
+        # Longer compressed waypoints: deterministic x-first L, preserving
+        # adjacency and avoiding a diagonal pipe gap.
+        step_x = (dx > 0) - (dx < 0)
+        while x != target[0]:
+            x += step_x
+            add((x, y))
+        step_y = (dy > 0) - (dy < 0)
+        while y != target[1]:
+            y += step_y
+            add((target[0], y))
+    return [
+        {"name": name, "anchor": {"x": x, "y": y}, "direction": 0}
+        for x, y in route
+    ]
 
 
 def _underground_axis(
@@ -2612,6 +2688,26 @@ class FactorioClient:
             entities, warnings = plan_pipe_line(from_xy, to_xy, name=name), []
         return self._submit_planned(entities, clear=clear, warnings=warnings)
 
+    def build_pipe_route(self, from_xy: Any, to_xy: Any, *,
+                         name: str = "pipe", plan: Any = None,
+                         clear: bool = True) -> dict[str, Any]:
+        """Route pipes around water/cliffs using the native pathfinder, then build.
+
+        Falls back to a straight/L plan only when a path is available; if the
+        pathfinder reports no_path the caller should choose a different endpoint.
+        """
+        if plan is not None:
+            entities, warnings = self._resolve_plan(plan)
+        else:
+            x, y = _planner_point(to_xy, "to")
+            job = self.preview_path(float(x) + 0.5, float(y) + 0.5)
+            path = _job_path_points(job)
+            if not path:
+                raise ValueError("pathfinder did not return a route; pipe route cannot be planned")
+            entities = plan_pipe_route(path, name=name, from_xy=from_xy, to_xy=to_xy)
+            warnings = []
+        return self._submit_planned(entities, clear=clear, warnings=warnings)
+
     def build_underground_belt_line(self, from_xy: Any = None, to_xy: Any = None, *,
                                     plan: Any = None, name: str = "transport-belt",
                                     max_distance: Any = None,
@@ -2860,6 +2956,23 @@ def submit_action_job(base: str, action: str, payload: Any, detach: bool, idempo
         encoded_id = quote(str(job_id), safe="-_.!~*'()")
         job = http_request(base, "GET", f"/api/agent/jobs/{encoded_id}")
     return job
+
+
+def _job_path_points(job: Any) -> list[Any]:
+    """Extract the native path array from a path-preview action-job response."""
+    if not isinstance(job, dict):
+        return []
+    for container in (job.get("results"), (job.get("data") or {}).get("results")
+                      if isinstance(job.get("data"), dict) else None):
+        if not isinstance(container, list):
+            continue
+        for result in container:
+            if not isinstance(result, dict):
+                continue
+            path = result.get("path") or result.get("path_out")
+            if isinstance(path, list) and path:
+                return path
+    return []
 
 
 def action_job_ok(job: Any) -> bool:
@@ -3280,6 +3393,17 @@ def run(argv: list[str]) -> int:
                 parse_targets([to_value], False)[0],
                 pole=flag("pole") or "big-electric-pole",
                 spacing=parse_number(flag("spacing"), None),
+                clear=not bool(flag("no-clear")),
+            )
+            return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "build-pipe-route":
+            from_value, to_value = flag("from"), flag("to")
+            if not from_value or not to_value:
+                raise ValueError("Missing --from or --to")
+            planner_result = FactorioClient(parsed.base).build_pipe_route(
+                parse_targets([from_value], False)[0],
+                parse_targets([to_value], False)[0],
+                name=flag("name") or "pipe",
                 clear=not bool(flag("no-clear")),
             )
             return output(planner_result, ok=bool(planner_result.get("ok", True)))

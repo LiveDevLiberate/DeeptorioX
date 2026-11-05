@@ -81,6 +81,7 @@ const BASE_TASK_PROMPT =
   "For a fast charted-area overview use observe_map_overview(x, y, radius, size); it returns compact rows/legend (or SVG/PNG) for already-charted chunks only, so it is a plan aid rather than a fog reveal. " +
   "Before placing an unfamiliar building or designing a junction, call entity-usage --name <entity> (client.entity_usage); belts/splitters/underground belts are directional, and a crossing is not a bidirectional output junction. " +
   "Use entity-usage-catalog to list all curated building rules/limits once, then entity-usage --name for a specific building. " +
+  "For pipes across lakes/cliffs use build-pipe-route (pathfinder route, orthogonal tiles); never keep retrying a straight build-pipe-line into water. " +
   "For power, use substations or small/medium poles for local coverage and a straight build-power-line with big poles for long trunks; do not place a dense grid of big poles. " +
   "Watch the automation score in observe_factory().plan.automation: automate extraction and crafting instead of hand work (manual mines/crafts are penalty points). " +
   "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
