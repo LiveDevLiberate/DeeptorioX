@@ -169,7 +169,8 @@ class BlueprintCaptureTests(unittest.TestCase):
 class UnstickTests(unittest.TestCase):
     def test_unstick_returns_when_a_route_is_already_open(self):
         client = factorio.FactorioClient(poll_interval=0)
-        with patch.object(client, "player_position", return_value={"x": 10.5, "y": 20.5}),                 patch.object(client, "preview_path", return_value={"results": [{"path": [{"x": 1, "y": 2}]}]}) as preview,                 patch.object(client, "mine") as mine:
+        with patch.object(client, "player_position", return_value={"x": 10.5, "y": 20.5}),                 patch.object(client, "preview_path", return_value={"results": [{"path": [{"x": 1, "y": 2}]}]}) as preview,                 patch.object(client, "mine") as mine, \
+                patch.object(client, "move", return_value={"ok": True}):
             result = client.unstick()
         self.assertTrue(result["escaped"])
         self.assertEqual(result["method"], "path")
@@ -191,7 +192,8 @@ class UnstickTests(unittest.TestCase):
                     {"name": "transport-belt", "type": "transport-belt", "x": 10, "y": 21},
                 ]}}), \
                 patch.object(client, "mine",
-                             return_value={"data": {"results": [{"ok": True}]}}) as mine:
+                             return_value={"data": {"results": [{"ok": True}]}}) as mine, \
+                patch.object(client, "move", return_value={"ok": True}):
             result = client.unstick()
         self.assertTrue(result["escaped"])
         self.assertEqual(result["removed"][0]["name"], "transport-belt")

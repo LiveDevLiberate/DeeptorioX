@@ -2465,16 +2465,25 @@ class FactorioClient:
         px, py = int(math.floor(player["x"])), int(math.floor(player["y"]))
         targets = [(px + dx * 4, py + dy * 4) for dx, dy in
                    ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1))]
-        def route_open() -> bool:
+        def find_route() -> tuple[int, int] | None:
             for tx, ty in targets:
                 try:
                     if _job_path_points(self.preview_path(tx + 0.5, ty + 0.5)):
-                        return True
+                        return tx, ty
                 except Exception:
                     continue
-            return False
-        if route_open():
-            return {"ok": True, "escaped": True, "removed": [], "method": "path"}
+            return None
+
+        def move_out(tx: int, ty: int) -> dict[str, Any]:
+            try:
+                result = self.move([{"x": tx, "y": ty}])
+                return {"moved_to": {"x": tx, "y": ty}, "move_result": result}
+            except Exception as error:
+                return {"move_error": str(error), "moved_to": {"x": tx, "y": ty}}
+
+        route = find_route()
+        if route:
+            return {"ok": True, "escaped": True, "removed": [], "method": "path", **move_out(*route)}
         area = self.observe_area(px, py, 3, player_only=True, limit=100)
         data = data_value(area)
         entities = data.get("entities") if isinstance(data, dict) else []
@@ -2505,8 +2514,15 @@ class FactorioClient:
             if result.get("ok") is False:
                 continue
             removed.append(target)
-            if route_open():
-                return {"ok": True, "escaped": True, "removed": removed, "method": "mined_blocker"}
+            route = find_route()
+            if route:
+                return {
+                    "ok": True,
+                    "escaped": True,
+                    "removed": removed,
+                    "method": "mined_blocker",
+                    **move_out(*route),
+                }
         return {
             "ok": False,
             "error": "blocked_no_escape",
