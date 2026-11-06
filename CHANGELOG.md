@@ -81,6 +81,10 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Belt three-strike relayout.** After three failed link/connection attempts
+  for the same belt section, agents must stop patching and use `relayout-belts`
+  (dry-run first) to recycle every belt type in the area, re-observe, and plan a
+  fresh validated route. Prompt/COOKBOOK/KNOWLEDGE document the rule.
 - **Belt connectivity validation.** Planned belt routes are checked before
   building for dead ends, head-on tiles and missing inputs; `observe-connections`
   also audits existing belts for `belt_no_input`, dead ends and non-belt

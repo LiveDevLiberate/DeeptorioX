@@ -152,6 +152,20 @@ class ContinuousMiningTests(unittest.TestCase):
         self.assertFalse(result["depleted"])
 
 
+class BeltRelayoutTests(unittest.TestCase):
+    def test_relayout_belts_dry_run_uses_all_belt_types(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "deconstruct_area", return_value={"ok": True, "targets": []}) as deconstruct:
+            client.relayout_belts(10, 20, 30, dry_run=True)
+        args, kwargs = deconstruct.call_args
+        self.assertEqual(args, (10, 20, 30))
+        self.assertEqual(kwargs["player_only"], False)
+        self.assertTrue(kwargs["dry_run"])
+        self.assertIn("underground-belt", kwargs["types"])
+        self.assertIn("splitter", kwargs["types"])
+        self.assertIn("relayout-belts", factorio.COMMAND_USAGE)
+
+
 class BeltValidationTests(unittest.TestCase):
     def test_belt_plan_validator_catches_dead_end_and_head_on(self):
         valid = [

@@ -30,6 +30,12 @@ section below.
 - `observe-connections` reports `belt_dead_end`, head-on, non-belt endpoints and
   `belt_no_input`; fix these before extending a line.
 
+## 2.45 Belt 3-strike rule
+
+- If a belt section fails link checks 3 times, stop patching. Use
+  `relayout-belts` (dry-run first) to recycle all belts in the area, re-observe,
+  re-plan, and validate before building again.
+
 ## 2.5 Belt and pipe contents
 
 - `belt-contents --target x,y` shows items on each belt lane (`belt.lines`).

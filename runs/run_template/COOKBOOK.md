@@ -383,6 +383,18 @@ choose a reachable shore/waypoint and build the route in stages.
 - Fix invalid belt sections before extending them; do not build more belts on
   top of a disconnected line.
 
+## 12.7 Belt three-strike rule
+
+- Count attempts per belt section/junction. If link/connection checks still fail
+  after **3 attempts**, stop adding/rotating individual tiles.
+- Run `relayout-belts --center-x X --center-y Y --radius R --dry-run` to see the
+  belt removal plan, then run it without `--dry-run` to recycle **all** belts in
+  that area (all belt types, player-built or not).
+- Re-observe the cleared area, re-plan from scratch with `build-line --kind belt`
+  (prevalidated), and verify with `observe-connections` before extending.
+- Never leave duplicate/broken belts and build a second copy on top. A full
+  re-layout is cheaper than repeated patching.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

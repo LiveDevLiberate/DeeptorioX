@@ -189,6 +189,10 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Belt relayout.** `relayout_belts`/`relayout-belts` wraps deconstruction of
+all belt types in an area; the three-strike policy requires it after repeated
+link failures instead of endless patch attempts.
+
 **Belt connectivity.** `validate_belt_entities` checks planned runs for dead
 ends/head-on/missing-input tiles before build; `observe-connections` audits
 existing belts and reports `belt_no_input` in addition to dead ends and

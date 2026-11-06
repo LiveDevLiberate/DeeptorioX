@@ -115,6 +115,7 @@ Commands:
   build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]
   build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear]
   build-line --kind pipe|belt|wall|pole|underground-pipe|underground-belt --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n] [--no-clear]
+  relayout-belts --center-x n --center-y n --radius n [--dry-run]
   build-power-network (--target x,y[,w,h] [--target ...] | --area x,y,radius) [--pole name] [--big-pole-every n] [--no-clear]
   build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]
   build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--no-clear]
@@ -194,6 +195,7 @@ COMMAND_USAGE = {
     "build-underground-belt": "build-underground-belt: Lay a straight underground-belt line (input/output pairs + surface belt connectors).\nUsage: factorio.py build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]\nName: transport-belt/fast-transport-belt/express-transport-belt (default distance 4/6/8); pass --max-distance to override.\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface belt\nconnector after each pair, surface belts for tails shorter than a pair. Straight horizontal/vertical only.\n",
     "build-underground-pipe": "build-underground-pipe: Lay a straight pipe-to-ground line (input/output pairs + surface pipe connectors).\nUsage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface pipe\nconnector after each pair, surface pipes for tails shorter than a pair (default distance 10). Straight only.\n",
     "build-line": "build-line: Unified linear builder for pipes/belts/walls/poles, with auto pathfinding around lakes/cliffs or a straight L plan.\nUsage: factorio.py build-line --kind pipe|belt|wall|pole|underground-pipe|underground-belt --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n] [--no-clear]\nroute=auto uses path-preview and lays an orthogonal route; underground variants are straight-only.\n",
+    "relayout-belts": "relayout-belts: Recycle every belt in an area after repeated failed belt-link attempts; dry-run first to inspect.\nUsage: factorio.py relayout-belts --center-x n --center-y n --radius n [--dry-run]\nThen re-observe and plan a fresh route; do not patch the failed layout further.\n",
     "build-pipe-route": "build-pipe-route: Ask the native pathfinder for a walkable route and lay connected orthogonal pipes around lakes/cliffs.\nUsage: factorio.py build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear]\nFails with no_path if the destination is unreachable; choose a different endpoint instead of retrying a straight line.\n",
     "build-power-network": "build-power-network: Place a pole grid covering entity targets or a scan area.\nUsage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]\n   or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear]\nCoverage: small/medium poles 5x5 (5-tile grid), substations 18x18 (18-tile grid); big poles are for straight transmission trunks (30-tile reach) and have only a 4x4 supply area. Use build-power-line for trunks.\n",
     "build-power-line": "build-power-line: Place a straight horizontal/vertical pole trunk with wire-reach spacing.\nUsage: factorio.py build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]\nUse big-electric-pole for long runs (30 reach); use build-power-network with substations for area coverage.\n",
@@ -3089,6 +3091,25 @@ class FactorioClient:
             _assert_valid_belt_plan(entities, from_xy=from_xy, to_xy=to_xy)
         return self._submit_planned(entities, clear=clear, warnings=warnings)
 
+    BELT_TYPES = [
+        "transport-belt", "fast-transport-belt", "express-transport-belt",
+        "underground-belt", "fast-underground-belt", "express-underground-belt",
+        "splitter", "fast-splitter", "express-splitter",
+    ]
+
+    def relayout_belts(self, x: float, y: float, radius: int = 80,
+                       *, dry_run: bool = False) -> dict[str, Any]:
+        """Remove all belts in an area so a failed layout can be redesigned.
+
+        Use after a belt section has failed link/connection checks more than
+        three times. This intentionally removes every belt in the area
+        (player-built or not); dry_run returns the removal plan only.
+        """
+        return self.deconstruct_area(
+            x, y, radius, types=list(self.BELT_TYPES),
+            player_only=False, dry_run=dry_run,
+        )
+
     def build_underground_belt_line(self, from_xy: Any = None, to_xy: Any = None, *,
                                     plan: Any = None, name: str = "transport-belt",
                                     max_distance: Any = None,
@@ -3868,6 +3889,14 @@ def run(argv: list[str]) -> int:
                 clear=not bool(flag("no-clear")),
             )
             return output(planner_result, ok=bool(planner_result.get("ok", True)))
+        elif cmd == "relayout-belts":
+            result = FactorioClient(parsed.base).relayout_belts(
+                parse_number(flag("center-x"), 0) or 0,
+                parse_number(flag("center-y"), 0) or 0,
+                parse_number(flag("radius"), 80) or 80,
+                dry_run=bool(flag("dry-run")),
+            )
+            return output(result, ok=bool(result.get("ok", True)))
         elif cmd == "build-line":
             from_value, to_value = flag("from"), flag("to")
             if not from_value or not to_value:

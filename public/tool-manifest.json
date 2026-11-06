@@ -343,6 +343,12 @@
       "usage": "Usage: factorio.py recover-debris [--center-x n --center-y n --radius n]"
     },
     {
+      "command": "relayout-belts",
+      "description": "Recycle every belt in an area after repeated failed belt-link attempts; dry-run first to inspect.",
+      "help": "Usage: factorio.py relayout-belts --center-x n --center-y n --radius n [--dry-run] Then re-observe and plan a fresh route; do not patch the failed layout further.",
+      "usage": "Usage: factorio.py relayout-belts --center-x n --center-y n --radius n [--dry-run]"
+    },
+    {
       "command": "server-saves",
       "description": "List available save files on the server.",
       "help": "Usage: factorio.py server-saves",
@@ -2173,6 +2179,41 @@
       "signature": "recover_debris(self, *, x: 'float' = 0, y: 'float' = 0, radius: 'int' = 64, limit: 'int' = 300) -> 'dict[str, Any]'"
     },
     {
+      "description": "Remove all belts in an area so a failed layout can be redesigned.",
+      "name": "relayout_belts",
+      "parameters": [
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "x",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "y",
+          "required": true
+        },
+        {
+          "annotation": "int",
+          "default": "80",
+          "kind": "positional_or_keyword",
+          "name": "radius",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "False",
+          "kind": "keyword_only",
+          "name": "dry_run",
+          "required": false
+        }
+      ],
+      "signature": "relayout_belts(self, x: 'float', y: 'float', radius: 'int' = 80, *, dry_run: 'bool' = False) -> 'dict[str, Any]'"
+    },
+    {
       "description": "",
       "name": "request",
       "parameters": [
@@ -2728,7 +2769,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "acda64efe77fba9b9cfe257beebd126d08f514f8f00eea196cc69524b697fae2",
+  "client_sha256": "6f0c90b977feb5d3c6fe84244dd3e63c57b9d86fd4af95efd8b5e486a20b1812",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2903,7 +2944,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "acda64efe77fba9b9cfe257beebd126d08f514f8f00eea196cc69524b697fae2",
+    "factorio.py": "6f0c90b977feb5d3c6fe84244dd3e63c57b9d86fd4af95efd8b5e486a20b1812",
     "src/api/agent.ts": "7d9917f8e19dc81337b8b48816f8c388897e8426c0fd9a4dbbefb6d3512270b3",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
