@@ -189,6 +189,10 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Inserter direction.** Inserters use `direction` as the pickup/facing side
+(Factorio semantics); drop is the opposite tile. All planner helpers invert the
+desired flow, and `observe-connections` labels source/target accordingly.
+
 **Empty containers.** Factory observations include container totals and up to
 200 empty chests; they are default refactor debt. Scoped cleanup removes only
 empty containers (contents checked per target), never silently full chests.

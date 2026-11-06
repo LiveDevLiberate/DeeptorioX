@@ -567,6 +567,17 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 - Build gate counts the scoped debt; it stays closed until the clean target is
   reached.
 
+## 12.18 Inserter direction
+
+- Factorio inserter `direction` is the **pickup/facing side**; the drop tile is
+  the opposite tile. To move items from A to B, point the inserter at A.
+- Builders were corrected: `build-inserter-pairs --direction east` now places
+  both inserters facing **west** (pickup west, drop east); mining-outpost and
+  defense-line inserters were inverted the same way.
+- `observe-connections` now reports `source` on the facing/pickup side and
+  `target` opposite. Use it to verify; do not place inserters by assuming the
+  direction is the drop side.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

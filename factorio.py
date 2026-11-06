@@ -502,9 +502,21 @@ def belt_line_entities(start: dict[str, Any], end: dict[str, Any],
     return entities
 
 
+INSERTER_DIRECTION_OPPOSITE = {0: 8, 4: 12, 8: 0, 12: 4}
+
+
+def opposite_direction(direction: int) -> int:
+    """Opposite cardinal direction (0=N, 4=E, 8=S, 12=W)."""
+    return INSERTER_DIRECTION_OPPOSITE.get(int(direction), 0)
+
+
 def loader_entity(source: dict[str, Any], target: dict[str, Any],
                   name: str = "inserter") -> dict[str, Any]:
-    """Place one inserter between two tiles exactly two apart in a straight line."""
+    """Place one inserter between two tiles exactly two apart in a straight line.
+
+    Factorio inserter ``direction`` is the **pickup** side; the drop side is the
+    opposite tile. The inserter is therefore oriented to pick up at ``source``.
+    """
     x1, y1 = int(round(float(source["x"]))), int(round(float(source["y"])))
     x2, y2 = int(round(float(target["x"]))), int(round(float(target["y"])))
     dx = (x2 > x1) - (x2 < x1)
@@ -513,8 +525,13 @@ def loader_entity(source: dict[str, Any], target: dict[str, Any],
         raise ValueError("loader endpoints must be on the same row or column")
     if abs(x2 - x1) + abs(y2 - y1) != 2:
         raise ValueError("loader endpoints must be exactly two tiles apart")
-    direction = 4 if dx > 0 else 12 if dx < 0 else 8 if dy > 0 else 0
-    return {"name": name, "x": x1 + dx, "y": y1 + dy, "direction": direction}
+    toward_target = 4 if dx > 0 else 12 if dx < 0 else 8 if dy > 0 else 0
+    return {
+        "name": name,
+        "x": x1 + dx,
+        "y": y1 + dy,
+        "direction": opposite_direction(toward_target),
+    }
 
 
 def _decode_blueprint_base64(text: str) -> bytes:
@@ -1644,9 +1661,10 @@ def plan_inserter_pairs(
 ) -> list[dict[str, Any]]:
     """Input+output inserter pairs around machines, one pair per machine.
 
-    Machines are sorted by (y, x); for an east-flow row the input inserter sits
-    on the machine's west side facing east and the output inserter on its east
-    side facing east (west flow mirrors it, north/south use the vertical sides).
+    Factorio inserter direction is the pickup side, so an east-flow pair faces
+    west: the input inserter west of the machine picks up from the west belt and
+    drops east into the machine; the output inserter east of it picks up from the
+    machine and drops east onto the belt. West/north/south mirror this rule.
     Inserts are deduped by tile, so two machines one tile apart share a single
     machine-to-machine inserter. `direction` accepts east/west/north/south (or
     4/12/0/8). Footprints default to 3x3 and can be overridden per machine with
@@ -1664,7 +1682,8 @@ def plan_inserter_pairs(
         flow = str(direction).lower()
     if flow not in flows:
         raise ValueError("direction must be east, west, north or south")
-    direction_value, axis = flows[flow]
+    drop_direction, axis = flows[flow]
+    direction_value = opposite_direction(drop_direction)
     machine_list = _planner_sequence(entities, "entities")
     machines: list[tuple[int, int, int, int]] = []
     for index, machine in enumerate(machine_list):
@@ -1812,7 +1831,8 @@ def plan_mining_outpost(
         if output:
             inserter_x = belt_columns[-1] + 1
             entities.append(
-                {"name": inserter, "anchor": {"x": inserter_x, "y": belt_y}, "direction": 4}
+                # Pickup from the west belt, drop east into the chest.
+                {"name": inserter, "anchor": {"x": inserter_x, "y": belt_y}, "direction": 12}
             )
             entities.append({"name": output, "anchor": {"x": inserter_x + 1, "y": belt_y}})
     return {"entities": _sort_entities(entities), "warnings": warnings}
@@ -1869,7 +1889,8 @@ def plan_defense_line(
             )
             if ammo_chest:
                 entities.append(
-                    {"name": inserter, "anchor": {"x": anchor_x, "y": anchor_y - 1}, "direction": 8}
+                    # Pickup north from the chest, drop south into the turret.
+                    {"name": inserter, "anchor": {"x": anchor_x, "y": anchor_y - 1}, "direction": 0}
                 )
                 entities.append(
                     {"name": ammo_chest, "anchor": {"x": anchor_x, "y": anchor_y - 2}}
@@ -1895,7 +1916,8 @@ def plan_defense_line(
             )
             if ammo_chest:
                 entities.append(
-                    {"name": inserter, "anchor": {"x": anchor_x - 1, "y": anchor_y}, "direction": 4}
+                    # Pickup west from the chest, drop east into the turret.
+                    {"name": inserter, "anchor": {"x": anchor_x - 1, "y": anchor_y}, "direction": 12}
                 )
                 entities.append(
                     {"name": ammo_chest, "anchor": {"x": anchor_x - 2, "y": anchor_y}}

@@ -94,7 +94,7 @@ const BY_TYPE: Record<string, UsageTemplate> = {
   inserter: {
     summary: "An inserter moves items from the tile behind it into the tile in front of it.",
     flow: { input: "Pickup side (behind the inserter).", output: "Drop side (in front of the inserter)." },
-    placement: "Direction sets the drop direction; the pickup is opposite.",
+    placement: "Direction is the pickup side; the drop side is the opposite tile.",
     rules: [
       "One inserter is one-way; use two inserters for two directions.",
       "Inserters need power (electric) or fuel (burner) unless the prototype is free.",

@@ -380,3 +380,9 @@ test("layout and map observations include neutral crash debris", () => {
   assert.ok(layout.includes("['X']='spaceship debris'"));
   assert.ok(overview.includes('"S":"spaceship debris"'));
 });
+
+test("inserter source is on its facing/pickup side and target is opposite", () => {
+  const lua = agentConnectionsCommand({ x: 0, y: 0, radius: 10 });
+  assert.ok(lua.includes("source=summary(entity_at(tx+dx,ty+dy))"));
+  assert.ok(lua.includes("target=summary(entity_at(tx-dx,ty-dy))"));
+});

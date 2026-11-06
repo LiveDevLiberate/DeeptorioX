@@ -81,6 +81,11 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Inserter direction fix.** Factorio inserter `direction` is the pickup side;
+  the drop is opposite. The inserter-pair, mining-outpost, defense-line and
+  loader planners were inverted to match, and observe-connections now reports
+  source on the facing side and target opposite. Knowledge/COOKBOOK document the
+  convention.
 - **Empty chests in refactor scope.** Factory observations now detect empty
   containers; the default refactor scope includes `containers`, so empty chests
   are debt and block rebuilding. `deconstruct-area --scope containers` removes

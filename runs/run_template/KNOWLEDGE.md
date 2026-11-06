@@ -110,6 +110,12 @@ issue coordinates for exact repairs.
   via `--include-rail` / `--scope rail`. Container cleanup removes empty chests
   only; non-empty chests are skipped.
 
+## 2.9997 Inserter orientation
+
+- Inserter direction = pickup side; drop is opposite. `build-inserter-pairs`
+  accepts flow direction but orients inserters to pick up against that flow.
+  Verify with observe-connections' source/target.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.

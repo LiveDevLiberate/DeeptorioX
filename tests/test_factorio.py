@@ -482,10 +482,10 @@ class ClientTests(unittest.TestCase):
 
     def test_loader_entity_direction_and_spacing(self):
         cases = [
-            ((0, 0), (2, 0), (1, 0, 4)),
-            ((2, 0), (0, 0), (1, 0, 12)),
-            ((0, 0), (0, 2), (0, 1, 8)),
-            ((0, 2), (0, 0), (0, 1, 0)),
+            ((0, 0), (2, 0), (1, 0, 12)),
+            ((2, 0), (0, 0), (1, 0, 4)),
+            ((0, 0), (0, 2), (0, 1, 0)),
+            ((0, 2), (0, 0), (0, 1, 8)),
         ]
         for source, target, (x, y, direction) in cases:
             entity = factorio.loader_entity({"x": source[0], "y": source[1]}, {"x": target[0], "y": target[1]})
@@ -1390,17 +1390,17 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(
             [(entity["anchor"]["x"], entity["anchor"]["y"], entity["direction"])
              for entity in pairs],
-            [(-1, 1, 4), (3, 1, 4), (7, 1, 4), (11, 1, 4)],
+            [(-1, 1, 12), (3, 1, 12), (7, 1, 12), (11, 1, 12)],
         )
         west = factorio.plan_inserter_pairs(machines, direction="west")
-        self.assertTrue(all(entity["direction"] == 12 for entity in west))
+        self.assertTrue(all(entity["direction"] == 4 for entity in west))
         south = factorio.plan_inserter_pairs(
             [{"anchor": {"x": 0, "y": 0}}, {"anchor": {"x": 0, "y": 4}}],
             direction="south")
         self.assertEqual(
             [(entity["anchor"]["x"], entity["anchor"]["y"], entity["direction"])
              for entity in south],
-            [(1, -1, 8), (1, 3, 8), (1, 7, 8)],
+            [(1, -1, 0), (1, 3, 0), (1, 7, 0)],
         )
         wide = factorio.plan_inserter_pairs(
             [{"anchor": {"x": 0, "y": 0}, "width": 5, "height": 1}])
@@ -1422,7 +1422,7 @@ class PlannerTests(unittest.TestCase):
                  for entity in plan["entities"] if entity["name"] == "transport-belt"]
         self.assertEqual(belts, [(x, 3, 4) for x in range(6)])
         self.assertIn({"name": "inserter",
-                       "anchor": {"x": 6, "y": 3}, "direction": 4}, plan["entities"])
+                       "anchor": {"x": 6, "y": 3}, "direction": 12}, plan["entities"])
         self.assertIn({"name": "iron-chest", "anchor": {"x": 7, "y": 3}},
                       plan["entities"])
         self.assertTrue(any("need power" in warning for warning in plan["warnings"]))

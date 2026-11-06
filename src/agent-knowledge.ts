@@ -18,7 +18,7 @@ export const AGENT_KNOWLEDGE: KnowledgeTopic[] = [
     summary:
       "An inserter moves items from the tile behind it to the tile in front; it is one-way and needs power or fuel.",
     rules: [
-      "Direction sets the drop side; pickup is the opposite tile. Use two inserters for two directions.",
+      "Direction is the pickup side; the drop side is the opposite tile. To insert from A into B, point the inserter at A. Use two inserters for two directions.",
       "Electric inserters need a connected powered network; burner inserters need fuel. A no_power/no_fuel inserter does nothing.",
       "Base capacity is about 0.83 items/s; stack size and inserter-capacity research raise it. Long-handed inserters reach 2 tiles, normal 1.",
       "Filter inserters/stack filter inserters restrict item types; useful for mixed belts and byproducts.",
