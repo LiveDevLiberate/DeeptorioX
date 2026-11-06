@@ -1293,7 +1293,8 @@ export class RunManager {
   private canResume(run: Run): boolean {
     const checkpoint = run.checkpoint;
     if (!checkpoint || !fs.existsSync(path.join(this.dir(run), checkpoint.file))) return false;
-    if (!["paused", "failed", "interrupted"].includes(run.state)) return false;
+    if (!["paused", "failed", "interrupted", "timed_out"].includes(run.state)) return false;
+    if (run.elapsed_seconds >= run.max_seconds) return false;
     return run.state === "paused" || checkpoint.segment === this.segment(run).index;
   }
 
@@ -1324,7 +1325,7 @@ export class RunManager {
       throw new Error("Stop the active game/run before resuming another run");
     const run = this.runs.get(id);
     if (!run || !this.canResume(run))
-      throw new Error("Only a paused or checkpointed failed/interrupted run can be resumed");
+      throw new Error("Only a paused, timed-out, or checkpointed failed/interrupted run can be resumed");
     const checkpoint = run.checkpoint!;
     if (sha256(fs.readFileSync(path.join(this.dir(run), checkpoint.file))) !== checkpoint.sha256)
       throw new Error("Checkpoint checksum changed; refusing to load a different game");

@@ -427,6 +427,9 @@ test("operator stop and wall-clock limit produce distinct terminal states", asyn
   const timed = manager.start({ agent: "manual", benchmark: "smoke", max_seconds: 1 });
   await waitFor(() => manager.get(timed.id).state === "timed_out");
   assert.equal(stopped(), 2);
+  assert.equal(manager.get(timed.id).resumable, false);
+  manager.extend(timed.id, 10);
+  assert.equal(manager.get(timed.id).resumable, true);
 });
 
 test("a successful agent exit does not count as game success", async () => {
