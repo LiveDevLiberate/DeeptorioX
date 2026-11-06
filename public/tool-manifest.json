@@ -201,8 +201,8 @@
     {
       "command": "factory-audit",
       "description": "Prioritized refactor audit of factory problems, belt links and suggested repairs.",
-      "help": "Usage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,rail] [--include-rail] Default scope: belts,power,pipes,machines; rail is opt-in with --include-rail or --scope rail. Run after builds and every few minutes; repair the highest-impact action, verify, then re-audit.",
-      "usage": "Usage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,rail] [--include-rail]"
+      "help": "Usage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,containers,rail] [--include-rail] Default scope: belts,power,pipes,machines,containers; rail is opt-in with --include-rail or --scope rail. Run after builds and every few minutes; repair the highest-impact action, verify, then re-audit.",
+      "usage": "Usage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,containers,rail] [--include-rail]"
     },
     {
       "command": "fluid-contents",
@@ -2982,7 +2982,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "e95e8b3a7f880209c91a9baa60f44ce9b093054c32bf36765ae65e750c06cbff",
+  "client_sha256": "75ae6b20ea942792c4173d17920398705ceed62696bdd6f8686ebc6d11619da4",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3169,8 +3169,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "e95e8b3a7f880209c91a9baa60f44ce9b093054c32bf36765ae65e750c06cbff",
-    "src/api/agent.ts": "d7483d7a39e70bfc1a2959dcd3af880edac14ee8df633f411cd543a9c1b06ae5",
+    "factorio.py": "75ae6b20ea942792c4173d17920398705ceed62696bdd6f8686ebc6d11619da4",
+    "src/api/agent.ts": "24fcc71c7561c8ad127f8b9686da523e1b0ab041ba3a3ffa0cbc2f4879a1ad7e",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",

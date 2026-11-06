@@ -105,9 +105,10 @@ issue coordinates for exact repairs.
 
 ## 2.9995 Refactor scope
 
-- Default: belts,power,pipes,machines. Power (`no_power`) and fluid
-  (`no_input_fluid`) failures are refactor debt. Rail is opt-in via
-  `--include-rail` / `--scope rail`. Cleanup accepts `--scope` too.
+- Default: belts,power,pipes,machines,containers. Power (`no_power`) and fluid
+  (`no_input_fluid`) failures and empty chests are refactor debt. Rail is opt-in
+  via `--include-rail` / `--scope rail`. Container cleanup removes empty chests
+  only; non-empty chests are skipped.
 
 ## 3. Trains (`trains`)
 

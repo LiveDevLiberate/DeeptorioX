@@ -81,6 +81,10 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Empty chests in refactor scope.** Factory observations now detect empty
+  containers; the default refactor scope includes `containers`, so empty chests
+  are debt and block rebuilding. `deconstruct-area --scope containers` removes
+  only empty chests and reports `skipped_nonempty_containers`.
 - **Scoped refactor (power/pipes/rail).** Refactor audits now have explicit
   `belts,power,pipes,machines` scope (default) and opt-in `rail`; power
   (`no_power`) and fluid (`no_input_fluid`) failures count as refactor debt.

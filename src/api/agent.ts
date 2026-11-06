@@ -236,6 +236,8 @@ export function normalizeFactoryData(data: unknown): unknown {
     problems[key] = arrayOrEmpty(problems[key]);
   }
   record.totals = asRecord(record.totals) ?? {};
+  record.containers = asRecord(record.containers) ?? { total: 0, empty: 0 };
+  record.empty_containers = arrayOrEmpty(record.empty_containers);
   record.alerts = arrayOrEmpty(record.alerts);
   return record;
 }

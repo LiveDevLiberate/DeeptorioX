@@ -548,14 +548,18 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   - power: `no_power`, pole/network failures;
   - pipes: `no_input_fluid` and pipe/pump failures;
   - belts: dead ends/head-ons/no-input/point-to-non-belt;
-  - machines: fuel/ingredients/output/inserter problems.
+  - machines: fuel/ingredients/output/inserter problems;
+  - containers: empty chests/logistic chests on the map (removed as safe cleanup).
 - Rail is **opt-in** only:
-  `factory-audit --scope belts,power,pipes,machines,rail`
+  `factory-audit --scope belts,power,pipes,machines,containers,rail`
   or `factory-audit --include-rail`; `deconstruct-area --scope ...,rail`.
+- Empty chest cleanup is safe: `deconstruct-area --scope containers` only removes
+  containers whose inventory is empty; non-empty chests are skipped and reported
+  as `skipped_nonempty_containers`.
 - Cleanup by scope:
   ```bash
   factorio.py deconstruct-area --center-x X --center-y Y --radius R \
-    --scope belts,power,pipes,machines --max-distance 30
+    --scope belts,power,pipes,machines,containers --max-distance 30
   ```
   Wire/pipes/poles are included; do not leave broken power or fluid links as
   “unrelated” debt. Rail cleanup only when a train/rail refactor is explicitly in

@@ -76,3 +76,24 @@ test("refactor scope includes power and pipes by default, rail only on demand", 
   assert.ok(withRail.actions.some((action) => action.kind === "rail_issues"));
   assert.equal(withRail.summary.invalid_count, 8);
 });
+
+test("empty chests are default refactor debt but can be scoped out", () => {
+  const factory = {
+    counts: {},
+    totals: {},
+    problems: {},
+    containers: { total: 3, empty: 2 },
+    empty_containers: [
+      { name: "wooden-chest", x: 1, y: 1 },
+      { name: "steel-chest", x: 2, y: 2 },
+    ],
+  };
+  const connections = { counts: {}, belts: [], issues: [] };
+  const withEmpty = buildRefactorAudit(factory, connections);
+  assert.ok(withEmpty.actions.some((action) => action.kind === "empty_containers"));
+  assert.equal(withEmpty.summary.empty_containers, 2);
+  assert.equal(withEmpty.summary.invalid_count, 2);
+  const withoutContainers = buildRefactorAudit(factory, connections, { scope: ["belts", "power"] });
+  assert.equal(withoutContainers.summary.invalid_count, 0);
+  assert.ok(!withoutContainers.actions.some((action) => action.kind === "empty_containers"));
+});

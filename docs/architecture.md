@@ -189,6 +189,10 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Empty containers.** Factory observations include container totals and up to
+200 empty chests; they are default refactor debt. Scoped cleanup removes only
+empty containers (contents checked per target), never silently full chests.
+
 **Scoped refactor.** `buildRefactorAudit` tags actions by belts/power/pipes/
 machines/rail, includes power and fluid factory failures by default, and only
 adds rail when requested. `invalid_count` is the scoped sum; `deconstruct-area

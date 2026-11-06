@@ -78,7 +78,7 @@ Commands:
   observe-research --limit-available <n> --limit-locked <n> --limit-completed <n>
   observe-recipes --limit-recipes <n> [--unlocked-only]
   observe-entity --target x,y [--target ...] [--targets-json <json>]
-  factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,rail] [--include-rail]
+  factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,containers,rail] [--include-rail]
   observe-container --target x,y
   belt-contents --target x,y
   fluid-contents --target x,y
@@ -112,7 +112,7 @@ Commands:
   act-build-loader --from x,y --to x,y [--name inserter] [--no-clear]
   act-build-blueprint (--blueprint-file <path>|--blueprint <string>) [--anchor x,y] [--dry-run] [--no-clear]
   act-copy-settings --target sx,sy,tx,ty [--target ...] [--dry-run]
-  deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--scope belts,power,pipes,machines,rail] [--include-all] [--max-per-job <n>] [--order nearest|scan] [--start x,y] [--max-distance n] [--dry-run]
+  deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--scope belts,power,pipes,machines,containers,rail] [--include-all] [--max-per-job <n>] [--order nearest|scan] [--start x,y] [--max-distance n] [--dry-run]
   build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]
   build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]
   build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]
@@ -219,7 +219,7 @@ COMMAND_USAGE = {
     "act-craft": "act-craft: Queue a handcraft and verify its products appear (or use --no-wait).\nUsage: factorio.py act-craft --item <name> --count <n> [--no-wait]\n",
     "act-insert": "act-insert: Move items from player inventory into an entity at x,y.\nUsage: factorio.py act-insert --entity x,y --item <name> --count <n>\nNote: The character walks into reach using native pathfinding.\n",
     "act-extract": "act-extract: Remove items from an entity at x,y into player inventory.\nUsage: factorio.py act-extract --entity x,y --item <name> --count <n|all>\nNote: The character walks into reach using native pathfinding.\n",
-    "factory-audit": "factory-audit: Prioritized refactor audit of factory problems, belt links and suggested repairs.\nUsage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,rail] [--include-rail]\nDefault scope: belts,power,pipes,machines; rail is opt-in with --include-rail or --scope rail. Run after builds and every few minutes; repair the highest-impact action, verify, then re-audit.\n",
+    "factory-audit": "factory-audit: Prioritized refactor audit of factory problems, belt links and suggested repairs.\nUsage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,containers,rail] [--include-rail]\nDefault scope: belts,power,pipes,machines,containers; rail is opt-in with --include-rail or --scope rail. Run after builds and every few minutes; repair the highest-impact action, verify, then re-audit.\n",
     "belt-contents": "belt-contents: Show items currently on the belt/splitter/underground line at a tile.\nUsage: factorio.py belt-contents --target x,y\n",
     "fluid-contents": "fluid-contents: Show actual fluid amounts inside a pipe/fluid entity at a tile.\nUsage: factorio.py fluid-contents --target x,y\n",
     "observe-container": "observe-container: Show a chest/container inventory at a tile.\nUsage: factorio.py observe-container --target x,y\n",
@@ -1979,6 +1979,7 @@ REFACTOR_SCOPE_TYPES: dict[str, list[str]] = {
         "furnace", "assembling-machine", "lab", "mining-drill", "pumpjack",
         "oil-refinery", "chemical-plant", "centrifuge", "rocket-silo", "inserter",
     ],
+    "containers": ["container", "logistic-container"],
     "rail": [
         "straight-rail", "curved-rail", "rail-signal", "rail-chain-signal",
         "train-stop", "locomotive", "cargo-wagon", "fluid-wagon", "artillery-wagon",
@@ -3223,6 +3224,33 @@ class FactorioClient:
             if isinstance(name, str) and name:
                 target["name"] = name
             targets.append(target)
+        empty_containers_only = bool(scope and "containers" in scope)
+        skipped_nonempty_containers = 0
+        if empty_containers_only:
+            entity_by_tile = {
+                (int(entity["x"]), int(entity["y"])): entity
+                for entity in entities
+                if isinstance(entity, dict)
+                and isinstance(entity.get("x"), (int, float))
+                and isinstance(entity.get("y"), (int, float))
+            }
+            kept: list[dict[str, Any]] = []
+            for target in targets:
+                entity = entity_by_tile.get((int(target["x"]), int(target["y"])), {})
+                if entity.get("type") in ("container", "logistic-container"):
+                    try:
+                        contents = self.container_contents(target["x"], target["y"])
+                        items = contents.get("items") if isinstance(contents, dict) else None
+                        if isinstance(items, list) and items:
+                            skipped_nonempty_containers += 1
+                            continue
+                    except Exception:
+                        # Unknown contents must not be removed automatically.
+                        skipped_nonempty_containers += 1
+                        continue
+                kept.append(target)
+            targets = kept
+
         if order not in ("nearest", "scan"):
             raise ValueError("order must be 'nearest' or 'scan'")
         reference: tuple[float, float] | None = None
@@ -3286,6 +3314,8 @@ class FactorioClient:
             "order": order,
             "scope": scope,
             "scope_types": scope_types,
+            "empty_containers_only": empty_containers_only,
+            "skipped_nonempty_containers": skipped_nonempty_containers,
             "start": {"x": reference[0], "y": reference[1]} if reference else None,
             "max_distance": max_distance,
             "skipped_far": skipped_far,

@@ -56,10 +56,10 @@ const FACTORY_PROBLEMS: Record<string, { severity: "critical" | "warning"; label
     },
   };
 
-export type RefactorScope = "belts" | "power" | "pipes" | "machines" | "rail";
+export type RefactorScope = "belts" | "power" | "pipes" | "machines" | "containers" | "rail";
 
-/** Default refactor scope: production, power and fluid infrastructure. Rail is opt-in. */
-export const DEFAULT_REFACTOR_SCOPE: RefactorScope[] = ["belts", "power", "pipes", "machines"];
+/** Default scope: belts, power, pipes, machines and empty containers. Rail is opt-in. */
+export const DEFAULT_REFACTOR_SCOPE: RefactorScope[] = ["belts", "power", "pipes", "machines", "containers"];
 
 const FACTORY_SCOPE: Record<string, RefactorScope> = {
   no_power: "power",
@@ -76,6 +76,7 @@ function issueScope(kind: string): RefactorScope {
   if (kind.startsWith("inserter_")) return "machines";
   if (kind.startsWith("machine_") || kind.startsWith("factory:")) return "machines";
   if (kind.startsWith("pipe_")) return "pipes";
+  if (kind.startsWith("empty_chest") || kind.startsWith("container_")) return "containers";
   if (kind.startsWith("power_") || kind.startsWith("pole_")) return "power";
   if (kind.startsWith("rail_") || kind.startsWith("train_")) return "rail";
   return "machines";
@@ -150,6 +151,24 @@ export function buildRefactorAudit(
       priority: (meta.severity === "critical" ? 1000 : 300) + count,
       action: meta.action,
       examples: examples(problems[kind]),
+    });
+  }
+
+  const emptyContainers = Array.isArray(factoryData.empty_containers) ? factoryData.empty_containers : [];
+  const containerStats = asRecord(factoryData.containers) ?? {};
+  const emptyChestCount = number(containerStats.empty) || emptyContainers.length;
+  let scopedEmptyContainers = 0;
+  if (scope.has("containers") && emptyChestCount > 0) {
+    scopedEmptyContainers = emptyChestCount;
+    addAction({
+      id: "factory:empty_containers",
+      kind: "empty_containers",
+      severity: "warning",
+      label: "empty chests/containers on the map",
+      count: emptyChestCount,
+      priority: 250 + emptyChestCount,
+      action: "Remove empty containers or reuse them for storage; empty chests are refactor debt.",
+      examples: emptyContainers.slice(0, 3),
     });
   }
 
@@ -251,8 +270,10 @@ export function buildRefactorAudit(
       machines: number(connectionCounts.machines),
       scoped_factory_problems: scopedFactoryProblems,
       scoped_connection_issues: scopedConnectionIssues,
+      empty_containers: emptyChestCount,
+      scoped_empty_containers: scopedEmptyContainers,
       rail_issues: railIssues,
-      invalid_count: scopedFactoryProblems + scopedConnectionIssues + railIssues,
+      invalid_count: scopedFactoryProblems + scopedConnectionIssues + scopedEmptyContainers + railIssues,
       scope: [...scope],
     },
     link_counts: (() => {

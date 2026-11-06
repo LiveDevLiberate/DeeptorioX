@@ -1802,6 +1802,29 @@ class DeconstructAreaTests(unittest.TestCase):
         self.assertIn("pipe", types)
         self.assertNotIn("straight-rail", types)
 
+    def test_scope_containers_removes_only_empty_chests(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        data = {"ok": True, "data": {
+            "ok": True,
+            "entities": [
+                {"name": "wooden-chest", "type": "container", "x": 1, "y": 0},
+                {"name": "steel-chest", "type": "container", "x": 2, "y": 0},
+            ],
+            "counts": {"total": 2, "matched": 2, "included": 2},
+        }}
+        contents = {
+            (1, 0): {"items": []},
+            (2, 0): {"items": [{"name": "iron-plate", "count": 5}]},
+        }
+        with patch.object(client, "observe_area", return_value=data),                 patch.object(client, "container_contents",
+                             side_effect=lambda x, y: contents[(x, y)]),                 patch.object(client, "mine") as mine:
+            result = client.deconstruct_area(
+                0, 0, radius=4, scope=["containers"], start_xy=(0, 0), dry_run=True)
+        self.assertEqual([(t["x"], t["y"]) for t in result["targets"]], [(1, 0)])
+        self.assertEqual(result["skipped_nonempty_containers"], 1)
+        self.assertTrue(result["empty_containers_only"])
+        mine.assert_not_called()
+
     def test_execute_chunks_50_and_aggregates_results(self):
         client = factorio.FactorioClient(poll_interval=0)
         calls = []

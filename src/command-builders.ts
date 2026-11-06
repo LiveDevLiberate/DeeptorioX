@@ -958,9 +958,12 @@ export function agentFactoryCommand(params: { x?: number; y?: number; radius: nu
     "alert(totals.waiting_for_space_in_destination,'entities are waiting for output space')",
     "alert(totals.no_ingredients,'furnaces have no ingredients')",
     "alert(totals.missing_science_packs,'labs are missing science packs')",
+    "local empty_containers={} local container_total=0 local container_empty=0",
+    "for _,e in pairs(s.find_entities_filtered{area=area,type='container'}) do if e.valid then container_total=container_total+1 local empty=true pcall(function() local inv=e.get_inventory(defines.inventory.chest) if inv and inv.valid then for i=1,#inv do local stack=inv[i] if stack and stack.valid_for_read then empty=false break end end end end) if empty then container_empty=container_empty+1 if #empty_containers<200 then table.insert(empty_containers,{name=e.name,x=e.position.x,y=e.position.y}) end end end end",
+    "for _,e in pairs(s.find_entities_filtered{area=area,type='logistic-container'}) do if e.valid then container_total=container_total+1 local empty=true pcall(function() local inv=e.get_inventory(defines.inventory.chest) if inv and inv.valid then for i=1,#inv do local stack=inv[i] if stack and stack.valid_for_read then empty=false break end end end end) if empty then container_empty=container_empty+1 if #empty_containers<200 then table.insert(empty_containers,{name=e.name,x=e.position.x,y=e.position.y}) end end end end",
     "if type(power)=='table' and type(power.satisfaction)=='number' and power.satisfaction<0.95 then table.insert(alerts,string.format('power satisfaction %.0f%%',power.satisfaction*100)) end",
     "if coal==0 then table.insert(alerts,'no coal in fuel slots in this area') end",
-    "rcon.print(helpers.table_to_json{window={x=x,y=y,radius=radius},counts=counts,problems=problems,totals=totals,fuel={coal_in_fuel_slots=coal,entities_without_fuel=without_fuel,entities_low_fuel=low_fuel},power=power,alerts=alerts})",
+    "rcon.print(helpers.table_to_json{window={x=x,y=y,radius=radius},counts=counts,problems=problems,totals=totals,fuel={coal_in_fuel_slots=coal,entities_without_fuel=without_fuel,entities_low_fuel=low_fuel},power=power,containers={total=container_total,empty=container_empty},empty_containers=empty_containers,alerts=alerts})",
   ].join(" ");
 }
 
