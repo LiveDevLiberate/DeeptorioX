@@ -152,6 +152,23 @@ class ContinuousMiningTests(unittest.TestCase):
         self.assertFalse(result["depleted"])
 
 
+class BeltValidationTests(unittest.TestCase):
+    def test_belt_plan_validator_catches_dead_end_and_head_on(self):
+        valid = [
+            {"name": "transport-belt", "anchor": {"x": 0, "y": 0}, "direction": 4},
+            {"name": "transport-belt", "anchor": {"x": 1, "y": 0}, "direction": 8},
+            {"name": "transport-belt", "anchor": {"x": 1, "y": 1}, "direction": 8},
+        ]
+        self.assertTrue(factorio.validate_belt_entities(
+            valid, from_xy=(0, 0), to_xy=(1, 1))["ok"])
+        head_on = [
+            {"name": "transport-belt", "anchor": {"x": 0, "y": 0}, "direction": 4},
+            {"name": "transport-belt", "anchor": {"x": 1, "y": 0}, "direction": 12},
+        ]
+        result = factorio.validate_belt_entities(head_on, from_xy=(0, 0), to_xy=(1, 0))
+        self.assertIn("belt_head_on", [issue["kind"] for issue in result["issues"]])
+
+
 class BeltFluidContentsTests(unittest.TestCase):
     def test_belt_and_fluid_contents_parse_observation(self):
         client = factorio.FactorioClient(poll_interval=0)

@@ -81,6 +81,10 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Belt connectivity validation.** Planned belt routes are checked before
+  building for dead ends, head-on tiles and missing inputs; `observe-connections`
+  also audits existing belts for `belt_no_input`, dead ends and non-belt
+  endpoints. COOKBOOK/KNOWLEDGE/prompt call out corners and crossings.
 - **Belt and pipe contents observation.** `observe-entity` now includes
   `belt.lines` (items per belt lane via transport lines) and `fluid_contents`
   (actual fluid amounts inside the entity). New `belt-contents`/`fluid-contents`

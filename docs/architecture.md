@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Belt connectivity.** `validate_belt_entities` checks planned runs for dead
+ends/head-on/missing-input tiles before build; `observe-connections` audits
+existing belts and reports `belt_no_input` in addition to dead ends and
+non-belt endpoints. Corners and crossings must be explicitly oriented.
+
 **Belt/pipe contents.** Entity observation reads `LuaTransportLine.get_contents`
 for up to two belt lanes and `LuaEntity.get_fluid_contents` for actual fluid
 amounts; `belt-contents`/`fluid-contents` are thin client helpers over

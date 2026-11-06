@@ -88,6 +88,7 @@ const BASE_TASK_PROMPT =
   "For resource veins, call act-mine --resource with one target and the default count=all; keep mining that vein until depleted instead of switching after each cycle. " +
   "Never mine near a building with a generic act-mine: player-owned buildings are protected unless --allow-buildings is explicit; use deconstruct-area for intentional dismantling. " +
   "Check belt contents with belt-contents and pipe liquid with fluid-contents before diagnosing logistics. " +
+  "Before/after belt deployment validate connectivity (plan validator + observe-connections): corners must face the next tile; crossings need underground pairs; no head-on/dead-end belts. " +
   "Use recover-debris for crash-site spaceship wreckage (extract loot, then mine), observe-container to inspect chest slots, and container-transfer to move/organize items. " +
   "If a mutating call returns ALERTS_PENDING, call alerts (CLI alerts --ack) after inspecting/fixing the critical causes; observations/state/alerts remain allowed while blocked. " +
   "For power, use substations or small/medium poles for local coverage and a straight build-power-line with big poles for long trunks; do not place a dense grid of big poles. " +

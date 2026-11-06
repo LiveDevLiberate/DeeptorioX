@@ -328,6 +328,7 @@ test("region builders embed their window arguments and JSON output plumbing", ()
   assert.ok(layout.includes("overlaps_truncated=overlaps_truncated"));
   const connections = agentConnectionsCommand({ radius: 120 });
   assert.ok(connections.includes("local radius=120"));
+  assert.ok(connections.includes("belt_no_input"));
   assert.ok(connections.includes("helpers.table_to_json{window={x=min_x,y=min_y,radius=radius}"));
   const prototype = agentEntityPrototypeCommand("assembling-machine-1");
   assert.ok(prototype.includes('local name="assembling-machine-1"'));

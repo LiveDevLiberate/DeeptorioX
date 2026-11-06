@@ -1116,6 +1116,78 @@ def _route_direction(route: list[tuple[int, int]], index: int) -> int:
     return 8 if dy > 0 else 0
 
 
+BELT_NAMES = frozenset({
+    "transport-belt", "fast-transport-belt", "express-transport-belt",
+    "underground-belt", "fast-underground-belt", "express-underground-belt",
+    "splitter", "fast-splitter", "express-splitter",
+})
+BELT_DIRECTIONS = {0: (0, -1), 4: (1, 0), 8: (0, 1), 12: (-1, 0)}
+
+
+def validate_belt_entities(
+    entities: Any,
+    *,
+    from_xy: Any = None,
+    to_xy: Any = None,
+) -> dict[str, Any]:
+    """Check a planned belt run for dead ends, head-on tiles and missing inputs.
+
+    Only plain transport belts are validated; splitters/undergrounds are reported
+    as opaque neighbors. Endpoints (the run's start/end) are allowed to have no
+    downstream/upstream belt because an inserter or drill may feed/consume there.
+    """
+    items = _planner_sequence(entities, "entities")
+    by_tile: dict[tuple[int, int], dict[str, Any]] = {}
+    for index, raw in enumerate(items):
+        if not isinstance(raw, dict):
+            continue
+        name = raw.get("name")
+        anchor = raw.get("anchor") or {"x": raw.get("x"), "y": raw.get("y")}
+        try:
+            x, y = _planner_point(anchor, f"entity {index} anchor")
+            direction = int(raw.get("direction", 0))
+        except (TypeError, ValueError):
+            continue
+        if isinstance(name, str) and name in BELT_NAMES:
+            by_tile[(int(x), int(y))] = {"name": name, "direction": direction if direction in BELT_DIRECTIONS else 0}
+    endpoints: set[tuple[int, int]] = set()
+    for value in (from_xy, to_xy):
+        if value is None:
+            continue
+        x, y = _planner_point(value, "endpoint", integer=False)
+        endpoints.add((int(math.floor(x)), int(math.floor(y))))
+    issues: list[dict[str, Any]] = []
+    for (x, y), belt in by_tile.items():
+        if belt["name"] not in ("transport-belt", "fast-transport-belt", "express-transport-belt"):
+            continue
+        dx, dy = BELT_DIRECTIONS[belt["direction"]]
+        target = (x + dx, y + dy)
+        next_belt = by_tile.get(target)
+        if next_belt is None and target not in endpoints and (x, y) not in endpoints:
+            issues.append({"kind": "belt_dead_end", "x": x, "y": y, "reason": "no belt on output tile"})
+        elif next_belt is not None:
+            if next_belt["direction"] == (belt["direction"] + 8) % 16:
+                issues.append({"kind": "belt_head_on", "x": x, "y": y, "reason": "next belt faces back"})
+        inputs = []
+        for source, source_belt in by_tile.items():
+            if source == (x, y):
+                continue
+            sdx, sdy = BELT_DIRECTIONS[source_belt["direction"]]
+            if (source[0] + sdx, source[1] + sdy) == (x, y):
+                inputs.append(source)
+        if not inputs and (x, y) not in endpoints:
+            issues.append({"kind": "belt_no_input", "x": x, "y": y, "reason": "no belt feeds this tile"})
+    return {"ok": not issues, "belts": len(by_tile), "issues": issues[:200], "issue_count": len(issues)}
+
+
+def _assert_valid_belt_plan(entities: Any, *, from_xy: Any = None, to_xy: Any = None) -> None:
+    result = validate_belt_entities(entities, from_xy=from_xy, to_xy=to_xy)
+    if result["ok"]:
+        return
+    sample = "; ".join(f"{issue['kind']} at {issue['x']},{issue['y']}" for issue in result["issues"][:5])
+    raise ValueError(f"invalid belt plan ({result['issue_count']} issues): {sample}")
+
+
 def plan_belt_route(
     path_points: Any,
     *,
@@ -1929,7 +2001,9 @@ class FactorioClient:
 
     def build_belt_line(self, start: dict[str, Any], end: dict[str, Any],
                         *, name: str = "transport-belt", **options: Any) -> Any:
-        return self.build(belt_line_entities(start, end, name), **options)
+        entities = belt_line_entities(start, end, name)
+        _assert_valid_belt_plan(entities, from_xy=start, to_xy=end)
+        return self.build(entities, **options)
 
     def build_loader(self, source: dict[str, Any], target: dict[str, Any],
                      *, name: str = "inserter", **options: Any) -> Any:
@@ -3011,6 +3085,8 @@ class FactorioClient:
                 [{"x": x + 0.5, "y": y + 0.5} for x, y in path],
                 name=name or "big-electric-pole", spacing=spacing)
             warnings = []
+        if canonical == "belt":
+            _assert_valid_belt_plan(entities, from_xy=from_xy, to_xy=to_xy)
         return self._submit_planned(entities, clear=clear, warnings=warnings)
 
     def build_underground_belt_line(self, from_xy: Any = None, to_xy: Any = None, *,
@@ -3694,7 +3770,9 @@ def run(argv: list[str]) -> int:
                 raise ValueError("Missing --from or --to")
             start = parse_targets([start_value], False)[0]
             end = parse_targets([end_value], False)[0]
-            job = submit("build", {"entities": belt_line_entities(start, end, flag("name") or "transport-belt"),
+            belt_plan = belt_line_entities(start, end, flag("name") or "transport-belt")
+            _assert_valid_belt_plan(belt_plan, from_xy=start, to_xy=end)
+            job = submit("build", {"entities": belt_plan,
                                    "clear_obstacles": not bool(flag("no-clear"))})
         elif cmd == "act-build-loader":
             start_value, end_value = flag("from"), flag("to")

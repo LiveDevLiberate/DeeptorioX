@@ -21,6 +21,15 @@ section below.
 - Tanks buffer one fluid; full output backs up the network.
 - Long/high-volume runs need pumps; pipes equalize levels but do not create infinite flow.
 
+## 2.4 Belt connectivity
+
+- A belt must face its next tile; a corner tile that still faces the old
+  direction is a dead end.
+- Belts do not cross or merge automatically. Crossings need underground pairs;
+  merges need side-loading/splitters.
+- `observe-connections` reports `belt_dead_end`, head-on, non-belt endpoints and
+  `belt_no_input`; fix these before extending a line.
+
 ## 2.5 Belt and pipe contents
 
 - `belt-contents --target x,y` shows items on each belt lane (`belt.lines`).

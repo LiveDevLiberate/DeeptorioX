@@ -369,6 +369,20 @@ choose a reachable shore/waypoint and build the route in stages.
 - Belt contents are transient; re-check after a few seconds before concluding
   a lane is empty. Entity inventories remain under `inventories`.
 
+## 12.6 Belt connectivity checks
+
+- Before building a belt route, the planner validates the plan (`validate_belt_entities`):
+  dead ends, head-on belts and missing inputs are rejected with coordinates.
+- After building (or when auditing existing belts), run `observe-connections`.
+  Check `issues` for `belt_dead_end`, `belt_opposite`/head-on,
+  `belt_points_to_non_belt`, and `belt_no_input`.
+- Corners: every belt tile must face the next tile; a belt at a corner that
+  still faces the old direction is a dead end.
+- Crossings: belts do not cross or merge by themselves. Use underground pairs
+  for crossings and splitters/side-loading for merges; verify both endpoints.
+- Fix invalid belt sections before extending them; do not build more belts on
+  top of a disconnected line.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.
