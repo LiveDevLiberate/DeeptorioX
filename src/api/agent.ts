@@ -816,7 +816,13 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         for (const target of trimmed) {
           const result = await nativeAction({
             kind: "mine",
-            target: { x: Number(target.x), y: Number(target.y), kind: target.kind, name: target.name },
+            target: {
+              x: Number(target.x),
+              y: Number(target.y),
+              kind: target.kind,
+              name: target.name,
+              ...(target.allow_buildings === true ? { allow_buildings: true } : {}),
+            },
           });
           results.push({ ...result, x: Number(target.x), y: Number(target.y) });
         }

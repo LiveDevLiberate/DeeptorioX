@@ -194,6 +194,10 @@ targets so the character cannot hop ore veins after one cycle.
 `/api/agent/blueprints/capture` registers it for the active run. This closes the
 build → capture → reuse/iterate loop.
 
+**Mine target forwarding.** The `/act/mine` handler preserves
+`allow_buildings` on the native target; native mining uses it to permit
+intentional removal of player-owned blockers (rescue/deconstruct).
+
 **Trapped-player rescue.** `FactorioClient.unstick` probes short path routes and
 mines low-value player-owned blockers with `allow_buildings` until movement
 opens; no teleport. It is a client-side recovery helper using existing actions.

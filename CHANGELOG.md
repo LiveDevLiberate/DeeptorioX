@@ -86,6 +86,10 @@ this file.
   blueprint string and registers it in the run catalogue. Prompt/COOKBOOK/
   KNOWLEDGE require capturing validated cells, reusing existing blueprints,
   comparing entity/tile counts across versions and keeping the best.
+- **Mine allow-buildings forwarding fix.** The `/act/mine` handler was rebuilding
+  the target object without `allow_buildings`, so `unstick` and intentional
+  teardown could never remove player-owned blockers (`protected_building`).
+  The flag is now preserved; rescue can mine a blocker and escape.
 - **Trapped-player rescue.** `unstick`/`client.unstick()` tries short routes in
   eight directions, then natively mines low-value player-owned blockers
   (belts/pipes/poles/walls/gates, machines last) until a route opens; no
