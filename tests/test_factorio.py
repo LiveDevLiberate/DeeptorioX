@@ -181,6 +181,8 @@ class BeltValidationTests(unittest.TestCase):
         ]
         result = factorio.validate_belt_entities(head_on, from_xy=(0, 0), to_xy=(1, 0))
         self.assertIn("belt_head_on", [issue["kind"] for issue in result["issues"]])
+        corner = factorio.validate_belt_entities(valid, from_xy=(0, 0), to_xy=(1, 1))
+        self.assertIn("side_load", [link["link"] for link in corner["links"]])
 
 
 class BeltFluidContentsTests(unittest.TestCase):

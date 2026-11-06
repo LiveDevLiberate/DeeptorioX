@@ -37,6 +37,8 @@ const BY_TYPE: Record<string, UsageTemplate> = {
     common_mistakes: [
       "Building a + intersection and expecting the two crossing belts to exchange and sum flow.",
       "Ending a belt at a chest/machine and expecting the belt itself to transfer items; inserters are required.",
+      "Assuming side-by-side parallel belts exchange items; only the tile directly in front of a belt is its output target.",
+      "Treating a perpendicular side-load or a crossing as a full two-lane merge; side loads fill one lane and crossings are not automatic.",
       "Side-loading a full belt and expecting both input streams to keep their full throughput.",
       "Trying to make one belt carry two directions; use two belts or an underground pair.",
       "Feeding two full belts into one splitter output and assuming the combined throughput is preserved.",
@@ -255,6 +257,8 @@ export const BELT_RULES = {
     "Belts do not automatically sum or exchange flows at an intersection, head-on meeting or surface crossing. Join flows only by side-loading, a splitter, or underground belts.",
   side_loading:
     "A perpendicular belt side-loads into one lane of the target belt. A full target lane backs up instead of accepting the second flow; it does not add throughput.",
+  link_rule:
+    "Belts connect only through the tile directly in front of them. When the next belt is straight the full two lanes continue; a perpendicular next belt receives only a one-lane side-load; an opposite next belt is head-on (invalid); a non-belt target does not receive items. Side-by-side parallel belts do NOT exchange items. A direct cross is not a generic junction: classify each arm by next_connection (straight/side_load/head_on/non_belt) and use underground/splitters for crossings or merges.",
   building_io_rule:
     "Belts cannot load or unload chests, machines, furnaces or labs by themselves. An inserter is required at the boundary; belt endpoints only drop items on the ground/belt, not into inventories.",
   splitter_rule:

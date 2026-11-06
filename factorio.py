@@ -1159,17 +1159,29 @@ def validate_belt_entities(
         x, y = _planner_point(value, "endpoint", integer=False)
         endpoints.add((int(math.floor(x)), int(math.floor(y))))
     issues: list[dict[str, Any]] = []
+    links: list[dict[str, Any]] = []
     for (x, y), belt in by_tile.items():
         if belt["name"] not in ("transport-belt", "fast-transport-belt", "express-transport-belt"):
             continue
         dx, dy = BELT_DIRECTIONS[belt["direction"]]
         target = (x + dx, y + dy)
         next_belt = by_tile.get(target)
+        link = "dead_end"
         if next_belt is None and target not in endpoints and (x, y) not in endpoints:
             issues.append({"kind": "belt_dead_end", "x": x, "y": y, "reason": "no belt on output tile"})
         elif next_belt is not None:
-            if next_belt["direction"] == (belt["direction"] + 8) % 16:
+            if next_belt["direction"] == belt["direction"]:
+                link = "straight"  # both lanes flow through
+            elif next_belt["direction"] == (belt["direction"] + 8) % 16:
+                link = "head_on"
                 issues.append({"kind": "belt_head_on", "x": x, "y": y, "reason": "next belt faces back"})
+            else:
+                # Perpendicular output feeds the next belt's side: only one lane
+                # is side-loaded; this is a corner/merge, not a full two-lane link.
+                link = "side_load"
+        elif next_belt is None:
+            link = "endpoint" if (x, y) in endpoints or target in endpoints else "dead_end"
+        links.append({"x": x, "y": y, "direction": belt["direction"], "next_tile": {"x": target[0], "y": target[1]}, "link": link})
         inputs = []
         for source, source_belt in by_tile.items():
             if source == (x, y):
@@ -1179,7 +1191,13 @@ def validate_belt_entities(
                 inputs.append(source)
         if not inputs and (x, y) not in endpoints:
             issues.append({"kind": "belt_no_input", "x": x, "y": y, "reason": "no belt feeds this tile"})
-    return {"ok": not issues, "belts": len(by_tile), "issues": issues[:200], "issue_count": len(issues)}
+    return {
+        "ok": not issues,
+        "belts": len(by_tile),
+        "issues": issues[:200],
+        "issue_count": len(issues),
+        "links": links[:300],
+    }
 
 
 def _assert_valid_belt_plan(entities: Any, *, from_xy: Any = None, to_xy: Any = None) -> None:

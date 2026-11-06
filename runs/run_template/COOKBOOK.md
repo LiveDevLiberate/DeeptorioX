@@ -383,6 +383,22 @@ choose a reachable shore/waypoint and build the route in stages.
 - Fix invalid belt sections before extending them; do not build more belts on
   top of a disconnected line.
 
+## 12.65 Belt link classification
+
+`observe-connections` returns `next_connection` and `parallel_belts` for each belt:
+
+- `straight`: next belt faces the same direction; both lanes continue.
+- `side_load`: next belt is perpendicular; only one lane side-loads (corner/merge) —
+  never assume full two-lane throughput.
+- `head_on`: next belt faces back; invalid.
+- `non_belt`: next tile is a machine/chest/etc; belts cannot transfer there.
+- `dead_end`: no entity in the output tile.
+- `parallel_belts` counts same-direction belts beside this tile. **Parallel
+  side-by-side belts have no connectivity**; only the tile directly in front is
+  the output target.
+- At a direct cross/T, classify each arm separately; use underground pairs for
+  crossings and splitters/side-loading for merges.
+
 ## 12.7 Belt three-strike rule
 
 - Count attempts per belt section/junction. If link/connection checks still fail

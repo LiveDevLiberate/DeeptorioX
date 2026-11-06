@@ -30,6 +30,14 @@ section below.
 - `observe-connections` reports `belt_dead_end`, head-on, non-belt endpoints and
   `belt_no_input`; fix these before extending a line.
 
+## 2.4 Belt link classification
+
+- Only the tile directly in front of a belt receives its output.
+- `straight` next belt = both lanes; perpendicular = one-lane side load;
+  opposite = head-on; non-belt = no transfer; parallel side-by-side = no connection.
+- Judge each arm of a cross separately; crossings need underground pairs, merges
+  need splitters/side-loading.
+
 ## 2.45 Belt 3-strike rule
 
 - If a belt section fails link checks 3 times, stop patching. Use
