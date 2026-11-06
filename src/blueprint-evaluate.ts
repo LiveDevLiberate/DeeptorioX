@@ -123,8 +123,8 @@ export function evaluateBlueprint(input: BlueprintEvaluationInput) {
     dynamic,
     scores: {
       structural: round(Math.min(100, structural), 1),
-      dynamic: dynamicScore === null ? null : round(dynamicScore, 1),
-      note: "structural rewards machine density and penalises support overhead; dynamic uses output/tile + output/machine + output/kW. Compare like-for-like blueprints (same recipe/output).",
+      dynamic: dynamicScore === null ? null : round(Math.min(100, dynamicScore), 1),
+      note: "structural rewards machine density and penalises support overhead; dynamic uses output/tile + output/machine + output/kW, capped at 100. Both are comparative; compare like-for-like blueprints (same recipe/output), not across different products.",
     },
   };
 }
