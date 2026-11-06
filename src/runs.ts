@@ -1295,7 +1295,15 @@ export class RunManager {
     if (!checkpoint || !fs.existsSync(path.join(this.dir(run), checkpoint.file))) return false;
     if (!["paused", "failed", "interrupted", "timed_out"].includes(run.state)) return false;
     if (run.elapsed_seconds >= run.max_seconds) return false;
-    return run.state === "paused" || checkpoint.segment === this.segment(run).index;
+    if (run.state === "paused" || checkpoint.segment === this.segment(run).index) return true;
+    // A failed run can have started a new segment after saving its checkpoint;
+    // resuming the immediately previous segment is still safe when the run
+    // failure happened during startup/telemetry before any progress.
+    return (
+      run.state === "failed" &&
+      /Telemetry failed/i.test(run.reason || "") &&
+      checkpoint.segment === this.segment(run).index - 1
+    );
   }
 
   /** Extend a run's wall-clock budget without touching its checkpoint. */
