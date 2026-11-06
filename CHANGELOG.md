@@ -86,6 +86,10 @@ this file.
   loader planners were inverted to match, and observe-connections now reports
   source on the facing side and target opposite. Knowledge/COOKBOOK document the
   convention.
+- **Spatial evaluation fixtures + power grouping.** Adds regression fixtures for
+  direction/ports/breaks/bottlenecks/path/collision. Power poles are grouped by
+  `network_id` instead of emitting pairwise edges (live 100-pole base previously
+  produced thousands of edges).
 - **Geometry direction validation.** `geometry-check` rejects cardinal directions
   outside 0/4/8/12 in addition to footprint/rotation/overlap and native placement
   blockers.

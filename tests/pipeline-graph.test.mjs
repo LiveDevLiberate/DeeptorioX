@@ -75,7 +75,7 @@ test("pipeline graph exposes machine ports, belt segments, pipes, power and bott
   assert.equal(graph.counts.belt_segments, 1);
   assert.equal(graph.counts.pipes, 2);
   assert.equal(graph.counts.power_poles, 2);
-  assert.ok(graph.counts.edges >= 5);
+  assert.ok(graph.counts.edges >= 4);
   const machine = graph.machines[0];
   assert.equal(machine.recipe, "iron-gear-wheel");
   assert.equal(machine.status, "no_power");
@@ -87,8 +87,8 @@ test("pipeline graph exposes machine ports, belt segments, pipes, power and bott
   assert.equal(graph.belt_segments[0].head.x, 0);
   assert.equal(graph.belt_segments[0].tail.x, 2);
   assert.ok(graph.edges.some((edge) => edge.kind === "pipe"));
-  assert.ok(graph.edges.some((edge) => edge.kind === "power_network"));
   assert.equal(graph.counts.power_networks, 1);
+  assert.equal(graph.power_network_groups[0].count, 2);
   assert.deepEqual(graph.belts[0].items, [{ name: "iron-ore", count: 2 }]);
   assert.deepEqual(graph.pipes[0].fluid, { water: 10 });
   assert.ok(graph.bottlenecks.some((entry) => entry.kind === "no_power"));

@@ -223,6 +223,10 @@ opening grace until the run registry contains a blueprint; capture is an
 observation/registry action and remains allowed. This enforces capture and
 surfaces existing designs in the UI.
 
+**Power networks.** Poles are grouped by `network_id` into
+`power_network_groups`; unnetworked poles only get local range heuristics. This
+avoids O(N²) power edges in a large base.
+
 **Pipeline flow metadata.** Area observations include belt line contents,
 entity fluid contents and pole electric-network ids; the graph merges these into
 belt `items`, pipe/machine `fluid`, `power_networks` and `power_network` edges.

@@ -294,23 +294,29 @@ export function buildPipelineGraph(
   }
 
   const powerPoles = [...nodes.values()].filter((node) => node.role === "power");
+  const powerNetworkGroups = new Map<number, Array<{ id: string; name: string; x: number; y: number }>>();
   for (const pole of powerPoles) {
+    if (pole.network_id === null) continue;
+    const group = powerNetworkGroups.get(pole.network_id) ?? [];
+    group.push({ id: pole.id, name: pole.name, x: pole.x, y: pole.y });
+    powerNetworkGroups.set(pole.network_id, group);
+  }
+  // Pairwise power edges explode on a large base (N poles in one network).
+  // Represent the network as a group; only range heuristics for unnetworked poles.
+  for (const pole of powerPoles) {
+    if (pole.network_id !== null) continue;
     for (const other of powerPoles) {
-      if (pole.id >= other.id) continue;
-      const sameNetwork =
-        pole.network_id !== null && other.network_id !== null && pole.network_id === other.network_id;
+      if (pole.id >= other.id || other.network_id !== null) continue;
       const distance = Math.hypot(pole.x - other.x, pole.y - other.y);
-      if (!sameNetwork && distance > 7.5) continue;
+      if (distance > 7.5) continue;
       addEdge({
         id: `power:${pole.id}->${other.id}`,
-        kind: sameNetwork ? "power_network" : "power_range",
+        kind: "power_range",
         from: pole.id,
         to: other.id,
         from_tile: { x: pole.x, y: pole.y },
         to_tile: { x: other.x, y: other.y },
-        note: sameNetwork
-          ? "same electric network"
-          : "within small-pole wire range; actual network may differ",
+        note: "within small-pole wire range; actual network may differ",
       });
     }
   }
@@ -425,7 +431,7 @@ export function buildPipelineGraph(
       pipes: pipes.length,
       power_poles: powerPoles.length,
       edges: edges.size,
-      power_networks: new Set(powerPoles.map((pole) => pole.network_id).filter((id) => id !== null)).size,
+      power_networks: powerNetworkGroups.size,
       bottlenecks: bottlenecks.length,
     },
     machines,
@@ -445,6 +451,11 @@ export function buildPipelineGraph(
       x: node.x,
       y: node.y,
       network_id: node.network_id,
+    })),
+    power_network_groups: [...powerNetworkGroups.entries()].map(([id, poles]) => ({
+      id,
+      count: poles.length,
+      poles,
     })),
     edges: [...edges.values()],
     bottlenecks: bottlenecks.slice(0, 60),
