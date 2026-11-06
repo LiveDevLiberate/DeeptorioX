@@ -81,6 +81,11 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Refactor audit loop.** `POST /api/agent/observe/audit` /
+  `factory-audit` merges factory problems and connection issues into a
+  prioritized action list with examples, cleanup areas and a stable fingerprint.
+  Prompt/COOKBOOK/KNOWLEDGE require fixing the top action before expanding and
+  escalating after three repeated fingerprints.
 - **Connection audit summary/map.** `observe-connections` now groups issues with
   fix suggestions, counts link types, lists junction samples and renders a compact
   north-up belt/issue map with a legend, making complex areas readable.

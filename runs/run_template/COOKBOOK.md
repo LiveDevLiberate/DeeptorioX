@@ -424,6 +424,22 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 - Never leave duplicate/broken belts and build a second copy on top. A full
   re-layout is cheaper than repeated patching.
 
+## 12.8 Refactor audit loop
+
+- Run `factory-audit --center-x X --center-y Y --radius R` after each build and
+  at least every ~10 minutes, or when research/production stalls.
+- It merges `observe-factory` problems and `observe-connections` issues into a
+  prioritized `actions` list: top critical fuel/power/fluid, then blocked
+  machines, then belt/inserter links, then parallel-belt warnings.
+- Fix only the highest-impact action, verify with `observe-*`/`observe-connections`,
+  then run the audit again. Do not start a new build while a critical action is
+  unresolved.
+- If the same issue/action fingerprint persists after 3 repair attempts, escalate:
+  `relayout-belts` for belt regions, or deconstruct/redesign the affected
+  machine block. Record the fingerprint/attempt count in STATE.md.
+- A clean audit (`actions: []`) is the go-ahead to expand; otherwise optimize
+  before expanding.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

@@ -187,6 +187,12 @@
       "usage": "Usage: factorio.py entity-usage-catalog"
     },
     {
+      "command": "factory-audit",
+      "description": "Prioritized refactor audit of factory problems, belt links and suggested repairs.",
+      "help": "Usage: factorio.py factory-audit [--center-x n --center-y n --radius n] Run after builds and every few minutes; repair the highest-impact action, verify, then re-audit.",
+      "usage": "Usage: factorio.py factory-audit [--center-x n --center-y n --radius n]"
+    },
+    {
       "command": "fluid-contents",
       "description": "Show actual fluid amounts inside a pipe/fluid entity at a tile.",
       "help": "Usage: factorio.py fluid-contents --target x,y",
@@ -1382,6 +1388,34 @@
         }
       ],
       "signature": "extract(self, entity: 'dict[str, float]', item: 'str', count: 'int | str' = 1, **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "Prioritized refactor audit: problems, belt links and suggested repairs.",
+      "name": "factory_audit",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "120",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        }
+      ],
+      "signature": "factory_audit(self, *, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 120) -> 'Any'"
     },
     {
       "description": "Read the actual fluids currently inside a pipe/fluid entity.",
@@ -2769,7 +2803,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "7d8a7d1e087f949c112842bf64f9dd6c34ba8ed405ed9fbea69974fcf5cf2055",
+  "client_sha256": "0d50d9f1f76bee1b085ef3f7e81695d4100b349882f9c0205173776b793932c2",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2838,6 +2872,10 @@
     {
       "method": "POST",
       "path": "/api/agent/observe/area"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/audit"
     },
     {
       "method": "POST",
@@ -2944,8 +2982,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "7d8a7d1e087f949c112842bf64f9dd6c34ba8ed405ed9fbea69974fcf5cf2055",
-    "src/api/agent.ts": "1c6e3c9d43524cab40d9bd04f130fbcb176ee77417d42b5d746fdfd6cfa2c0a9",
+    "factorio.py": "0d50d9f1f76bee1b085ef3f7e81695d4100b349882f9c0205173776b793932c2",
+    "src/api/agent.ts": "cf3babea851e393e12e96706adf17c003cc850cf7c1ef17070973aa99b47e1e5",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",

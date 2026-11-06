@@ -152,6 +152,18 @@ class ContinuousMiningTests(unittest.TestCase):
         self.assertFalse(result["depleted"])
 
 
+class RefactorAuditClientTests(unittest.TestCase):
+    def test_factory_audit_payload_and_cli_usage(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.factory_audit(x=10, y=20, radius=30)
+        request.assert_called_once_with("POST", "/api/agent/observe/audit", {
+            "window": {"x": 10, "y": 20, "radius": 30},
+        })
+        self.assertIn("factory-audit", factorio.COMMAND_USAGE)
+        self.assertIn("factory-audit", factorio.GLOBAL_USAGE)
+
+
 class BeltRelayoutTests(unittest.TestCase):
     def test_relayout_belts_dry_run_uses_all_belt_types(self):
         client = factorio.FactorioClient(poll_interval=0)

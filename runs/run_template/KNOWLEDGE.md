@@ -57,6 +57,13 @@ issue coordinates for exact repairs.
 - `fluid-contents --target x,y` shows actual fluid amounts inside a pipe/entity;
   `observe-fluids` shows whole networks.
 
+## 2.9 Refactor audit
+
+- `factory-audit` returns prioritized actions from factory problems + belt/inserter
+  links. Repair the top action, verify, re-audit; don't expand while critical.
+- Three repeated attempts on the same audit fingerprint → relayout/redesign the
+  affected region instead of patching again.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.

@@ -7,6 +7,7 @@ import { visualObservation } from "../vision.js";
 import { mapOverviewPng, mapOverviewSvg } from "../map-overview.js";
 import { entityUsage, entityUsageCatalog } from "../entity-usage.js";
 import { summarizeConnectionsData } from "../connection-summary.js";
+import { buildRefactorAudit } from "../refactor-audit.js";
 import { knowledgeCatalog, knowledgeTopic } from "../agent-knowledge.js";
 import {
   agentBuildDestinationCommand,
@@ -1228,6 +1229,43 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           ),
         );
         return json(res, 200, { ok: true, data });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/agent/observe/audit",
+    name: "/api/agent/observe/audit",
+    handler: async (request) => {
+      const { req, res } = request;
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
+      if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
+      if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
+      const window = recordOrEmpty(body.window);
+      const x = finiteNumberOrUndefined(window.x);
+      const y = finiteNumberOrUndefined(window.y);
+      const radius = clampInt(window.radius, 120, 1, 200);
+      try {
+        const [factoryResponse, connectionsResponse] = [
+          await rconCommand(agentFactoryCommand({ x, y, radius })),
+          await rconCommand(agentConnectionsCommand({ x, y, radius })),
+        ];
+        const factory = normalizeFactoryData(
+          parseRconJson<unknown>(factoryResponse, "RCON factory audit returned invalid JSON"),
+        );
+        const connections = normalizeConnectionsData(
+          parseRconJson<unknown>(connectionsResponse, "RCON connection audit returned invalid JSON"),
+        );
+        const audit = buildRefactorAudit(factory, connections, {
+          center: { x: x ?? 0, y: y ?? 0 },
+          radius,
+        });
+        return json(res, 200, { ok: true, data: audit });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }

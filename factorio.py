@@ -78,6 +78,7 @@ Commands:
   observe-research --limit-available <n> --limit-locked <n> --limit-completed <n>
   observe-recipes --limit-recipes <n> [--unlocked-only]
   observe-entity --target x,y [--target ...] [--targets-json <json>]
+  factory-audit [--center-x n --center-y n --radius n]
   observe-container --target x,y
   belt-contents --target x,y
   fluid-contents --target x,y
@@ -212,6 +213,7 @@ COMMAND_USAGE = {
     "act-craft": "act-craft: Queue a handcraft and verify its products appear (or use --no-wait).\nUsage: factorio.py act-craft --item <name> --count <n> [--no-wait]\n",
     "act-insert": "act-insert: Move items from player inventory into an entity at x,y.\nUsage: factorio.py act-insert --entity x,y --item <name> --count <n>\nNote: The character walks into reach using native pathfinding.\n",
     "act-extract": "act-extract: Remove items from an entity at x,y into player inventory.\nUsage: factorio.py act-extract --entity x,y --item <name> --count <n|all>\nNote: The character walks into reach using native pathfinding.\n",
+    "factory-audit": "factory-audit: Prioritized refactor audit of factory problems, belt links and suggested repairs.\nUsage: factorio.py factory-audit [--center-x n --center-y n --radius n]\nRun after builds and every few minutes; repair the highest-impact action, verify, then re-audit.\n",
     "belt-contents": "belt-contents: Show items currently on the belt/splitter/underground line at a tile.\nUsage: factorio.py belt-contents --target x,y\n",
     "fluid-contents": "fluid-contents: Show actual fluid amounts inside a pipe/fluid entity at a tile.\nUsage: factorio.py fluid-contents --target x,y\n",
     "observe-container": "observe-container: Show a chest/container inventory at a tile.\nUsage: factorio.py observe-container --target x,y\n",
@@ -2103,6 +2105,13 @@ class FactorioClient:
             if value is not None:
                 body[key] = value
         return self.request("POST", "/api/agent/state", body)
+
+    def factory_audit(self, *, x: float | None = None, y: float | None = None,
+                      radius: int = 120) -> Any:
+        """Prioritized refactor audit: problems, belt links and suggested repairs."""
+        return self.request("POST", "/api/agent/observe/audit", {
+            "window": {"x": x, "y": y, "radius": radius},
+        })
 
     def observe_connections(self, *, x: float | None = None, y: float | None = None,
                             radius: float = 120) -> Any:
@@ -4065,6 +4074,13 @@ def run(argv: list[str]) -> int:
             raw_count = flag("count")
             count: Any = "all" if cmd == "act-extract" and raw_count == "all" else parse_number(raw_count, 1)
             job = submit(cmd.removeprefix("act-"), {"entity": target, "item": item, "count": count})
+        elif cmd == "factory-audit":
+            result = data_value(FactorioClient(parsed.base).factory_audit(
+                x=parse_number(flag("center-x"), None),
+                y=parse_number(flag("center-y"), None),
+                radius=parse_number(flag("radius"), 120) or 120,
+            ))
+            return output(result, ok=True)
         elif cmd in ("belt-contents", "fluid-contents"):
             target = parse_targets([flag("target") or ""], False)[0] if flag("target") else None
             if not target:

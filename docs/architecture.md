@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Refactor audit.** `buildRefactorAudit` merges factory status problems and
+connection issues into prioritized repair actions (critical production first,
+then blocked machines, then belt/inserter links), with examples and a stable
+fingerprint for the three-strike escalation.
+
 **Connection audit summary.** `summarizeConnectionsData` groups issues, adds fix
 suggestions, classifies link counts and renders a compact arrow/issue map for
 complex belt areas without changing the raw audit rows.
