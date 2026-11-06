@@ -169,11 +169,13 @@ export class AlertStore {
 
     const signature = [...next.values()]
       .sort((a, b) => a.id.localeCompare(b.id))
-      .map((alert) => `${alert.id}:${alert.severity}:${alert.count}`)
+      // Count fluctuations are common in a running factory; only an alert
+      // appearing/disappearing or changing severity re-arms an acknowledgement.
+      .map((alert) => `${alert.id}:${alert.severity}`)
       .join("|");
     const oldSignature = [...this.alerts.values()]
       .sort((a, b) => a.id.localeCompare(b.id))
-      .map((alert) => `${alert.id}:${alert.severity}:${alert.count}`)
+      .map((alert) => `${alert.id}:${alert.severity}`)
       .join("|");
     if (signature !== oldSignature) {
       this.revision++;

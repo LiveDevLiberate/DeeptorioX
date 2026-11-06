@@ -2380,11 +2380,16 @@ class FactorioClient:
                   and entity["name"].startswith("crash-site-spaceship")] if isinstance(entities, list) else []
         recovered: dict[str, int] = {}
         results: list[dict[str, Any]] = []
-        for entity in debris:
+
+        def process(entity: dict[str, Any], retry_alert: bool = True) -> dict[str, Any]:
             target = {"x": int(entity["x"]), "y": int(entity["y"])}
             name = str(entity["name"])
             loot: dict[str, int] = {}
             try:
+                try:
+                    self.ack_alerts()
+                except Exception:
+                    pass  # Keep clearing loot even if the alert endpoint is unavailable.
                 contents = self.container_contents(target["x"], target["y"])
                 for stack in contents.get("items", []) if isinstance(contents.get("items"), list) else []:
                     if isinstance(stack, dict) and isinstance(stack.get("name"), str):
@@ -2397,9 +2402,18 @@ class FactorioClient:
                         recovered[item_name] = recovered.get(item_name, 0) + removed
                 mined = self.mine([{**target, "kind": "entity", "name": name, "allow_buildings": True}])
                 result = _job_first_result(mined) or {}
-                results.append({"name": name, **target, "loot": loot, "mined": result.get("ok") is not False})
+                return {"name": name, **target, "loot": loot, "mined": result.get("ok") is not False}
             except Exception as error:  # Per-debris failure must not abort the sweep.
-                results.append({"name": name, **target, "error": str(error)})
+                if retry_alert and "ALERTS_PENDING" in str(error):
+                    try:
+                        self.ack_alerts()
+                        return process(entity, retry_alert=False)
+                    except Exception:
+                        pass
+                return {"name": name, **target, "error": str(error)}
+
+        for entity in debris:
+            results.append(process(entity))
         return {"ok": not any("error" in item for item in results), "debris": len(debris),
                 "recovered": recovered, "results": results}
 

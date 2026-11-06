@@ -16,7 +16,7 @@ test("critical alerts gate, ack, and re-arm when the alert set changes", () => {
   assert.equal(store.gate(1000).blocked, true);
   store.ack(1000);
   assert.equal(store.gate(1000).blocked, false);
-  const changed = store.ingest(
+  const countChanged = store.ingest(
     factory(
       {
         no_fuel: [
@@ -28,8 +28,17 @@ test("critical alerts gate, ack, and re-arm when the alert set changes", () => {
     ),
     1100,
   );
+  assert.equal(countChanged.revision, 1, "count fluctuations must not re-arm the ack");
+  assert.equal(store.gate(1100).blocked, false);
+  const changed = store.ingest(
+    factory(
+      { no_fuel: [{ name: "stone-furnace", x: 1, y: 2 }], no_power: [{ name: "assembler" }] },
+      { no_fuel: 2, no_power: 1 },
+    ),
+    1200,
+  );
   assert.equal(changed.revision, 2);
-  assert.equal(store.gate(1100).blocked, true);
+  assert.equal(store.gate(1200).blocked, true);
 });
 
 test("warnings do not gate; critical penalties accrue by interval and persist", () => {
