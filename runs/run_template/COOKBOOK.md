@@ -578,6 +578,21 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   `target` opposite. Use it to verify; do not place inserters by assuming the
   direction is the drop side.
 
+## 12.19 Structured pipeline perception
+
+- Use `observe-pipeline --center-x X --center-y Y --radius R` instead of
+  reconstructing flow from raw entity lists/ASCII. It returns:
+  - machine nodes with recipe/status/footprint/bbox and input/output inserters;
+  - belts, directed belt segments (head/tail/length), pipes and power poles;
+  - edges (`inserter`, `belt`, `pipe`, `power_range`) and a prioritized
+    `bottlenecks` list.
+- Use `pipeline-audit` for only the bottleneck section when deciding what to fix.
+- Maintain `LAYOUT.md` with anchors, axes, machine/pole grids, pipe corridors,
+  segment head/tail, known gaps and next extension. Update it before/after layout
+  changes; do not keep geometry only in context.
+- For geometry: observe bbox/tile_size before placing, choose an aligned machine
+  row and pole grid first, then extend belts/pipes along the corridor.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

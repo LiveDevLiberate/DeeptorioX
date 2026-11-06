@@ -116,6 +116,11 @@ issue coordinates for exact repairs.
   accepts flow direction but orients inserters to pick up against that flow.
   Verify with observe-connections' source/target.
 
+## 2.9999 Pipeline graph
+
+- `observe-pipeline` gives structured topology/ports/bottlenecks; use it before
+  extending. Maintain `LAYOUT.md` for persistent coordinates/grids.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.

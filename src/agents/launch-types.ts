@@ -72,7 +72,7 @@ const BASE_TASK_PROMPT =
   "# STATE\nUpdated: <ISO-8601 timestamp>\nObjective: <from TASK.md>\nScores: production 0, logistics 0, mining 0, research 0, defense 0, exploration 0\nCurrent: <subtask name> (score 0)\nDone when: <quantified completion condition>\nNext: <first action>\n\n" +
   "Refresh STATE.md at least every 5 minutes and whenever the subtask changes. The manager blocks mutating actions with STATE_UPDATE_REQUIRED once STATE.md is older than 10 minutes (or missing after the startup grace period); STATE.md writes reset that deadline. " +
   "Before inventing a command, read the generated tool manifest (`factorio.py tools --json` or `client.tools()`): it lists every client method signature, parameter, CLI usage and manager endpoint. Do not read factorio.py source to discover the interface. " +
-  "Read AGENTS.md, COOKBOOK.md, KNOWLEDGE.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
+  "Read AGENTS.md, COOKBOOK.md, KNOWLEDGE.md, LAYOUT.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
   "Update STATE.md whenever the current subtask or its done-when condition changes, and after completing a subtask; the operator view and crash recovery rely on it. " +
   "The cookbook has proven layouts and the error-recovery matrix; follow it before inventing new designs. " +
   "After every completed subtask (and at least every 10 tool calls) post one short user-facing progress message in the configured output language: what was completed, any blocker, and the next step. " +
@@ -86,6 +86,7 @@ const BASE_TASK_PROMPT =
   "Use build-line --kind pipe|belt|wall|pole --route auto for any linear installation across unknown terrain; it shares the pathfinder detour and orthogonal routing instead of a straight-only builder. " +
   "Belt rules: each tile has two lanes (two item types can share a belt), but junctions/crossings do not automatically sum flows; side-loading fills only one lane, splitters merge with a throughput cap, and underground pairs cross without mixing. Belts cannot insert into or extract from chests/machines; use inserters at building boundaries. " +
   "Inserter direction is the pickup side, drop is opposite; build-inserter-pairs inverts its flow argument automatically—verify with observe-connections source/target. " +
+  "Maintain LAYOUT.md before/after layout changes: anchors, axes, machine rows, pole grid, pipe corridors, segment head/tail, gaps and next extension; use observe-pipeline rather than guessing topology from raw lists. " +
   "For resource veins, call act-mine --resource with one target and the default count=all; keep mining that vein until depleted instead of switching after each cycle. " +
   "Never mine near a building with a generic act-mine: player-owned buildings are protected unless --allow-buildings is explicit; use deconstruct-area for intentional dismantling. " +
   "Run factory-audit after builds and when stalled: fix the highest-priority action, verify, re-audit; after 3 repeats on the same fingerprint, relayout/redesign instead of patching. " +

@@ -170,6 +170,29 @@ class BlueprintEvaluateTests(unittest.TestCase):
         self.assertIn("blueprint-evaluate", factorio.GLOBAL_USAGE)
 
 
+class PipelinePerceptionTests(unittest.TestCase):
+    def test_observe_pipeline_payload_and_audit(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        response = {"ok": True, "data": {
+            "counts": {"machines": 1},
+            "window": {"x": 1, "y": 2, "radius": 3},
+            "bottlenecks": [{"kind": "belt_no_input"}],
+            "bottleneck_actions": [{"kind": "belt_no_input"}],
+        }}
+        with patch.object(client, "request", return_value=response) as request:
+            result = factorio.data_value(client.observe_pipeline(x=1, y=2, radius=3))
+            audit = client.pipeline_audit(x=1, y=2, radius=3)
+        request.assert_called_with("POST", "/api/agent/observe/pipeline", {
+            "window": {"x": 1, "y": 2, "radius": 3},
+        })
+        self.assertEqual(result["counts"]["machines"], 1)
+        self.assertEqual(audit["bottlenecks"][0]["kind"], "belt_no_input")
+        self.assertEqual(audit["counts"]["machines"], 1)
+        self.assertIn("observe-pipeline", factorio.COMMAND_USAGE)
+        self.assertIn("pipeline-audit", factorio.COMMAND_USAGE)
+        self.assertIn("observe-pipeline", factorio.GLOBAL_USAGE)
+
+
 class BlueprintCaptureTests(unittest.TestCase):
     def test_capture_blueprint_payload_and_cli_usage(self):
         client = factorio.FactorioClient(poll_interval=0)

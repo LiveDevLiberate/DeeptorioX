@@ -8,6 +8,7 @@ import { mapOverviewPng, mapOverviewSvg } from "../map-overview.js";
 import { entityUsage, entityUsageCatalog } from "../entity-usage.js";
 import { summarizeConnectionsData } from "../connection-summary.js";
 import { buildRefactorAudit, type RefactorScope } from "../refactor-audit.js";
+import { buildPipelineGraph } from "../pipeline-graph.js";
 import { encodeCapturedBlueprint } from "../blueprint-capture.js";
 import { evaluateBlueprint } from "../blueprint-evaluate.js";
 import { observeAreaCommand } from "../area-edit.js";
@@ -1365,6 +1366,75 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "Blueprint capture failed" });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/agent/observe/pipeline",
+    name: "/api/agent/observe/pipeline",
+    handler: async (request) => {
+      const { req, res } = request;
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
+      if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
+      if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
+      const window = recordOrEmpty(body.window);
+      const x = finiteNumberOrUndefined(window.x) ?? 0;
+      const y = finiteNumberOrUndefined(window.y) ?? 0;
+      const radius = clampInt(window.radius, 80, 1, 200);
+      const areaTypes = [
+        "furnace",
+        "assembling-machine",
+        "chemical-plant",
+        "oil-refinery",
+        "lab",
+        "mining-drill",
+        "pumpjack",
+        "centrifuge",
+        "boiler",
+        "generator",
+        "rocket-silo",
+        "recycler",
+        "pipe",
+        "pipe-to-ground",
+        "pump",
+        "offshore-pump",
+        "storage-tank",
+        "electric-pole",
+        "substation",
+        "accumulator",
+        "solar-panel",
+      ];
+      try {
+        const [factoryResponse, connectionsResponse, areaResponse] = await Promise.all([
+          rconCommand(agentFactoryCommand({ x, y, radius })),
+          rconCommand(agentConnectionsCommand({ x, y, radius })),
+          rconCommand(
+            observeAreaCommand({
+              x,
+              y,
+              radius,
+              limit: 500,
+              types: areaTypes,
+              filters: [],
+              playerOnly: true,
+            }),
+          ),
+        ]);
+        const factory = normalizeFactoryData(
+          parseRconJson<unknown>(factoryResponse, "RCON factory observation returned invalid JSON"),
+        );
+        const connections = normalizeConnectionsData(
+          parseRconJson<unknown>(connectionsResponse, "RCON connection observation returned invalid JSON"),
+        );
+        const area = parseRconJson<unknown>(areaResponse, "RCON area observation returned invalid JSON");
+        const graph = buildPipelineGraph(factory, connections, area, { x, y, radius });
+        return json(res, 200, { ok: true, data: graph });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
     },
   });

@@ -240,7 +240,10 @@ export function observeAreaCommand(params: ObserveAreaParams): string {
     "local player_created=false pcall(function() player_created=e.last_user~=nil end)",
     "local health=nil pcall(function() health=e.health end)",
     "local direction=nil pcall(function() direction=e.direction end) local recipe=nil pcall(function() local r=e.get_recipe() recipe=r and r.name or nil end)",
-    "table.insert(entities,{name=e.name,type=e.type,x=math.floor(e.position.x),y=math.floor(e.position.y),position={x=e.position.x,y=e.position.y},direction=direction,recipe=recipe,health=health,player_created=player_created})",
+    "local status=nil pcall(function() if e.status then for k,v in pairs(defines.entity_status) do if v==e.status then status=k break end end end end)",
+    "local width=nil local height=nil pcall(function() width=e.prototype.tile_width height=e.prototype.tile_height end)",
+    "local bbox=nil pcall(function() local b=e.bounding_box bbox={left=b.left_top.x,top=b.left_top.y,right=b.right_bottom.x,bottom=b.right_bottom.y} end)",
+    "table.insert(entities,{name=e.name,type=e.type,x=math.floor(e.position.x),y=math.floor(e.position.y),position={x=e.position.x,y=e.position.y},direction=direction,recipe=recipe,status=status,tile_size=width and {width=width,height=height} or nil,bbox=bbox,health=health,player_created=player_created})",
     "end",
     "done{ok=true,area={x=cx,y=cy,radius=radius,min_x=min_x,min_y=min_y,max_x=max_x,max_y=max_y},counts={total=total,matched=matched,included=#entities},entities=entities,truncated=matched>#entities,player_only=player_only}",
   ].join(" ");

@@ -86,6 +86,11 @@ this file.
   loader planners were inverted to match, and observe-connections now reports
   source on the facing side and target opposite. Knowledge/COOKBOOK document the
   convention.
+- **Structured pipeline perception.** `observe-pipeline` / `pipeline-audit`
+  compose factory, connection and area observations into machine/inserter/belt/
+  pipe/power nodes, directed edges, belt segments, bbox/status/recipe metadata and
+  prioritized bottlenecks. A `LAYOUT.md` template/protocol gives the agent
+  persistent geometry memory (anchors, grids, corridors, gaps, next extension).
 - **Empty chests in refactor scope.** Factory observations now detect empty
   containers; the default refactor scope includes `containers`, so empty chests
   are debt and block rebuilding. `deconstruct-area --scope containers` removes

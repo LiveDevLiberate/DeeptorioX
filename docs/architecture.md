@@ -223,6 +223,12 @@ opening grace until the run registry contains a blueprint; capture is an
 observation/registry action and remains allowed. This enforces capture and
 surfaces existing designs in the UI.
 
+**Pipeline perception.** `observe-pipeline` composes factory + connection +
+area observations into a graph of machines, inserters, belts, pipes and power,
+with bboxes/status/recipe and prioritized bottlenecks; `pipeline-audit` exposes
+only the bottleneck section. `LAYOUT.md` is the agent's persistent geometry
+memory for anchors, grids, corridors and gaps.
+
 **Refactor debt/gate.** The manager periodically stores a `refactor` state
 (invalid count, fingerprint, debt age, audit count). A build job is rejected with
 `REFACTOR_REQUIRED` once debt persists past the gate grace; cleanup actions stay

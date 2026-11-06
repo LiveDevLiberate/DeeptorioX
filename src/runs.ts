@@ -1381,12 +1381,14 @@ export class RunManager {
     const instructions = fs.readFileSync(path.join(ROOT, "runs/run_template/AGENTS.md"));
     const cookbook = fs.readFileSync(path.join(ROOT, "runs/run_template/COOKBOOK.md"));
     const knowledge = fs.readFileSync(path.join(ROOT, "runs/run_template/KNOWLEDGE.md"));
+    const layout = fs.readFileSync(path.join(ROOT, "runs/run_template/LAYOUT.md"));
     // Always refresh the bundled client/playbook. A resumed run must not keep an
     // older factorio.py that predates tools/manifest commands the prompt expects.
     fs.writeFileSync(path.join(workspace, "factorio.py"), client);
     fs.writeFileSync(path.join(workspace, "AGENTS.md"), instructions);
     fs.writeFileSync(path.join(workspace, "COOKBOOK.md"), cookbook);
     fs.writeFileSync(path.join(workspace, "KNOWLEDGE.md"), knowledge);
+    fs.writeFileSync(path.join(workspace, "LAYOUT.md"), layout);
     fs.writeFileSync(
       path.join(workspace, "TASK.md"),
       `# Task\n\n${run.benchmark.task}\n\nTime limit: ${run.max_seconds} wall-clock seconds.\n`,

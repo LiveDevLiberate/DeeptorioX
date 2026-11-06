@@ -301,6 +301,12 @@
       "usage": "Usage: factorio.py observe-map-overview --center-x <n> --center-y <n> --radius <n> --size <n> [--format svg]"
     },
     {
+      "command": "observe-pipeline",
+      "description": "Structured machine/belt/inserter/pipe/power graph with ports, bboxes, statuses and bottlenecks.",
+      "help": "Usage: factorio.py observe-pipeline [--center-x n --center-y n --radius n] Use this instead of inferring flow from raw entity lists/ASCII.",
+      "usage": "Usage: factorio.py observe-pipeline [--center-x n --center-y n --radius n]"
+    },
+    {
       "command": "observe-placement",
       "description": "Analyze buildability without consuming an item.",
       "help": "Usage: factorio.py observe-placement --entity name,anchor-x,anchor-y,dir [--entity ...]",
@@ -353,6 +359,12 @@
       "description": "Ask the native pathfinder for a route without walking it.",
       "help": "Usage: factorio.py path-preview --target x,y Returns ok=true with path waypoints when reachable; ok=false error=no_path when blocked (water/cliff/buildings). Use this before long or unseen-terrain moves; route around water/cliff instead of retrying the same no_path target.",
       "usage": "Usage: factorio.py path-preview --target x,y"
+    },
+    {
+      "command": "pipeline-audit",
+      "description": "Prioritized bottleneck list derived from the structured pipeline graph.",
+      "help": "Usage: factorio.py pipeline-audit [--center-x n --center-y n --radius n]",
+      "usage": "Usage: factorio.py pipeline-audit [--center-x n --center-y n --radius n]"
     },
     {
       "command": "recover-debris",
@@ -2114,6 +2126,34 @@
       "signature": "observe_map_overview(self, *, x: 'float' = 0, y: 'float' = 0, radius: 'float' = 128, size: 'int' = 96, format: 'str | None' = None) -> 'Any'"
     },
     {
+      "description": "Structured machine/belt/inserter/pipe/power graph plus bottlenecks.",
+      "name": "observe_pipeline",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "80",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        }
+      ],
+      "signature": "observe_pipeline(self, *, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 80) -> 'Any'"
+    },
+    {
       "description": "",
       "name": "observe_placement",
       "parameters": [
@@ -2293,6 +2333,34 @@
         }
       ],
       "signature": "observe_world(self, *, x: 'float' = 0, y: 'float' = 0, radius: 'float' = 12, include: 'list[str] | None' = None) -> 'Any'"
+    },
+    {
+      "description": "Return only the prioritized bottleneck section of the pipeline graph.",
+      "name": "pipeline_audit",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "80",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        }
+      ],
+      "signature": "pipeline_audit(self, *, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 80) -> 'dict[str, Any]'"
     },
     {
       "description": "Dry-run placement analysis for a planned entity list (chunked by 50).",
@@ -2982,7 +3050,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "598cfc58fc8fe1861e71742fc767af0109cb40d31df0cfeda7b38ee8be62fa7a",
+  "client_sha256": "c8d1784aab567d0472b02c3a12372f22b7343b3497c4725b563ed25392076c8c",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3118,6 +3186,10 @@
     },
     {
       "method": "POST",
+      "path": "/api/agent/observe/pipeline"
+    },
+    {
+      "method": "POST",
       "path": "/api/agent/observe/placement"
     },
     {
@@ -3169,8 +3241,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "598cfc58fc8fe1861e71742fc767af0109cb40d31df0cfeda7b38ee8be62fa7a",
-    "src/api/agent.ts": "24fcc71c7561c8ad127f8b9686da523e1b0ab041ba3a3ffa0cbc2f4879a1ad7e",
+    "factorio.py": "c8d1784aab567d0472b02c3a12372f22b7343b3497c4725b563ed25392076c8c",
+    "src/api/agent.ts": "7c744f99d98238c5a75bc439343ed33f672709fc7566327e702e5d80e7bfafe8",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",
