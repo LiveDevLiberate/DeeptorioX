@@ -176,9 +176,9 @@
     },
     {
       "command": "deconstruct-area",
-      "description": "Observe an area and remove the entities with native mining (chunked).",
-      "help": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run] Defaults: radius 64, limit server default (300), player_only=true (last_user heuristic). --include-all sets player_only=false; add --types tree,simple-entity for passability or --types resource for ore. Removal is the normal native miner: the character walks, mining takes real time, and unreachable targets fail per entity. Targets are ordered nearest-first from the player/center (--order scan to disable; --start x,y; --max-di",
-      "usage": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run]"
+      "description": "Observe an area and remove the entities with native mining (chunked, nearest-first).",
+      "help": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--order nearest|scan] [--start x,y] [--max-distance n] [--dry-run] Defaults: radius 64, limit server default (300), player_only=true (last_user heuristic). --include-all sets player_only=false; add --types tree,simple-entity for passability or --types resource for ore. Removal is the normal native miner: the character walks, mining takes real time, and unreachable targets fail per entity. Targets are ordered nearest-first from the playe",
+      "usage": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--order nearest|scan] [--start x,y] [--max-distance n] [--dry-run]"
     },
     {
       "command": "describe",
@@ -2961,7 +2961,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "2aa16dad0780093cfd6799470214ab9c0060a613306aadd4b6135c4d8d473693",
+  "client_sha256": "7196e5057e7b30015ca61f7c571a3bd96f1713e760fe999edf5ecf6c5763190d",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3148,7 +3148,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "2aa16dad0780093cfd6799470214ab9c0060a613306aadd4b6135c4d8d473693",
+    "factorio.py": "7196e5057e7b30015ca61f7c571a3bd96f1713e760fe999edf5ecf6c5763190d",
     "src/api/agent.ts": "cfb4c21bdbec6730373fb945155dea75b22ea51360b7c0ef1a5f69b10b5acb9c",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",

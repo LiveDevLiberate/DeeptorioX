@@ -99,6 +99,7 @@ const BASE_TASK_PROMPT =
   "Use blueprints: capture validated cells with blueprint-capture, compare versions, and reuse blueprint-list before redesigning. " +
   "If a build returns BLUEPRINT_REQUIRED, capture the current validated cell with blueprint-capture before retrying; blueprint count is visible in the run UI. " +
   "Bulk deconstruction is nearest-first (deconstruct-area --max-distance/--start): finish the local cluster, never cross the map for one building. " +
+  "Do not hard-code cross-map center lists in sweep scripts; re-observe the player, clear the nearest cluster, then pick the next. " +
   "Evaluate blueprints with blueprint-evaluate: static density first, then output/tile, output/machine and output/kW with --output/--power-kw after building; keep Pareto improvements. " +
   "Crash debris is neutral: layout shows X and map-overview S; recover it with recover-debris so it does not block paths. " +
   "If a mutating call returns ALERTS_PENDING, call alerts (CLI alerts --ack) after inspecting/fixing the critical causes; observations/state/alerts remain allowed while blocked. " +

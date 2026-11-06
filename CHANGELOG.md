@@ -81,6 +81,9 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Tool manifest usage fix.** The generated `deconstruct-area` usage line now
+  advertises `--order`, `--start`, and `--max-distance`, matching the client help
+  (previously agents saw only the old usage line).
 - **Nearest-first recycling.** `deconstruct-area` asks the area scan for
   near-ordered candidates and re-orders targets by nearest-neighbor travel from
   the player/center; `--start`/`--max-distance` keep recycling local and report

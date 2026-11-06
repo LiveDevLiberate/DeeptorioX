@@ -526,6 +526,9 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   not use it for bulk recycling.
 - Big-reset/recycle passes should use nearest order and stop when the local area
   is clear, then move to the next cluster.
+- **Do not write sweep scripts with hard-coded cross-map center lists.** Re-observe
+  the player, deconstruct the nearest local cluster, then select the next nearest
+  cluster; never visit 10-20 fixed map coordinates in one pass.
 
 ## 13. Token and time discipline
 
