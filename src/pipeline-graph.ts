@@ -67,11 +67,14 @@ export type PipelineNode = {
   status: string | null;
   tile_size: { width: number; height: number } | null;
   bbox: { left: number; top: number; right: number; bottom: number } | null;
+  belt_items: Array<{ name: string; count: number }>;
+  fluid: Record<string, number> | null;
+  network_id: number | null;
 };
 
 export type PipelineEdge = {
   id: string;
-  kind: "inserter" | "belt" | "pipe" | "power_range";
+  kind: "inserter" | "belt" | "pipe" | "power_range" | "power_network";
   from: string | null;
   to: string | null;
   from_tile: { x: number; y: number };
@@ -132,6 +135,16 @@ export function buildPipelineGraph(
           bottom: num(bboxRecord.bottom),
         }
       : null;
+    const rawBeltItems = Array.isArray(input.belt_items) ? input.belt_items : [];
+    const beltItems = rawBeltItems
+      .map((entry) => record(entry))
+      .filter((entry): entry is JsonRecord => Boolean(entry))
+      .map((entry) => ({ name: text(entry.name) ?? "unknown", count: num(entry.count) }));
+    const fluidRecord = record(input.fluid);
+    const fluid = fluidRecord
+      ? Object.fromEntries(Object.entries(fluidRecord).map(([name, count]) => [name, num(count)]))
+      : null;
+    const networkId = Number.isFinite(Number(input.network_id)) ? Number(input.network_id) : null;
     const node: PipelineNode = {
       id,
       name,
@@ -144,6 +157,9 @@ export function buildPipelineGraph(
       status: text(input.status) ?? existing?.status ?? null,
       tile_size: tileSize ?? existing?.tile_size ?? null,
       bbox: bbox ?? existing?.bbox ?? null,
+      belt_items: beltItems.length > 0 ? beltItems : (existing?.belt_items ?? []),
+      fluid: fluid ?? existing?.fluid ?? null,
+      network_id: networkId ?? existing?.network_id ?? null,
     };
     nodes.set(id, node);
     return node;
@@ -209,6 +225,7 @@ export function buildPipelineGraph(
         : null,
       next_connection: text(raw.next_connection) ?? null,
       parallel_belts: num(raw.parallel_belts),
+      items: nodes.get(nodeId(text(raw.name) ?? "transport-belt", x, y))?.belt_items ?? [],
     };
   });
   const beltByTile = new Map(belts.map((belt) => [tileKey(belt.x, belt.y), belt]));
@@ -280,16 +297,20 @@ export function buildPipelineGraph(
   for (const pole of powerPoles) {
     for (const other of powerPoles) {
       if (pole.id >= other.id) continue;
+      const sameNetwork =
+        pole.network_id !== null && other.network_id !== null && pole.network_id === other.network_id;
       const distance = Math.hypot(pole.x - other.x, pole.y - other.y);
-      if (distance > 7.5) continue;
+      if (!sameNetwork && distance > 7.5) continue;
       addEdge({
         id: `power:${pole.id}->${other.id}`,
-        kind: "power_range",
+        kind: sameNetwork ? "power_network" : "power_range",
         from: pole.id,
         to: other.id,
         from_tile: { x: pole.x, y: pole.y },
         to_tile: { x: other.x, y: other.y },
-        note: "within small-pole wire range; actual network may differ",
+        note: sameNetwork
+          ? "same electric network"
+          : "within small-pole wire range; actual network may differ",
       });
     }
   }
@@ -404,14 +425,27 @@ export function buildPipelineGraph(
       pipes: pipes.length,
       power_poles: powerPoles.length,
       edges: edges.size,
+      power_networks: new Set(powerPoles.map((pole) => pole.network_id).filter((id) => id !== null)).size,
       bottlenecks: bottlenecks.length,
     },
     machines,
     inserters,
     belts,
     belt_segments: beltSegments,
-    pipes: pipes.map((node) => ({ id: node.id, name: node.name, x: node.x, y: node.y })),
-    power_poles: powerPoles.map((node) => ({ id: node.id, name: node.name, x: node.x, y: node.y })),
+    pipes: pipes.map((node) => ({
+      id: node.id,
+      name: node.name,
+      x: node.x,
+      y: node.y,
+      fluid: node.fluid,
+    })),
+    power_poles: powerPoles.map((node) => ({
+      id: node.id,
+      name: node.name,
+      x: node.x,
+      y: node.y,
+      network_id: node.network_id,
+    })),
     edges: [...edges.values()],
     bottlenecks: bottlenecks.slice(0, 60),
     bottleneck_actions: bottlenecks.slice(0, 20).map((entry) => ({

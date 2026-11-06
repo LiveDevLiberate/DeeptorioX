@@ -86,6 +86,10 @@ this file.
   loader planners were inverted to match, and observe-connections now reports
   source on the facing side and target opposite. Knowledge/COOKBOOK document the
   convention.
+- **Pipeline flow metadata.** Pipeline nodes now carry belt contents,
+  pipe/machine fluids and pole `network_id`; `power_network` edges and
+  `power_networks` counts are derived, improving bottleneck diagnosis beyond
+  pure topology.
 - **Free-space route planning.** `plan-route` uses the free-space grid and an
   orthogonal A* planner to produce belt/pipe/wall/power corridors (including
   width clearance and pole spacing) without building; inspect then build the

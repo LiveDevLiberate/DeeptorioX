@@ -243,7 +243,10 @@ export function observeAreaCommand(params: ObserveAreaParams): string {
     "local status=nil pcall(function() if e.status then for k,v in pairs(defines.entity_status) do if v==e.status then status=k break end end end end)",
     "local width=nil local height=nil pcall(function() width=e.prototype.tile_width height=e.prototype.tile_height end)",
     "local bbox=nil pcall(function() local b=e.bounding_box bbox={left=b.left_top.x,top=b.left_top.y,right=b.right_bottom.x,bottom=b.right_bottom.y} end)",
-    "table.insert(entities,{name=e.name,type=e.type,x=math.floor(e.position.x),y=math.floor(e.position.y),position={x=e.position.x,y=e.position.y},direction=direction,recipe=recipe,status=status,tile_size=width and {width=width,height=height} or nil,bbox=bbox,health=health,player_created=player_created})",
+    "local belt_items=nil pcall(function() if e.type=='transport-belt' or e.type=='underground-belt' or e.type=='splitter' then local line=e.get_transport_line(1) if line then belt_items=line.get_contents() end end end)",
+    "local fluid=nil pcall(function() fluid=e.get_fluid_contents() end)",
+    "local network_id=nil pcall(function() if e.type=='electric-pole' then network_id=e.electric_network_id end end)",
+    "table.insert(entities,{name=e.name,type=e.type,x=math.floor(e.position.x),y=math.floor(e.position.y),position={x=e.position.x,y=e.position.y},direction=direction,recipe=recipe,status=status,tile_size=width and {width=width,height=height} or nil,bbox=bbox,health=health,player_created=player_created,belt_items=belt_items,fluid=fluid,network_id=network_id})",
     "end",
     "done{ok=true,area={x=cx,y=cy,radius=radius,min_x=min_x,min_y=min_y,max_x=max_x,max_y=max_y},counts={total=total,matched=matched,included=#entities},entities=entities,truncated=matched>#entities,player_only=player_only}",
   ].join(" ");

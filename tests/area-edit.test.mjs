@@ -88,7 +88,11 @@ test("observeAreaCommand scans a bounded area, excludes non-deconstructable type
   assert.ok(lua.includes("seen[key]"), "deduplicates entities");
   assert.ok(lua.includes("table.sort(candidates"), "sorting keeps truncation deterministic");
   assert.ok(lua.includes("table.insert(entities,{name=e.name,type=e.type,x=math.floor(e.position.x)"));
-  assert.ok(lua.includes("health=health,player_created=player_created}"));
+  assert.ok(
+    lua.includes(
+      "health=health,player_created=player_created,belt_items=belt_items,fluid=fluid,network_id=network_id}",
+    ),
+  );
   assert.ok(lua.includes("truncated=matched>#entities"));
   assert.ok(
     lua.includes(

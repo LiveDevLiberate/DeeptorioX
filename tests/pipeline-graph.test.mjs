@@ -54,10 +54,18 @@ test("pipeline graph exposes machine ports, belt segments, pipes, power and bott
         tile_size: { width: 3, height: 3 },
         bbox: { left: 8.5, top: 8.5, right: 11.5, bottom: 11.5 },
       },
-      { name: "pipe", type: "pipe", x: 0, y: 20, direction: 0 },
+      {
+        name: "transport-belt",
+        type: "transport-belt",
+        x: 0,
+        y: 0,
+        direction: 4,
+        belt_items: [{ name: "iron-ore", count: 2 }],
+      },
+      { name: "pipe", type: "pipe", x: 0, y: 20, direction: 0, fluid: { water: 10 } },
       { name: "pipe", type: "pipe", x: 0, y: 21, direction: 0 },
-      { name: "small-electric-pole", type: "electric-pole", x: 5, y: 5, direction: 0 },
-      { name: "small-electric-pole", type: "electric-pole", x: 6, y: 5, direction: 0 },
+      { name: "small-electric-pole", type: "electric-pole", x: 5, y: 5, direction: 0, network_id: 1 },
+      { name: "small-electric-pole", type: "electric-pole", x: 6, y: 5, direction: 0, network_id: 1 },
     ],
   };
   const graph = buildPipelineGraph(factory, connections, area, { x: 0, y: 0, radius: 40 });
@@ -79,7 +87,10 @@ test("pipeline graph exposes machine ports, belt segments, pipes, power and bott
   assert.equal(graph.belt_segments[0].head.x, 0);
   assert.equal(graph.belt_segments[0].tail.x, 2);
   assert.ok(graph.edges.some((edge) => edge.kind === "pipe"));
-  assert.ok(graph.edges.some((edge) => edge.kind === "power_range"));
+  assert.ok(graph.edges.some((edge) => edge.kind === "power_network"));
+  assert.equal(graph.counts.power_networks, 1);
+  assert.deepEqual(graph.belts[0].items, [{ name: "iron-ore", count: 2 }]);
+  assert.deepEqual(graph.pipes[0].fluid, { water: 10 });
   assert.ok(graph.bottlenecks.some((entry) => entry.kind === "no_power"));
   assert.ok(graph.bottlenecks.some((entry) => entry.kind === "belt_no_input"));
   assert.equal(graph.bottlenecks[0].severity, "critical");

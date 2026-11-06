@@ -3376,7 +3376,7 @@
   "schema_version": 1,
   "sources": {
     "factorio.py": "a08450ba4ddc8ff7b841e8dc64907cd8153b289eee033f384dd6f39760b77a39",
-    "src/api/agent.ts": "921b6253a4840b2488a2b0835b4e9e282db176c6e0dcc2b07808a10de1339241",
+    "src/api/agent.ts": "6baf0784ccff9fe28ec4648d8e84b0d0f41a85fc84a25bd09592604f4224ae1d",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",

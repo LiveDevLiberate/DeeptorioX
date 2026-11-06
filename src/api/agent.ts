@@ -1408,6 +1408,9 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         "substation",
         "accumulator",
         "solar-panel",
+        "transport-belt",
+        "underground-belt",
+        "splitter",
       ];
       try {
         const [factoryResponse, connectionsResponse, areaResponse] = await Promise.all([

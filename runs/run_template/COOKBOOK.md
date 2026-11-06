@@ -583,7 +583,8 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 - Use `observe-pipeline --center-x X --center-y Y --radius R` instead of
   reconstructing flow from raw entity lists/ASCII. It returns:
   - machine nodes with recipe/status/footprint/bbox and input/output inserters;
-  - belts, directed belt segments (head/tail/length), pipes and power poles;
+  - belts, directed belt segments (head/tail/length), belt contents (`items`),
+    pipe fluids (`fluid`), power poles with `network_id`;
   - edges (`inserter`, `belt`, `pipe`, `power_range`) and a prioritized
     `bottlenecks` list.
 - Use `pipeline-audit` for only the bottleneck section when deciding what to fix.
