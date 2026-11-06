@@ -81,6 +81,11 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Scoped refactor (power/pipes/rail).** Refactor audits now have explicit
+  `belts,power,pipes,machines` scope (default) and opt-in `rail`; power
+  (`no_power`) and fluid (`no_input_fluid`) failures count as refactor debt.
+  `deconstruct-area --scope` expands cleanup to power/pipes/machines/rail, and
+  the gate uses the scoped invalid count.
 - **Cleanup rewards + strict rebuild gate.** Deconstruction targets are marked
   `cleanup: true`; successfully removed entities earn +5 each and count as zero
   manual-mining penalty. Refactor debt reductions earn +10 per unit. Direct

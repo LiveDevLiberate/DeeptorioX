@@ -542,6 +542,27 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 - When `big_reset_pending` is set, stop expanding, prepare chests and start the
   reset; do not start a new production block first.
 
+## 12.17 Refactor scope: power, pipes, rail
+
+- Default refactor scope is `belts,power,pipes,machines`:
+  - power: `no_power`, pole/network failures;
+  - pipes: `no_input_fluid` and pipe/pump failures;
+  - belts: dead ends/head-ons/no-input/point-to-non-belt;
+  - machines: fuel/ingredients/output/inserter problems.
+- Rail is **opt-in** only:
+  `factory-audit --scope belts,power,pipes,machines,rail`
+  or `factory-audit --include-rail`; `deconstruct-area --scope ...,rail`.
+- Cleanup by scope:
+  ```bash
+  factorio.py deconstruct-area --center-x X --center-y Y --radius R \
+    --scope belts,power,pipes,machines --max-distance 30
+  ```
+  Wire/pipes/poles are included; do not leave broken power or fluid links as
+  “unrelated” debt. Rail cleanup only when a train/rail refactor is explicitly in
+  scope.
+- Build gate counts the scoped debt; it stays closed until the clean target is
+  reached.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

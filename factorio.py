@@ -78,7 +78,7 @@ Commands:
   observe-research --limit-available <n> --limit-locked <n> --limit-completed <n>
   observe-recipes --limit-recipes <n> [--unlocked-only]
   observe-entity --target x,y [--target ...] [--targets-json <json>]
-  factory-audit [--center-x n --center-y n --radius n]
+  factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,rail] [--include-rail]
   observe-container --target x,y
   belt-contents --target x,y
   fluid-contents --target x,y
@@ -112,7 +112,7 @@ Commands:
   act-build-loader --from x,y --to x,y [--name inserter] [--no-clear]
   act-build-blueprint (--blueprint-file <path>|--blueprint <string>) [--anchor x,y] [--dry-run] [--no-clear]
   act-copy-settings --target sx,sy,tx,ty [--target ...] [--dry-run]
-  deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--order nearest|scan] [--start x,y] [--max-distance n] [--dry-run]
+  deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--scope belts,power,pipes,machines,rail] [--include-all] [--max-per-job <n>] [--order nearest|scan] [--start x,y] [--max-distance n] [--dry-run]
   build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]
   build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]
   build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]
@@ -219,7 +219,7 @@ COMMAND_USAGE = {
     "act-craft": "act-craft: Queue a handcraft and verify its products appear (or use --no-wait).\nUsage: factorio.py act-craft --item <name> --count <n> [--no-wait]\n",
     "act-insert": "act-insert: Move items from player inventory into an entity at x,y.\nUsage: factorio.py act-insert --entity x,y --item <name> --count <n>\nNote: The character walks into reach using native pathfinding.\n",
     "act-extract": "act-extract: Remove items from an entity at x,y into player inventory.\nUsage: factorio.py act-extract --entity x,y --item <name> --count <n|all>\nNote: The character walks into reach using native pathfinding.\n",
-    "factory-audit": "factory-audit: Prioritized refactor audit of factory problems, belt links and suggested repairs.\nUsage: factorio.py factory-audit [--center-x n --center-y n --radius n]\nRun after builds and every few minutes; repair the highest-impact action, verify, then re-audit.\n",
+    "factory-audit": "factory-audit: Prioritized refactor audit of factory problems, belt links and suggested repairs.\nUsage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,rail] [--include-rail]\nDefault scope: belts,power,pipes,machines; rail is opt-in with --include-rail or --scope rail. Run after builds and every few minutes; repair the highest-impact action, verify, then re-audit.\n",
     "belt-contents": "belt-contents: Show items currently on the belt/splitter/underground line at a tile.\nUsage: factorio.py belt-contents --target x,y\n",
     "fluid-contents": "fluid-contents: Show actual fluid amounts inside a pipe/fluid entity at a tile.\nUsage: factorio.py fluid-contents --target x,y\n",
     "observe-container": "observe-container: Show a chest/container inventory at a tile.\nUsage: factorio.py observe-container --target x,y\n",
@@ -1971,6 +1971,37 @@ def _wait_timeout(timeout: float) -> float:
     return max(0.0, min(float(timeout), max_wait))
 
 
+REFACTOR_SCOPE_TYPES: dict[str, list[str]] = {
+    "belts": ["transport-belt", "underground-belt", "splitter"],
+    "power": ["electric-pole", "generator", "boiler", "solar-panel", "accumulator", "lamp"],
+    "pipes": ["pipe", "pipe-to-ground", "pump", "offshore-pump", "storage-tank"],
+    "machines": [
+        "furnace", "assembling-machine", "lab", "mining-drill", "pumpjack",
+        "oil-refinery", "chemical-plant", "centrifuge", "rocket-silo", "inserter",
+    ],
+    "rail": [
+        "straight-rail", "curved-rail", "rail-signal", "rail-chain-signal",
+        "train-stop", "locomotive", "cargo-wagon", "fluid-wagon", "artillery-wagon",
+    ],
+}
+
+
+def expand_refactor_scope(scope: list[str] | None) -> list[str]:
+    """Map belt/power/pipes/machines/rail scopes to observe-area type filters."""
+    if not scope:
+        return []
+    types: list[str] = []
+    for raw in scope:
+        name = str(raw).strip().lower()
+        if name not in REFACTOR_SCOPE_TYPES:
+            raise ValueError(
+                f"Unknown refactor scope {raw!r}; use belts,power,pipes,machines,rail")
+        for entity_type in REFACTOR_SCOPE_TYPES[name]:
+            if entity_type not in types:
+                types.append(entity_type)
+    return types
+
+
 class FactorioClient:
     """Synchronous Python client for the Factorio manager API.
 
@@ -2202,10 +2233,13 @@ class FactorioClient:
         return self.request("POST", "/api/agent/state", body)
 
     def factory_audit(self, *, x: float | None = None, y: float | None = None,
-                      radius: int = 120) -> Any:
-        """Prioritized refactor audit: problems, belt links and suggested repairs."""
+                      radius: int = 120, scope: list[str] | None = None,
+                      include_rail: bool = False) -> Any:
+        """Prioritized refactor audit: problems, belt/power/pipe links and repairs."""
         return self.request("POST", "/api/agent/observe/audit", {
             "window": {"x": x, "y": y, "radius": radius},
+            "scope": scope,
+            "include_rail": include_rail,
         })
 
     def observe_connections(self, *, x: float | None = None, y: float | None = None,
@@ -3123,6 +3157,7 @@ class FactorioClient:
                          order: str = "nearest",
                          start_xy: Any = None,
                          max_distance: float | None = None,
+                         scope: list[str] | None = None,
                          dry_run: bool = False) -> dict[str, Any]:
         """Observe an area and remove the resulting entities with native mining.
 
@@ -3152,6 +3187,13 @@ class FactorioClient:
         if max_per_job < 1:
             raise ValueError("max_per_job must be at least 1")
         max_per_job = min(max_per_job, BLUEPRINT_MAX_ENTITIES_PER_JOB)
+        scope_types = expand_refactor_scope(scope)
+        if scope_types:
+            combined = list(types or [])
+            for entity_type in scope_types:
+                if entity_type not in combined:
+                    combined.append(entity_type)
+            types = combined
         response = self.observe_area(
             x, y, radius, limit=limit, types=types, filters=filters,
             player_only=player_only, order="near" if order == "nearest" else "name",
@@ -3242,6 +3284,8 @@ class FactorioClient:
             "chunks": 0,
             "max_per_job": max_per_job,
             "order": order,
+            "scope": scope,
+            "scope_types": scope_types,
             "start": {"x": reference[0], "y": reference[1]} if reference else None,
             "max_distance": max_distance,
             "skipped_far": skipped_far,
@@ -4106,6 +4150,7 @@ def run(argv: list[str]) -> int:
                 order=flag("order") or "nearest",
                 start_xy=parse_targets([flag("start")], False)[0] if flag("start") else None,
                 max_distance=parse_number(flag("max-distance"), None),
+                scope=[part.strip() for part in (flag("scope") or "").split(",") if part.strip()] or None,
                 dry_run=bool(flag("dry-run")),
             )
             return output(deconstruct_result,
@@ -4386,10 +4431,13 @@ def run(argv: list[str]) -> int:
             count: Any = "all" if cmd == "act-extract" and raw_count == "all" else parse_number(raw_count, 1)
             job = submit(cmd.removeprefix("act-"), {"entity": target, "item": item, "count": count})
         elif cmd == "factory-audit":
+            audit_scope = [part.strip() for part in (flag("scope") or "").split(",") if part.strip()]
             result = data_value(FactorioClient(parsed.base).factory_audit(
                 x=parse_number(flag("center-x"), None),
                 y=parse_number(flag("center-y"), None),
                 radius=parse_number(flag("radius"), 120) or 120,
+                scope=audit_scope or None,
+                include_rail=bool(flag("include-rail")),
             ))
             return output(result, ok=True)
         elif cmd in ("belt-contents", "fluid-contents"):

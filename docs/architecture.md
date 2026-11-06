@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Scoped refactor.** `buildRefactorAudit` tags actions by belts/power/pipes/
+machines/rail, includes power and fluid factory failures by default, and only
+adds rail when requested. `invalid_count` is the scoped sum; `deconstruct-area
+--scope` maps the same categories to entity-type filters.
+
 **Cleanup rewards.** `cleanupMineUnits` reads `cleanup=true` targets; successful
 entities add positive score and are subtracted from manual mining penalties.
 `recordRefactorAudit` adds a positive reward per invalid-debt unit removed. Both

@@ -7,7 +7,7 @@ import { visualObservation } from "../vision.js";
 import { mapOverviewPng, mapOverviewSvg } from "../map-overview.js";
 import { entityUsage, entityUsageCatalog } from "../entity-usage.js";
 import { summarizeConnectionsData } from "../connection-summary.js";
-import { buildRefactorAudit } from "../refactor-audit.js";
+import { buildRefactorAudit, type RefactorScope } from "../refactor-audit.js";
 import { encodeCapturedBlueprint } from "../blueprint-capture.js";
 import { evaluateBlueprint } from "../blueprint-evaluate.js";
 import { observeAreaCommand } from "../area-edit.js";
@@ -1393,12 +1393,17 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         const connections = normalizeConnectionsData(
           parseRconJson<unknown>(connectionsResponse, "RCON connection audit returned invalid JSON"),
         );
+        const requestedScope = Array.isArray(body.scope)
+          ? body.scope.filter((entry): entry is string => typeof entry === "string")
+          : undefined;
         const audit = buildRefactorAudit(factory, connections, {
           center: { x: x ?? 0, y: y ?? 0 },
           radius,
+          scope: requestedScope as RefactorScope[] | undefined,
+          includeRail: body.include_rail === true,
         });
         runManager.recordRefactorAudit({
-          invalid_count: audit.summary.factory_problems + audit.summary.connection_issues,
+          invalid_count: audit.summary.invalid_count,
           factory_problems: audit.summary.factory_problems,
           connection_issues: audit.summary.connection_issues,
           fingerprint: audit.fingerprint,

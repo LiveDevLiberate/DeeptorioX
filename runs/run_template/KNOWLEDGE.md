@@ -103,6 +103,12 @@ issue coordinates for exact repairs.
   positive cleanup/refactor points. Builds stay blocked (including direct
   act-build) until invalid debt reaches the clean target.
 
+## 2.9995 Refactor scope
+
+- Default: belts,power,pipes,machines. Power (`no_power`) and fluid
+  (`no_input_fluid`) failures are refactor debt. Rail is opt-in via
+  `--include-rail` / `--scope rail`. Cleanup accepts `--scope` too.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.

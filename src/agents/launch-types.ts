@@ -101,6 +101,7 @@ const BASE_TASK_PROMPT =
   "Bulk deconstruction is nearest-first (deconstruct-area --max-distance/--start): finish the local cluster, never cross the map for one building. " +
   "Do not hard-code cross-map center lists in sweep scripts; re-observe the player, clear the nearest cluster, then pick the next. " +
   "Cleanup earns +5/entity and +10/invalid-debt unit and ignores the manual-mining penalty; builds (including direct act-build) stay blocked until invalid debt reaches the clean target. " +
+  "Refactor scope defaults to belts+power+pipes+machines; rail is opt-in with --include-rail/--scope rail. Cleanup accepts --scope and must include power/pipe failures. " +
   "Evaluate blueprints with blueprint-evaluate: static density first, then output/tile, output/machine and output/kW with --output/--power-kw after building; keep Pareto improvements. " +
   "Crash debris is neutral: layout shows X and map-overview S; recover it with recover-debris so it does not block paths. " +
   "If a mutating call returns ALERTS_PENDING, call alerts (CLI alerts --ack) after inspecting/fixing the critical causes; observations/state/alerts remain allowed while blocked. " +

@@ -701,7 +701,7 @@ async function refreshRefactorAudit(force = false): Promise<void> {
       const connections = normalizeConnectionsData(parseRconObservation(connectionsResponse));
       const audit = buildRefactorAudit(factory, connections, { center: { x: 0, y: 0 }, radius: 120 });
       runManager.recordRefactorAudit({
-        invalid_count: audit.summary.factory_problems + audit.summary.connection_issues,
+        invalid_count: audit.summary.invalid_count,
         factory_problems: audit.summary.factory_problems,
         connection_issues: audit.summary.connection_issues,
         fingerprint: audit.fingerprint,

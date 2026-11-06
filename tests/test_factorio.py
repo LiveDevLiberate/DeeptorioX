@@ -225,6 +225,8 @@ class RefactorAuditClientTests(unittest.TestCase):
             client.factory_audit(x=10, y=20, radius=30)
         request.assert_called_once_with("POST", "/api/agent/observe/audit", {
             "window": {"x": 10, "y": 20, "radius": 30},
+            "scope": None,
+            "include_rail": False,
         })
         self.assertIn("factory-audit", factorio.COMMAND_USAGE)
         self.assertIn("factory-audit", factorio.GLOBAL_USAGE)
@@ -1782,6 +1784,24 @@ class DeconstructAreaTests(unittest.TestCase):
         self.assertEqual(result["skipped_far"], 1)
         self.assertEqual(result["start"], {"x": 0, "y": 0})
 
+    def test_scope_expands_power_pipes_and_optional_rail(self):
+        self.assertEqual(
+            factorio.expand_refactor_scope(["belts", "power", "pipes", "machines", "rail"])[:4],
+            ["transport-belt", "underground-belt", "splitter", "electric-pole"],
+        )
+        with self.assertRaisesRegex(ValueError, "Unknown refactor scope"):
+            factorio.expand_refactor_scope(["magic"])
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "observe_area", return_value={"ok": True, "data": {
+            "ok": True, "entities": [], "counts": {},
+        }}) as observe:
+            client.deconstruct_area(0, 0, radius=8, scope=["power", "pipes"],
+                                    start_xy=(0, 0), dry_run=True)
+        types = observe.call_args.kwargs["types"]
+        self.assertIn("electric-pole", types)
+        self.assertIn("pipe", types)
+        self.assertNotIn("straight-rail", types)
+
     def test_execute_chunks_50_and_aggregates_results(self):
         client = factorio.FactorioClient(poll_interval=0)
         calls = []
@@ -2143,7 +2163,7 @@ class ConstructionCliTests(unittest.TestCase):
         deconstruct.assert_called_once_with(
             5, 6, 12, limit=10, types=["tree"], filters=["tree"],
             player_only=False, max_per_job=25, order="nearest", start_xy=None,
-            max_distance=None, dry_run=True,
+            max_distance=None, scope=None, dry_run=True,
         )
 
         with patch("factorio.FactorioClient.deconstruct_area",
@@ -2153,7 +2173,7 @@ class ConstructionCliTests(unittest.TestCase):
         deconstruct.assert_called_once_with(
             None, None, 64, limit=None, types=None, filters=None,
             player_only=True, max_per_job=50, order="nearest", start_xy=None,
-            max_distance=None, dry_run=False,
+            max_distance=None, scope=None, dry_run=False,
         )
 
         with patch("factorio.FactorioClient.deconstruct_area",

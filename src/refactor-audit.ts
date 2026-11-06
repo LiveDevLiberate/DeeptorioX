@@ -56,6 +56,31 @@ const FACTORY_PROBLEMS: Record<string, { severity: "critical" | "warning"; label
     },
   };
 
+export type RefactorScope = "belts" | "power" | "pipes" | "machines" | "rail";
+
+/** Default refactor scope: production, power and fluid infrastructure. Rail is opt-in. */
+export const DEFAULT_REFACTOR_SCOPE: RefactorScope[] = ["belts", "power", "pipes", "machines"];
+
+const FACTORY_SCOPE: Record<string, RefactorScope> = {
+  no_power: "power",
+  no_input_fluid: "pipes",
+  no_fuel: "machines",
+  no_minable_resources: "machines",
+  waiting_for_space_in_destination: "machines",
+  no_ingredients: "machines",
+  missing_science_packs: "machines",
+};
+
+function issueScope(kind: string): RefactorScope {
+  if (kind.startsWith("belt_") || kind === "parallel_belts") return "belts";
+  if (kind.startsWith("inserter_")) return "machines";
+  if (kind.startsWith("machine_") || kind.startsWith("factory:")) return "machines";
+  if (kind.startsWith("pipe_")) return "pipes";
+  if (kind.startsWith("power_") || kind.startsWith("pole_")) return "power";
+  if (kind.startsWith("rail_") || kind.startsWith("train_")) return "rail";
+  return "machines";
+}
+
 const BELT_ACTIONS: Record<string, { severity: "critical" | "warning"; action: string }> = {
   belt_no_input: { severity: "warning", action: "Connect a feeder/side-load or remove the orphan belt." },
   belt_dead_end: { severity: "warning", action: "Extend/rotate/remove the dead-end belt." },
@@ -80,7 +105,12 @@ function examples(value: unknown, limit = 3): JsonRecord[] {
 export function buildRefactorAudit(
   factory: unknown,
   connections: unknown,
-  options: { center?: { x: number; y: number }; radius?: number } = {},
+  options: {
+    center?: { x: number; y: number };
+    radius?: number;
+    scope?: RefactorScope[];
+    includeRail?: boolean;
+  } = {},
 ) {
   const factoryData = asRecord(factory) ?? {};
   const connectionData = asRecord(connections) ?? {};
@@ -92,6 +122,11 @@ export function buildRefactorAudit(
   const belts = Array.isArray(connectionData.belts) ? connectionData.belts : [];
   const center = options.center ?? { x: 0, y: 0 };
   const radius = Math.max(1, Math.floor(options.radius ?? 120));
+  const scope = new Set<RefactorScope>(
+    options.includeRail
+      ? [...(options.scope ?? DEFAULT_REFACTOR_SCOPE), "rail"]
+      : (options.scope ?? DEFAULT_REFACTOR_SCOPE),
+  );
 
   const actions: Array<Record<string, unknown>> = [];
   const addAction = (entry: Record<string, unknown>) => {
@@ -99,9 +134,13 @@ export function buildRefactorAudit(
     actions.push(entry);
   };
 
+  let scopedFactoryProblems = 0;
   for (const [kind, meta] of Object.entries(FACTORY_PROBLEMS)) {
+    const problemScope = FACTORY_SCOPE[kind] ?? "machines";
+    if (!scope.has(problemScope)) continue;
     const count = number(totals[kind]) || (Array.isArray(problems[kind]) ? problems[kind].length : 0);
     if (count <= 0) continue;
+    scopedFactoryProblems += count;
     addAction({
       id: `factory:${kind}`,
       kind,
@@ -123,8 +162,12 @@ export function buildRefactorAudit(
     if (group.length < 3) group.push(issue);
     issueGroups.set(kind, group);
   }
+  let scopedConnectionIssues = 0;
   for (const [kind, samples] of issueGroups) {
+    const issueCategory = issueScope(kind);
+    if (!scope.has(issueCategory)) continue;
     const count = issues.filter((raw) => asRecord(raw)?.kind === kind).length;
+    scopedConnectionIssues += count;
     const meta = BELT_ACTIONS[kind];
     const isBelt = kind.startsWith("belt_");
     const action =
@@ -146,6 +189,24 @@ export function buildRefactorAudit(
       examples: samples,
       ...(isBelt && count >= 3 ? { cleanup: { x: center.x, y: center.y, radius } } : {}),
     });
+  }
+
+  let railIssues = 0;
+  if (scope.has("rail")) {
+    const rail = Array.isArray(connectionData.rail_issues) ? connectionData.rail_issues : [];
+    railIssues = rail.length;
+    if (railIssues > 0) {
+      addAction({
+        id: "connection:rail_issues",
+        kind: "rail_issues",
+        severity: "warning",
+        label: "rail/train connection problems",
+        count: railIssues,
+        priority: 180 + railIssues,
+        action: "Repair rail blocks/signals or remove the unused rail; rail is opt-in refactor scope.",
+        examples: rail.slice(0, 3),
+      });
+    }
   }
 
   for (const raw of belts.slice(0, 500)) {
@@ -188,6 +249,11 @@ export function buildRefactorAudit(
       belts: number(connectionCounts.belts),
       inserters: number(connectionCounts.inserters),
       machines: number(connectionCounts.machines),
+      scoped_factory_problems: scopedFactoryProblems,
+      scoped_connection_issues: scopedConnectionIssues,
+      rail_issues: railIssues,
+      invalid_count: scopedFactoryProblems + scopedConnectionIssues + railIssues,
+      scope: [...scope],
     },
     link_counts: (() => {
       const result: Record<string, number> = {};

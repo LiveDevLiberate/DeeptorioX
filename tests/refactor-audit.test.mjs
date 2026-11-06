@@ -42,3 +42,37 @@ test("audit returns no actions for a clean factory", () => {
   assert.equal(audit.actions.length, 0);
   assert.equal(audit.summary.buildings, 0);
 });
+
+test("refactor scope includes power and pipes by default, rail only on demand", () => {
+  const factory = {
+    counts: {},
+    totals: { no_power: 2, no_input_fluid: 1, no_fuel: 3 },
+    problems: {
+      no_power: [{ name: "assembling-machine-1", x: 1, y: 1 }],
+      no_input_fluid: [{ name: "chemical-plant", x: 2, y: 2 }],
+      no_fuel: [{ name: "stone-furnace", x: 3, y: 3 }],
+    },
+  };
+  const connections = {
+    counts: { belts: 1, issues: 1, inserters: 0, machines: 0 },
+    belts: [],
+    issues: [{ kind: "belt_no_input", x: 4, y: 4 }],
+    rail_issues: [{ kind: "rail_signal_missing", x: 9, y: 9 }],
+  };
+  const all = buildRefactorAudit(factory, connections);
+  assert.ok(all.actions.some((action) => action.kind === "no_power"));
+  assert.ok(all.actions.some((action) => action.kind === "no_input_fluid"));
+  assert.ok(all.actions.some((action) => action.kind === "belt_no_input"));
+  assert.ok(!all.actions.some((action) => action.kind === "rail_issues"));
+  assert.equal(all.summary.scope.includes("power"), true);
+  assert.equal(all.summary.scope.includes("pipes"), true);
+  assert.equal(all.summary.invalid_count, 7);
+
+  const powerOnly = buildRefactorAudit(factory, connections, { scope: ["power"] });
+  assert.equal(powerOnly.summary.invalid_count, 2);
+  assert.ok(!powerOnly.actions.some((action) => action.kind === "no_input_fluid"));
+
+  const withRail = buildRefactorAudit(factory, connections, { includeRail: true });
+  assert.ok(withRail.actions.some((action) => action.kind === "rail_issues"));
+  assert.equal(withRail.summary.invalid_count, 8);
+});
