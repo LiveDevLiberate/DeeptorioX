@@ -460,6 +460,15 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 - After escaping, repair the opening with a gate/walkway and record the
   enclosure problem in the refactor audit.
 
+## 12.11 Crash debris cleanup
+
+- Crash-site spaceship debris is neutral, so player-force-only map layers used to
+  hide it. It now appears as `X` in `observe-layout` and `S` in
+  `observe-map-overview`; `observe-map` symbols include it too.
+- Recover it with `recover-debris --center-x X --center-y Y --radius R` (extracts
+  loot first, then mines the pieces). Do not leave debris blocking walkways or
+  building sites.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

@@ -69,6 +69,11 @@ issue coordinates for exact repairs.
 - `unstick` tries short paths, then mines low-value player-built blockers until a
   route opens. No teleport; repair a proper gate/walkway afterward.
 
+## 2.97 Crash debris visibility
+
+- Layout marks crash-site spaceship debris as `X`; map overview uses `S`.
+  Recover with `recover-debris` instead of leaving wreckage on paths.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.

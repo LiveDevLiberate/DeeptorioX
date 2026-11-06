@@ -369,3 +369,14 @@ test("every exported command builder returns a /sc command without leaking undef
     assert.ok(!command.includes("NaN"), `${name} should not leak NaN into Lua`);
   }
 });
+
+test("layout and map observations include neutral crash debris", () => {
+  const layout = agentLayoutCommand({ radius: 10, step: 1 });
+  const overview = agentMapOverviewCommand({ x: 0, y: 0, radius: 32, size: 32 });
+  const map = agentMapCommand({ x: 0, y: 0, radius: 32 });
+  for (const lua of [layout, overview, map]) {
+    assert.ok(lua.includes("crash-site-spaceship"));
+  }
+  assert.ok(layout.includes("['X']='spaceship debris'"));
+  assert.ok(overview.includes('"S":"spaceship debris"'));
+});

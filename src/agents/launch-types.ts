@@ -96,6 +96,7 @@ const BASE_TASK_PROMPT =
   "For complex areas use observe-connections.issue_summary + junctions + map: the north-up grid marks >v< straight belts, + side-load, X head-on, N non-belt, ! dead end, ? no input; exact fixes are in issues[]. " +
   "Use recover-debris for crash-site spaceship wreckage (extract loot, then mine), observe-container to inspect chest slots, and container-transfer to move/organize items. " +
   "Use blueprints: capture validated cells with blueprint-capture, compare versions, and reuse blueprint-list before redesigning. " +
+  "Crash debris is neutral: layout shows X and map-overview S; recover it with recover-debris so it does not block paths. " +
   "If a mutating call returns ALERTS_PENDING, call alerts (CLI alerts --ack) after inspecting/fixing the critical causes; observations/state/alerts remain allowed while blocked. " +
   "For power, use substations or small/medium poles for local coverage and a straight build-power-line with big poles for long trunks; do not place a dense grid of big poles. " +
   "Watch the automation score in observe_factory().plan.automation: automate extraction and crafting instead of hand work (manual mines/crafts are penalty points). " +

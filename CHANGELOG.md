@@ -86,6 +86,10 @@ this file.
   blueprint string and registers it in the run catalogue. Prompt/COOKBOOK/
   KNOWLEDGE require capturing validated cells, reusing existing blueprints,
   comparing entity/tile counts across versions and keeping the best.
+- **Crash debris on maps.** Layout marks neutral crash-site spaceship debris as
+  `X`, map-overview as `S`, and observe-map symbols include it (previously
+  player-force-only layers hid the wreckage). Prompt/COOKBOOK/KNOWLEDGE tell the
+  agent to recover it with `recover-debris`.
 - **Mine allow-buildings forwarding fix.** The `/act/mine` handler was rebuilding
   the target object without `allow_buildings`, so `unstick` and intentional
   teardown could never remove player-owned blockers (`protected_building`).

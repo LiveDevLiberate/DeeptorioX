@@ -194,6 +194,10 @@ targets so the character cannot hop ore veins after one cycle.
 `/api/agent/blueprints/capture` registers it for the active run. This closes the
 build → capture → reuse/iterate loop.
 
+**Crash debris visibility.** Layout marks neutral crash-site spaceship debris as
+`X`, map-overview as `S`, and observe-map symbols include it; these are neutral
+entities, not player-force, so the old filters hid them.
+
 **Mine target forwarding.** The `/act/mine` handler preserves
 `allow_buildings` on the native target; native mining uses it to permit
 intentional removal of player-owned blockers (rescue/deconstruct).
