@@ -6,6 +6,7 @@ import { launchRocket } from "../rocket.js";
 import { visualObservation } from "../vision.js";
 import { mapOverviewPng, mapOverviewSvg } from "../map-overview.js";
 import { entityUsage, entityUsageCatalog } from "../entity-usage.js";
+import { summarizeConnectionsData } from "../connection-summary.js";
 import { knowledgeCatalog, knowledgeTopic } from "../agent-knowledge.js";
 import {
   agentBuildDestinationCommand,
@@ -1221,8 +1222,10 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       const radius = clampInt(window.radius, 120, 1, 256);
       try {
         const response = await rconCommand(agentConnectionsCommand({ x, y, radius }));
-        const data = normalizeConnectionsData(
-          parseRconJson<unknown>(response, "RCON connection audit returned invalid JSON"),
+        const data = summarizeConnectionsData(
+          normalizeConnectionsData(
+            parseRconJson<unknown>(response, "RCON connection audit returned invalid JSON"),
+          ),
         );
         return json(res, 200, { ok: true, data });
       } catch (err) {

@@ -189,6 +189,10 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Connection audit summary.** `summarizeConnectionsData` groups issues, adds fix
+suggestions, classifies link counts and renders a compact arrow/issue map for
+complex belt areas without changing the raw audit rows.
+
 **Belt relayout.** `relayout_belts`/`relayout-belts` wraps deconstruction of
 all belt types in an area; the three-strike policy requires it after repeated
 link failures instead of endless patch attempts.

@@ -383,6 +383,19 @@ choose a reachable shore/waypoint and build the route in stages.
 - Fix invalid belt sections before extending them; do not build more belts on
   top of a disconnected line.
 
+## 12.61 Connection audit summary
+
+`observe-connections` now includes:
+
+- `issue_summary.groups`: counts + examples + a fix suggestion per issue kind;
+- `belt_links`: counts of straight/side_load/head_on/non_belt/dead_end links;
+- `junctions`: first 40 non-straight/parallel belt tiles with coordinates;
+- `map`: a compact north-up arrow grid with belt directions and issue markers,
+  plus a legend. `map.rows` is capped to about 80 characters per side.
+- `parallel_belts`: count of belts with same-direction neighbors (not connected).
+
+Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
+
 ## 12.65 Belt link classification
 
 `observe-connections` returns `next_connection` and `parallel_belts` for each belt:

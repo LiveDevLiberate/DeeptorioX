@@ -30,6 +30,13 @@ section below.
 - `observe-connections` reports `belt_dead_end`, head-on, non-belt endpoints and
   `belt_no_input`; fix these before extending a line.
 
+## 2.4 Belt connection audit summary
+
+`observe-connections` returns grouped issue counts, fix suggestions, junction
+samples, link-type counts and a north-up compact map (`^>v<`, + side-load,
+X head-on, N non-belt, ! dead end, ? no input). Use the map for shape and the
+issue coordinates for exact repairs.
+
 ## 2.4 Belt link classification
 
 - Only the tile directly in front of a belt receives its output.

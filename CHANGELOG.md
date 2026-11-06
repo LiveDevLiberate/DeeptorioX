@@ -81,6 +81,9 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Connection audit summary/map.** `observe-connections` now groups issues with
+  fix suggestions, counts link types, lists junction samples and renders a compact
+  north-up belt/issue map with a legend, making complex areas readable.
 - **Belt three-strike relayout.** After three failed link/connection attempts
   for the same belt section, agents must stop patching and use `relayout-belts`
   (dry-run first) to recycle every belt type in the area, re-observe, and plan a
