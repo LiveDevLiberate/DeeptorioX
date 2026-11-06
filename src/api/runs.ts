@@ -161,6 +161,15 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
         if (req.method === "GET") {
           const detail = runManager.blueprint(runId, match[2]);
           if (!detail) return json(res, 404, { error: "Blueprint not found" });
+          if (url.searchParams.get("download") === "1") {
+            res.writeHead(200, {
+              "Content-Type": "text/plain; charset=utf-8",
+              "Content-Disposition": `attachment; filename="blueprint-${match[2]}.txt"`,
+              "Cache-Control": "no-store",
+            });
+            res.end(detail.wire);
+            return;
+          }
           return json(res, 200, { schema_version: 2, run_id: runId, ...detail });
         }
         if (req.method === "DELETE") {

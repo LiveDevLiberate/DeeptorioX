@@ -233,6 +233,7 @@ const I18N = {
     blueprintsEntities: "entities",
     blueprintsTiles: "tiles",
     blueprintDecode: "Decode blueprint",
+    blueprintDownload: "Download",
     blueprintLoading: "Loading…",
     blueprintError: "Could not decode blueprint.",
     light: "Light",
@@ -397,6 +398,7 @@ const I18N = {
     blueprintsEntities: "个实体",
     blueprintsTiles: "个 tile",
     blueprintDecode: "解析蓝图",
+    blueprintDownload: "下载蓝图",
     blueprintLoading: "加载中…",
     blueprintError: "无法解析蓝图。",
     light: "浅色",
@@ -638,6 +640,12 @@ function renderBlueprints() {
           "blueprint-meta",
         ),
       );
+      const download = element("a", strings.blueprintDownload || "Download", "blueprint-download");
+      download.href = `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(blueprint.id)}?download=1`;
+      download.download = `blueprint-${blueprint.id}.txt`;
+      const actions = element("div", "", "blueprint-actions");
+      actions.append(download);
+      head.append(actions);
       const entities = element(
         "p",
         (blueprint.top_entities || []).map((entry) => `${entry.name} × ${entry.count}`).join(" · "),

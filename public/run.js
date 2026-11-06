@@ -95,7 +95,12 @@ function renderBlueprints() {
           globalThis.alert?.(error.message);
         }
       });
-      actions.append(rename, remove);
+      const download = document.createElement("a");
+      download.textContent = "Download";
+      download.className = "blueprint-download";
+      download.href = `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(blueprint.id)}?download=1`;
+      download.download = `blueprint-${blueprint.id}.txt`;
+      actions.append(download, rename, remove);
       const entities = text(
         "p",
         (blueprint.top_entities || []).map((entry) => `${entry.name} × ${entry.count}`).join(" · "),
