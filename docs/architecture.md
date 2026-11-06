@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Nearest-first deconstruction.** `observe-area?order=near` selects candidates
+nearest the window center before truncation; `deconstruct_area` then sorts with a
+nearest-neighbor walk from the player/explicit start, optionally filters by
+`max_distance`, and chunks the ordered list. This keeps bulk recycling local.
+
 **Blueprint efficiency.** `evaluateBlueprint` decodes a stored/wire blueprint,
 classifies machine/belt/inserter/pole/pipe support, computes density metrics and
 accepts dynamic output/power/build-time inputs for output-per-tile/machine/kW.

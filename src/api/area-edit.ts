@@ -60,9 +60,10 @@ export function registerAreaEditRoutes(router: Router, ctx: ApiContext): void {
       const types = filterList(body.types);
       const filters = filterList(body.filters);
       const playerOnly = asBoolean(body.player_only) === true;
+      const order = body.order === "near" ? "near" : "name";
       try {
         const response = await rconCommand(
-          observeAreaCommand({ x, y, radius, types, filters, limit, playerOnly }),
+          observeAreaCommand({ x, y, radius, types, filters, limit, playerOnly, order }),
           15_000,
         );
         const data = parseRconJson(response, "RCON area observation returned invalid JSON");

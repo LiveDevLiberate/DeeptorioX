@@ -71,6 +71,7 @@ export type ObserveAreaParams = {
   filters?: string[];
   limit?: number;
   playerOnly?: boolean;
+  order?: "name" | "near";
 };
 
 /** Keep only array entries, capped at `limit`, so per-entry errors stay aligned. */
@@ -196,6 +197,7 @@ export function observeAreaCommand(params: ObserveAreaParams): string {
   );
   const types = luaStringSet(params.types);
   const filters = luaStringSet(params.filters);
+  const order = params.order === "near" ? "near" : "name";
   const excluded = `{${AREA_EDIT_EXCLUDED_TYPES.map((type) => `[${luaString(type)}]=true`).join(",")}}`;
   return [
     "/sc",
@@ -230,7 +232,8 @@ export function observeAreaCommand(params: ObserveAreaParams): string {
     "end",
     "end",
     "end",
-    "table.sort(candidates,function(a,b) return a.key<b.key end)",
+    `local order=${luaString(order)}`,
+    "table.sort(candidates,function(a,b) if order=='near' then local ax=a.entity.position.x-cx local ay=a.entity.position.y-cy local bx=b.entity.position.x-cx local by=b.entity.position.y-cy local da=ax*ax+ay*ay local db=bx*bx+by*by if da~=db then return da<db end end return a.key<b.key end)",
     "local entities={}",
     "for i=1,math.min(#candidates,limit) do",
     "local e=candidates[i].entity",

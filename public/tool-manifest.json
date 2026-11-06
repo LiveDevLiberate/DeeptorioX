@@ -177,7 +177,7 @@
     {
       "command": "deconstruct-area",
       "description": "Observe an area and remove the entities with native mining (chunked).",
-      "help": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run] Defaults: radius 64, limit server default (300), player_only=true (last_user heuristic). --include-all sets player_only=false; add --types tree,simple-entity for passability or --types resource for ore. Removal is the normal native miner: the character walks, mining takes real time, and unreachable targets fail per entity. Jobs are split into batches of at most 50 targets (--max-per-job smaller). --dry-run plans only.",
+      "help": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run] Defaults: radius 64, limit server default (300), player_only=true (last_user heuristic). --include-all sets player_only=false; add --types tree,simple-entity for passability or --types resource for ore. Removal is the normal native miner: the character walks, mining takes real time, and unreachable targets fail per entity. Targets are ordered nearest-first from the player/center (--order scan to disable; --start x,y; --max-di",
       "usage": "Usage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run]"
     },
     {
@@ -231,8 +231,8 @@
     {
       "command": "observe-area",
       "description": "List entities for deconstruction planning in an area (name/type/position/status).",
-      "help": "Usage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only]",
-      "usage": "Usage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only]"
+      "help": "Usage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only] [--order name|near]",
+      "usage": "Usage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only] [--order name|near]"
     },
     {
       "command": "observe-combat",
@@ -1378,6 +1378,27 @@
           "required": false
         },
         {
+          "annotation": "str",
+          "default": "'nearest'",
+          "kind": "keyword_only",
+          "name": "order",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "start_xy",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "max_distance",
+          "required": false
+        },
+        {
           "annotation": "bool",
           "default": "False",
           "kind": "keyword_only",
@@ -1385,7 +1406,7 @@
           "required": false
         }
       ],
-      "signature": "deconstruct_area(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 64, *, limit: 'int | None' = None, types: 'list[str] | None' = None, filters: 'list[str] | None' = None, player_only: 'bool' = True, max_per_job: 'int' = 50, dry_run: 'bool' = False) -> 'dict[str, Any]'"
+      "signature": "deconstruct_area(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 64, *, limit: 'int | None' = None, types: 'list[str] | None' = None, filters: 'list[str] | None' = None, player_only: 'bool' = True, max_per_job: 'int' = 50, order: 'str' = 'nearest', start_xy: 'Any' = None, max_distance: 'float | None' = None, dry_run: 'bool' = False) -> 'dict[str, Any]'"
     },
     {
       "description": "Resolve an entity/technology localised description in the game locale.",
@@ -1815,9 +1836,16 @@
           "kind": "keyword_only",
           "name": "player_only",
           "required": false
+        },
+        {
+          "annotation": "str",
+          "default": "'name'",
+          "kind": "keyword_only",
+          "name": "order",
+          "required": false
         }
       ],
-      "signature": "observe_area(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 64, *, limit: 'int | None' = None, types: 'list[str] | None' = None, filters: 'list[str] | None' = None, player_only: 'bool' = False) -> 'Any'"
+      "signature": "observe_area(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 64, *, limit: 'int | None' = None, types: 'list[str] | None' = None, filters: 'list[str] | None' = None, player_only: 'bool' = False, order: 'str' = 'name') -> 'Any'"
     },
     {
       "description": "Read-only enemy nests/units, player turrets, and player health scan.",
@@ -2933,7 +2961,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "f90214e50711346d93008f52aebb28d62445e0045100577289078b795c0cb154",
+  "client_sha256": "2aa16dad0780093cfd6799470214ab9c0060a613306aadd4b6135c4d8d473693",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3120,10 +3148,10 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "f90214e50711346d93008f52aebb28d62445e0045100577289078b795c0cb154",
+    "factorio.py": "2aa16dad0780093cfd6799470214ab9c0060a613306aadd4b6135c4d8d473693",
     "src/api/agent.ts": "cfb4c21bdbec6730373fb945155dea75b22ea51360b7c0ef1a5f69b10b5acb9c",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
-    "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
+    "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",
     "src/api/jobs.ts": "cb3983528cebb7d91d67f17bb4fdd2160a2fe89ea99f06f0abe2dccfab74bd47",
     "src/api/manager.ts": "e6bcd846551415382491c67ce7c85ed2f47757fd7c2080b6e56c9a46a59b1642",

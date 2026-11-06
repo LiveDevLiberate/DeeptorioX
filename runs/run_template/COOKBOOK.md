@@ -514,6 +514,19 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 - Capture v1, measure, capture v2, evaluate both, keep the winner, delete/rename
   the loser.
 
+## 12.15 Local nearest-first recycling
+
+- `deconstruct-area` now scans with `order=near` and orders targets by
+  nearest-neighbor travel from the player/center, then chunks them. It does not
+  run across the map for one isolated building.
+- Keep recycling local:
+  `deconstruct-area --center-x X --center-y Y --radius R --start x,y --max-distance 30`
+  (`--max-distance` skips far targets and reports `skipped_far`).
+- `--order scan` restores name/position order only for deterministic audits; do
+  not use it for bulk recycling.
+- Big-reset/recycle passes should use nearest order and stop when the local area
+  is clear, then move to the next cluster.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

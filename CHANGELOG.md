@@ -81,6 +81,10 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Nearest-first recycling.** `deconstruct-area` asks the area scan for
+  near-ordered candidates and re-orders targets by nearest-neighbor travel from
+  the player/center; `--start`/`--max-distance` keep recycling local and report
+  `skipped_far`, avoiding cross-map single-building trips.
 - **Blueprint efficiency evaluator.** `blueprint-evaluate` / `POST
   /api/agent/blueprints/evaluate` reports static density (entities/tiles,
   machines, belt/inserter/pole support) and optional dynamic metrics

@@ -1053,6 +1053,7 @@ class TelemetryObservationTests(unittest.TestCase):
                 "types": ["assembling-machine-1"],
                 "filters": ["iron-plate"],
                 "player_only": True,
+                "order": "name",
             }),
         ])
 
@@ -1739,7 +1740,8 @@ class DeconstructAreaTests(unittest.TestCase):
                 1, 2, radius=16, limit=5, types=["tree"], filters=["tree"],
                 player_only=False, max_per_job=25, dry_run=True)
         observe.assert_called_once_with(
-            1, 2, 16, limit=5, types=["tree"], filters=["tree"], player_only=False)
+            1, 2, 16, limit=5, types=["tree"], filters=["tree"], player_only=False,
+            order="near")
         mine.assert_not_called()
         self.assertTrue(result["ok"])
         self.assertTrue(result["dry_run"])
@@ -1762,6 +1764,23 @@ class DeconstructAreaTests(unittest.TestCase):
         self.assertEqual(result["max_per_job"], 25)
         self.assertEqual(result["results"], [])
         self.assertEqual(result["job_ids"], [])
+
+    def test_nearest_order_and_max_distance_keep_recycling_local(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        entities = [
+            {"name": "transport-belt", "type": "transport-belt", "x": 10, "y": 0},
+            {"name": "transport-belt", "type": "transport-belt", "x": 1, "y": 0},
+            {"name": "transport-belt", "type": "transport-belt", "x": 2, "y": 0},
+            {"name": "transport-belt", "type": "transport-belt", "x": 80, "y": 0},
+        ]
+        data = {"ok": True, "counts": {"total": 4, "matched": 4, "included": 4}, "entities": entities}
+        with patch.object(client, "observe_area", return_value={"ok": True, "data": data}):
+            result = client.deconstruct_area(
+                0, 0, radius=100, start_xy=(0, 0), max_distance=15, dry_run=True)
+        self.assertEqual([(t["x"], t["y"]) for t in result["targets"]], [(1, 0), (2, 0), (10, 0)])
+        self.assertEqual(result["order"], "nearest")
+        self.assertEqual(result["skipped_far"], 1)
+        self.assertEqual(result["start"], {"x": 0, "y": 0})
 
     def test_execute_chunks_50_and_aggregates_results(self):
         client = factorio.FactorioClient(poll_interval=0)
@@ -1952,6 +1971,7 @@ class ConstructionCliTests(unittest.TestCase):
                 "types": ["furnace"],
                 "filters": ["iron-plate"],
                 "player_only": True,
+                "order": "name",
             },
         )
 
@@ -2122,7 +2142,8 @@ class ConstructionCliTests(unittest.TestCase):
         self.assertTrue(json.loads(stdout.getvalue())["ok"])
         deconstruct.assert_called_once_with(
             5, 6, 12, limit=10, types=["tree"], filters=["tree"],
-            player_only=False, max_per_job=25, dry_run=True,
+            player_only=False, max_per_job=25, order="nearest", start_xy=None,
+            max_distance=None, dry_run=True,
         )
 
         with patch("factorio.FactorioClient.deconstruct_area",
@@ -2131,7 +2152,8 @@ class ConstructionCliTests(unittest.TestCase):
             factorio.run(["deconstruct-area"])
         deconstruct.assert_called_once_with(
             None, None, 64, limit=None, types=None, filters=None,
-            player_only=True, max_per_job=50, dry_run=False,
+            player_only=True, max_per_job=50, order="nearest", start_xy=None,
+            max_distance=None, dry_run=False,
         )
 
         with patch("factorio.FactorioClient.deconstruct_area",

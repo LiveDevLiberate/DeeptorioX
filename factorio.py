@@ -104,7 +104,7 @@ Commands:
   observe-production
   observe-fluids --center-x <n> --center-y <n> --radius <n>
   observe-combat --center-x <n> --center-y <n> --radius <n>
-  observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only]
+  observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only] [--order name|near]
   observe-snapshot --center-x <n> --center-y <n> --radius <n>
   observe-copy-settings --target sx,sy,tx,ty [--target ...]
   act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]
@@ -112,7 +112,7 @@ Commands:
   act-build-loader --from x,y --to x,y [--name inserter] [--no-clear]
   act-build-blueprint (--blueprint-file <path>|--blueprint <string>) [--anchor x,y] [--dry-run] [--no-clear]
   act-copy-settings --target sx,sy,tx,ty [--target ...] [--dry-run]
-  deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run]
+  deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--order nearest|scan] [--start x,y] [--max-distance n] [--dry-run]
   build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]
   build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]
   build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]
@@ -190,13 +190,13 @@ COMMAND_USAGE = {
     "observe-production": "observe-production: Read per-minute production/consumption rates from the manager's telemetry sampler.\nUsage: factorio.py observe-production\n",
     "observe-fluids": "observe-fluids: List fluid networks, levels and capacities around a window.\nUsage: factorio.py observe-fluids --center-x <n> --center-y <n> --radius <n>\nDefaults: player position, radius 32.\n",
     "observe-combat": "observe-combat: Read enemy nests/units, own turrets (ammo/health) and player health.\nUsage: factorio.py observe-combat --center-x <n> --center-y <n> --radius <n>\nDefaults: player position, radius 64. Recent damage is not derivable; compare player.health across calls.\n",
-    "observe-area": "observe-area: List entities for deconstruction planning in an area (name/type/position/status).\nUsage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only]\n",
+    "observe-area": "observe-area: List entities for deconstruction planning in an area (name/type/position/status).\nUsage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only] [--order name|near]\n",
     "observe-snapshot": "observe-snapshot: One call returning player, factory, research and production observations.\nUsage: factorio.py observe-snapshot --center-x <n> --center-y <n> --radius <n>\nNote: sequential requests; saves round trips and prompt tokens versus four separate calls.\n",
     "observe-copy-settings": "observe-copy-settings: Dry-run source/target compatibility and reach report for settings copy.\nUsage: factorio.py observe-copy-settings --target source-x,source-y,target-x,target-y [--target ...]\n   or: factorio.py observe-copy-settings --targets-json <json>\nNote: The character must be in reach of both entities; move first.\n",
     "act-build": "act-build: Place entities using the top-left occupied tile as the anchor.\nUsage: factorio.py act-build --entity name,anchor-x,anchor-y,dir [--entity ...] [--no-clear]\n   or: factorio.py act-build --entities-json <json> [--no-clear]\nJSON shape: [{\"name\":\"transport-belt\",\"anchor\":{\"x\":10,\"y\":20},\"direction\":4}] (x,y shorthand accepted).\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nNote: The character walks into reach using native pathfinding. Trees and rocks in the\nfootprint are mined before placement unless --no-clear is given.\n",
     "act-build-blueprint": "act-build-blueprint: Expand a Factorio blueprint string and build it in batches of at most 50 entities.\nUsage: factorio.py act-build-blueprint --blueprint-file <path> [--anchor x,y] [--dry-run] [--no-clear]\n   or: factorio.py act-build-blueprint --blueprint <string> [--anchor x,y] [--dry-run] [--no-clear]\nPosition: blueprint positions are map coordinates; --anchor moves the whole plan so its top-left tile lands there.\nDirections: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nUnderground: underground-belt/pipe-to-ground input/output subtypes are preserved as underground_type.\nDry run: prints the expanded entities, placement analysis, and missing items without building.\nNote: Recipes, filters and module settings inside the blueprint are NOT applied; set them with\nact-set-recipe afterwards. The character walks between entities, so a large plan takes many minutes.\n",
     "act-copy-settings": "act-copy-settings: Copy settings from source to target entities (synchronous, reach-checked).\nUsage: factorio.py act-copy-settings --target source-x,source-y,target-x,target-y [--target ...] [--dry-run]\n   or: factorio.py act-copy-settings --targets-json <json> [--dry-run]\nNote: Not a walking job; move the character into reach of every source and target first.\nUnreachable or incompatible pairs are reported and never mutated.\n",
-    "deconstruct-area": "deconstruct-area: Observe an area and remove the entities with native mining (chunked).\nUsage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run]\nDefaults: radius 64, limit server default (300), player_only=true (last_user heuristic).\n--include-all sets player_only=false; add --types tree,simple-entity for passability or --types resource for ore.\nRemoval is the normal native miner: the character walks, mining takes real time, and unreachable targets\nfail per entity. Jobs are split into batches of at most 50 targets (--max-per-job smaller). --dry-run plans only.\n",
+    "deconstruct-area": "deconstruct-area: Observe an area and remove the entities with native mining (chunked).\nUsage: factorio.py deconstruct-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--include-all] [--max-per-job <n>] [--dry-run]\nDefaults: radius 64, limit server default (300), player_only=true (last_user heuristic).\n--include-all sets player_only=false; add --types tree,simple-entity for passability or --types resource for ore.\nRemoval is the normal native miner: the character walks, mining takes real time, and unreachable targets\nfail per entity. Targets are ordered nearest-first from the player/center (--order scan to disable; --start x,y; --max-distance avoids cross-map trips), then chunks of at most 50. --dry-run plans only.\n",
     "build-pipe-line": "build-pipe-line: Lay an L-shaped surface pipe line (x first, then y).\nUsage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]\nNote: surface pipes only; for straight runs under obstacles use build-underground-pipe.\n",
     "build-underground-belt": "build-underground-belt: Lay a straight underground-belt line (input/output pairs + surface belt connectors).\nUsage: factorio.py build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]\nName: transport-belt/fast-transport-belt/express-transport-belt (default distance 4/6/8); pass --max-distance to override.\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface belt\nconnector after each pair, surface belts for tails shorter than a pair. Straight horizontal/vertical only.\n",
     "build-underground-pipe": "build-underground-pipe: Lay a straight pipe-to-ground line (input/output pairs + surface pipe connectors).\nUsage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface pipe\nconnector after each pair, surface pipes for tails shorter than a pair (default distance 10). Straight only.\n",
@@ -2296,7 +2296,8 @@ class FactorioClient:
     def observe_area(self, x: float | None = None, y: float | None = None,
                      radius: int = 64, *,
                      limit: int | None = None, types: list[str] | None = None,
-                     filters: list[str] | None = None, player_only: bool = False) -> Any:
+                     filters: list[str] | None = None, player_only: bool = False,
+                     order: str = "name") -> Any:
         """Deconstruction-planning entity list for an area (name/type/position).
 
         Omitted coordinates are stripped from the request body, so the server
@@ -2309,6 +2310,7 @@ class FactorioClient:
             "types": types,
             "filters": filters,
             "player_only": player_only,
+            "order": order,
         })
 
     def container_contents(self, x: float, y: float) -> dict[str, Any]:
@@ -3092,12 +3094,35 @@ class FactorioClient:
             result["warning"] = inventory_warning
         return result
 
+    def _nearest_target_order(
+        self,
+        targets: list[dict[str, Any]],
+        start: tuple[float, float],
+    ) -> list[dict[str, Any]]:
+        """Order targets by nearest-neighbor travel from ``start`` (stable ties)."""
+        remaining = list(targets)
+        ordered: list[dict[str, Any]] = []
+        current = (float(start[0]), float(start[1]))
+        while remaining:
+            def distance(target: dict[str, Any]) -> tuple[float, int, int]:
+                dx = float(target["x"]) - current[0]
+                dy = float(target["y"]) - current[1]
+                return (dx * dx + dy * dy, int(target["y"]), int(target["x"]))
+            nearest = min(remaining, key=distance)
+            ordered.append(nearest)
+            remaining.remove(nearest)
+            current = (float(nearest["x"]), float(nearest["y"]))
+        return ordered
+
     def deconstruct_area(self, x: float | None = None, y: float | None = None,
                          radius: int = 64, *, limit: int | None = None,
                          types: list[str] | None = None,
                          filters: list[str] | None = None,
                          player_only: bool = True,
                          max_per_job: int = BLUEPRINT_MAX_ENTITIES_PER_JOB,
+                         order: str = "nearest",
+                         start_xy: Any = None,
+                         max_distance: float | None = None,
                          dry_run: bool = False) -> dict[str, Any]:
         """Observe an area and remove the resulting entities with native mining.
 
@@ -3129,7 +3154,7 @@ class FactorioClient:
         max_per_job = min(max_per_job, BLUEPRINT_MAX_ENTITIES_PER_JOB)
         response = self.observe_area(
             x, y, radius, limit=limit, types=types, filters=filters,
-            player_only=player_only,
+            player_only=player_only, order="near" if order == "nearest" else "name",
         )
         data = data_value(response)
         if not isinstance(data, dict):
@@ -3154,6 +3179,38 @@ class FactorioClient:
             if isinstance(name, str) and name:
                 target["name"] = name
             targets.append(target)
+        if order not in ("nearest", "scan"):
+            raise ValueError("order must be 'nearest' or 'scan'")
+        reference: tuple[float, float] | None = None
+        if order == "nearest":
+            if start_xy is not None:
+                start_x, start_y = _planner_point(start_xy, "start")
+                reference = (float(start_x), float(start_y))
+            elif x is not None and y is not None:
+                reference = (float(x), float(y))
+            else:
+                try:
+                    here = self.player_position()
+                    reference = (float(here["x"]), float(here["y"]))
+                except Exception:
+                    reference = (float(targets[0]["x"]), float(targets[0]["y"])) if targets else (0.0, 0.0)
+        skipped_far = 0
+        if reference is not None and max_distance is not None:
+            limit_distance = float(max_distance)
+            if limit_distance < 0:
+                raise ValueError("max_distance must be >= 0")
+            filtered: list[dict[str, Any]] = []
+            for target in targets:
+                dx = float(target["x"]) - reference[0]
+                dy = float(target["y"]) - reference[1]
+                if math.hypot(dx, dy) <= limit_distance:
+                    filtered.append(target)
+                else:
+                    skipped_far += 1
+            targets = filtered
+        if reference is not None:
+            targets = self._nearest_target_order(targets, reference)
+
         by_type: dict[str, int] = {}
         for entity in entities:
             entity_type = entity.get("type")
@@ -3182,6 +3239,10 @@ class FactorioClient:
             "targets": targets,
             "chunks": 0,
             "max_per_job": max_per_job,
+            "order": order,
+            "start": {"x": reference[0], "y": reference[1]} if reference else None,
+            "max_distance": max_distance,
+            "skipped_far": skipped_far,
             "results": [],
             "job_ids": [],
         }
@@ -4009,6 +4070,7 @@ def run(argv: list[str]) -> int:
                 "types": types or None,
                 "filters": filters or None,
                 "player_only": bool(flag("player-only")),
+                "order": flag("order") or "name",
             })
             truncated = response["truncated"] if isinstance(response, dict) and "truncated" in response else MISSING
             return output(data_value(response), truncated=truncated)
@@ -4039,6 +4101,9 @@ def run(argv: list[str]) -> int:
                 filters=area_filters or None,
                 player_only=not bool(flag("include-all")),
                 max_per_job=parse_number(flag("max-per-job"), 50),
+                order=flag("order") or "nearest",
+                start_xy=parse_targets([flag("start")], False)[0] if flag("start") else None,
+                max_distance=parse_number(flag("max-distance"), None),
                 dry_run=bool(flag("dry-run")),
             )
             return output(deconstruct_result,

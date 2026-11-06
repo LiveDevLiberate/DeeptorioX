@@ -92,6 +92,11 @@ issue coordinates for exact repairs.
 - Dynamic after building: output/min per tile/machine/entity/kW and build time.
 - Compare like-for-like recipes; prefer Pareto improvements, not a single score.
 
+## 2.998 Nearest-first recycling
+
+- Bulk deconstruct scans near-first and orders targets by nearest-neighbor
+  travel; use --max-distance to avoid cross-map single-target trips.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.
