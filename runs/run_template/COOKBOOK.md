@@ -530,6 +530,18 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   the player, deconstruct the nearest local cluster, then select the next nearest
   cluster; never visit 10-20 fixed map coordinates in one pass.
 
+## 12.16 Cleanup is rewarded, rebuild waits
+
+- Cleanup deconstruction is marked `cleanup=true`: it does **not** count as
+  manual resource mining and earns positive points:
+  - `+5` per successfully removed invalid/obsolete player-owned entity;
+  - `+10` per unit of invalid debt removed between audits.
+- The build gate now blocks direct `act-build` too, not only queued build jobs.
+  Rebuild only after the audit invalid count reaches the configured clean target
+  (default `0`). `REFACTOR_REQUIRED` means keep cleaning.
+- When `big_reset_pending` is set, stop expanding, prepare chests and start the
+  reset; do not start a new production block first.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

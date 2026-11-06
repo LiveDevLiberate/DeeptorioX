@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Cleanup rewards.** `cleanupMineUnits` reads `cleanup=true` targets; successful
+entities add positive score and are subtracted from manual mining penalties.
+`recordRefactorAudit` adds a positive reward per invalid-debt unit removed. Both
+queued and direct build paths share the refactor/blueprint gate.
+
 **Nearest-first deconstruction.** `observe-area?order=near` selects candidates
 nearest the window center before truncation; `deconstruct_area` then sorts with a
 nearest-neighbor walk from the player/explicit start, optionally filters by

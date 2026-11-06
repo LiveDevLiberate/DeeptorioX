@@ -16,11 +16,14 @@ import {
 import { factorioLocale } from "./locale.js";
 import {
   CRAFT_PENALTY_POINTS,
+  CLEANUP_REWARD_POINTS,
+  REFACTOR_REWARD_POINTS,
   MANUAL_PENALTY_GRACE_SECONDS,
   manualPenaltyGraceActive,
   STATE_BLOCKED_PENALTY,
   STATE_DUE_PENALTY,
   computeAutomationScore,
+  cleanupMineUnits,
   manualCraftUnits,
   manualMineUnits,
   trackPowerBlackout,
@@ -412,7 +415,9 @@ export class RunManager {
           blackouts: 0,
           manual_mines: mines,
           manual_crafts: crafts,
-          breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0 },
+          cleanup_units: 0,
+          refactor_reward: 0,
+          breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0, refactor: 0 },
         };
         this.persist(run);
       }
@@ -490,8 +495,21 @@ export class RunManager {
       if (job.status === "cancelled") run.actions.cancelled++;
       run.actions.partial_failures += failureCount(job.results);
       if (job.status === "completed" && run.automation) {
-        const mines = job.action === "mine" ? manualMineUnits(job.results) : 0;
+        const cleanup = job.action === "mine" ? cleanupMineUnits(job.payload, job.results) : 0;
+        const mines = job.action === "mine" ? Math.max(0, manualMineUnits(job.results) - cleanup) : 0;
         const crafts = job.action === "craft" ? manualCraftUnits(job.payload, job.results) : 0;
+        if (cleanup > 0) {
+          const reward = cleanup * CLEANUP_REWARD_POINTS;
+          run.automation.cleanup_units = (run.automation.cleanup_units ?? 0) + cleanup;
+          run.automation.refactor_reward = (run.automation.refactor_reward ?? 0) + reward;
+          run.automation.positive += reward;
+          run.automation.breakdown.refactor = (run.automation.breakdown.refactor ?? 0) + reward;
+          run.automation.score = run.automation.positive - run.automation.penalty;
+          this.event(
+            run,
+            `Cleanup reward +${reward} (${cleanup} player-owned invalid/obsolete entities removed)`,
+          );
+        }
         // Opening grace: manual work is allowed without penalty while the
         // character is still bootstrapping the first power/production loop.
         if ((mines || crafts) && manualPenaltyGraceActive(this.elapsed())) {
@@ -973,7 +991,8 @@ export class RunManager {
     const now = Date.now();
     const previous = run.refactor;
     const invalid = Math.max(0, Math.round(audit.invalid_count));
-    const above = invalid >= Number(process.env.AUTORIO_REFACTOR_INVALID_THRESHOLD || 20);
+    const cleanTarget = Number(process.env.AUTORIO_REFACTOR_CLEAN_TARGET ?? 0);
+    const above = invalid > (Number.isFinite(cleanTarget) ? Math.max(0, cleanTarget) : 0);
     const sameDebt = Boolean(previous?.debt_since) && above;
     run.refactor = {
       audited_at: new Date(now).toISOString(),
@@ -989,6 +1008,15 @@ export class RunManager {
           (Number(process.env.AUTORIO_REFACTOR_RESET_AUDITS || 0) || 3) ||
           (run.power_blackouts ?? 0) >= (Number(process.env.AUTORIO_BIG_RESET_BLACKOUTS || 0) || 50)),
     };
+    if (run.automation && previous && previous.invalid_count > invalid) {
+      const cleaned = previous.invalid_count - invalid;
+      const reward = cleaned * REFACTOR_REWARD_POINTS;
+      run.automation.refactor_reward = (run.automation.refactor_reward ?? 0) + reward;
+      run.automation.positive += reward;
+      run.automation.breakdown.refactor = (run.automation.breakdown.refactor ?? 0) + reward;
+      run.automation.score = run.automation.positive - run.automation.penalty;
+      this.event(run, `Refactor reward +${reward} (invalid debt ${previous.invalid_count} -> ${invalid})`);
+    }
     this.persist(run);
     return run.refactor;
   }
@@ -1183,7 +1211,9 @@ export class RunManager {
         blackouts: 0,
         manual_mines: 0,
         manual_crafts: 0,
-        breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0 },
+        cleanup_units: 0,
+        refactor_reward: 0,
+        breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0, refactor: 0 },
       },
     };
     run.capture_video = run.agent !== "manual" && (options.capture_video ?? obsEnabled());
@@ -2368,6 +2398,8 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
         rocketsLaunched,
         manualMines: run.automation?.manual_mines ?? 0,
         manualCrafts: run.automation?.manual_crafts ?? 0,
+        cleanupUnits: run.automation?.cleanup_units ?? 0,
+        refactorReward: run.automation?.refactor_reward ?? 0,
         statePenalty,
         blackouts: run.power_blackouts ?? 0,
         alertPenalty: run.automation?.alert_penalty ?? 0,

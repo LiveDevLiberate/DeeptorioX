@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  cleanupMineUnits,
   computeAutomationScore,
   manualCraftUnits,
   manualMineUnits,
@@ -33,6 +34,18 @@ test("manual crafting counts crafted products, falling back to the payload count
   assert.equal(manualCraftUnits({}, [{ ok: false }]), 0);
 });
 
+test("cleanup targets count only successful explicit cleanup removals", () => {
+  const payload = {
+    targets: [
+      { x: 1, y: 1, cleanup: true },
+      { x: 2, y: 2, cleanup: true },
+      { x: 3, y: 3 },
+    ],
+  };
+  assert.equal(cleanupMineUnits(payload, [{ ok: true }, { ok: false }, { ok: true }]), 1);
+  assert.equal(cleanupMineUnits({}, []), 0);
+});
+
 test("automation score rewards automated production and subtracts manual penalties", () => {
   const production = { "iron-plate": 540, "iron-gear-wheel": 100, "automation-science-pack": 40 };
   assert.equal(productionPoints(production), 74);
@@ -45,7 +58,14 @@ test("automation score rewards automated production and subtracts manual penalti
     manualMines: 3,
     manualCrafts: 2,
   });
-  assert.deepEqual(score.breakdown, { production: 74, science: 200, power: 40, research: 5, rockets: 0 });
+  assert.deepEqual(score.breakdown, {
+    production: 74,
+    science: 200,
+    power: 40,
+    research: 5,
+    rockets: 0,
+    refactor: 0,
+  });
   assert.equal(score.state_penalty, 0);
   assert.equal(score.positive, 319);
   assert.equal(score.penalty, 3 + 2 * 2);
@@ -112,6 +132,21 @@ test("counts one 500-point penalty per full blackout after power is established"
   assert.equal(score.blackout_penalty, 1000);
   assert.equal(score.penalty, 1000);
   assert.equal(score.score, -950); // power 50 - 1000
+});
+
+test("cleanup and refactor debt reduction add positive rewards", () => {
+  const score = computeAutomationScore({
+    productionTotals: {},
+    manualMines: 0,
+    manualCrafts: 0,
+    cleanupUnits: 2,
+    refactorReward: 30,
+  });
+  assert.equal(score.breakdown.refactor, 40);
+  assert.equal(score.cleanup_units, 2);
+  assert.equal(score.refactor_reward, 30);
+  assert.equal(score.positive, 40);
+  assert.equal(score.score, 40);
 });
 
 test("manual penalties start only after the 30-minute opening grace", () => {

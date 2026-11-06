@@ -53,6 +53,10 @@ const ITEM_WEIGHTS: Record<string, number> = {
 
 /** Extra points per hand-crafted item (mining is 1 point per resource unit). */
 export const CRAFT_PENALTY_POINTS = 2;
+/** Reward per successfully removed player-owned invalid/obsolete entity. */
+export const CLEANUP_REWARD_POINTS = 5;
+/** Reward per unit of invalid factory/belt debt removed between audits. */
+export const REFACTOR_REWARD_POINTS = 10;
 /** Manual mining/crafting penalties are disabled for the opening 30 minutes. */
 export const MANUAL_PENALTY_GRACE_SECONDS = 30 * 60;
 /** Whether manual-work penalties are active at this active-play elapsed time. */
@@ -83,7 +87,12 @@ export type PowerBlackoutState = {
   blackouts: number;
 };
 
-export type AutomationCounters = { manual_mines: number; manual_crafts: number };
+export type AutomationCounters = {
+  manual_mines: number;
+  manual_crafts: number;
+  /** Player-owned entities removed explicitly as cleanup/refactor work. */
+  cleanup_units: number;
+};
 
 export type AutomationBreakdown = {
   production: number;
@@ -91,6 +100,8 @@ export type AutomationBreakdown = {
   power: number;
   research: number;
   rockets: number;
+  /** Positive reward for cleanup/refactor work. */
+  refactor: number;
 };
 
 export type AutomationScore = AutomationCounters & {
@@ -106,6 +117,8 @@ export type AutomationScore = AutomationCounters & {
   alert_penalty: number;
   /** Count of full-blackout transitions counted for this penalty. */
   blackouts: number;
+  /** Cumulative positive reward earned by cleanup and refactor debt reduction. */
+  refactor_reward: number;
   breakdown: AutomationBreakdown;
 };
 
@@ -117,6 +130,8 @@ export type AutomationScoreInput = {
   rocketsLaunched?: number;
   manualMines: number;
   manualCrafts: number;
+  cleanupUnits?: number;
+  refactorReward?: number;
   statePenalty?: number;
   blackouts?: number;
   alertPenalty?: number;
@@ -166,6 +181,23 @@ export function manualMineUnits(results: unknown[]): number {
     if ([...names].some((name) => RAW_RESOURCES.has(name))) {
       units += Number.isFinite(mined) && mined > 0 ? mined : 1;
     }
+  }
+  return units;
+}
+
+/** Count ordered deconstruction targets explicitly marked as cleanup. */
+export function cleanupMineUnits(payload: unknown, results: unknown[]): number {
+  const record = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+  const targets = Array.isArray(record.targets) ? record.targets : [];
+  const finished = Array.isArray(results) ? results : [];
+  let units = 0;
+  for (let index = 0; index < targets.length; index += 1) {
+    const target = targets[index];
+    if (!target || typeof target !== "object") continue;
+    if ((target as Record<string, unknown>).cleanup !== true) continue;
+    const result = finished[index];
+    if (result && typeof result === "object" && (result as Record<string, unknown>).ok === false) continue;
+    units += 1;
   }
   return units;
 }
@@ -228,8 +260,11 @@ export function computeAutomationScore(input: AutomationScoreInput): AutomationS
   const progress = Number(input.researchProgress);
   const research = Number.isFinite(progress) ? Math.round(Math.max(0, Math.min(1, progress)) * 10) : 0;
   const rockets = Math.max(0, Math.round(Number(input.rocketsLaunched) || 0)) * 500;
-  const breakdown = { production, science, power, research, rockets };
-  const positive = production + science + power + research + rockets;
+  const cleanupUnits = Math.max(0, Math.round(Number(input.cleanupUnits) || 0));
+  const refactorReward = Math.max(0, Math.round(Number(input.refactorReward) || 0));
+  const refactor = cleanupUnits * CLEANUP_REWARD_POINTS + refactorReward;
+  const breakdown = { production, science, power, research, rockets, refactor };
+  const positive = production + science + power + research + rockets + refactor;
   const manualMines = Math.max(0, Math.round(Number(input.manualMines) || 0));
   const manualCrafts = Math.max(0, Math.round(Number(input.manualCrafts) || 0));
   const manualPenalty = manualMines + manualCrafts * CRAFT_PENALTY_POINTS;
@@ -248,6 +283,8 @@ export function computeAutomationScore(input: AutomationScoreInput): AutomationS
     blackouts,
     manual_mines: manualMines,
     manual_crafts: manualCrafts,
+    cleanup_units: cleanupUnits,
+    refactor_reward: refactorReward,
     breakdown,
   };
 }

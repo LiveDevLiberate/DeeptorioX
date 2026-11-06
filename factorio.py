@@ -3173,8 +3173,10 @@ class FactorioClient:
                 continue
             target: dict[str, Any] = {"x": target_x, "y": target_y}
             target["kind"] = "resource" if entity.get("type") == "resource" else "entity"
-            # Deconstruction is an explicit removal; allow player-owned entities.
+            # Deconstruction is explicit cleanup, not manual resource work:
+            # permit player-owned entities and let the manager award cleanup points.
             target["allow_buildings"] = True
+            target["cleanup"] = True
             name = entity.get("name")
             if isinstance(name, str) and name:
                 target["name"] = name

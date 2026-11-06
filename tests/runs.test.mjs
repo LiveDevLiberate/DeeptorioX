@@ -263,12 +263,14 @@ test("refactor debt gates new construction and clears after cleanup", async () =
     });
     assert.equal(manager.refactorGate()?.blocked, true);
     manager.recordRefactorAudit({
-      invalid_count: 4,
-      factory_problems: 1,
-      connection_issues: 3,
+      invalid_count: 0,
+      factory_problems: 0,
+      connection_issues: 0,
       fingerprint: "clean",
     });
     assert.equal(manager.refactorGate()?.blocked, false);
+    assert.equal(manager.get(run.id).automation?.refactor_reward, 350);
+    assert.equal(manager.get(run.id).automation?.positive, 350);
     if (previous === undefined) delete process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
     else process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = previous;
   } finally {

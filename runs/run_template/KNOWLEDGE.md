@@ -97,6 +97,12 @@ issue coordinates for exact repairs.
 - Bulk deconstruct scans near-first and orders targets by nearest-neighbor
   travel; use --max-distance to avoid cross-map single-target trips.
 
+## 2.999 Cleanup rewards
+
+- Deconstruction with `cleanup=true` is unscored as manual mining and earns
+  positive cleanup/refactor points. Builds stay blocked (including direct
+  act-build) until invalid debt reaches the clean target.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.

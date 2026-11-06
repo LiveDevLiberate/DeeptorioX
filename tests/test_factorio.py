@@ -1757,8 +1757,8 @@ class DeconstructAreaTests(unittest.TestCase):
         self.assertTrue(result["truncated"])
         self.assertEqual(result["matched"], 2)
         self.assertEqual(result["targets"], [
-            {"x": 0, "y": 0, "kind": "entity", "name": "transport-belt", "allow_buildings": True},
-            {"x": -2, "y": 4, "kind": "entity", "name": "tree-01", "allow_buildings": True},
+            {"x": 0, "y": 0, "kind": "entity", "name": "transport-belt", "allow_buildings": True, "cleanup": True},
+            {"x": -2, "y": 4, "kind": "entity", "name": "tree-01", "allow_buildings": True, "cleanup": True},
         ])
         self.assertEqual(result["chunks"], 0)
         self.assertEqual(result["max_per_job"], 25)
@@ -1911,7 +1911,7 @@ class DeconstructAreaTests(unittest.TestCase):
                     "status": "completed", "results": [{"ok": True}]}) as mine:
             result = client.deconstruct_area()
         self.assertEqual(result["targets"],
-                         [{"x": 1, "y": 2, "kind": "entity", "name": "tree-01", "allow_buildings": True}])
+                         [{"x": 1, "y": 2, "kind": "entity", "name": "tree-01", "allow_buildings": True, "cleanup": True}])
         self.assertEqual(result["counts"]["planned"], 1)
 
     def test_resource_entities_use_resource_mining_kind(self):
@@ -1928,10 +1928,10 @@ class DeconstructAreaTests(unittest.TestCase):
                 patch.object(client, "mine", return_value={
                     "status": "completed", "results": [{"ok": True}, {"ok": True}],
                 }):
-            result = client.deconstruct_area(types=["resource"], player_only=False)
+            result = client.deconstruct_area(types=["resource"], player_only=False, start_xy=(0, 0))
         self.assertEqual(result["targets"], [
-            {"x": 5, "y": 6, "kind": "resource", "name": "iron-ore", "allow_buildings": True},
-            {"x": 7, "y": 8, "kind": "entity", "name": "stone-furnace", "allow_buildings": True},
+            {"x": 5, "y": 6, "kind": "resource", "name": "iron-ore", "allow_buildings": True, "cleanup": True},
+            {"x": 7, "y": 8, "kind": "entity", "name": "stone-furnace", "allow_buildings": True, "cleanup": True},
         ])
 
 

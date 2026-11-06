@@ -650,6 +650,32 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
       const trimmed = parseBuildRequests(entities, max);
+      const refactorGate = runManager.refactorGate();
+      if (refactorGate?.blocked) {
+        return json(res, 409, {
+          error: "REFACTOR_REQUIRED",
+          message: refactorGate.message,
+          refactor: refactorGate.state,
+          nudge: {
+            reason: "refactor_debt",
+            first_step: "factory-audit",
+            message:
+              "Clean every flagged invalid factory/belt problem before rebuilding; use deconstruct-area/relayout-belts and re-audit.",
+          },
+        });
+      }
+      const blueprintGate = runManager.blueprintGate();
+      if (blueprintGate?.blocked) {
+        return json(res, 409, {
+          error: "BLUEPRINT_REQUIRED",
+          message: blueprintGate.message,
+          nudge: {
+            reason: "no_blueprint",
+            first_step: "blueprint-capture",
+            message: "Capture the validated current cell before rebuilding.",
+          },
+        });
+      }
       if (entities.length > 0 && trimmed.length === 0) {
         return json(res, 400, {
           error: "No valid build entities; each entity needs a name and anchor {x,y} (or x/y shorthand)",

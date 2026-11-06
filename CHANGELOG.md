@@ -81,6 +81,12 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Cleanup rewards + strict rebuild gate.** Deconstruction targets are marked
+  `cleanup: true`; successfully removed entities earn +5 each and count as zero
+  manual-mining penalty. Refactor debt reductions earn +10 per unit. Direct
+  `act-build` is now gated like queued builds, and builds stay blocked until the
+  audit invalid count reaches the clean target (default 0), preventing rebuilds
+  before the cleanup is complete. Run UI shows cleanup units and refactor reward.
 - **Tool manifest usage fix.** The generated `deconstruct-area` usage line now
   advertises `--order`, `--start`, and `--max-distance`, matching the client help
   (previously agents saw only the old usage line).
