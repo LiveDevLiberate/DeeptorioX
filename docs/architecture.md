@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Blueprint gate.** `RunManager.blueprintGate` rejects build jobs after the
+opening grace until the run registry contains a blueprint; capture is an
+observation/registry action and remains allowed. This enforces capture and
+surfaces existing designs in the UI.
+
 **Refactor debt/gate.** The manager periodically stores a `refactor` state
 (invalid count, fingerprint, debt age, audit count). A build job is rejected with
 `REFACTOR_REQUIRED` once debt persists past the gate grace; cleanup actions stay

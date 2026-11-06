@@ -487,6 +487,16 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   big-reset procedure rather than patching further.
 - A failed `REFACTOR_REQUIRED` means "clean before building", not "retry build".
 
+## 12.13 Blueprint-first expansion
+
+- After the opening grace, the manager rejects build jobs with
+  `BLUEPRINT_REQUIRED` until at least one blueprint is registered.
+- Before expanding: `factory-audit`/`observe-connections`, capture a validated
+  cell with `blueprint-capture --label "..."`, then retry the build.
+- Reuse before redesign: `blueprint-list`, `build_blueprint(..., dry_run=True)`;
+  compare versions and keep the best. The run page Blueprints count/panel shows
+  every captured design.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

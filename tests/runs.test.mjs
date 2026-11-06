@@ -91,6 +91,7 @@ delete process.env.AUTORIO_TERMINAL;
 // Keep legacy tests deterministic; the auto-continuation test overrides this.
 process.env.AUTORIO_AUTO_CONTINUE_MAX = "0";
 const { RunManager } = await import("../dist/runs.js");
+const { encodeCapturedBlueprint } = await import("../dist/blueprint-capture.js");
 const { reached, parseSnapshot, trackedMilestones } = await import("../dist/benchmarks.js");
 const snapshot = (production = {}) => ({
   tick: 60,
@@ -221,6 +222,27 @@ test("records an alert-ignore penalty without restarting the run", async () => {
     assert.equal(automation.alert_penalty, 50);
     assert.ok(automation.penalty >= 50);
     assert.equal(manager.get(run.id).state, "running");
+  } finally {
+    await manager.stop();
+  }
+});
+
+test("blueprint gate requires one captured design before expanding", async () => {
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    const previous = process.env.AUTORIO_BLUEPRINT_GATE_MIN_SECONDS;
+    process.env.AUTORIO_BLUEPRINT_GATE_MIN_SECONDS = "0";
+    assert.equal(manager.blueprintGate()?.blocked, true);
+    const wire = encodeCapturedBlueprint(
+      [{ name: "transport-belt", position: { x: 0.5, y: 0.5 }, direction: 4 }],
+      "gate test",
+    ).wire;
+    manager.registerBlueprint(run.id, { blueprint: wire, label: "gate test", source: "built" });
+    assert.equal(manager.blueprintGate()?.blocked, false);
+    if (previous === undefined) delete process.env.AUTORIO_BLUEPRINT_GATE_MIN_SECONDS;
+    else process.env.AUTORIO_BLUEPRINT_GATE_MIN_SECONDS = previous;
   } finally {
     await manager.stop();
   }

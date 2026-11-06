@@ -81,6 +81,10 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Blueprint gate.** After the opening grace, build jobs return
+  `BLUEPRINT_REQUIRED` until at least one validated layout is captured. This
+  makes the build → capture → reuse/iterate loop mandatory and fills the run
+  page Blueprints panel.
 - **Refactor debt gate + big-reset warning.** A periodic factory/belt audit
   records invalid-building debt. After the grace, new build jobs return
   `REFACTOR_REQUIRED` until the debt is cleaned; deconstruct/relayout remain

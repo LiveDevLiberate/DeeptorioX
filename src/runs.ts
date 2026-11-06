@@ -1016,6 +1016,24 @@ export class RunManager {
     };
   }
 
+  /** Require at least one captured blueprint before further expansion. */
+  blueprintGate(): { blocked: boolean; message: string; blueprints: number } | undefined {
+    const run = this.active;
+    if (!run || run.state !== "running") return undefined;
+    const count = this.blueprints(run.id)?.length ?? 0;
+    const rawGrace = process.env.AUTORIO_BLUEPRINT_GATE_MIN_SECONDS;
+    const minSeconds =
+      rawGrace !== undefined && rawGrace !== "" && Number.isFinite(Number(rawGrace))
+        ? Math.max(0, Number(rawGrace))
+        : 900;
+    const blocked = count === 0 && this.elapsed() >= minSeconds;
+    return {
+      blocked,
+      blueprints: count,
+      message: blocked ? "No blueprint captured yet. Capture a validated layout before expanding." : "",
+    };
+  }
+
   private view(run: Run) {
     const state = this.stateFile(run);
     const stateStatus = run === this.active ? this.stateStatus() : undefined;

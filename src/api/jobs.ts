@@ -64,6 +64,22 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
           });
         }
       }
+      if (!internal && action === "build") {
+        const blueprintGate = runManager.blueprintGate();
+        if (blueprintGate?.blocked) {
+          return json(res, 409, {
+            error: "BLUEPRINT_REQUIRED",
+            message: blueprintGate.message,
+            blueprints: blueprintGate.blueprints,
+            nudge: {
+              reason: "no_blueprint",
+              first_step: "blueprint-capture",
+              message:
+                "Capture the validated current cell with blueprint-capture --label ..., then retry the build.",
+            },
+          });
+        }
+      }
       const keyHeader = req.headers["idempotency-key"];
       const idempotencyKey =
         (typeof keyHeader === "string" ? keyHeader : null) ??

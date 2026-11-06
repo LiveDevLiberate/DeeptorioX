@@ -81,6 +81,11 @@ issue coordinates for exact repairs.
 - Three debt audits or 50 blackouts arm the red BIG RESET warning; prepare chests
   and reset instead of adding more buildings.
 
+## 2.995 Blueprint gate
+
+- No blueprint after the opening grace means build jobs return
+  `BLUEPRINT_REQUIRED`. Capture a validated cell first; then reuse/iterate.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.
