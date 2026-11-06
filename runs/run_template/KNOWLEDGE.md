@@ -64,6 +64,11 @@ issue coordinates for exact repairs.
 - Three repeated attempts on the same audit fingerprint → relayout/redesign the
   affected region instead of patching again.
 
+## 2.95 Trapped player
+
+- `unstick` tries short paths, then mines low-value player-built blockers until a
+  route opens. No teleport; repair a proper gate/walkway afterward.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.

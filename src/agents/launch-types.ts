@@ -88,6 +88,7 @@ const BASE_TASK_PROMPT =
   "For resource veins, call act-mine --resource with one target and the default count=all; keep mining that vein until depleted instead of switching after each cycle. " +
   "Never mine near a building with a generic act-mine: player-owned buildings are protected unless --allow-buildings is explicit; use deconstruct-area for intentional dismantling. " +
   "Run factory-audit after builds and when stalled: fix the highest-priority action, verify, re-audit; after 3 repeats on the same fingerprint, relayout/redesign instead of patching. " +
+  "If the player is enclosed/no_path, call unstick: it tries short routes then mines low-value player-owned blockers; never teleport, and repair a gate/walkway afterward. " +
   "Check belt contents with belt-contents and pipe liquid with fluid-contents before diagnosing logistics. " +
   "Before/after belt deployment validate connectivity (plan validator + observe-connections): corners must face the next tile; crossings need underground pairs; no head-on/dead-end belts. " +
   "Belt 3-strike rule: if the same belt section still fails link/connection checks after 3 attempts, stop patching; run relayout-belts (dry-run first) to recycle all belts in that area, re-observe, then plan a fresh layout. " +

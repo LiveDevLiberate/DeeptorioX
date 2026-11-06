@@ -189,6 +189,10 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Trapped-player rescue.** `FactorioClient.unstick` probes short path routes and
+mines low-value player-owned blockers with `allow_buildings` until movement
+opens; no teleport. It is a client-side recovery helper using existing actions.
+
 **Refactor audit.** `buildRefactorAudit` merges factory status problems and
 connection issues into prioritized repair actions (critical production first,
 then blocked machines, then belt/inserter links), with examples and a stable

@@ -395,6 +395,12 @@
       "description": "Fetch the generated tool manifest (client methods, parameters, CLI usage, manager endpoints).",
       "help": "Usage: factorio.py tools [--json] [--local] [--query <text>] --json prints the manifest as JSON; --local introspects factorio.py without the manager; --query filters matching commands/methods/endpoints. (The manager also serves GET /api/agent/tools?q=...)",
       "usage": "Usage: factorio.py tools [--json] [--local] [--query <text>]"
+    },
+    {
+      "command": "unstick",
+      "description": "Escape when the player is trapped by player-owned buildings; mines low-value blockers until a route opens.",
+      "help": "Usage: factorio.py unstick [--max-removals n] Native mining only; no teleport. Use a larger/other opening if no blocker helps.",
+      "usage": "Usage: factorio.py unstick [--max-removals n]"
     }
   ],
   "client_methods": [
@@ -2495,6 +2501,20 @@
       "signature": "tools(self, query: 'str | None' = None, *, local: 'bool' = False) -> 'Any'"
     },
     {
+      "description": "Escape a player trapped by player-owned buildings.",
+      "name": "unstick",
+      "parameters": [
+        {
+          "annotation": "int",
+          "default": "8",
+          "kind": "keyword_only",
+          "name": "max_removals",
+          "required": false
+        }
+      ],
+      "signature": "unstick(self, *, max_removals: 'int' = 8) -> 'dict[str, Any]'"
+    },
+    {
       "description": "",
       "name": "wait_for_factory",
       "parameters": [
@@ -2803,7 +2823,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "0d50d9f1f76bee1b085ef3f7e81695d4100b349882f9c0205173776b793932c2",
+  "client_sha256": "99b71eb496fb7d5aa79c104254ec41c99f9ba705222f43829f772c19b7261d2b",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2982,7 +3002,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "0d50d9f1f76bee1b085ef3f7e81695d4100b349882f9c0205173776b793932c2",
+    "factorio.py": "99b71eb496fb7d5aa79c104254ec41c99f9ba705222f43829f772c19b7261d2b",
     "src/api/agent.ts": "cf3babea851e393e12e96706adf17c003cc850cf7c1ef17070973aa99b47e1e5",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",

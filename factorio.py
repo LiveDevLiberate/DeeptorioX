@@ -125,6 +125,7 @@ Commands:
   act-mine --target x,y [--target ...] [--resource [name]] [--count n|all] [--allow-buildings] [--targets-json <json>]
   act-rotate --target x,y [--target ...] [--direction 0|4|8|12] [--targets-json <json>]
   act-move --target x,y [--target ...] [--targets-json <json>]
+  unstick [--max-removals n]
   path-preview --target x,y [--target ...] [--targets-json <json>]
   act-launch-rocket --target x,y [--target ...] [--targets-json <json>]
   act-set-recipe --target x,y,recipe [--target ...] [--targets-json <json>]
@@ -207,6 +208,7 @@ COMMAND_USAGE = {
     "act-rotate": "act-rotate: Rotate entities at target tile coordinates (first entity at each point).\nUsage: factorio.py act-rotate --target x,y [--target ...] [--direction 0|4|8|12]\n   or: factorio.py act-rotate --targets-json <json>\nDirection: 0=north (up), 4=east (right), 8=south (down), 12=west (left).\nWith --direction the entity is rotated until it faces that direction (max 4 steps), so one call sets the final orientation.\nNote: The character walks into reach using native pathfinding.\n",
     "path-preview": "path-preview: Ask the native pathfinder for a route without walking it.\nUsage: factorio.py path-preview --target x,y\nReturns ok=true with path waypoints when reachable; ok=false error=no_path when blocked (water/cliff/buildings).\nUse this before long or unseen-terrain moves; route around water/cliff instead of retrying the same no_path target.\n",
     "act-move": "act-move: Move the player through paced, collision-checked steps to target tile coordinates.\nUsage: factorio.py act-move --target x,y [--target ...]\n   or: factorio.py act-move --targets-json <json>\nNote: Stops and returns partial progress if an intermediate step is blocked.\n",
+    "unstick": "unstick: Escape when the player is trapped by player-owned buildings; mines low-value blockers until a route opens.\nUsage: factorio.py unstick [--max-removals n]\nNative mining only; no teleport. Use a larger/other opening if no blocker helps.\n",
     "act-launch-rocket": "act-launch-rocket: Launch a ready rocket silo at target tile coordinates.\nUsage: factorio.py act-launch-rocket --target x,y [--target ...]\n   or: factorio.py act-launch-rocket --targets-json <json>\nNote: Walks into reach. Success means launch initiated; the benchmark waits for an actual launch.\n",
     "act-set-recipe": "act-set-recipe: Set the recipe on assemblers at target tile coordinates.\nUsage: factorio.py act-set-recipe --target x,y,recipe [--target ...]\n   or: factorio.py act-set-recipe --targets-json <json>\nNote: The character walks into reach using native pathfinding.\n",
     "act-research": "act-research: Start researching a technology.\nUsage: factorio.py act-research --technology <name>\n",
@@ -2372,6 +2374,71 @@ class FactorioClient:
             snapshot["errors"] = errors
         return snapshot
 
+    def unstick(self, *, max_removals: int = 8) -> dict[str, Any]:
+        """Escape a player trapped by player-owned buildings.
+
+        Tries a short path in eight directions first; if every route is blocked,
+        mines low-value blocking belts/pipes/poles/walls (last resort: machines)
+        one at a time until a route opens. Uses native mining and never teleports.
+        """
+        max_removals = max(1, int(max_removals))
+        try:
+            self.ack_alerts()
+        except Exception:
+            pass  # Rescue is best-effort even without an active run/alerts.
+        player = self.player_position()
+        px, py = int(math.floor(player["x"])), int(math.floor(player["y"]))
+        targets = [(px + dx * 4, py + dy * 4) for dx, dy in
+                   ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1))]
+        def route_open() -> bool:
+            for tx, ty in targets:
+                try:
+                    if _job_path_points(self.preview_path(tx + 0.5, ty + 0.5)):
+                        return True
+                except Exception:
+                    continue
+            return False
+        if route_open():
+            return {"ok": True, "escaped": True, "removed": [], "method": "path"}
+        area = self.observe_area(px, py, 3, player_only=True, limit=100)
+        data = data_value(area)
+        entities = data.get("entities") if isinstance(data, dict) else []
+        priority = {
+            "transport-belt": 0, "fast-transport-belt": 0, "express-transport-belt": 0,
+            "underground-belt": 0, "fast-underground-belt": 0, "express-underground-belt": 0,
+            "splitter": 0, "fast-splitter": 0, "express-splitter": 0,
+            "pipe": 0, "pipe-to-ground": 0, "small-electric-pole": 1,
+            "medium-electric-pole": 1, "big-electric-pole": 1, "substation": 1,
+            "stone-wall": 1, "gate": 1, "inserter": 2,
+        }
+        candidates: list[tuple[int, int, dict[str, Any]]] = []
+        for entity in entities if isinstance(entities, list) else []:
+            if not isinstance(entity, dict):
+                continue
+            name = entity.get("name")
+            try:
+                x, y = int(entity["x"]), int(entity["y"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            score = priority.get(str(name), 4)
+            candidates.append((score, abs(x - px) + abs(y - py), {"x": x, "y": y, "name": name}))
+        candidates.sort(key=lambda item: (item[0], item[1]))
+        removed: list[dict[str, Any]] = []
+        for _score, _distance, target in candidates[:max_removals]:
+            job = self.mine([{**target, "kind": "entity", "allow_buildings": True}])
+            result = _job_first_result(job) or {}
+            if result.get("ok") is False:
+                continue
+            removed.append(target)
+            if route_open():
+                return {"ok": True, "escaped": True, "removed": removed, "method": "mined_blocker"}
+        return {
+            "ok": False,
+            "error": "blocked_no_escape",
+            "removed": removed,
+            "hint": "No low-value blocker opened a path; inspect the enclosure from outside or deconstruct a larger opening.",
+        }
+
     def player_position(self) -> dict[str, float]:
         player = data_value(self.observe_player())["player"]
         return {"x": float(player["x"]), "y": float(player["y"])}
@@ -4024,6 +4091,10 @@ def run(argv: list[str]) -> int:
             if not targets:
                 raise ValueError("Missing --target")
             job = submit("path", {"targets": targets[:1]})
+        elif cmd == "unstick":
+            result = FactorioClient(parsed.base).unstick(
+                max_removals=parse_number(flag("max-removals"), 8) or 8)
+            return output(result, ok=bool(result.get("ok")))
         elif cmd in ("act-mine", "act-rotate", "act-move", "act-set-recipe", "act-launch-rocket"):
             require_recipe = cmd == "act-set-recipe"
             targets = json.loads(flag("targets-json")) if flag("targets-json") else parse_targets(flags.get("target", []), require_recipe)

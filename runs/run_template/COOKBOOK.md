@@ -440,6 +440,16 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 - A clean audit (`actions: []`) is the go-ahead to expand; otherwise optimize
   before expanding.
 
+## 12.9 Trapped player rescue
+
+- If pathfinding says `no_path` and the player is surrounded, run
+  `factorio.py unstick` (or `client.unstick()`).
+- It first tries short routes in eight directions, then mines low-value
+  player-owned blockers one at a time (belts/pipes/poles/walls/gates; machines
+  only as a last resort) until a route opens. Native mining only — no teleport.
+- After escaping, repair the opening with a gate/walkway and record the
+  enclosure problem in the refactor audit.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

@@ -152,6 +152,38 @@ class ContinuousMiningTests(unittest.TestCase):
         self.assertFalse(result["depleted"])
 
 
+class UnstickTests(unittest.TestCase):
+    def test_unstick_returns_when_a_route_is_already_open(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "player_position", return_value={"x": 10.5, "y": 20.5}),                 patch.object(client, "preview_path", return_value={"results": [{"path": [{"x": 1, "y": 2}]}]}) as preview,                 patch.object(client, "mine") as mine:
+            result = client.unstick()
+        self.assertTrue(result["escaped"])
+        self.assertEqual(result["method"], "path")
+        mine.assert_not_called()
+        self.assertTrue(preview.called)
+
+    def test_unstick_mines_a_blocker_then_checks_route(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        calls = {"count": 0}
+
+        def preview(*_args, **_kwargs):
+            calls["count"] += 1
+            return ({"results": [{"error": "no_path"}]} if calls["count"] <= 8
+                    else {"results": [{"path": [{"x": 1, "y": 2}]}]})
+
+        with patch.object(client, "player_position", return_value={"x": 10.5, "y": 20.5}), \
+                patch.object(client, "preview_path", side_effect=preview), \
+                patch.object(client, "observe_area", return_value={"data": {"entities": [
+                    {"name": "transport-belt", "type": "transport-belt", "x": 10, "y": 21},
+                ]}}), \
+                patch.object(client, "mine",
+                             return_value={"data": {"results": [{"ok": True}]}}) as mine:
+            result = client.unstick()
+        self.assertTrue(result["escaped"])
+        self.assertEqual(result["removed"][0]["name"], "transport-belt")
+        self.assertTrue(mine.call_args.args[0][0]["allow_buildings"])
+
+
 class RefactorAuditClientTests(unittest.TestCase):
     def test_factory_audit_payload_and_cli_usage(self):
         client = factorio.FactorioClient(poll_interval=0)

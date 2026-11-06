@@ -81,6 +81,10 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Trapped-player rescue.** `unstick`/`client.unstick()` tries short routes in
+  eight directions, then natively mines low-value player-owned blockers
+  (belts/pipes/poles/walls/gates, machines last) until a route opens; no
+  teleport. Prompt/COOKBOOK/KNOWLEDGE document the rescue + walkway repair.
 - **Refactor audit loop.** `POST /api/agent/observe/audit` /
   `factory-audit` merges factory problems and connection issues into a
   prioritized action list with examples, cleanup areas and a stable fingerprint.
