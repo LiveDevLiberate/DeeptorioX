@@ -83,6 +83,7 @@ Commands:
   pipeline-audit [--center-x n --center-y n --radius n]
   observe-free-space [--center-x n --center-y n --radius n] [--step n]
   geometry-check (--entity name,x,y[,dir] [--entity ...] | --entities-json <json>)
+  plan-route --from x,y --to x,y [--kind belt|pipe|wall|power] [--width n] [--spacing n] [--radius n]
   observe-container --target x,y
   belt-contents --target x,y
   fluid-contents --target x,y
@@ -225,6 +226,7 @@ COMMAND_USAGE = {
     "act-extract": "act-extract: Remove items from an entity at x,y into player inventory.\nUsage: factorio.py act-extract --entity x,y --item <name> --count <n|all>\nNote: The character walks into reach using native pathfinding.\n",
     "observe-free-space": "observe-free-space: Buildable grid of free/blocked cells plus largest connected free rectangles.\nUsage: factorio.py observe-free-space [--center-x n --center-y n --radius n] [--step n]\nUse for machine-row placement and corridor planning before building.\n",
     "geometry-check": "geometry-check: Validate planned footprints, rotations, overlaps and native placement without building.\nUsage: factorio.py geometry-check (--entity name,x,y[,dir] [--entity ...] | --entities-json <json>)\nReturns per-entity bbox, overlap pairs and placement blockers; use before building a layout.\n",
+    "plan-route": "plan-route: Orthogonal belt/pipe/wall/power corridor through observed free space (A*, no build).\nUsage: factorio.py plan-route --from x,y --to x,y [--kind belt|pipe|wall|power] [--width n] [--spacing n] [--radius n]\nOutputs route tiles + planned entities; inspect then build.\n",
     "observe-pipeline": "observe-pipeline: Structured machine/belt/inserter/pipe/power graph with ports, bboxes, statuses and bottlenecks.\nUsage: factorio.py observe-pipeline [--center-x n --center-y n --radius n]\nUse this instead of inferring flow from raw entity lists/ASCII.\n",
     "pipeline-audit": "pipeline-audit: Prioritized bottleneck list derived from the structured pipeline graph.\nUsage: factorio.py pipeline-audit [--center-x n --center-y n --radius n]\n",
     "factory-audit": "factory-audit: Prioritized refactor audit of factory problems, belt links and suggested repairs.\nUsage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,containers,rail] [--include-rail]\nDefault scope: belts,power,pipes,machines,containers; rail is opt-in with --include-rail or --scope rail. Run after builds and every few minutes; repair the highest-impact action, verify, then re-audit.\n",
@@ -1304,6 +1306,99 @@ def _assert_valid_belt_plan(entities: Any, *, from_xy: Any = None, to_xy: Any = 
     raise ValueError(f"invalid belt plan ({result['issue_count']} issues): {sample}")
 
 
+def plan_grid_route(
+    from_xy: Any,
+    to_xy: Any,
+    *,
+    rows: list[str],
+    origin: dict[str, Any],
+    step: int = 1,
+    width: int = 1,
+) -> list[dict[str, int]]:
+    """Orthogonal A* route through a free-space grid (rows: '.' free, other blocked).
+
+    Used by plan-route to plan belt/pipe/wall/power corridors without crossing
+    buildings, water or cliffs. Returns tile coordinates in path order.
+    """
+    if not isinstance(rows, list) or not rows or not all(isinstance(row, str) for row in rows):
+        raise ValueError("rows must be a non-empty list of strings")
+    step = int(step)
+    width = max(1, int(width))
+    if step < 1:
+        raise ValueError("step must be >= 1")
+    start_x, start_y = _planner_point(from_xy, "from")
+    end_x, end_y = _planner_point(to_xy, "to")
+    origin_x = int(origin.get("x", 0))
+    origin_y = int(origin.get("y", 0))
+    height = len(rows)
+    grid_width = max(len(row) for row in rows)
+
+    def cell(tx: int, ty: int) -> tuple[int, int] | None:
+        col = (int(tx) - origin_x) // step
+        row = (int(ty) - origin_y) // step
+        if col < 0 or col >= grid_width or row < 0 or row >= height:
+            return None
+        return row, col
+
+    start = cell(start_x, start_y)
+    goal = cell(end_x, end_y)
+    if start is None or goal is None:
+        raise ValueError("route endpoints are outside the free-space window")
+    if not start or not goal:
+        raise ValueError("route endpoint is outside the free-space window")
+
+    def is_free(row: int, col: int) -> bool:
+        if row < 0 or row >= height or col < 0 or col >= len(rows[row]):
+            return False
+        if width <= 1:
+            return rows[row][col] == "."
+        half = width // 2
+        for dr in range(-half, width - half):
+            for dc in range(-half, width - half):
+                r, c = row + dr, col + dc
+                if r < 0 or r >= height or c < 0 or c >= len(rows[r]) or rows[r][c] != ".":
+                    return False
+        return True
+
+    if not is_free(*start) or not is_free(*goal):
+        raise ValueError("route endpoint is blocked in the free-space grid")
+
+    import heapq
+    frontier: list[tuple[int, int, int, int]] = [(0, 0, start[0], start[1])]
+    came_from: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
+    cost_so_far: dict[tuple[int, int], int] = {start: 0}
+    while frontier:
+        _, current_cost, row, col = heapq.heappop(frontier)
+        if (row, col) == goal:
+            break
+        if current_cost != cost_so_far.get((row, col)):
+            continue
+        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nr, nc = row + dr, col + dc
+            if not is_free(nr, nc):
+                continue
+            next_cost = current_cost + 1
+            key = (nr, nc)
+            if key in cost_so_far and next_cost >= cost_so_far[key]:
+                continue
+            cost_so_far[key] = next_cost
+            came_from[key] = (row, col)
+            heuristic = abs(goal[0] - nr) + abs(goal[1] - nc)
+            heapq.heappush(frontier, (next_cost + heuristic, next_cost, nr, nc))
+    if goal not in came_from:
+        raise ValueError("no free-space route between endpoints")
+    cells: list[tuple[int, int]] = []
+    current: tuple[int, int] | None = goal
+    while current is not None:
+        cells.append(current)
+        current = came_from[current]
+    cells.reverse()
+    return [
+        {"x": origin_x + col * step, "y": origin_y + row * step}
+        for row, col in cells
+    ]
+
+
 def plan_belt_route(
     path_points: Any,
     *,
@@ -2287,6 +2382,52 @@ class FactorioClient:
             "window": {"x": x, "y": y, "radius": radius},
             "step": step,
         })
+
+    def plan_route(self, from_xy: Any, to_xy: Any, *,
+                     kind: str = "belt", radius: int | None = None,
+                     width: int = 1, spacing: int | None = None,
+                     clear: bool = False) -> dict[str, Any]:
+        """Plan an orthogonal belt/pipe/wall/power route through free space.
+
+        Uses observe-free-space for the window then A* (plan_grid_route); does
+        not build. ``kind`` is belt, pipe, wall or power; use build with the
+        returned entities, or pass ``clear`` only for a future build job.
+        """
+        start_x, start_y = _planner_point(from_xy, "from")
+        end_x, end_y = _planner_point(to_xy, "to")
+        center_x = (start_x + end_x) / 2
+        center_y = (start_y + end_y) / 2
+        needed = max(abs(end_x - start_x), abs(end_y - start_y)) / 2 + 12
+        window_radius = int(radius) if radius is not None else int(min(120, max(12, needed)))
+        free = data_value(self.observe_free_space(
+            x=center_x, y=center_y, radius=window_radius, step=1))
+        if not isinstance(free, dict) or not isinstance(free.get("rows"), list):
+            raise RuntimeError("free-space observation did not return rows")
+        route = plan_grid_route(
+            (start_x, start_y), (end_x, end_y),
+            rows=free["rows"],
+            origin=free.get("origin") if isinstance(free.get("origin"), dict) else {},
+            step=int(free.get("step") or 1),
+            width=width,
+        )
+        kind_name = str(kind).lower()
+        if kind_name == "belt":
+            entities = plan_belt_route(route)
+            warnings: list[str] = []
+        elif kind_name == "pipe":
+            entities = plan_pipe_route(route)
+            warnings = []
+        elif kind_name == "wall":
+            entities = plan_wall_route(route)
+            warnings = []
+        elif kind_name == "power":
+            spacing_value = int(spacing) if spacing is not None else 7
+            entities = plan_pole_route(route, spacing=spacing_value)
+            warnings = []
+        else:
+            raise ValueError("kind must be belt, pipe, wall or power")
+        return {"ok": True, "kind": kind_name, "route": route, "entities": entities,
+                "warnings": warnings, "window": free.get("window")}
 
     def pipeline_audit(self, *, x: float | None = None, y: float | None = None,
                        radius: int = 80) -> dict[str, Any]:
@@ -4610,6 +4751,20 @@ def run(argv: list[str]) -> int:
                 if flag("entities-json") else parse_entities(flags.get("entity", []))
             )
             result = FactorioClient(parsed.base).geometry_check(check_entities)
+            return output(result, ok=bool(result.get("ok")))
+        elif cmd == "plan-route":
+            from_value, to_value = flag("from"), flag("to")
+            if not from_value or not to_value:
+                raise ValueError("Missing --from or --to")
+            start = parse_targets([from_value], False)[0]
+            end = parse_targets([to_value], False)[0]
+            result = FactorioClient(parsed.base).plan_route(
+                start, end,
+                kind=flag("kind") or "belt",
+                width=parse_number(flag("width"), 1) or 1,
+                spacing=parse_number(flag("spacing"), None),
+                radius=parse_number(flag("radius"), None),
+            )
             return output(result, ok=bool(result.get("ok")))
         elif cmd == "observe-pipeline":
             result = data_value(FactorioClient(parsed.base).observe_pipeline(

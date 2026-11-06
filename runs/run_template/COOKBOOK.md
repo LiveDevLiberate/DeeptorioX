@@ -598,6 +598,10 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 - Use `geometry-check --entity name,x,y,dir ...` (or `--entities-json`) before
   building. It resolves footprints, applies east/west rotation, reports overlaps
   and native placement blockers without building.
+- Use `plan-route --from x,y --to x,y --kind belt|pipe|wall|power` to plan a
+  corridor through observed free space (A*, no build). Inspect the `route` and
+  `entities`, then pass the entities to build; `--width` keeps multi-tile
+  clearance, `--spacing` controls pole spacing.
 
 ## 13. Token and time discipline
 

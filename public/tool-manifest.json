@@ -379,6 +379,12 @@
       "usage": "Usage: factorio.py pipeline-audit [--center-x n --center-y n --radius n]"
     },
     {
+      "command": "plan-route",
+      "description": "Orthogonal belt/pipe/wall/power corridor through observed free space (A*, no build).",
+      "help": "Usage: factorio.py plan-route --from x,y --to x,y [--kind belt|pipe|wall|power] [--width n] [--spacing n] [--radius n] Outputs route tiles + planned entities; inspect then build.",
+      "usage": "Usage: factorio.py plan-route --from x,y --to x,y [--kind belt|pipe|wall|power] [--width n] [--spacing n] [--radius n]"
+    },
+    {
       "command": "recover-debris",
       "description": "Scan crash-site spaceship debris, extract loot into the player inventory, then mine each piece.",
       "help": "Usage: factorio.py recover-debris [--center-x n --center-y n --radius n]",
@@ -2445,6 +2451,62 @@
       "signature": "plan_build(self, entities: 'list[dict[str, Any]]') -> 'dict[str, Any]'"
     },
     {
+      "description": "Plan an orthogonal belt/pipe/wall/power route through free space.",
+      "name": "plan_route",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "from_xy",
+          "required": true
+        },
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "to_xy",
+          "required": true
+        },
+        {
+          "annotation": "str",
+          "default": "'belt'",
+          "kind": "keyword_only",
+          "name": "kind",
+          "required": false
+        },
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "1",
+          "kind": "keyword_only",
+          "name": "width",
+          "required": false
+        },
+        {
+          "annotation": "int | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "spacing",
+          "required": false
+        },
+        {
+          "annotation": "bool",
+          "default": "False",
+          "kind": "keyword_only",
+          "name": "clear",
+          "required": false
+        }
+      ],
+      "signature": "plan_route(self, from_xy: 'Any', to_xy: 'Any', *, kind: 'str' = 'belt', radius: 'int | None' = None, width: 'int' = 1, spacing: 'int | None' = None, clear: 'bool' = False) -> 'dict[str, Any]'"
+    },
+    {
       "description": "",
       "name": "player_position",
       "parameters": [],
@@ -3118,7 +3180,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "aec777e303ac28dbf2d67dff93aa4df0250fd721b51f5017d120005eee0795f6",
+  "client_sha256": "a08450ba4ddc8ff7b841e8dc64907cd8153b289eee033f384dd6f39760b77a39",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3313,7 +3375,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "aec777e303ac28dbf2d67dff93aa4df0250fd721b51f5017d120005eee0795f6",
+    "factorio.py": "a08450ba4ddc8ff7b841e8dc64907cd8153b289eee033f384dd6f39760b77a39",
     "src/api/agent.ts": "921b6253a4840b2488a2b0835b4e9e282db176c6e0dcc2b07808a10de1339241",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",

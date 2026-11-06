@@ -223,6 +223,10 @@ opening grace until the run registry contains a blueprint; capture is an
 observation/registry action and remains allowed. This enforces capture and
 surfaces existing designs in the UI.
 
+**Route planning.** `plan_grid_route` A* operates on the free-space grid
+produced by `observe-free-space`; `plan-route` wraps it with belt/pipe/wall/power
+entity planners, width clearance and pole spacing, without building.
+
 **Free-space/geometry.** `observe-free-space` renders a buildable/blocked grid
 and connected free rectangles; `geometry-check` computes rotated footprints,
 detects overlaps and calls native placement analysis without building.

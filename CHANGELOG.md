@@ -86,6 +86,10 @@ this file.
   loader planners were inverted to match, and observe-connections now reports
   source on the facing side and target opposite. Knowledge/COOKBOOK document the
   convention.
+- **Free-space route planning.** `plan-route` uses the free-space grid and an
+  orthogonal A* planner to produce belt/pipe/wall/power corridors (including
+  width clearance and pole spacing) without building; inspect then build the
+  returned entities.
 - **Free-space + geometry check.** `observe-free-space` reports buildable cells,
   blocked/water cells and largest connected free rectangles; `geometry-check`
   resolves prototype footprints, applies rotation, detects planned overlaps and

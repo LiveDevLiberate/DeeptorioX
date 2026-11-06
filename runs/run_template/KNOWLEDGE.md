@@ -122,6 +122,8 @@ issue coordinates for exact repairs.
   extending. Maintain `LAYOUT.md` for persistent coordinates/grids.
 - `observe-free-space` gives buildable cells/components; `geometry-check`
   validates footprints/rotation/overlaps before building.
+- `plan-route` plans belt/pipe/wall/power corridors through free space with A*;
+  inspect then build the returned entities.
 
 ## 3. Trains (`trains`)
 

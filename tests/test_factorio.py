@@ -170,6 +170,47 @@ class BlueprintEvaluateTests(unittest.TestCase):
         self.assertIn("blueprint-evaluate", factorio.GLOBAL_USAGE)
 
 
+class RoutePlanningTests(unittest.TestCase):
+    def test_grid_route_astar_avoids_blocked_cells(self):
+        rows = [
+            ".....",
+            "..###",
+            "....#",
+            "#....",
+            ".....",
+        ]
+        route = factorio.plan_grid_route(
+            (0, 0), (4, 4), rows=rows, origin={"x": 0, "y": 0}, step=1)
+        self.assertEqual(route[0], {"x": 0, "y": 0})
+        self.assertEqual(route[-1], {"x": 4, "y": 4})
+        self.assertTrue(all(rows[tile["y"]][tile["x"]] == "." for tile in route))
+        self.assertLessEqual(len(route), 13)
+
+    def test_grid_route_reports_no_path_and_blocked_endpoint(self):
+        with self.assertRaisesRegex(ValueError, "no free-space route"):
+            factorio.plan_grid_route((0, 0), (2, 2), rows=["...", "###", "..."], origin={"x": 0, "y": 0})
+        with self.assertRaisesRegex(ValueError, "endpoint is blocked"):
+            factorio.plan_grid_route((0, 0), (2, 0), rows=["..#"], origin={"x": 0, "y": 0})
+
+    def test_plan_route_uses_free_space_and_returns_belt_plan(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        free = {"ok": True, "data": {
+            "rows": [".....", ".....", "....."],
+            "origin": {"x": 0, "y": 0},
+            "step": 1,
+            "window": {"x": 2, "y": 1, "radius": 12},
+        }}
+        with patch.object(client, "observe_free_space", return_value=free):
+            with patch.object(client, "request", return_value={"ok": True}):
+                result = client.plan_route((0, 1), (4, 1))
+        self.assertEqual(result["kind"], "belt")
+        self.assertEqual(result["route"][0], {"x": 0, "y": 1})
+        self.assertEqual(result["route"][-1], {"x": 4, "y": 1})
+        self.assertTrue(all(entity["name"] == "transport-belt" for entity in result["entities"]))
+        self.assertIn("plan-route", factorio.COMMAND_USAGE)
+        self.assertIn("plan-route", factorio.GLOBAL_USAGE)
+
+
 class GeometryPerceptionTests(unittest.TestCase):
     def test_observe_free_space_payload(self):
         client = factorio.FactorioClient(poll_interval=0)
