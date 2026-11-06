@@ -93,6 +93,10 @@ this file.
 - **Geometry direction validation.** `geometry-check` rejects cardinal directions
   outside 0/4/8/12 in addition to footprint/rotation/overlap and native placement
   blockers.
+- **Map generation preview.** Adds an isolated Factorio CLI preview generator,
+  `/api/map-preview` and run-page endpoints, PNG serving, and a reusable
+  pan/zoom viewer on the launch and run pages. Based on the MIT-licensed
+  FactorioPreviewToolkit approach; includes attribution and docs.
 - **Measured pipeline flows.** `observe-pipeline` accepts optional
   `flows`/`--flow id=rate` annotations for machine/belt/segment `actual_flow`;
   belt capacity/saturation remains available without measurements.

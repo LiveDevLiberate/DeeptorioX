@@ -366,3 +366,32 @@ html:not([data-theme="light"]) body.overlay #agentStatus {
     box-shadow: 0 0 18px rgba(255, 59, 48, 0.75);
   }
 }
+
+.map-viewer {
+  position: relative;
+  min-height: 260px;
+  max-height: 70vh;
+  overflow: hidden;
+  border: 1px solid #2b3442;
+  background: #0b1016;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.map-viewer.is-dragging {
+  cursor: grabbing;
+}
+.map-viewer-image {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  max-width: none;
+  image-rendering: auto;
+}
+.map-viewer-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #8b98a8;
+}

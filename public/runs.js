@@ -207,6 +207,23 @@ for (const id of ["mapSeed", "mapStartingArea", "mapPeaceful"]) {
   $(id).addEventListener("input", updateMapConfigSummary);
   $(id).addEventListener("change", updateMapConfigSummary);
 }
+let launchMapViewer = null;
+$("previewMap").onclick = async () => {
+  const button = $("previewMap");
+  button.disabled = true;
+  $("launchMapPreviewStatus").textContent = "Generating 2048×2048 preview…";
+  try {
+    const result = await api("/api/map-preview", { map_gen: buildMapGen(), size: 2048 });
+    $("launchMapPreview").hidden = false;
+    if (!launchMapViewer) launchMapViewer = globalThis.createMapViewer($("launchMapPreview"), result.url);
+    else launchMapViewer.setSource(result.url);
+    $("launchMapPreviewStatus").textContent = `seed ${result.seed} · ${result.size}px`;
+  } catch (error) {
+    $("launchMapPreviewStatus").textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+};
 $("launchForm").onsubmit = async (event) => {
   event.preventDefault();
   $("launch").disabled = true;

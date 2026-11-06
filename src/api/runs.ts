@@ -4,6 +4,7 @@ import { json, readJson } from "../http/plumbing.js";
 import { asRecord, errorMessage } from "../validation.js";
 import { BLUEPRINT_MAX_TEXT_BYTES } from "../blueprints.js";
 import { mapConfigMeta } from "../map-config.js";
+import { generateMapPreview, mapPreviewFile, type MapPreviewSettings } from "../map-preview.js";
 import { obsStatus } from "../obs.js";
 import type { ApiContext } from "./context.js";
 
@@ -142,6 +143,81 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
           source: payload.source,
         });
         return json(res, 201, { schema_version: 2, run_id: runId, blueprint });
+      } catch (error) {
+        return json(res, 400, { error: errorMessage(error) });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/map-preview",
+    name: "/api/map-preview",
+    handler: async (request) => {
+      const { req, res } = request;
+      try {
+        const payload = asRecord(await readJson(req));
+        const mapGen = asRecord(payload?.map_gen);
+        if (!mapGen) throw new Error("map_gen must be an object");
+        const preview = await generateMapPreview(mapGen as MapPreviewSettings, {
+          size: payload?.size,
+        });
+        return json(res, 200, {
+          ok: true,
+          seed: preview.seed,
+          size: preview.size,
+          url: preview.url,
+          generated_at: preview.generated_at,
+        });
+      } catch (error) {
+        return json(res, 400, { error: errorMessage(error) });
+      }
+    },
+  });
+
+  router.add({
+    method: "GET",
+    path: /^\/api\/map-previews\/([a-f0-9]{16})\.png$/,
+    name: "mapPreviewImage",
+    handler: (request) => {
+      const { req, res, url } = request;
+      const match = url.pathname.match(/^\/api\/map-previews\/([a-f0-9]{16})\.png$/);
+      if (!match) return false;
+      const preview = mapPreviewFile(match[1]);
+      if (!preview) return json(res, 404, { error: "Map preview not found" });
+      const stat = fsSync.statSync(preview.file);
+      res.writeHead(200, {
+        "Content-Type": "image/png",
+        "Content-Length": stat.size,
+        "Cache-Control": "public, max-age=86400",
+      });
+      if (req.method === "HEAD") return res.end();
+      fsSync.createReadStream(preview.file).pipe(res);
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: /^\/api\/runs\/([^/]+)\/map-preview$/,
+    name: "runMapPreview",
+    handler: async (request) => {
+      const { req, res, url } = request;
+      const match = url.pathname.match(/^\/api\/runs\/([^/]+)\/map-preview$/);
+      if (!match) return false;
+      const run = runManager.get(decodeURIComponent(match[1]));
+      if (!run) return json(res, 404, { error: "Run not found" });
+      try {
+        const payload = asRecord(await readJson(req));
+        const preview = await generateMapPreview(run.benchmark.map_gen, {
+          size: payload?.size,
+        });
+        return json(res, 200, {
+          ok: true,
+          seed: preview.seed,
+          size: preview.size,
+          url: preview.url,
+          generated_at: preview.generated_at,
+        });
       } catch (error) {
         return json(res, 400, { error: errorMessage(error) });
       }

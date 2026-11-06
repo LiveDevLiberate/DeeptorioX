@@ -536,6 +536,23 @@ $("resume").onclick = async () => {
     $("resume").disabled = false;
   }
 };
+let seedMapViewer = null;
+$("seedPreviewGenerate").onclick = async () => {
+  const button = $("seedPreviewGenerate");
+  button.disabled = true;
+  $("seedPreviewStatus").textContent = "Generating 2048×2048 preview…";
+  try {
+    const result = await api(`/api/runs/${encodeURIComponent(id)}/map-preview`, { size: 2048 });
+    $("seedPreviewViewer").hidden = false;
+    if (!seedMapViewer) seedMapViewer = globalThis.createMapViewer($("seedPreviewViewer"), result.url);
+    else seedMapViewer.setSource(result.url);
+    $("seedPreviewStatus").textContent = `seed ${result.seed} · ${result.size}px`;
+  } catch (error) {
+    $("seedPreviewStatus").textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+};
 if (id) {
   await refresh();
   setInterval(refresh, 1000);

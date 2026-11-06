@@ -231,6 +231,11 @@ avoids O(N²) power edges in a large base.
 node/segment id so callers can attach measured rates as `actual_flow`; capacity
 and contained-item saturation are always reported.
 
+**Map generation preview.** `generateMapPreview` invokes Factorio's
+`--generate-map-preview` with an isolated profile and caches PNGs under
+`.autorio/map-previews`; `/api/map-preview` and run-page routes expose them to a
+small pan/zoom viewer adapted from the MIT FactorioPreviewToolkit.
+
 **Pipeline UI.** `/pipeline.html` queries `/api/agent/observe/pipeline` and renders
 counts/bottlenecks/machines/power networks/belt segments for the operator.
 
