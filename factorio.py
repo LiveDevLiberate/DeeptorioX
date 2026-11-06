@@ -3266,6 +3266,20 @@ class FactorioClient:
             if not isinstance(tile_size, dict):
                 raise ValueError(f"cannot resolve prototype size for {name!r}")
             sizes[name] = tile_size
+        direction_errors: list[dict[str, Any]] = []
+        valid_directions = {0, 4, 8, 12}
+        for index, entity in enumerate(normalized):
+            if "direction" not in entity:
+                continue
+            direction = int(entity.get("direction", 0))
+            if direction not in valid_directions:
+                direction_errors.append({
+                    "index": index,
+                    "name": entity["name"],
+                    "anchor": entity["anchor"],
+                    "direction": direction,
+                    "error": "direction must be 0, 4, 8 or 12",
+                })
         footprints: list[dict[str, Any]] = []
         for entity in normalized:
             anchor = entity["anchor"]
@@ -3319,10 +3333,11 @@ class FactorioClient:
                     "diagnostics": result.get("diagnostics"),
                 })
         return {
-            "ok": not overlaps and not blockers,
+            "ok": not overlaps and not blockers and not direction_errors,
             "entities": footprints,
             "overlaps": overlaps,
             "blockers": blockers,
+            "direction_errors": direction_errors,
             "results": results,
         }
 

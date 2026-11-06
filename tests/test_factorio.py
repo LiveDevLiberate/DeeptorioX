@@ -245,6 +245,18 @@ class GeometryPerceptionTests(unittest.TestCase):
             "left": 0, "top": 0, "right": 2, "bottom": 3,
         })
 
+    def test_geometry_check_rejects_invalid_directions(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "observe_entity_prototype",
+                          return_value={"tile_size": {"width": 1, "height": 1}}), \
+                patch.object(client, "observe_placement",
+                             return_value={"data": {"results": [{"ok": True}]}}):
+            result = client.geometry_check([
+                {"name": "transport-belt", "anchor": {"x": 0, "y": 0}, "direction": 2},
+            ])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["direction_errors"][0]["direction"], 2)
+
     def test_geometry_check_reports_native_blockers(self):
         client = factorio.FactorioClient(poll_interval=0)
         with patch.object(client, "observe_entity_prototype",

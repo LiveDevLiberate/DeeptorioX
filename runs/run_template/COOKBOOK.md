@@ -597,8 +597,9 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   buildable cells and the largest connected free rectangles; do not infer free
   space from a sparse ASCII layout.
 - Use `geometry-check --entity name,x,y,dir ...` (or `--entities-json`) before
-  building. It resolves footprints, applies east/west rotation, reports overlaps
-  and native placement blockers without building.
+  building. It resolves footprints, applies east/west rotation, validates
+  directions (0/4/8/12), reports overlaps and native placement blockers without
+  building.
 - Use `plan-route --from x,y --to x,y --kind belt|pipe|wall|power` to plan a
   corridor through observed free space (A*, no build). Inspect the `route` and
   `entities`, then pass the entities to build; `--width` keeps multi-tile

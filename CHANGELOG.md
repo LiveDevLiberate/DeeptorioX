@@ -86,6 +86,9 @@ this file.
   loader planners were inverted to match, and observe-connections now reports
   source on the facing side and target opposite. Knowledge/COOKBOOK document the
   convention.
+- **Geometry direction validation.** `geometry-check` rejects cardinal directions
+  outside 0/4/8/12 in addition to footprint/rotation/overlap and native placement
+  blockers.
 - **Pipeline flow metadata.** Pipeline nodes now carry belt contents,
   pipe/machine fluids and pole `network_id`; `power_network` edges and
   `power_networks` counts are derived, improving bottleneck diagnosis beyond
