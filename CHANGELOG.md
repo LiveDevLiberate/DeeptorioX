@@ -93,6 +93,9 @@ this file.
 - **Geometry direction validation.** `geometry-check` rejects cardinal directions
   outside 0/4/8/12 in addition to footprint/rotation/overlap and native placement
   blockers.
+- **Measured pipeline flows.** `observe-pipeline` accepts optional
+  `flows`/`--flow id=rate` annotations for machine/belt/segment `actual_flow`;
+  belt capacity/saturation remains available without measurements.
 - **Pipeline UI + belt capacity estimates.** `/pipeline.html` renders graph
   counts, bottlenecks, machines, power networks and belt segments; belts now
   include tier capacity, contained item count and a saturation estimate.

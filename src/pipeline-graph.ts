@@ -105,7 +105,13 @@ export function buildPipelineGraph(
   factory: unknown,
   connections: unknown,
   area: unknown,
-  options: { x: number; y: number; radius: number },
+  options: {
+    x: number;
+    y: number;
+    radius: number;
+    /** Optional externally measured item/fluid rates keyed by node/segment id. */
+    flows?: Record<string, number>;
+  },
 ) {
   const factoryData = record(factory) ?? {};
   const connectionData = record(connections) ?? {};
@@ -233,6 +239,9 @@ export function buildPipelineGraph(
       parallel_belts: num(raw.parallel_belts),
       items: nodes.get(nodeId(text(raw.name) ?? "transport-belt", x, y))?.belt_items ?? [],
       capacity_items_per_second: beltCapacity(text(raw.name) ?? "transport-belt"),
+      actual_flow: Number.isFinite(Number(options.flows?.[nodeId(text(raw.name) ?? "transport-belt", x, y)]))
+        ? Number(options.flows?.[nodeId(text(raw.name) ?? "transport-belt", x, y)])
+        : null,
     };
   });
   for (const belt of belts) {
@@ -284,6 +293,13 @@ export function buildPipelineGraph(
         tiles,
       });
     }
+  }
+
+  for (const segment of beltSegments) {
+    const segmentFlows = (segment.tiles as Array<{ x: number; y: number }>)
+      .map((tile) => belts.find((belt) => belt.x === tile.x && belt.y === tile.y)?.actual_flow)
+      .filter((value): value is number => typeof value === "number");
+    segment.actual_flow = segmentFlows.length > 0 ? Math.max(...segmentFlows) : null;
   }
 
   // Pipe connectivity by cardinal adjacency (pipes, pumps, tanks).
@@ -349,6 +365,9 @@ export function buildPipelineGraph(
         output_inserters: outputs.map((entry) => entry.id),
         input_count: inputs.length,
         output_count: outputs.length,
+        actual_flow: Number.isFinite(Number(options.flows?.[machine.id]))
+          ? Number(options.flows?.[machine.id])
+          : null,
       };
     });
 

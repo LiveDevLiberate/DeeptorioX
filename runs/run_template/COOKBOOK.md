@@ -584,10 +584,14 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   reconstructing flow from raw entity lists/ASCII. It returns:
   - machine nodes with recipe/status/footprint/bbox and input/output inserters;
   - belts, directed belt segments (head/tail/length), belt contents (`items`),
-    pipe fluids (`fluid`), power poles with `network_id`;
+    tier capacity/saturation, pipe fluids (`fluid`), power poles with
+    `network_id` and grouped `power_network_groups`;
   - edges (`inserter`, `belt`, `pipe`, `power_range`) and a prioritized
     `bottlenecks` list.
 - Use `pipeline-audit` for only the bottleneck section when deciding what to fix.
+- Optional measured rates: `observe-pipeline --flow node_or_segment_id=rate`
+  annotates matching machines/belts/segments with `actual_flow`; without
+  measurements the graph exposes contents/capacity and reports `actual_flow:null`.
 - Operator UI: `/pipeline.html` loads the same graph (counts, bottlenecks,
   machines, power networks and belt segments) from the running game.
 - Maintain `LAYOUT.md` with anchors, axes, machine/pole grids, pipe corridors,

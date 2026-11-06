@@ -68,7 +68,12 @@ test("pipeline graph exposes machine ports, belt segments, pipes, power and bott
       { name: "small-electric-pole", type: "electric-pole", x: 6, y: 5, direction: 0, network_id: 1 },
     ],
   };
-  const graph = buildPipelineGraph(factory, connections, area, { x: 0, y: 0, radius: 40 });
+  const graph = buildPipelineGraph(factory, connections, area, {
+    x: 0,
+    y: 0,
+    radius: 40,
+    flows: { "transport-belt@0,0": 7.5, "assembling-machine-1@10,10": 2 },
+  });
   assert.equal(graph.counts.machines, 1);
   assert.equal(graph.counts.inserters, 1);
   assert.equal(graph.counts.belts, 3);
@@ -93,6 +98,9 @@ test("pipeline graph exposes machine ports, belt segments, pipes, power and bott
   assert.equal(graph.belts[0].capacity_items_per_second, 15);
   assert.equal(graph.belts[0].item_count, 2);
   assert.ok(graph.belts[0].saturation_estimate > 0);
+  assert.equal(graph.belts[0].actual_flow, 7.5);
+  assert.equal(graph.machines[0].actual_flow, 2);
+  assert.equal(graph.belt_segments[0].actual_flow, 7.5);
   assert.deepEqual(graph.pipes[0].fluid, { water: 10 });
   assert.ok(graph.bottlenecks.some((entry) => entry.kind === "no_power"));
   assert.ok(graph.bottlenecks.some((entry) => entry.kind === "belt_no_input"));

@@ -1435,7 +1435,13 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           parseRconJson<unknown>(connectionsResponse, "RCON connection observation returned invalid JSON"),
         );
         const area = parseRconJson<unknown>(areaResponse, "RCON area observation returned invalid JSON");
-        const graph = buildPipelineGraph(factory, connections, area, { x, y, radius });
+        const flows: Record<string, number> = {};
+        const rawFlows = recordOrEmpty(body.flows);
+        for (const [id, value] of Object.entries(rawFlows)) {
+          const rate = Number(value);
+          if (Number.isFinite(rate)) flows[id] = rate;
+        }
+        const graph = buildPipelineGraph(factory, connections, area, { x, y, radius, flows });
         return json(res, 200, { ok: true, data: graph });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });

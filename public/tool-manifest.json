@@ -2223,9 +2223,16 @@
           "kind": "keyword_only",
           "name": "radius",
           "required": false
+        },
+        {
+          "annotation": "dict[str, float] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "flows",
+          "required": false
         }
       ],
-      "signature": "observe_pipeline(self, *, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 80) -> 'Any'"
+      "signature": "observe_pipeline(self, *, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 80, flows: 'dict[str, float] | None' = None) -> 'Any'"
     },
     {
       "description": "",
@@ -3180,7 +3187,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "f8fa536cb46fe22b965a6e2d96fc5354410df61e37eb060bbd22dbe092abda50",
+  "client_sha256": "e3f73dce6b0952572f479705f9ca99d612c89f48bf09721a1c43eea1f2f58285",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3375,8 +3382,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "f8fa536cb46fe22b965a6e2d96fc5354410df61e37eb060bbd22dbe092abda50",
-    "src/api/agent.ts": "6baf0784ccff9fe28ec4648d8e84b0d0f41a85fc84a25bd09592604f4224ae1d",
+    "factorio.py": "e3f73dce6b0952572f479705f9ca99d612c89f48bf09721a1c43eea1f2f58285",
+    "src/api/agent.ts": "f34752ae629f3f324a0f485072d52c79caa253bd4af44f4a54b5382916114e21",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",

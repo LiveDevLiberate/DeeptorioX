@@ -283,9 +283,13 @@ class PipelinePerceptionTests(unittest.TestCase):
             "bottleneck_actions": [{"kind": "belt_no_input"}],
         }}
         with patch.object(client, "request", return_value=response) as request:
-            result = factorio.data_value(client.observe_pipeline(x=1, y=2, radius=3))
+            result = factorio.data_value(client.observe_pipeline(x=1, y=2, radius=3, flows={"belt:1": 4.5}))
             audit = client.pipeline_audit(x=1, y=2, radius=3)
-        request.assert_called_with("POST", "/api/agent/observe/pipeline", {
+        request.assert_any_call("POST", "/api/agent/observe/pipeline", {
+            "window": {"x": 1, "y": 2, "radius": 3},
+            "flows": {"belt:1": 4.5},
+        })
+        request.assert_any_call("POST", "/api/agent/observe/pipeline", {
             "window": {"x": 1, "y": 2, "radius": 3},
         })
         self.assertEqual(result["counts"]["machines"], 1)

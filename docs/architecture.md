@@ -227,6 +227,10 @@ surfaces existing designs in the UI.
 `power_network_groups`; unnetworked poles only get local range heuristics. This
 avoids O(N²) power edges in a large base.
 
+**Measured flows.** The pipeline route accepts an optional `flows` map keyed by
+node/segment id so callers can attach measured rates as `actual_flow`; capacity
+and contained-item saturation are always reported.
+
 **Pipeline UI.** `/pipeline.html` queries `/api/agent/observe/pipeline` and renders
 counts/bottlenecks/machines/power networks/belt segments for the operator.
 

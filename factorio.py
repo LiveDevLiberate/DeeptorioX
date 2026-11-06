@@ -2369,11 +2369,17 @@ class FactorioClient:
         })
 
     def observe_pipeline(self, *, x: float | None = None, y: float | None = None,
-                         radius: int = 80) -> Any:
-        """Structured machine/belt/inserter/pipe/power graph plus bottlenecks."""
-        return self.request("POST", "/api/agent/observe/pipeline", {
-            "window": {"x": x, "y": y, "radius": radius},
-        })
+                         radius: int = 80,
+                         flows: dict[str, float] | None = None) -> Any:
+        """Structured machine/belt/inserter/pipe/power graph plus bottlenecks.
+
+        ``flows`` optionally annotates nodes/segments with externally measured
+        rates (for example belt-count samples or production deltas).
+        """
+        body: dict[str, Any] = {"window": {"x": x, "y": y, "radius": radius}}
+        if flows:
+            body["flows"] = {key: float(value) for key, value in flows.items()}
+        return self.request("POST", "/api/agent/observe/pipeline", body)
 
     def observe_free_space(self, *, x: float | None = None, y: float | None = None,
                             radius: int = 60, step: int = 1) -> Any:

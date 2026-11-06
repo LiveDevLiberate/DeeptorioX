@@ -26,3 +26,11 @@ buildable grid with components, and geometry-check returned `ok`.
 ## Operator view
 
 Open `/pipeline.html` while the game is running to inspect the same graph used by the agent.
+
+## Measured flow check
+
+```bash
+python3 factorio.py observe-pipeline --radius 40 --flow transport-belt@10,20=7.5
+```
+
+The matching belt/machine/segment reports `actual_flow: 7.5`; capacity and contained items remain independent.
