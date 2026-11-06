@@ -87,6 +87,7 @@ Commands:
   tools [--json] [--local] [--query <text>]
   blueprint-list [--run-id <id>]
   blueprint-save (--blueprint-file <path>|--blueprint <string>) [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]
+  blueprint-capture [--center-x n --center-y n --radius n] [--label <text>] [--description <text>]
   state-show
   state-write --current <text> [--done-when <text>] [--next <text>] [--scores k=v,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]
   observe-factory --center-x <n> --center-y <n> --radius <n>
@@ -114,8 +115,8 @@ Commands:
   build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]
   build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]
   build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]
-  build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear]
-  build-line --kind pipe|belt|wall|pole|underground-pipe|underground-belt --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n] [--no-clear]
+  build-pipe-route --from x,y --to x,y [--name pipe] [--surface-pipes] [--no-clear]
+  build-line --kind pipe|belt|wall|pole|underground-pipe|underground-belt --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n] [--surface-pipes] [--no-clear]
   relayout-belts --center-x n --center-y n --radius n [--dry-run]
   build-power-network (--target x,y[,w,h] [--target ...] | --area x,y,radius) [--pole name] [--big-pole-every n] [--no-clear]
   build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]
@@ -170,6 +171,7 @@ COMMAND_USAGE = {
     "observe-resources": "observe-resources: Scan for resource patches in a radius.\nUsage: factorio.py observe-resources --window-x <n> --window-y <n> --radius <n>\n",
     "observe-factory": "observe-factory: Summarize power, fuel, and entity status counts in a window.\nUsage: factorio.py observe-factory --center-x <n> --center-y <n> --radius <n>\n",
     "tools": "tools: Fetch the generated tool manifest (client methods, parameters, CLI usage, manager endpoints).\nUsage: factorio.py tools [--json] [--local] [--query <text>]\n--json prints the manifest as JSON; --local introspects factorio.py without the manager; --query filters matching commands/methods/endpoints. (The manager also serves GET /api/agent/tools?q=...)\n",
+    "blueprint-capture": "blueprint-capture: Capture the player-built layout in an area into the run blueprint registry.\nUsage: factorio.py blueprint-capture [--center-x n --center-y n --radius n] [--label text] [--description text]\nCapture after the layout passes factory-audit/observe-connections; reuse and iterate on saved blueprints.\n",
     "blueprint-list": "blueprint-list: List blueprints recorded for a run (active run by default).\nUsage: factorio.py blueprint-list [--run-id <id>]\n",
     "blueprint-save": "blueprint-save: Persist a designed blueprint string for the active run without building it.\nUsage: factorio.py blueprint-save --blueprint-file <path> [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]\n   or: factorio.py blueprint-save --blueprint <string> [--label <text>]\n",
     "state-show": "state-show: Read the active run's STATE.md freshness/status.\nUsage: factorio.py state-show\n",
@@ -196,9 +198,9 @@ COMMAND_USAGE = {
     "build-pipe-line": "build-pipe-line: Lay an L-shaped surface pipe line (x first, then y).\nUsage: factorio.py build-pipe-line --from x,y --to x,y [--name pipe] [--no-clear]\nNote: surface pipes only; for straight runs under obstacles use build-underground-pipe.\n",
     "build-underground-belt": "build-underground-belt: Lay a straight underground-belt line (input/output pairs + surface belt connectors).\nUsage: factorio.py build-underground-belt --from x,y --to x,y [--name transport-belt] [--max-distance n] [--no-clear]\nName: transport-belt/fast-transport-belt/express-transport-belt (default distance 4/6/8); pass --max-distance to override.\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface belt\nconnector after each pair, surface belts for tails shorter than a pair. Straight horizontal/vertical only.\n",
     "build-underground-pipe": "build-underground-pipe: Lay a straight pipe-to-ground line (input/output pairs + surface pipe connectors).\nUsage: factorio.py build-underground-pipe --from x,y --to x,y [--max-distance n] [--no-clear]\nPair layout: input at the segment start, output at start+distance facing the same flow direction, one surface pipe\nconnector after each pair, surface pipes for tails shorter than a pair (default distance 10). Straight only.\n",
-    "build-line": "build-line: Unified linear builder for pipes/belts/walls/poles, with auto pathfinding around lakes/cliffs or a straight L plan.\nUsage: factorio.py build-line --kind pipe|belt|wall|pole|underground-pipe|underground-belt --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n] [--no-clear]\nroute=auto uses path-preview and lays an orthogonal route; underground variants are straight-only.\n",
+    "build-line": "build-line: Unified linear builder for pipes/belts/walls/poles, with auto pathfinding around lakes/cliffs or a straight L plan.\nUsage: factorio.py build-line --kind pipe|belt|wall|pole|underground-pipe|underground-belt --from x,y --to x,y [--name entity] [--route auto|straight] [--spacing n] [--no-clear]\nroute=auto uses path-preview and lays an orthogonal route; pipe defaults to mostly underground pipe-to-ground (surface only at ends/corners), pass --surface-pipes to override; underground belt variants are straight-only.\n",
     "relayout-belts": "relayout-belts: Recycle every belt in an area after repeated failed belt-link attempts; dry-run first to inspect.\nUsage: factorio.py relayout-belts --center-x n --center-y n --radius n [--dry-run]\nThen re-observe and plan a fresh route; do not patch the failed layout further.\n",
-    "build-pipe-route": "build-pipe-route: Ask the native pathfinder for a walkable route and lay connected orthogonal pipes around lakes/cliffs.\nUsage: factorio.py build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear]\nFails with no_path if the destination is unreachable; choose a different endpoint instead of retrying a straight line.\n",
+    "build-pipe-route": "build-pipe-route: Ask the native pathfinder for a walkable route and lay connected orthogonal pipes around lakes/cliffs.\nUsage: factorio.py build-pipe-route --from x,y --to x,y [--name pipe] [--no-clear]\nDefaults to underground pipe-to-ground with surface connectors only at ends/corners; --surface-pipes forces the old surface route. Fails with no_path if unreachable.\n",
     "build-power-network": "build-power-network: Place a pole grid covering entity targets or a scan area.\nUsage: factorio.py build-power-network --target x,y[,w,h] [--target ...] [--pole name] [--big-pole-every n] [--no-clear]\n   or: factorio.py build-power-network --area x,y,radius [--pole name] [--big-pole-every n] [--no-clear]\nCoverage: small/medium poles 5x5 (5-tile grid), substations 18x18 (18-tile grid); big poles are for straight transmission trunks (30-tile reach) and have only a 4x4 supply area. Use build-power-line for trunks.\n",
     "build-power-line": "build-power-line: Place a straight horizontal/vertical pole trunk with wire-reach spacing.\nUsage: factorio.py build-power-line --from x,y --to x,y [--pole name] [--spacing n] [--no-clear]\nUse big-electric-pole for long runs (30 reach); use build-power-network with substations for area coverage.\n",
     "build-inserter-pairs": "build-inserter-pairs: Place input+output inserters around rows of machines.\nUsage: factorio.py build-inserter-pairs --entity x,y[,w,h] [--entity ...] [--direction east|west|north|south] [--name inserter] [--no-clear]\n   or: factorio.py build-inserter-pairs --entities-json <json> [--direction ...] [--no-clear]\nFootprints default to 3x3; pass w,h for other machine sizes. Shared machine-to-machine inserters are deduped.\n",
@@ -1106,6 +1108,69 @@ def plan_pipe_route(
     ]
 
 
+def _route_runs(route: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Maximal straight runs as (start_index, end_index), sharing corner tiles."""
+    if not route:
+        return []
+    runs: list[tuple[int, int]] = []
+    start = 0
+    previous: tuple[int, int] | None = None
+    for index in range(1, len(route)):
+        dx = route[index][0] - route[index - 1][0]
+        dy = route[index][1] - route[index - 1][1]
+        direction = (dx, dy)
+        if previous is not None and direction != previous:
+            runs.append((start, index - 1))
+            start = index - 1
+        previous = direction
+    runs.append((start, len(route) - 1))
+    return runs
+
+
+def plan_underground_pipe_route(
+    path_points: Any,
+    *,
+    from_xy: Any = None,
+    to_xy: Any = None,
+    max_distance: Any = UNDERGROUND_PIPE_DEFAULT_DISTANCE,
+) -> list[dict[str, Any]]:
+    """Lay mostly pipe-to-ground along a path, leaving walkable gaps.
+
+    Corners and the two endpoints are surface pipes; each straight span between
+    corners uses underground input/output pairs with the normal spacing. The
+    resulting pipe network is connected while most of the route is walkable.
+    """
+    route = _path_route_tiles(path_points, from_xy=from_xy, to_xy=to_xy)
+    if not route:
+        return []
+    distance = _underground_distance(max_distance, default=UNDERGROUND_PIPE_DEFAULT_DISTANCE)
+    entities: list[dict[str, Any]] = []
+    seen: set[tuple[int, int]] = set()
+
+    def add(entity: dict[str, Any]) -> None:
+        anchor = entity["anchor"]
+        key = (int(anchor["x"]), int(anchor["y"]))
+        if key in seen:
+            return
+        seen.add(key)
+        entities.append(entity)
+
+    def surface(x: int, y: int) -> dict[str, Any]:
+        return {"name": "pipe", "anchor": {"x": x, "y": y}, "direction": 0}
+
+    for start, end in _route_runs(route):
+        add(surface(*route[start]))
+        add(surface(*route[end]))
+        if end - start == 2:
+            add(surface(*route[start + 1]))
+        elif end - start >= 3:
+            for entity in plan_underground_pipe_line(
+                route[start + 1], route[end - 1], max_distance=distance
+            ):
+                add(entity)
+    return entities
+
+
 def _route_direction(route: list[tuple[int, int]], index: int) -> int:
     """Belt/pipe direction from a route's next tile (0 north, 4 east, 8 south, 12 west)."""
     if not route:
@@ -1947,6 +2012,16 @@ class FactorioClient:
         active_id = run_id or os.environ.get("AUTORIO_RUN_ID")
         path = f"/api/runs/{quote(active_id, safe='')}/blueprints" if active_id else "/api/blueprints"
         return self.request("POST", path, body)
+
+    def capture_blueprint(self, *, x: float = 0, y: float = 0, radius: int = 80,
+                          label: str | None = None,
+                          description: str | None = None) -> Any:
+        """Capture the current built layout in an area into the run blueprint registry."""
+        return self.request("POST", "/api/agent/blueprints/capture", {
+            "window": {"x": x, "y": y, "radius": radius},
+            "label": label,
+            "description": description,
+        })
 
     def server_status(self) -> Any:
         return self.request("GET", "/api/server/status")
@@ -3091,6 +3166,7 @@ class FactorioClient:
 
     def build_pipe_route(self, from_xy: Any, to_xy: Any, *,
                          name: str = "pipe", plan: Any = None,
+                         underground: bool = True,
                          clear: bool = True) -> dict[str, Any]:
         """Route pipes around water/cliffs using the native pathfinder, then build.
 
@@ -3105,14 +3181,18 @@ class FactorioClient:
             path = _job_path_points(job)
             if not path:
                 raise ValueError("pathfinder did not return a route; pipe route cannot be planned")
-            entities = plan_pipe_route(path, name=name, from_xy=from_xy, to_xy=to_xy)
+            entities = (
+                plan_underground_pipe_route(path, from_xy=from_xy, to_xy=to_xy)
+                if underground
+                else plan_pipe_route(path, name=name, from_xy=from_xy, to_xy=to_xy)
+            )
             warnings = []
         return self._submit_planned(entities, clear=clear, warnings=warnings)
 
     def build_line(self, kind: str, from_xy: Any = None, to_xy: Any = None, *,
                    name: str | None = None, route: str = "auto",
                    spacing: int | None = None, plan: Any = None,
-                   clear: bool = True) -> dict[str, Any]:
+                   underground: bool = True, clear: bool = True) -> dict[str, Any]:
         """Unified linear builder for pipes, belts, walls, poles and underground pairs.
 
         ``route="auto"`` asks the native pathfinder for a walkable corridor and
@@ -3145,8 +3225,11 @@ class FactorioClient:
             if not path:
                 raise ValueError("pathfinder did not return a route; choose a reachable waypoint")
             if canonical == "pipe":
-                entities = plan_pipe_route(
-                    path, name=name or "pipe", from_xy=from_xy, to_xy=to_xy)
+                entities = (
+                    plan_underground_pipe_route(path, from_xy=from_xy, to_xy=to_xy)
+                    if underground
+                    else plan_pipe_route(path, name=name or "pipe", from_xy=from_xy, to_xy=to_xy)
+                )
             elif canonical == "belt":
                 entities = plan_belt_route(
                     path, name=name or "transport-belt", from_xy=from_xy, to_xy=to_xy)
@@ -3157,6 +3240,10 @@ class FactorioClient:
                 entities = plan_pole_route(
                     path, name=name or "big-electric-pole",
                     spacing=spacing, from_xy=from_xy, to_xy=to_xy)
+            warnings = []
+        elif canonical == "pipe" and underground:
+            entities = plan_underground_pipe_route(
+                [from_xy, to_xy], max_distance=UNDERGROUND_PIPE_DEFAULT_DISTANCE)
             warnings = []
         elif canonical == "pipe":
             entities, warnings = plan_pipe_line(from_xy, to_xy, name=name or "pipe"), []
@@ -3701,6 +3788,15 @@ def run(argv: list[str]) -> int:
                 "radius": parse_number(flag("radius"), 50),
             }})
             return output(data_value(response))
+        if cmd == "blueprint-capture":
+            result = data_value(FactorioClient(parsed.base).capture_blueprint(
+                x=parse_number(flag("center-x"), 0) or 0,
+                y=parse_number(flag("center-y"), 0) or 0,
+                radius=parse_number(flag("radius"), 80) or 80,
+                label=flag("label"),
+                description=flag("description"),
+            ))
+            return output(result, ok=True)
         if cmd == "blueprint-list":
             response = FactorioClient(parsed.base).list_blueprints(flag("run-id"))
             return output(data_value(response))
@@ -4005,6 +4101,7 @@ def run(argv: list[str]) -> int:
                 name=flag("name"),
                 route=flag("route") or "auto",
                 spacing=parse_number(flag("spacing"), None),
+                underground=not bool(flag("surface-pipes")),
                 clear=not bool(flag("no-clear")),
             )
             return output(planner_result, ok=bool(planner_result.get("ok", True)))
@@ -4016,6 +4113,7 @@ def run(argv: list[str]) -> int:
                 parse_targets([from_value], False)[0],
                 parse_targets([to_value], False)[0],
                 name=flag("name") or "pipe",
+                underground=not bool(flag("surface-pipes")),
                 clear=not bool(flag("no-clear")),
             )
             return output(planner_result, ok=bool(planner_result.get("ok", True)))

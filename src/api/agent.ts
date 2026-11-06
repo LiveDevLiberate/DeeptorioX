@@ -8,6 +8,8 @@ import { mapOverviewPng, mapOverviewSvg } from "../map-overview.js";
 import { entityUsage, entityUsageCatalog } from "../entity-usage.js";
 import { summarizeConnectionsData } from "../connection-summary.js";
 import { buildRefactorAudit } from "../refactor-audit.js";
+import { encodeCapturedBlueprint } from "../blueprint-capture.js";
+import { observeAreaCommand } from "../area-edit.js";
 import { knowledgeCatalog, knowledgeTopic } from "../agent-knowledge.js";
 import {
   agentBuildDestinationCommand,
@@ -1231,6 +1233,58 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         return json(res, 200, { ok: true, data });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/agent/blueprints/capture",
+    name: "/api/agent/blueprints/capture",
+    handler: async (request) => {
+      const { req, res } = request;
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
+      if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
+      if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
+      const runId = runManager.activeRunId();
+      if (!runId) return json(res, 409, { error: "No active run" });
+      const window = recordOrEmpty(body.window);
+      const x = finiteNumberOrUndefined(window.x) ?? 0;
+      const y = finiteNumberOrUndefined(window.y) ?? 0;
+      const radius = clampInt(window.radius, 80, 1, 200);
+      const label = asString(body.label)?.trim() || "Captured layout";
+      const description = asString(body.description)?.trim() || "";
+      try {
+        const response = await rconCommand(
+          observeAreaCommand({
+            x,
+            y,
+            radius,
+            limit: 500,
+            types: [],
+            filters: [],
+            playerOnly: true,
+          }),
+          15_000,
+        );
+        const area = parseRconJson<unknown>(response, "RCON blueprint capture returned invalid JSON");
+        const record = asRecord(area);
+        const entities = Array.isArray(record?.entities) ? record.entities : [];
+        const captured = encodeCapturedBlueprint(entities, label, description);
+        const blueprint = runManager.registerBlueprint(runId, {
+          blueprint: captured.wire,
+          label,
+          description,
+          source: "built",
+        });
+        return json(res, 201, {
+          ok: true,
+          data: { blueprint, entity_count: captured.payload.blueprint.entities.length, wire: captured.wire },
+        });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "Blueprint capture failed" });
       }
     },
   });

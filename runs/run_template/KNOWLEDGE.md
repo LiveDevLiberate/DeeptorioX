@@ -129,6 +129,10 @@ issue coordinates for exact repairs.
 
 ## 9. Blueprints (`blueprints`)
 
+- Capture a validated layout with `blueprint-capture`; list/reuse before designing.
+- Iterate versions, compare entity/tile counts and output, keep the best; dry-run
+  before building and set recipes/settings afterward.
+
 - Create/save from a known-good layout; list with `blueprint-list`.
 - `act-build-blueprint` places relative to an anchor; dry-run first and pass the top-left anchor.
 - The manager expansion places entities/directions/subtypes but does NOT apply recipes/filters/modules; set them after.

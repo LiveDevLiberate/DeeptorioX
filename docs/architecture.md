@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Blueprint capture.** `encodeCapturedBlueprint` turns observed built entities
+(center positions + directions/recipes) into a normal wire string, and
+`/api/agent/blueprints/capture` registers it for the active run. This closes the
+build → capture → reuse/iterate loop.
+
 **Trapped-player rescue.** `FactorioClient.unstick` probes short path routes and
 mines low-value player-owned blockers with `allow_buildings` until movement
 opens; no teleport. It is a client-side recovery helper using existing actions.

@@ -282,9 +282,19 @@ choose a reachable shore/waypoint and build the route in stages.
 - `build_blueprint(text, anchor=(x,y))` executes in <=50-entity chunks and aggregates results.
 - CLI: `factorio.py blueprint-save --blueprint-file plan.txt --label "..."` (or `--blueprint <wire>`)
   and `factorio.py blueprint-list` do the same without writing a script.
-- `save_blueprint(payload_or_text, label="...", description="...")` stores a blueprint in the
-  current run's blueprint catalogue. When `AUTORIO_RUN_ID` is present, `build_blueprint` also
-  registers the blueprint automatically; use `list_blueprints()` to see what is already available.
+- **Capture successful layouts** with `blueprint-capture --label "cell v1"` (or
+  `client.capture_blueprint`). Capture only after `factory-audit` and
+  `observe-connections` pass; the command stores the current player-built area in
+  the run registry.
+- **Use the registry before redesigning**: `blueprint-list`, then build a
+  matching known-good blueprint with `build_blueprint(..., dry_run=True)`.
+- **Optimize by versions**: capture v1, measure output and compare
+  `entity_count`/`tile_count`/width/height; capture v2 with a new label, keep the
+  better one, delete/annotate the worse. Do not rebuild the same cell from
+  scratch each time.
+- `save_blueprint(payload_or_text, label="...", description="...")` also stores a
+  blueprint in the current run catalogue. `build_blueprint` registers what it
+  builds automatically; use `list_blueprints()` to see available designs.
   Underground belt / pipe-to-ground input/output subtypes are preserved (the manager creates
   the explicit subtype and consumes the item); recipes/filters/modules still need a follow-up
   `act-set-recipe`/manual edit. Prefer proven community blueprints for smelting arrays,

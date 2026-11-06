@@ -81,6 +81,11 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Blueprint capture and iteration.** `POST /api/agent/blueprints/capture` /
+  `blueprint-capture` serializes the current player-built area into a normal
+  blueprint string and registers it in the run catalogue. Prompt/COOKBOOK/
+  KNOWLEDGE require capturing validated cells, reusing existing blueprints,
+  comparing entity/tile counts across versions and keeping the best.
 - **Trapped-player rescue.** `unstick`/`client.unstick()` tries short routes in
   eight directions, then natively mines low-value player-owned blockers
   (belts/pipes/poles/walls/gates, machines last) until a route opens; no

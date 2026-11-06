@@ -152,6 +152,20 @@ class ContinuousMiningTests(unittest.TestCase):
         self.assertFalse(result["depleted"])
 
 
+class BlueprintCaptureTests(unittest.TestCase):
+    def test_capture_blueprint_payload_and_cli_usage(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.capture_blueprint(x=1, y=2, radius=3, label="cell", description="v1")
+        request.assert_called_once_with("POST", "/api/agent/blueprints/capture", {
+            "window": {"x": 1, "y": 2, "radius": 3},
+            "label": "cell",
+            "description": "v1",
+        })
+        self.assertIn("blueprint-capture", factorio.COMMAND_USAGE)
+        self.assertIn("blueprint-capture", factorio.GLOBAL_USAGE)
+
+
 class UnstickTests(unittest.TestCase):
     def test_unstick_returns_when_a_route_is_already_open(self):
         client = factorio.FactorioClient(poll_interval=0)
@@ -1528,6 +1542,16 @@ class PlanBuildAndBuilderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "straight-only"):
             client.build_line("underground-pipe", (0, 0), (0, 2))
 
+    def test_underground_pipe_route_prefers_pairs_but_keeps_corners_surface(self):
+        route = factorio.plan_underground_pipe_route(
+            [{"x": 0.5, "y": 0.5}, {"x": 0.5, "y": 25.5}], max_distance=10)
+        names = [entity["name"] for entity in route]
+        self.assertIn("pipe-to-ground", names)
+        self.assertIn("pipe", names)
+        self.assertGreaterEqual(names.count("pipe-to-ground"), 2)
+        anchors = [(entity["anchor"]["x"], entity["anchor"]["y"]) for entity in route]
+        self.assertEqual(len(anchors), len(set(anchors)))
+
     def test_build_pipe_route_uses_path_preview_result(self):
         client = factorio.FactorioClient(poll_interval=0)
         with patch.object(client, "preview_path", return_value={
@@ -1537,7 +1561,7 @@ class PlanBuildAndBuilderTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         entities = submit.call_args.args[0]
         self.assertEqual(
-            [(entity["anchor"]["x"], entity["anchor"]["y"]) for entity in entities],
+            sorted((entity["anchor"]["x"], entity["anchor"]["y"]) for entity in entities),
             [(0, 0), (0, 1), (0, 2)],
         )
         self.assertIn("build-pipe-route", factorio.COMMAND_USAGE)

@@ -44,6 +44,7 @@ export const AGENT_KNOWLEDGE: KnowledgeTopic[] = [
       "Underground pipe pairs cross belts/buildings without mixing; both endpoints must face the same travel direction and stay within max distance.",
       "Storage tanks buffer one fluid; a full tank backs up its network just like a full belt.",
       "Long runs and high-consumption machines need pumps; a pipe network has finite throughput and equalizes levels rather than creating infinite flow.",
+      "Prefer underground pipe pairs for long runs and walkways: surface only at endpoints/corners/connections. build-line --kind pipe defaults to mostly underground pipe-to-ground; use --surface-pipes only when deliberate.",
       "When byproducts/fluids must not mix, use separate networks and pumps, not a junction.",
     ],
     mistakes: [
