@@ -79,6 +79,8 @@ Commands:
   observe-recipes --limit-recipes <n> [--unlocked-only]
   observe-entity --target x,y [--target ...] [--targets-json <json>]
   observe-container --target x,y
+  belt-contents --target x,y
+  fluid-contents --target x,y
   recover-debris [--center-x n --center-y n --radius n]
   observe-resources --window-x <n> --window-y <n> --radius <n>
   tools [--json] [--local] [--query <text>]
@@ -208,6 +210,8 @@ COMMAND_USAGE = {
     "act-craft": "act-craft: Queue a handcraft and verify its products appear (or use --no-wait).\nUsage: factorio.py act-craft --item <name> --count <n> [--no-wait]\n",
     "act-insert": "act-insert: Move items from player inventory into an entity at x,y.\nUsage: factorio.py act-insert --entity x,y --item <name> --count <n>\nNote: The character walks into reach using native pathfinding.\n",
     "act-extract": "act-extract: Remove items from an entity at x,y into player inventory.\nUsage: factorio.py act-extract --entity x,y --item <name> --count <n|all>\nNote: The character walks into reach using native pathfinding.\n",
+    "belt-contents": "belt-contents: Show items currently on the belt/splitter/underground line at a tile.\nUsage: factorio.py belt-contents --target x,y\n",
+    "fluid-contents": "fluid-contents: Show actual fluid amounts inside a pipe/fluid entity at a tile.\nUsage: factorio.py fluid-contents --target x,y\n",
     "observe-container": "observe-container: Show a chest/container inventory at a tile.\nUsage: factorio.py observe-container --target x,y\n",
     "container-transfer": "container-transfer: Move items between containers through the player inventory; omit --item to move all stacks.\nUsage: factorio.py container-transfer --from x,y --to x,y [--item name] [--count n|all]\n",
     "recover-debris": "recover-debris: Scan crash-site spaceship debris, extract loot into the player inventory, then mine each piece.\nUsage: factorio.py recover-debris [--center-x n --center-y n --radius n]\n",
@@ -2120,6 +2124,29 @@ class FactorioClient:
         items = _observation_inventory_items(observation)
         return {"ok": bool(isinstance(data, dict) and data.get("ok")), "entity": data, "items": items}
 
+    def belt_contents(self, x: float, y: float) -> dict[str, Any]:
+        """Read items currently on a belt/splitter/underground line at a tile."""
+        observation = self.observe_entities([{"x": x, "y": y}])
+        data = data_value(observation)
+        first = {}
+        if isinstance(data, dict) and isinstance(data.get("results"), list) and data["results"]:
+            first = data["results"][0] if isinstance(data["results"][0], dict) else {}
+        return {"ok": bool(first.get("ok")), "entity": first.get("name"), "belt": first.get("belt")}
+
+    def fluid_contents(self, x: float, y: float) -> dict[str, Any]:
+        """Read the actual fluids currently inside a pipe/fluid entity."""
+        observation = self.observe_entities([{"x": x, "y": y}])
+        data = data_value(observation)
+        first = {}
+        if isinstance(data, dict) and isinstance(data.get("results"), list) and data["results"]:
+            first = data["results"][0] if isinstance(data["results"][0], dict) else {}
+        return {
+            "ok": bool(first.get("ok")),
+            "entity": first.get("name"),
+            "fluid_contents": first.get("fluid_contents") or [],
+            "fluid_boxes": first.get("fluid_boxes") or [],
+        }
+
     def container_transfer(self, source: dict[str, Any], target: dict[str, Any],
                            *, item: str | None = None,
                            count: int | str | None = None) -> dict[str, Any]:
@@ -3913,6 +3940,15 @@ def run(argv: list[str]) -> int:
             raw_count = flag("count")
             count: Any = "all" if cmd == "act-extract" and raw_count == "all" else parse_number(raw_count, 1)
             job = submit(cmd.removeprefix("act-"), {"entity": target, "item": item, "count": count})
+        elif cmd in ("belt-contents", "fluid-contents"):
+            target = parse_targets([flag("target") or ""], False)[0] if flag("target") else None
+            if not target:
+                raise ValueError("Missing --target")
+            client = FactorioClient(parsed.base)
+            result = (client.belt_contents(target["x"], target["y"])
+                      if cmd == "belt-contents"
+                      else client.fluid_contents(target["x"], target["y"]))
+            return output(result, ok=bool(result.get("ok")))
         elif cmd == "observe-container":
             target = parse_targets([flag("target") or ""], False)[0] if flag("target") else None
             if not target:

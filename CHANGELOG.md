@@ -81,6 +81,10 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Belt and pipe contents observation.** `observe-entity` now includes
+  `belt.lines` (items per belt lane via transport lines) and `fluid_contents`
+  (actual fluid amounts inside the entity). New `belt-contents`/`fluid-contents`
+  commands expose the same checks; COOKBOOK/KNOWLEDGE/prompt document them.
 - **No-idle agent policy.** Explicit CLI `wait` is disabled, blocking waits are
   capped at 5 seconds (`AUTORIO_MAX_WAIT_SECONDS`), shell/Python sleep shims cap
   at 2 seconds, and the prompt/AGENTS/COOKBOOK require a 3-item next-work queue:

@@ -79,6 +79,12 @@
       "usage": "Usage: factorio.py alerts [--ack]"
     },
     {
+      "command": "belt-contents",
+      "description": "Show items currently on the belt/splitter/underground line at a tile.",
+      "help": "Usage: factorio.py belt-contents --target x,y",
+      "usage": "Usage: factorio.py belt-contents --target x,y"
+    },
+    {
       "command": "blueprint-list",
       "description": "List blueprints recorded for a run (active run by default).",
       "help": "Usage: factorio.py blueprint-list [--run-id <id>]",
@@ -179,6 +185,12 @@
       "description": "List all curated entity behavior, flow, placement rules and common mistakes (no game call required).",
       "help": "Usage: factorio.py entity-usage-catalog",
       "usage": "Usage: factorio.py entity-usage-catalog"
+    },
+    {
+      "command": "fluid-contents",
+      "description": "Show actual fluid amounts inside a pipe/fluid entity at a tile.",
+      "help": "Usage: factorio.py fluid-contents --target x,y",
+      "usage": "Usage: factorio.py fluid-contents --target x,y"
     },
     {
       "command": "job-cancel",
@@ -385,6 +397,27 @@
       "name": "alerts",
       "parameters": [],
       "signature": "alerts(self) -> 'Any'"
+    },
+    {
+      "description": "Read items currently on a belt/splitter/underground line at a tile.",
+      "name": "belt_contents",
+      "parameters": [
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "x",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "y",
+          "required": true
+        }
+      ],
+      "signature": "belt_contents(self, x: 'float', y: 'float') -> 'dict[str, Any]'"
     },
     {
       "description": "Build entities after mining trees/rocks from their footprints.",
@@ -1343,6 +1376,27 @@
         }
       ],
       "signature": "extract(self, entity: 'dict[str, float]', item: 'str', count: 'int | str' = 1, **options: 'Any') -> 'Any'"
+    },
+    {
+      "description": "Read the actual fluids currently inside a pipe/fluid entity.",
+      "name": "fluid_contents",
+      "parameters": [
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "x",
+          "required": true
+        },
+        {
+          "annotation": "float",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "y",
+          "required": true
+        }
+      ],
+      "signature": "fluid_contents(self, x: 'float', y: 'float') -> 'dict[str, Any]'"
     },
     {
       "description": "",
@@ -2674,7 +2728,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "84114a9f7a05b84a31171d3030f977f9298b2b5c3bce34d4eb02ba6947a039af",
+  "client_sha256": "82b161c21cb8f759477447c3a782a6d816a9e42a43b4363474ac90dcd680ec7e",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2849,7 +2903,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "84114a9f7a05b84a31171d3030f977f9298b2b5c3bce34d4eb02ba6947a039af",
+    "factorio.py": "82b161c21cb8f759477447c3a782a6d816a9e42a43b4363474ac90dcd680ec7e",
     "src/api/agent.ts": "7d9917f8e19dc81337b8b48816f8c388897e8426c0fd9a4dbbefb6d3512270b3",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",

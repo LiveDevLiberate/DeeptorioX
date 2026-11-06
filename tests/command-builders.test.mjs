@@ -215,6 +215,9 @@ test("agentObserveEntityCommand reports footprint and anchor for multi-tile buil
   assert.ok(lua.includes("anchor={x=footprint.left,y=footprint.top}"));
   assert.ok(lua.includes("collision_bounds="));
   assert.ok(lua.includes("interfaces={}"));
+  assert.ok(lua.includes("get_transport_line(line_index)"));
+  assert.ok(lua.includes("get_fluid_contents()"));
+  assert.ok(lua.includes("belt=belt,fluid_contents=fluid_contents"));
   assert.ok(lua.includes("port('pickup'"));
   assert.ok(lua.includes("kind='fluid'"));
 });

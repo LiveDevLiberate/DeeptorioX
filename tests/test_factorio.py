@@ -152,6 +152,29 @@ class ContinuousMiningTests(unittest.TestCase):
         self.assertFalse(result["depleted"])
 
 
+class BeltFluidContentsTests(unittest.TestCase):
+    def test_belt_and_fluid_contents_parse_observation(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "observe_entities", return_value={"data": {"results": [{
+            "ok": True,
+            "name": "transport-belt",
+            "belt": {"lines": [{"index": 1, "items": [{"name": "coal", "count": 4}]},
+                               {"index": 2, "items": [{"name": "iron-ore", "count": 2}]}]},
+        }]}}):
+            belt = client.belt_contents(1, 2)
+        self.assertEqual(belt["belt"]["lines"][0]["items"][0], {"name": "coal", "count": 4})
+        with patch.object(client, "observe_entities", return_value={"data": {"results": [{
+            "ok": True,
+            "name": "pipe",
+            "fluid_contents": [{"name": "water", "amount": 80}],
+            "fluid_boxes": [],
+        }]}}):
+            fluid = client.fluid_contents(3, 4)
+        self.assertEqual(fluid["fluid_contents"], [{"name": "water", "amount": 80}])
+        self.assertIn("belt-contents", factorio.COMMAND_USAGE)
+        self.assertIn("fluid-contents", factorio.COMMAND_USAGE)
+
+
 class WaitPolicyTests(unittest.TestCase):
     def test_wait_until_is_capped_and_explains_switch_tasks(self):
         client = factorio.FactorioClient(poll_interval=0)

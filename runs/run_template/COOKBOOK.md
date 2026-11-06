@@ -358,6 +358,17 @@ choose a reachable shore/waypoint and build the route in stages.
 - At every checkpoint ask: "what can be built or fixed right now?" and do that
   before polling production again.
 
+## 12.5 Inspecting belt and pipe contents
+
+- `belt-contents --target x,y` (or `observe-entity`) returns `belt.lines[]` with
+  the items currently on each belt lane, e.g. coal on lane 1 and ore on lane 2.
+- `fluid-contents --target x,y` returns actual `fluid_contents` (name/amount)
+  inside a pipe/fluid entity, plus fluid-box details.
+- `observe-fluids` summarizes whole fluid networks; use `fluid-contents` when
+  you need to know whether a specific pipe actually contains liquid.
+- Belt contents are transient; re-check after a few seconds before concluding
+  a lane is empty. Entity inventories remain under `inventories`.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

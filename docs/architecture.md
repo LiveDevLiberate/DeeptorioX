@@ -189,6 +189,11 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Belt/pipe contents.** Entity observation reads `LuaTransportLine.get_contents`
+for up to two belt lanes and `LuaEntity.get_fluid_contents` for actual fluid
+amounts; `belt-contents`/`fluid-contents` are thin client helpers over
+`observe-entity`.
+
 **No-idle policy.** Explicit `wait` is rejected, `wait_for_*`/`wait_until`
   deadlines are capped by `AUTORIO_MAX_WAIT_SECONDS` (default 5s), and the
   shell/Python sleep shims cap at 2s. Prompt, AGENTS template and COOKBOOK require

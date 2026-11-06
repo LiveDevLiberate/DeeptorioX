@@ -21,6 +21,12 @@ section below.
 - Tanks buffer one fluid; full output backs up the network.
 - Long/high-volume runs need pumps; pipes equalize levels but do not create infinite flow.
 
+## 2.5 Belt and pipe contents
+
+- `belt-contents --target x,y` shows items on each belt lane (`belt.lines`).
+- `fluid-contents --target x,y` shows actual fluid amounts inside a pipe/entity;
+  `observe-fluids` shows whole networks.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.
