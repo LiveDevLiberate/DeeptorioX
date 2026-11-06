@@ -91,6 +91,12 @@
       "usage": "Usage: factorio.py blueprint-capture [--center-x n --center-y n --radius n] [--label text] [--description text]"
     },
     {
+      "command": "blueprint-evaluate",
+      "description": "Report structural and optional dynamic efficiency for a blueprint.",
+      "help": "Usage: factorio.py blueprint-evaluate (--blueprint-file path|--blueprint string|--id id) [--output item=rate] [--power-kw n] [--build-seconds n] Static: footprint/entity/machine/belt/inserter density. Dynamic requires built-cell output rates, power and build time.",
+      "usage": "Usage: factorio.py blueprint-evaluate (--blueprint-file path|--blueprint string|--id id) [--output item=rate] [--power-kw n] [--build-seconds n]"
+    },
+    {
       "command": "blueprint-list",
       "description": "List blueprints recorded for a run (active run by default).",
       "help": "Usage: factorio.py blueprint-list [--run-id <id>]",
@@ -1421,6 +1427,48 @@
       "name": "entity_usage_catalog",
       "parameters": [],
       "signature": "entity_usage_catalog(self) -> 'Any'"
+    },
+    {
+      "description": "Evaluate a blueprint's structural (and optional dynamic) efficiency.",
+      "name": "evaluate_blueprint",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "blueprint",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "blueprint_id",
+          "required": false
+        },
+        {
+          "annotation": "dict[str, float] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "outputs",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "power_kw",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "build_seconds",
+          "required": false
+        }
+      ],
+      "signature": "evaluate_blueprint(self, *, blueprint: 'Any' = None, blueprint_id: 'str | None' = None, outputs: 'dict[str, float] | None' = None, power_kw: 'float | None' = None, build_seconds: 'float | None' = None) -> 'Any'"
     },
     {
       "description": "",
@@ -2885,7 +2933,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "2376e56c7c2a24a9dd51d6b5545e294f52a1a546cb177ca467ef285bdf568c06",
+  "client_sha256": "f90214e50711346d93008f52aebb28d62445e0045100577289078b795c0cb154",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -2946,6 +2994,10 @@
     {
       "method": "POST",
       "path": "/api/agent/blueprints/capture"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/blueprints/evaluate"
     },
     {
       "method": "POST",
@@ -3068,8 +3120,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "2376e56c7c2a24a9dd51d6b5545e294f52a1a546cb177ca467ef285bdf568c06",
-    "src/api/agent.ts": "038036b67facb9e4687d6efbee297fb1a832945cfee35ad217e2cd3a818ff6a7",
+    "factorio.py": "f90214e50711346d93008f52aebb28d62445e0045100577289078b795c0cb154",
+    "src/api/agent.ts": "cfb4c21bdbec6730373fb945155dea75b22ea51360b7c0ef1a5f69b10b5acb9c",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "ced4cd9e450bddb3a4cec0a47f180ba6784ddbae6a6b7cccb93ac46cf5c8df45",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",

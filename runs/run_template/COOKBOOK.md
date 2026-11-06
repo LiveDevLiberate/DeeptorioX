@@ -497,6 +497,23 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   compare versions and keep the best. The run page Blueprints count/panel shows
   every captured design.
 
+## 12.14 Evaluating blueprint efficiency
+
+- Static evaluation (before/after capture):
+  `blueprint-evaluate --id <id>` reports entity_count, tile_count, machines,
+  belts, inserters, poles, pipes, machines/100 tiles, support/machine and a
+  structural score (machine density minus overhead).
+- Dynamic evaluation (after building the cell):
+  `blueprint-evaluate --id <id> --output iron-gear-wheel=60 --power-kw 30 --build-seconds 120`
+  adds output/min, output/tile, output/machine, output/entity, output/kW and
+  build-time/entity.
+- Compare versions only with the same recipe/output; prefer Pareto improvements:
+  same or more output with no more tiles, entities, power or invalid
+  connections. A structurally denser blueprint is not automatically better if
+  its throughput or power efficiency is worse.
+- Capture v1, measure, capture v2, evaluate both, keep the winner, delete/rename
+  the loser.
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.

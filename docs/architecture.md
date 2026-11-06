@@ -189,6 +189,12 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Blueprint efficiency.** `evaluateBlueprint` decodes a stored/wire blueprint,
+classifies machine/belt/inserter/pole/pipe support, computes density metrics and
+accepts dynamic output/power/build-time inputs for output-per-tile/machine/kW.
+Scores are transparent structural and dynamic indexes, not a single universal
+truth.
+
 **Blueprint gate.** `RunManager.blueprintGate` rejects build jobs after the
 opening grace until the run registry contains a blueprint; capture is an
 observation/registry action and remains allowed. This enforces capture and

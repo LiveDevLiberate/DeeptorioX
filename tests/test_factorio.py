@@ -152,6 +152,24 @@ class ContinuousMiningTests(unittest.TestCase):
         self.assertFalse(result["depleted"])
 
 
+class BlueprintEvaluateTests(unittest.TestCase):
+    def test_evaluate_blueprint_payload_and_usage(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.evaluate_blueprint(
+                blueprint="wire", blueprint_id="abc",
+                outputs={"iron-gear-wheel": 60}, power_kw=30, build_seconds=120)
+        request.assert_called_once_with("POST", "/api/agent/blueprints/evaluate", {
+            "blueprint": "wire",
+            "blueprint_id": "abc",
+            "outputs": {"iron-gear-wheel": 60},
+            "power_kw": 30,
+            "build_seconds": 120,
+        })
+        self.assertIn("blueprint-evaluate", factorio.COMMAND_USAGE)
+        self.assertIn("blueprint-evaluate", factorio.GLOBAL_USAGE)
+
+
 class BlueprintCaptureTests(unittest.TestCase):
     def test_capture_blueprint_payload_and_cli_usage(self):
         client = factorio.FactorioClient(poll_interval=0)

@@ -81,6 +81,12 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Blueprint efficiency evaluator.** `blueprint-evaluate` / `POST
+  /api/agent/blueprints/evaluate` reports static density (entities/tiles,
+  machines, belt/inserter/pole support) and optional dynamic metrics
+  (output/min per tile/machine/entity/kW, build time) with transparent
+  structural/dynamic scores. COOKBOOK/KNOWLEDGE document like-for-like Pareto
+  comparison.
 - **Blueprint gate.** After the opening grace, build jobs return
   `BLUEPRINT_REQUIRED` until at least one validated layout is captured. This
   makes the build → capture → reuse/iterate loop mandatory and fills the run

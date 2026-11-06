@@ -9,6 +9,7 @@ import { entityUsage, entityUsageCatalog } from "../entity-usage.js";
 import { summarizeConnectionsData } from "../connection-summary.js";
 import { buildRefactorAudit } from "../refactor-audit.js";
 import { encodeCapturedBlueprint } from "../blueprint-capture.js";
+import { evaluateBlueprint } from "../blueprint-evaluate.js";
 import { observeAreaCommand } from "../area-edit.js";
 import { knowledgeCatalog, knowledgeTopic } from "../agent-knowledge.js";
 import {
@@ -1239,6 +1240,51 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         return json(res, 200, { ok: true, data });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/agent/blueprints/evaluate",
+    name: "/api/agent/blueprints/evaluate",
+    handler: async (request) => {
+      const { req, res } = request;
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
+      const runId = runManager.activeRunId();
+      let wire = asString(body.blueprint)?.trim();
+      let label = asString(body.label)?.trim();
+      const blueprintId = asString(body.blueprint_id)?.trim();
+      if (!wire && blueprintId) {
+        if (!runId) return json(res, 409, { error: "No active run" });
+        const stored = runManager.blueprint(runId, blueprintId);
+        if (!stored) return json(res, 404, { error: "Blueprint not found" });
+        wire = stored.wire;
+        label = label || stored.label;
+      }
+      if (!wire) return json(res, 400, { error: "Missing blueprint or blueprint_id" });
+      const outputs: Record<string, number> = {};
+      const rawOutputs = asRecord(body.outputs);
+      if (rawOutputs) {
+        for (const [item, value] of Object.entries(rawOutputs)) {
+          const rate = Number(value);
+          if (Number.isFinite(rate)) outputs[item] = rate;
+        }
+      }
+      try {
+        const evaluation = evaluateBlueprint({
+          wire,
+          blueprintId: blueprintId || undefined,
+          label,
+          outputs,
+          powerKw: Number(body.power_kw) || 0,
+          buildSeconds: Number(body.build_seconds) || 0,
+        });
+        return json(res, 200, { ok: true, data: evaluation });
+      } catch (error) {
+        return json(res, 400, { error: errorMessage(error) });
       }
     },
   });

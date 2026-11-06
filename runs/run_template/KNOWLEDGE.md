@@ -86,6 +86,12 @@ issue coordinates for exact repairs.
 - No blueprint after the opening grace means build jobs return
   `BLUEPRINT_REQUIRED`. Capture a validated cell first; then reuse/iterate.
 
+## 2.997 Blueprint efficiency
+
+- Static: machines/tile, support/machine, entity and tile counts.
+- Dynamic after building: output/min per tile/machine/entity/kW and build time.
+- Compare like-for-like recipes; prefer Pareto improvements, not a single score.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.

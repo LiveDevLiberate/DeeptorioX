@@ -88,6 +88,7 @@ Commands:
   blueprint-list [--run-id <id>]
   blueprint-save (--blueprint-file <path>|--blueprint <string>) [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]
   blueprint-capture [--center-x n --center-y n --radius n] [--label <text>] [--description <text>]
+  blueprint-evaluate (--blueprint-file <path>|--blueprint <string>|--id <id>) [--output item=rate] [--power-kw n] [--build-seconds n]
   state-show
   state-write --current <text> [--done-when <text>] [--next <text>] [--scores k=v,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]
   observe-factory --center-x <n> --center-y <n> --radius <n>
@@ -172,6 +173,7 @@ COMMAND_USAGE = {
     "observe-factory": "observe-factory: Summarize power, fuel, and entity status counts in a window.\nUsage: factorio.py observe-factory --center-x <n> --center-y <n> --radius <n>\n",
     "tools": "tools: Fetch the generated tool manifest (client methods, parameters, CLI usage, manager endpoints).\nUsage: factorio.py tools [--json] [--local] [--query <text>]\n--json prints the manifest as JSON; --local introspects factorio.py without the manager; --query filters matching commands/methods/endpoints. (The manager also serves GET /api/agent/tools?q=...)\n",
     "blueprint-capture": "blueprint-capture: Capture the player-built layout in an area into the run blueprint registry.\nUsage: factorio.py blueprint-capture [--center-x n --center-y n --radius n] [--label text] [--description text]\nCapture after the layout passes factory-audit/observe-connections; reuse and iterate on saved blueprints.\n",
+    "blueprint-evaluate": "blueprint-evaluate: Report structural and optional dynamic efficiency for a blueprint.\nUsage: factorio.py blueprint-evaluate (--blueprint-file path|--blueprint string|--id id) [--output item=rate] [--power-kw n] [--build-seconds n]\nStatic: footprint/entity/machine/belt/inserter density. Dynamic requires built-cell output rates, power and build time.\n",
     "blueprint-list": "blueprint-list: List blueprints recorded for a run (active run by default).\nUsage: factorio.py blueprint-list [--run-id <id>]\n",
     "blueprint-save": "blueprint-save: Persist a designed blueprint string for the active run without building it.\nUsage: factorio.py blueprint-save --blueprint-file <path> [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]\n   or: factorio.py blueprint-save --blueprint <string> [--label <text>]\n",
     "state-show": "state-show: Read the active run's STATE.md freshness/status.\nUsage: factorio.py state-show\n",
@@ -2023,6 +2025,22 @@ class FactorioClient:
             "description": description,
         })
 
+    def evaluate_blueprint(self, *, blueprint: Any = None, blueprint_id: str | None = None,
+                           outputs: dict[str, float] | None = None,
+                           power_kw: float | None = None,
+                           build_seconds: float | None = None) -> Any:
+        """Evaluate a blueprint's structural (and optional dynamic) efficiency."""
+        if blueprint is not None and not isinstance(blueprint, str):
+            raise ValueError("blueprint must be a blueprint string")
+        body: dict[str, Any] = {
+            "blueprint": blueprint,
+            "blueprint_id": blueprint_id,
+            "outputs": outputs or {},
+            "power_kw": power_kw,
+            "build_seconds": build_seconds,
+        }
+        return self.request("POST", "/api/agent/blueprints/evaluate", body)
+
     def server_status(self) -> Any:
         return self.request("GET", "/api/server/status")
 
@@ -3825,6 +3843,33 @@ def run(argv: list[str]) -> int:
                 radius=parse_number(flag("radius"), 80) or 80,
                 label=flag("label"),
                 description=flag("description"),
+            ))
+            return output(result, ok=True)
+        if cmd == "blueprint-evaluate":
+            blueprint_file = flag("blueprint-file")
+            blueprint_string = flag("blueprint")
+            if blueprint_file:
+                try:
+                    with open(blueprint_file, "r", encoding="utf-8") as handle:
+                        blueprint_string = handle.read()
+                except OSError as error:
+                    raise ValueError(
+                        f"Cannot read --blueprint-file {blueprint_file!r}: {error}") from error
+            outputs: dict[str, float] = {}
+            for entry in flags.get("output", []):
+                item, _, rate = entry.partition("=")
+                if not item or _ == "":
+                    raise ValueError(f"Invalid --output '{entry}'; use item=rate")
+                parsed_rate = parse_number(rate, None)
+                if parsed_rate is None:
+                    raise ValueError(f"Invalid --output rate '{entry}'")
+                outputs[item.strip()] = float(parsed_rate)
+            result = data_value(FactorioClient(parsed.base).evaluate_blueprint(
+                blueprint=blueprint_string,
+                blueprint_id=flag("id"),
+                outputs=outputs,
+                power_kw=parse_number(flag("power-kw"), None),
+                build_seconds=parse_number(flag("build-seconds"), None),
             ))
             return output(result, ok=True)
         if cmd == "blueprint-list":
