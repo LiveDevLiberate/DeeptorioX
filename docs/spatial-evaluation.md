@@ -22,3 +22,7 @@ python3 factorio.py geometry-check --entity transport-belt,0,0
 The 2026-11-06 checkpoint was used for a live smoke test: pipeline returned
 machines/inserters/pipes/power nodes and bottlenecks, free-space returned a
 buildable grid with components, and geometry-check returned `ok`.
+
+## Operator view
+
+Open `/pipeline.html` while the game is running to inspect the same graph used by the agent.

@@ -588,6 +588,8 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   - edges (`inserter`, `belt`, `pipe`, `power_range`) and a prioritized
     `bottlenecks` list.
 - Use `pipeline-audit` for only the bottleneck section when deciding what to fix.
+- Operator UI: `/pipeline.html` loads the same graph (counts, bottlenecks,
+  machines, power networks and belt segments) from the running game.
 - Maintain `LAYOUT.md` with anchors, axes, machine/pole grids, pipe corridors,
   segment head/tail, known gaps and next extension. Update it before/after layout
   changes; do not keep geometry only in context.

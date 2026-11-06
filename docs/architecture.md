@@ -227,6 +227,9 @@ surfaces existing designs in the UI.
 `power_network_groups`; unnetworked poles only get local range heuristics. This
 avoids O(N²) power edges in a large base.
 
+**Pipeline UI.** `/pipeline.html` queries `/api/agent/observe/pipeline` and renders
+counts/bottlenecks/machines/power networks/belt segments for the operator.
+
 **Pipeline flow metadata.** Area observations include belt line contents,
 entity fluid contents and pole electric-network ids; the graph merges these into
 belt `items`, pipe/machine `fluid`, `power_networks` and `power_network` edges.

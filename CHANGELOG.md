@@ -93,6 +93,9 @@ this file.
 - **Geometry direction validation.** `geometry-check` rejects cardinal directions
   outside 0/4/8/12 in addition to footprint/rotation/overlap and native placement
   blockers.
+- **Pipeline UI + belt capacity estimates.** `/pipeline.html` renders graph
+  counts, bottlenecks, machines, power networks and belt segments; belts now
+  include tier capacity, contained item count and a saturation estimate.
 - **Pipeline flow metadata.** Pipeline nodes now carry belt contents,
   pipe/machine fluids and pole `network_id`; `power_network` edges and
   `power_networks` counts are derived, improving bottleneck diagnosis beyond

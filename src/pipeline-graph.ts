@@ -210,6 +210,12 @@ export function buildPipelineGraph(
     }
   }
 
+  const beltCapacity = (name: string): number => {
+    if (name.startsWith("express-")) return 45;
+    if (name.startsWith("fast-")) return 30;
+    return 15;
+  };
+
   const belts = list(connectionData.belts).map((raw) => {
     const x = Math.floor(num(raw.x));
     const y = Math.floor(num(raw.y));
@@ -226,8 +232,19 @@ export function buildPipelineGraph(
       next_connection: text(raw.next_connection) ?? null,
       parallel_belts: num(raw.parallel_belts),
       items: nodes.get(nodeId(text(raw.name) ?? "transport-belt", x, y))?.belt_items ?? [],
+      capacity_items_per_second: beltCapacity(text(raw.name) ?? "transport-belt"),
     };
   });
+  for (const belt of belts) {
+    const itemCount = belt.items.reduce((sum, item) => sum + item.count, 0);
+    (belt as Record<string, unknown>).item_count = itemCount;
+    // Two lanes * 8 items per tile is the vanilla belt-tile capacity; this is a
+    // content saturation estimate, not measured throughput.
+    (belt as Record<string, unknown>).saturation_estimate = Math.min(1, itemCount / 16);
+    (belt as Record<string, unknown>).capacity_basis =
+      "static_tier_capacity; throughput needs production sampling";
+  }
+
   const beltByTile = new Map(belts.map((belt) => [tileKey(belt.x, belt.y), belt]));
   for (const belt of belts) {
     if (!belt.next) continue;

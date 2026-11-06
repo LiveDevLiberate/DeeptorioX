@@ -90,6 +90,9 @@ test("pipeline graph exposes machine ports, belt segments, pipes, power and bott
   assert.equal(graph.counts.power_networks, 1);
   assert.equal(graph.power_network_groups[0].count, 2);
   assert.deepEqual(graph.belts[0].items, [{ name: "iron-ore", count: 2 }]);
+  assert.equal(graph.belts[0].capacity_items_per_second, 15);
+  assert.equal(graph.belts[0].item_count, 2);
+  assert.ok(graph.belts[0].saturation_estimate > 0);
   assert.deepEqual(graph.pipes[0].fluid, { water: 10 });
   assert.ok(graph.bottlenecks.some((entry) => entry.kind === "no_power"));
   assert.ok(graph.bottlenecks.some((entry) => entry.kind === "belt_no_input"));

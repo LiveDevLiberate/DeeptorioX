@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pipeline perception · Autorio</title>
+  <link rel="stylesheet" href="/runs.css">
+  <style>
+    .pipeline-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .pipeline-card { border: 1px solid #2b3442; padding: 10px 12px; background: #111821; }
+    .pipeline-card h3 { margin: 0 0 8px; font-size: 14px; }
+    .pipeline-card pre { margin: 0; white-space: pre-wrap; font-size: 12px; }
+    #pipelineBottlenecks table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    #pipelineBottlenecks th, #pipelineBottlenecks td { border-bottom: 1px solid #2b3442; padding: 4px 6px; text-align: left; }
+    .sev-critical { color: #ff6b61; }
+    .sev-warning { color: #ffd166; }
+  </style>
+</head>
+<body><main>
+  <header>
+    <div><span class="eyebrow">FACTORIO · AGENT PERCEPTION</span><h1>Pipeline graph</h1></div>
+    <nav><a href="/">← All runs</a><a href="/pipeline.html">Refresh</a></nav>
+  </header>
+  <p id="error" role="alert"></p>
+  <form id="pipelineForm">
+    <label>Center x <input id="centerX" type="number" step="1" value="0" required></label>
+    <label>Center y <input id="centerY" type="number" step="1" value="0" required></label>
+    <label>Radius <input id="radius" type="number" min="1" max="200" step="1" value="80" required></label>
+    <button type="submit">Load pipeline</button>
+  </form>
+  <p id="summary" class="muted">Loads the agent's structured pipeline graph from the running game.</p>
+  <div id="pipelineContent" hidden>
+    <section class="pipeline-grid" id="pipelineCounts"></section>
+    <section id="pipelineBottlenecks" aria-label="Bottlenecks"></section>
+    <section class="pipeline-grid" id="pipelineDetails"></section>
+  </div>
+</main><script src="/pipeline.js"></script></body>
+</html>

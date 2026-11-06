@@ -121,6 +121,7 @@ issue coordinates for exact repairs.
 - `observe-pipeline` gives structured topology/ports/bottlenecks, belt contents,
   pipe fluids and power network ids; use it before extending. Maintain
   `LAYOUT.md` for persistent coordinates/grids.
+- The `/pipeline.html` UI shows the same graph for operator inspection.
 - `observe-free-space` gives buildable cells/components; `geometry-check`
   validates footprints/rotation/overlaps before building.
 - `plan-route` plans belt/pipe/wall/power corridors through free space with A*;
