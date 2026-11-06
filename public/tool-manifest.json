@@ -211,6 +211,12 @@
       "usage": "Usage: factorio.py fluid-contents --target x,y"
     },
     {
+      "command": "geometry-check",
+      "description": "Validate planned footprints, rotations, overlaps and native placement without building.",
+      "help": "Usage: factorio.py geometry-check (--entity name,x,y[,dir] [--entity ...] | --entities-json <json>) Returns per-entity bbox, overlap pairs and placement blockers; use before building a layout.",
+      "usage": "Usage: factorio.py geometry-check (--entity name,x,y[,dir] [--entity ...] | --entities-json <json>)"
+    },
+    {
       "command": "job-cancel",
       "description": "Request cancellation after the current atomic action.",
       "help": "Usage: factorio.py job-cancel --job-id <id>",
@@ -281,6 +287,12 @@
       "description": "List fluid networks, levels and capacities around a window.",
       "help": "Usage: factorio.py observe-fluids --center-x <n> --center-y <n> --radius <n> Defaults: player position, radius 32.",
       "usage": "Usage: factorio.py observe-fluids --center-x <n> --center-y <n> --radius <n>"
+    },
+    {
+      "command": "observe-free-space",
+      "description": "Buildable grid of free/blocked cells plus largest connected free rectangles.",
+      "help": "Usage: factorio.py observe-free-space [--center-x n --center-y n --radius n] [--step n] Use for machine-row placement and corridor planning before building.",
+      "usage": "Usage: factorio.py observe-free-space [--center-x n --center-y n --radius n] [--step n]"
     },
     {
       "command": "observe-layout",
@@ -1609,6 +1621,27 @@
       "signature": "fluid_contents(self, x: 'float', y: 'float') -> 'dict[str, Any]'"
     },
     {
+      "description": "Check planned footprints, rotations, overlaps and native placement.",
+      "name": "geometry_check",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "entities",
+          "required": true
+        },
+        {
+          "annotation": "dict[str, Any] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "prototype_sizes",
+          "required": false
+        }
+      ],
+      "signature": "geometry_check(self, entities: 'Any', *, prototype_sizes: 'dict[str, Any] | None' = None) -> 'dict[str, Any]'"
+    },
+    {
       "description": "",
       "name": "insert",
       "parameters": [
@@ -2019,6 +2052,41 @@
         }
       ],
       "signature": "observe_fluids(self, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 32) -> 'Any'"
+    },
+    {
+      "description": "Buildable grid, blocked cells and largest free rectangles.",
+      "name": "observe_free_space",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "60",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "1",
+          "kind": "keyword_only",
+          "name": "step",
+          "required": false
+        }
+      ],
+      "signature": "observe_free_space(self, *, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 60, step: 'int' = 1) -> 'Any'"
     },
     {
       "description": "",
@@ -3050,7 +3118,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "c8d1784aab567d0472b02c3a12372f22b7343b3497c4725b563ed25392076c8c",
+  "client_sha256": "aec777e303ac28dbf2d67dff93aa4df0250fd721b51f5017d120005eee0795f6",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3174,6 +3242,10 @@
     },
     {
       "method": "POST",
+      "path": "/api/agent/observe/free-space"
+    },
+    {
+      "method": "POST",
       "path": "/api/agent/observe/layout"
     },
     {
@@ -3241,8 +3313,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "c8d1784aab567d0472b02c3a12372f22b7343b3497c4725b563ed25392076c8c",
-    "src/api/agent.ts": "7c744f99d98238c5a75bc439343ed33f672709fc7566327e702e5d80e7bfafe8",
+    "factorio.py": "aec777e303ac28dbf2d67dff93aa4df0250fd721b51f5017d120005eee0795f6",
+    "src/api/agent.ts": "921b6253a4840b2488a2b0835b4e9e282db176c6e0dcc2b07808a10de1339241",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",

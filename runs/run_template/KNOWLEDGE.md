@@ -120,6 +120,8 @@ issue coordinates for exact repairs.
 
 - `observe-pipeline` gives structured topology/ports/bottlenecks; use it before
   extending. Maintain `LAYOUT.md` for persistent coordinates/grids.
+- `observe-free-space` gives buildable cells/components; `geometry-check`
+  validates footprints/rotation/overlaps before building.
 
 ## 3. Trains (`trains`)
 

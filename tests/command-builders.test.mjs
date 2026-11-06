@@ -13,6 +13,7 @@ const {
   agentEntityPrototypeCommand,
   agentExtractCommand,
   agentFactoryCommand,
+  agentFreeSpaceCommand,
   agentInsertCommand,
   agentLayoutCommand,
   agentMapCommand,
@@ -385,4 +386,12 @@ test("inserter source is on its facing/pickup side and target is opposite", () =
   const lua = agentConnectionsCommand({ x: 0, y: 0, radius: 10 });
   assert.ok(lua.includes("source=summary(entity_at(tx+dx,ty+dy))"));
   assert.ok(lua.includes("target=summary(entity_at(tx-dx,ty-dy))"));
+});
+
+test("free-space command reports blocked cells and largest rectangles", () => {
+  const lua = agentFreeSpaceCommand({ x: 0, y: 0, radius: 20, step: 1 });
+  assert.ok(lua.includes("components"));
+  assert.ok(lua.includes("water/cliff"));
+  assert.ok(lua.includes("local free={}"));
+  assert.ok(lua.includes("area={{min_x,min_y},{max_x+1,max_y+1}}"));
 });

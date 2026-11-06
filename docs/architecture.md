@@ -223,6 +223,10 @@ opening grace until the run registry contains a blueprint; capture is an
 observation/registry action and remains allowed. This enforces capture and
 surfaces existing designs in the UI.
 
+**Free-space/geometry.** `observe-free-space` renders a buildable/blocked grid
+and connected free rectangles; `geometry-check` computes rotated footprints,
+detects overlaps and calls native placement analysis without building.
+
 **Pipeline perception.** `observe-pipeline` composes factory + connection +
 area observations into a graph of machines, inserters, belts, pipes and power,
 with bboxes/status/recipe and prioritized bottlenecks; `pipeline-audit` exposes

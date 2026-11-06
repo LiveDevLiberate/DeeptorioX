@@ -592,6 +592,12 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   changes; do not keep geometry only in context.
 - For geometry: observe bbox/tile_size before placing, choose an aligned machine
   row and pole grid first, then extend belts/pipes along the corridor.
+- Use `observe-free-space --center-x X --center-y Y --radius R --step 1` for
+  buildable cells and the largest connected free rectangles; do not infer free
+  space from a sparse ASCII layout.
+- Use `geometry-check --entity name,x,y,dir ...` (or `--entities-json`) before
+  building. It resolves footprints, applies east/west rotation, reports overlaps
+  and native placement blockers without building.
 
 ## 13. Token and time discipline
 

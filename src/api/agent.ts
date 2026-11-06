@@ -24,6 +24,7 @@ import {
   agentEntityPrototypeCommand,
   agentExtractCommand,
   agentFactoryCommand,
+  agentFreeSpaceCommand,
   agentInsertCommand,
   agentLayoutCommand,
   agentMapCommand,
@@ -1481,6 +1482,32 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           fingerprint: audit.fingerprint,
         });
         return json(res, 200, { ok: true, data: audit });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/agent/observe/free-space",
+    name: "/api/agent/observe/free-space",
+    handler: async (request) => {
+      const { req, res } = request;
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
+      if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
+      if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
+      const window = recordOrEmpty(body.window);
+      const x = finiteNumberOrUndefined(window.x);
+      const y = finiteNumberOrUndefined(window.y);
+      const radius = clampInt(window.radius, 60, 1, 120);
+      const step = clampInt(body.step, 1, 1, 8);
+      try {
+        const response = await rconCommand(agentFreeSpaceCommand({ x, y, radius, step }), 15_000);
+        const data = parseRconJson<unknown>(response, "RCON free-space observation returned invalid JSON");
+        return json(res, 200, { ok: true, data });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }

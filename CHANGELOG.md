@@ -86,6 +86,11 @@ this file.
   loader planners were inverted to match, and observe-connections now reports
   source on the facing side and target opposite. Knowledge/COOKBOOK document the
   convention.
+- **Free-space + geometry check.** `observe-free-space` reports buildable cells,
+  blocked/water cells and largest connected free rectangles; `geometry-check`
+  resolves prototype footprints, applies rotation, detects planned overlaps and
+  reports native placement blockers before a build. Prompt/COOKBOOK document the
+  plan→geometry-check→build flow.
 - **Structured pipeline perception.** `observe-pipeline` / `pipeline-audit`
   compose factory, connection and area observations into machine/inserter/belt/
   pipe/power nodes, directed edges, belt segments, bbox/status/recipe metadata and

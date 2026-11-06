@@ -81,6 +81,8 @@ Commands:
   factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,containers,rail] [--include-rail]
   observe-pipeline [--center-x n --center-y n --radius n]
   pipeline-audit [--center-x n --center-y n --radius n]
+  observe-free-space [--center-x n --center-y n --radius n] [--step n]
+  geometry-check (--entity name,x,y[,dir] [--entity ...] | --entities-json <json>)
   observe-container --target x,y
   belt-contents --target x,y
   fluid-contents --target x,y
@@ -221,6 +223,8 @@ COMMAND_USAGE = {
     "act-craft": "act-craft: Queue a handcraft and verify its products appear (or use --no-wait).\nUsage: factorio.py act-craft --item <name> --count <n> [--no-wait]\n",
     "act-insert": "act-insert: Move items from player inventory into an entity at x,y.\nUsage: factorio.py act-insert --entity x,y --item <name> --count <n>\nNote: The character walks into reach using native pathfinding.\n",
     "act-extract": "act-extract: Remove items from an entity at x,y into player inventory.\nUsage: factorio.py act-extract --entity x,y --item <name> --count <n|all>\nNote: The character walks into reach using native pathfinding.\n",
+    "observe-free-space": "observe-free-space: Buildable grid of free/blocked cells plus largest connected free rectangles.\nUsage: factorio.py observe-free-space [--center-x n --center-y n --radius n] [--step n]\nUse for machine-row placement and corridor planning before building.\n",
+    "geometry-check": "geometry-check: Validate planned footprints, rotations, overlaps and native placement without building.\nUsage: factorio.py geometry-check (--entity name,x,y[,dir] [--entity ...] | --entities-json <json>)\nReturns per-entity bbox, overlap pairs and placement blockers; use before building a layout.\n",
     "observe-pipeline": "observe-pipeline: Structured machine/belt/inserter/pipe/power graph with ports, bboxes, statuses and bottlenecks.\nUsage: factorio.py observe-pipeline [--center-x n --center-y n --radius n]\nUse this instead of inferring flow from raw entity lists/ASCII.\n",
     "pipeline-audit": "pipeline-audit: Prioritized bottleneck list derived from the structured pipeline graph.\nUsage: factorio.py pipeline-audit [--center-x n --center-y n --radius n]\n",
     "factory-audit": "factory-audit: Prioritized refactor audit of factory problems, belt links and suggested repairs.\nUsage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,containers,rail] [--include-rail]\nDefault scope: belts,power,pipes,machines,containers; rail is opt-in with --include-rail or --scope rail. Run after builds and every few minutes; repair the highest-impact action, verify, then re-audit.\n",
@@ -2276,6 +2280,14 @@ class FactorioClient:
             "window": {"x": x, "y": y, "radius": radius},
         })
 
+    def observe_free_space(self, *, x: float | None = None, y: float | None = None,
+                            radius: int = 60, step: int = 1) -> Any:
+        """Buildable grid, blocked cells and largest free rectangles."""
+        return self.request("POST", "/api/agent/observe/free-space", {
+            "window": {"x": x, "y": y, "radius": radius},
+            "step": step,
+        })
+
     def pipeline_audit(self, *, x: float | None = None, y: float | None = None,
                        radius: int = 80) -> dict[str, Any]:
         """Return only the prioritized bottleneck section of the pipeline graph."""
@@ -3094,6 +3106,84 @@ class FactorioClient:
         if isinstance(plan, list):
             return [dict(entity) for entity in plan if isinstance(entity, dict)], []
         raise ValueError("plan must be an entity list or {'entities': [...]}")
+
+    def geometry_check(self, entities: Any, *,
+                       prototype_sizes: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Check planned footprints, rotations, overlaps and native placement.
+
+        Does not build. Prototype sizes are inferred per unique entity name via
+        observe-entity-prototype unless provided as {name: {width,height}}.
+        """
+        normalized = normalize_build_entities(entities)
+        sizes = dict(prototype_sizes or {})
+        for entity in normalized:
+            name = entity["name"]
+            if name in sizes:
+                continue
+            prototype = data_value(self.observe_entity_prototype(name))
+            tile_size = prototype.get("tile_size") if isinstance(prototype, dict) else None
+            if not isinstance(tile_size, dict):
+                raise ValueError(f"cannot resolve prototype size for {name!r}")
+            sizes[name] = tile_size
+        footprints: list[dict[str, Any]] = []
+        for entity in normalized:
+            anchor = entity["anchor"]
+            try:
+                x = int(float(anchor["x"]))
+                y = int(float(anchor["y"]))
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError("entity anchor must contain numeric x/y") from error
+            size = sizes[entity["name"]]
+            try:
+                width = int(size["width"])
+                height = int(size["height"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError(f"invalid prototype size for {entity['name']!r}") from error
+            direction = int(entity.get("direction", 0))
+            if direction in (4, 12):
+                width, height = height, width
+            footprints.append({
+                "name": entity["name"],
+                "anchor": {"x": x, "y": y},
+                "direction": direction,
+                "width": width,
+                "height": height,
+                "bbox": {"left": x, "top": y, "right": x + width, "bottom": y + height},
+            })
+        overlaps: list[dict[str, Any]] = []
+        for index, first in enumerate(footprints):
+            a = first["bbox"]
+            for other in footprints[index + 1:]:
+                b = other["bbox"]
+                if a["left"] < b["right"] and a["right"] > b["left"] and \
+                        a["top"] < b["bottom"] and a["bottom"] > b["top"]:
+                    overlaps.append({
+                        "a": {"name": first["name"], "anchor": first["anchor"]},
+                        "b": {"name": other["name"], "anchor": other["anchor"]},
+                    })
+        response = self.observe_placement(normalized)
+        data = data_value(response)
+        results = data.get("results") if isinstance(data, dict) else []
+        blockers: list[dict[str, Any]] = []
+        for index, result in enumerate(results if isinstance(results, list) else []):
+            if not isinstance(result, dict):
+                continue
+            if result.get("ok") is False or result.get("can_place") is False:
+                entity = footprints[index] if index < len(footprints) else {}
+                blockers.append({
+                    "index": index,
+                    "name": entity.get("name"),
+                    "anchor": entity.get("anchor"),
+                    "error": result.get("error"),
+                    "diagnostics": result.get("diagnostics"),
+                })
+        return {
+            "ok": not overlaps and not blockers,
+            "entities": footprints,
+            "overlaps": overlaps,
+            "blockers": blockers,
+            "results": results,
+        }
 
     def plan_build(self, entities: list[dict[str, Any]]) -> dict[str, Any]:
         """Dry-run placement analysis for a planned entity list (chunked by 50).
@@ -4506,6 +4596,21 @@ def run(argv: list[str]) -> int:
             raw_count = flag("count")
             count: Any = "all" if cmd == "act-extract" and raw_count == "all" else parse_number(raw_count, 1)
             job = submit(cmd.removeprefix("act-"), {"entity": target, "item": item, "count": count})
+        elif cmd == "observe-free-space":
+            result = data_value(FactorioClient(parsed.base).observe_free_space(
+                x=parse_number(flag("center-x"), None),
+                y=parse_number(flag("center-y"), None),
+                radius=parse_number(flag("radius"), 60) or 60,
+                step=parse_number(flag("step"), 1) or 1,
+            ))
+            return output(result, ok=True)
+        elif cmd == "geometry-check":
+            check_entities = (
+                normalize_build_entities(json.loads(flag("entities-json")))
+                if flag("entities-json") else parse_entities(flags.get("entity", []))
+            )
+            result = FactorioClient(parsed.base).geometry_check(check_entities)
+            return output(result, ok=bool(result.get("ok")))
         elif cmd == "observe-pipeline":
             result = data_value(FactorioClient(parsed.base).observe_pipeline(
                 x=parse_number(flag("center-x"), None),

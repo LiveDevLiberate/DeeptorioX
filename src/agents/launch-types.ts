@@ -87,6 +87,7 @@ const BASE_TASK_PROMPT =
   "Belt rules: each tile has two lanes (two item types can share a belt), but junctions/crossings do not automatically sum flows; side-loading fills only one lane, splitters merge with a throughput cap, and underground pairs cross without mixing. Belts cannot insert into or extract from chests/machines; use inserters at building boundaries. " +
   "Inserter direction is the pickup side, drop is opposite; build-inserter-pairs inverts its flow argument automatically—verify with observe-connections source/target. " +
   "Maintain LAYOUT.md before/after layout changes: anchors, axes, machine rows, pole grid, pipe corridors, segment head/tail, gaps and next extension; use observe-pipeline rather than guessing topology from raw lists. " +
+  "Use observe-free-space for buildable cells/components and geometry-check for footprint/rotation/overlap/native blockers before building; never infer geometry from sparse ASCII. " +
   "For resource veins, call act-mine --resource with one target and the default count=all; keep mining that vein until depleted instead of switching after each cycle. " +
   "Never mine near a building with a generic act-mine: player-owned buildings are protected unless --allow-buildings is explicit; use deconstruct-area for intentional dismantling. " +
   "Run factory-audit after builds and when stalled: fix the highest-priority action, verify, re-audit; after 3 repeats on the same fingerprint, relayout/redesign instead of patching. " +

@@ -170,6 +170,56 @@ class BlueprintEvaluateTests(unittest.TestCase):
         self.assertIn("blueprint-evaluate", factorio.GLOBAL_USAGE)
 
 
+class GeometryPerceptionTests(unittest.TestCase):
+    def test_observe_free_space_payload(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True, "data": {"counts": {}}}) as request:
+            result = factorio.data_value(client.observe_free_space(x=1, y=2, radius=10, step=2))
+        request.assert_called_once_with("POST", "/api/agent/observe/free-space", {
+            "window": {"x": 1, "y": 2, "radius": 10},
+            "step": 2,
+        })
+        self.assertEqual(result["counts"], {})
+        self.assertIn("observe-free-space", factorio.COMMAND_USAGE)
+
+    def test_geometry_check_footprints_rotation_overlap_and_blockers(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        sizes = {
+            "assembling-machine-2": {"tile_size": {"width": 3, "height": 2}},
+            "transport-belt": {"tile_size": {"width": 1, "height": 1}},
+        }
+        with patch.object(client, "observe_entity_prototype",
+                          side_effect=lambda name: sizes[name]), \
+                patch.object(client, "observe_placement",
+                             return_value={"data": {"results": [{"ok": True}, {"ok": True}]}}):
+            result = client.geometry_check([
+                {"name": "assembling-machine-2", "anchor": {"x": 0, "y": 0}, "direction": 4},
+                {"name": "transport-belt", "anchor": {"x": 1, "y": 0}},
+            ])
+        self.assertFalse(result["ok"])
+        self.assertEqual(len(result["overlaps"]), 1)
+        self.assertEqual(result["entities"][0]["width"], 2)
+        self.assertEqual(result["entities"][0]["height"], 3)
+        self.assertEqual(result["entities"][0]["bbox"], {
+            "left": 0, "top": 0, "right": 2, "bottom": 3,
+        })
+
+    def test_geometry_check_reports_native_blockers(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "observe_entity_prototype",
+                          return_value={"tile_size": {"width": 1, "height": 1}}), \
+                patch.object(client, "observe_placement",
+                             return_value={"data": {"results": [
+                                 {"ok": False, "error": "cannot_build", "diagnostics": {"tile_names": ["water"]}},
+                             ]}}):
+            result = client.geometry_check([
+                {"name": "transport-belt", "anchor": {"x": 0, "y": 0}},
+            ])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["blockers"][0]["error"], "cannot_build")
+        self.assertIn("geometry-check", factorio.COMMAND_USAGE)
+
+
 class PipelinePerceptionTests(unittest.TestCase):
     def test_observe_pipeline_payload_and_audit(self):
         client = factorio.FactorioClient(poll_interval=0)

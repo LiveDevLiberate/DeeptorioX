@@ -998,6 +998,39 @@ export function agentLayoutCommand(params: { x?: number; y?: number; radius: num
   ].join(" ");
 }
 
+/** Buildable/free-space grid and connected empty rectangles. */
+export function agentFreeSpaceCommand(params: {
+  x?: number;
+  y?: number;
+  radius: number;
+  step: number;
+}): string {
+  const x = params.x === undefined ? "nil" : String(params.x);
+  const y = params.y === undefined ? "nil" : String(params.y);
+  return [
+    "/sc",
+    "local s=game.surfaces[1]",
+    "local p=game.players[1]",
+    `local x=${x} local y=${y} local radius=${params.radius} local step=${params.step}`,
+    "if not p then rcon.print(helpers.table_to_json{ok=false,error='no_player'}) return end",
+    "if x==nil then x=p.position.x end if y==nil then y=p.position.y end",
+    "local min_x=math.floor(x-radius) local min_y=math.floor(y-radius) local max_x=math.floor(x+radius) local max_y=math.floor(y+radius)",
+    "local width=math.floor((max_x-min_x)/step)+1 local height=math.floor((max_y-min_y)/step)+1",
+    "local free={} for row=1,height do free[row]={} for col=1,width do free[row][col]=true end end",
+    "local function cell(tx,ty) local col=math.floor((math.floor(tx)-min_x)/step)+1 local row=math.floor((math.floor(ty)-min_y)/step)+1 if col<1 or col>width or row<1 or row>height then return nil end return row,col end",
+    "local function block(bb) if not bb then return end local left=math.floor(bb.left_top.x+0.001) local top=math.floor(bb.left_top.y+0.001) local right=math.floor(bb.right_bottom.x-0.001) local bottom=math.floor(bb.right_bottom.y-0.001) for ty=top,bottom do for tx=left,right do local row,col=cell(tx+0.5,ty+0.5) if row then free[row][col]=false end end end end",
+    "for _,e in pairs(s.find_entities_filtered{area={{min_x,min_y},{max_x+1,max_y+1}}}) do if e.valid and e.type~='item-entity' and e.type~='corpse' and e.type~='resource' and e.type~='fish' then block(e.bounding_box) end end",
+    "for row=1,height do local ty=min_y+(row-1)*step for col=1,width do local tx=min_x+(col-1)*step local tile=s.get_tile(tx,ty) local name=tile and tile.valid and tile.name or '' if name:find('water',1,true) or name:find('cliff',1,true) then free[row][col]=false end end end",
+    "local dirs={{1,0},{-1,0},{0,1},{0,-1}} local seen={} local components={} local free_count=0",
+    "for row=1,height do for col=1,width do if free[row][col] then free_count=free_count+1 end end end",
+    "for row=1,height do for col=1,width do local key=row*width+col if free[row][col] and not seen[key] then local q={{row,col}} seen[key]=true local head=1 local count=0 local min_r=row local max_r=row local min_c=col local max_c=col while head<=#q do local r=q[head][1] local c=q[head][2] head=head+1 count=count+1 if r<min_r then min_r=r end if r>max_r then max_r=r end if c<min_c then min_c=c end if c>max_c then max_c=c end for _,d in ipairs(dirs) do local nr=r+d[1] local nc=c+d[2] if nr>=1 and nr<=height and nc>=1 and nc<=width and free[nr][nc] and not seen[nr*width+nc] then seen[nr*width+nc]=true table.insert(q,{nr,nc}) end end end table.insert(components,{x=min_x+(min_c-1)*step,y=min_y+(min_r-1)*step,width=(max_c-min_c+1)*step,height=(max_r-min_r+1)*step,area=count}) end end end",
+    "table.sort(components,function(a,b) return a.area>b.area end)",
+    "local rows={} for row=1,height do local chars={} for col=1,width do local tx=min_x+(col-1)*step local ty=min_y+(row-1)*step local tile=s.get_tile(tx,ty) local name=tile and tile.valid and tile.name or '' if name:find('water',1,true) or name:find('cliff',1,true) then chars[col]='~' elseif free[row][col] then chars[col]='.' else chars[col]='#' end end rows[row]=table.concat(chars) end",
+    "local out={ok=true,window={x=x,y=y,radius=radius},step=step,width=width,height=height,origin={x=min_x,y=min_y},rows=rows,legend={['.']='free',['#']='blocked entity',['~']='water/cliff'},components=components,counts={free=free_count,blocked=width*height-free_count,components=#components}}",
+    "rcon.print(helpers.table_to_json(out))",
+  ].join(" ");
+}
+
 export function agentConnectionsCommand(params: { x?: number; y?: number; radius: number }): string {
   const x = params.x === undefined ? "nil" : String(params.x);
   const y = params.y === undefined ? "nil" : String(params.y);
