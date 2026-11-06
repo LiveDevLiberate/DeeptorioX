@@ -81,6 +81,12 @@ this file.
   `FactorioClient.mine_continuous`); a positive `--count N` bounds it. It no
   longer switches ore tiles after a single extraction, and passing multiple
   resource targets is rejected. Prompt/COOKBOOK updated.
+- **Refactor debt gate + big-reset warning.** A periodic factory/belt audit
+  records invalid-building debt. After the grace, new build jobs return
+  `REFACTOR_REQUIRED` until the debt is cleaned; deconstruct/relayout remain
+  allowed. Three debt audits or 50 blackouts set `big_reset_pending` and show a
+  red flashing ATTENTION / BIG RESET banner on the run page. This forces the
+  agent to refactor instead of stacking more buildings.
 - **Blueprint capture and iteration.** `POST /api/agent/blueprints/capture` /
   `blueprint-capture` serializes the current player-built area into a normal
   blueprint string and registers it in the run catalogue. Prompt/COOKBOOK/

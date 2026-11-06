@@ -162,6 +162,25 @@ async function loadBlueprints() {
   }
 }
 
+function renderRefactorAlert(run) {
+  const alert = $("refactorAlert");
+  const refactor = run.refactor;
+  if (!alert || !refactor) return;
+  const attention = Boolean(refactor.gate_active || refactor.big_reset_pending);
+  alert.hidden = !attention;
+  if (!attention) return;
+  const count = Number(refactor.invalid_count || 0);
+  if (refactor.big_reset_pending) {
+    alert.classList.add("is-reset");
+    $("refactorAlertText").textContent =
+      `BIG RESET CONDITION MET · ${count} invalid factory/belt problems · audits ${refactor.audits_with_debt || 0}`;
+  } else {
+    alert.classList.remove("is-reset");
+    $("refactorAlertText").textContent =
+      `REFACTOR REQUIRED · ${count} invalid factory/belt problems · construction blocked until cleaned`;
+  }
+}
+
 function renderStatePanel(run) {
   const info = run.state_info || {};
   const status = run.state_status || {};
@@ -329,6 +348,7 @@ async function refresh() {
     $("runContent").hidden = false;
     document.title = `${run.name || run.id} · Autorio`;
     renderProgress(run);
+    renderRefactorAlert(run);
     renderStatePanel(run);
     $("resume").hidden = !run.resumable;
     $("resume").disabled = !run.resumable || run.video?.state === "rendering";

@@ -189,6 +189,12 @@ action on the *same* target until no resource remains or a count is reached;
 `act-mine --resource` defaults to `--count all` and rejects multiple resource
 targets so the character cannot hop ore veins after one cycle.
 
+**Refactor debt/gate.** The manager periodically stores a `refactor` state
+(invalid count, fingerprint, debt age, audit count). A build job is rejected with
+`REFACTOR_REQUIRED` once debt persists past the gate grace; cleanup actions stay
+allowed. Three debt audits or 50 blackouts arm `big_reset_pending` and the run
+page shows a flashing attention banner.
+
 **Blueprint capture.** `encodeCapturedBlueprint` turns observed built entities
 (center positions + directions/recipes) into a normal wire string, and
 `/api/agent/blueprints/capture` registers it for the active run. This closes the

@@ -135,6 +135,17 @@ type StateMeta = {
   updated_by: "api" | "external";
 };
 
+type RefactorState = {
+  audited_at: string;
+  invalid_count: number;
+  factory_problems: number;
+  connection_issues: number;
+  fingerprint: string;
+  debt_since?: string;
+  audits_with_debt: number;
+  big_reset_pending: boolean;
+};
+
 type Run = {
   id: string;
   name?: string;
@@ -212,6 +223,8 @@ type Run = {
   state_blocked_since?: string;
   /** One active nudge/restart attempt per blocked cycle. */
   state_nudge_restarted?: boolean;
+  /** Refactor debt/gate state updated by factory audits. */
+  refactor?: RefactorState;
 };
 /** Metadata reported by timelapse rendering; persisted into run.json verbatim. */
 export type VideoRenderResult = {
@@ -948,6 +961,61 @@ export class RunManager {
     this.persist(run);
   }
 
+  /** Record the latest prioritized refactor audit and compute debt/gate state. */
+  recordRefactorAudit(audit: {
+    invalid_count: number;
+    factory_problems: number;
+    connection_issues: number;
+    fingerprint: string;
+  }): RefactorState | undefined {
+    const run = this.active;
+    if (!run) return undefined;
+    const now = Date.now();
+    const previous = run.refactor;
+    const invalid = Math.max(0, Math.round(audit.invalid_count));
+    const above = invalid >= Number(process.env.AUTORIO_REFACTOR_INVALID_THRESHOLD || 20);
+    const sameDebt = Boolean(previous?.debt_since) && above;
+    run.refactor = {
+      audited_at: new Date(now).toISOString(),
+      invalid_count: invalid,
+      factory_problems: Math.max(0, Math.round(audit.factory_problems)),
+      connection_issues: Math.max(0, Math.round(audit.connection_issues)),
+      fingerprint: audit.fingerprint,
+      debt_since: above ? (previous?.debt_since ?? new Date(now).toISOString()) : undefined,
+      audits_with_debt: above ? (sameDebt ? (previous?.audits_with_debt ?? 0) + 1 : 1) : 0,
+      big_reset_pending:
+        above &&
+        ((sameDebt ? (previous?.audits_with_debt ?? 0) + 1 : 1) >=
+          (Number(process.env.AUTORIO_REFACTOR_RESET_AUDITS || 0) || 3) ||
+          (run.power_blackouts ?? 0) >= (Number(process.env.AUTORIO_BIG_RESET_BLACKOUTS || 0) || 50)),
+    };
+    this.persist(run);
+    return run.refactor;
+  }
+
+  /** Gate new construction while refactor debt remains unresolved. */
+  refactorGate(): { blocked: boolean; state: RefactorState; message: string } | undefined {
+    const run = this.active;
+    if (!run?.refactor || run.state !== "running") return undefined;
+    const state = run.refactor;
+    const rawDebounce = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+    const debounce =
+      rawDebounce !== undefined && rawDebounce !== "" && Number.isFinite(Number(rawDebounce))
+        ? Math.max(0, Number(rawDebounce))
+        : 300;
+    const auditedAt = Date.parse(state.audited_at);
+    const fresh = Number.isFinite(auditedAt) && Date.now() - auditedAt < 15 * 60 * 1000;
+    const blocked =
+      fresh && Boolean(state.debt_since) && Date.now() - Date.parse(state.debt_since!) >= debounce * 1000;
+    return {
+      blocked,
+      state,
+      message: blocked
+        ? `Refactor debt ${state.invalid_count} invalid connections/problems; clean the factory before expanding`
+        : "",
+    };
+  }
+
   private view(run: Run) {
     const state = this.stateFile(run);
     const stateStatus = run === this.active ? this.stateStatus() : undefined;
@@ -974,6 +1042,14 @@ export class RunManager {
             grace_seconds: stateStatus.grace_seconds,
           }
         : undefined,
+      ...(run.refactor
+        ? {
+            refactor: {
+              ...run.refactor,
+              gate_active: Boolean(this.refactorGate()?.blocked && run === this.active),
+            },
+          }
+        : {}),
       resumable: this.canResume(run),
       model_label: modelLabel(run),
       elapsed_seconds: run === this.active && run.state === "running" ? this.elapsed() : run.elapsed_seconds,

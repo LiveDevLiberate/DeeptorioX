@@ -47,6 +47,23 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
       if (splitJobPayload(action, body.payload).length === 0) {
         return json(res, 400, { error: "Action payload contains no work" });
       }
+      const internal = req.headers["x-autorio-internal"] === internalKey;
+      if (!internal && action === "build") {
+        const gate = runManager.refactorGate();
+        if (gate?.blocked) {
+          return json(res, 409, {
+            error: "REFACTOR_REQUIRED",
+            message: gate.message,
+            refactor: gate.state,
+            nudge: {
+              reason: "refactor_debt",
+              first_step: "factory-audit",
+              message:
+                "Clean the listed invalid belt/inserter/machine problems with deconstruct-area/relayout-belts, re-audit, then resume building.",
+            },
+          });
+        }
+      }
       const keyHeader = req.headers["idempotency-key"];
       const idempotencyKey =
         (typeof keyHeader === "string" ? keyHeader : null) ??

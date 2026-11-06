@@ -1325,6 +1325,12 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           center: { x: x ?? 0, y: y ?? 0 },
           radius,
         });
+        runManager.recordRefactorAudit({
+          invalid_count: audit.summary.factory_problems + audit.summary.connection_issues,
+          factory_problems: audit.summary.factory_problems,
+          connection_issues: audit.summary.connection_issues,
+          fingerprint: audit.fingerprint,
+        });
         return json(res, 200, { ok: true, data: audit });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });

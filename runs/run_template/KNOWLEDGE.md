@@ -74,6 +74,13 @@ issue coordinates for exact repairs.
 - Layout marks crash-site spaceship debris as `X`; map overview uses `S`.
   Recover with `recover-debris` instead of leaving wreckage on paths.
 
+## 2.99 Refactor gate
+
+- High invalid factory/belt debt blocks new build jobs with `REFACTOR_REQUIRED`.
+  Clean via factory-audit + deconstruct/relayout, then re-audit.
+- Three debt audits or 50 blackouts arm the red BIG RESET warning; prepare chests
+  and reset instead of adding more buildings.
+
 ## 3. Trains (`trains`)
 
 - Rail signals divide blocks: one train per block, signal on the right of travel.

@@ -226,6 +226,34 @@ test("records an alert-ignore penalty without restarting the run", async () => {
   }
 });
 
+test("refactor debt gates new construction and clears after cleanup", async () => {
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    const previous = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+    process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = "0";
+    manager.recordRefactorAudit({
+      invalid_count: 35,
+      factory_problems: 10,
+      connection_issues: 25,
+      fingerprint: "debt-1",
+    });
+    assert.equal(manager.refactorGate()?.blocked, true);
+    manager.recordRefactorAudit({
+      invalid_count: 4,
+      factory_problems: 1,
+      connection_issues: 3,
+      fingerprint: "clean",
+    });
+    assert.equal(manager.refactorGate()?.blocked, false);
+    if (previous === undefined) delete process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+    else process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = previous;
+  } finally {
+    await manager.stop();
+  }
+});
+
 test("suppresses manual mining/crafting penalties during the opening 30 minutes", async () => {
   const { manager } = setup();
   const run = manager.start({ agent: "manual", benchmark: "smoke" });

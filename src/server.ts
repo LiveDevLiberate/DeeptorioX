@@ -39,8 +39,14 @@ import { isAgentMutationRequest, stateGateNudge } from "./state-gate.js";
 import { rconConfigured } from "./api/shared.js";
 import { asRecord, errorMessage } from "./validation.js";
 import type { ApiContext } from "./api/context.js";
-import { parseRconObservation, registerAgentRoutes } from "./api/agent.js";
-import { agentFactoryCommand } from "./command-builders.js";
+import {
+  normalizeConnectionsData,
+  normalizeFactoryData,
+  parseRconObservation,
+  registerAgentRoutes,
+} from "./api/agent.js";
+import { buildRefactorAudit } from "./refactor-audit.js";
+import { agentConnectionsCommand, agentFactoryCommand } from "./command-builders.js";
 import { registerAlertRoutes } from "./api/alerts.js";
 import { registerAreaEditRoutes } from "./api/area-edit.js";
 import { registerJobsRoutes } from "./api/jobs.js";
@@ -676,6 +682,39 @@ async function refreshAlerts(force = false): Promise<void> {
   return alertRefreshPromise;
 }
 
+let lastRefactorAudit = 0;
+let refactorAuditPromise: Promise<void> | null = null;
+
+/** Periodically refresh refactor debt so construction can be gated. */
+async function refreshRefactorAudit(force = false): Promise<void> {
+  if (!state.rcon.connected || !runManager.activeRunId()) return;
+  if (!force && Date.now() - lastRefactorAudit < 5 * 60 * 1000) return;
+  if (refactorAuditPromise) return refactorAuditPromise;
+  lastRefactorAudit = Date.now();
+  refactorAuditPromise = (async () => {
+    try {
+      const [factoryResponse, connectionsResponse] = [
+        await rconCommand(agentFactoryCommand({ radius: 120 })),
+        await rconCommand(agentConnectionsCommand({ radius: 120 })),
+      ];
+      const factory = normalizeFactoryData(parseRconObservation(factoryResponse));
+      const connections = normalizeConnectionsData(parseRconObservation(connectionsResponse));
+      const audit = buildRefactorAudit(factory, connections, { center: { x: 0, y: 0 }, radius: 120 });
+      runManager.recordRefactorAudit({
+        invalid_count: audit.summary.factory_problems + audit.summary.connection_issues,
+        factory_problems: audit.summary.factory_problems,
+        connection_issues: audit.summary.connection_issues,
+        fingerprint: audit.fingerprint,
+      });
+    } catch {
+      /* Keep the previous audit; the gate will use its timestamp. */
+    } finally {
+      refactorAuditPromise = null;
+    }
+  })();
+  return refactorAuditPromise;
+}
+
 async function handleApi(req: IncomingMessage, res: ServerResponse) {
   if (req.url) {
     try {
@@ -758,6 +797,12 @@ server.listen(PORT, "127.0.0.1", () => {
   const resumed = runManager.autoResumeInterrupted();
   if (resumed) logger.info("Auto-resumed interrupted run", { run_id: resumed });
 });
+setInterval(
+  () => {
+    void refreshRefactorAudit();
+  },
+  5 * 60 * 1000,
+);
 
 let shuttingDown = false;
 

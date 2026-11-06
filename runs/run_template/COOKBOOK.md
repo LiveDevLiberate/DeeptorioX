@@ -469,6 +469,24 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   loot first, then mines the pieces). Do not leave debris blocking walkways or
   building sites.
 
+## 12.12 Refactor gate and big-reset warning
+
+- The manager periodically audits factory + belt/inserter problems. When
+  `invalid_count` stays >= `AUTORIO_REFACTOR_INVALID_THRESHOLD` (default 20) for
+  the gate grace, it returns `REFACTOR_REQUIRED` and blocks **new build jobs**
+  until the debt is cleaned. Mines/deconstruction/relayout remain allowed.
+- Run `factory-audit` and fix the highest-priority action:
+  - critical fuel/power/fluid first;
+  - belts: `relayout-belts` for a section with many bad links;
+  - isolated buildings: deconstruct or connect them.
+- Re-audit after cleanup. Building is allowed again when invalid_count falls
+  below the threshold.
+- If the debt persists for `AUTORIO_REFACTOR_RESET_AUDITS` (default 3) audits, or
+  blackouts reach 50, `big_reset_pending` is set and the UI shows a red flashing
+  **ATTENTION / BIG RESET** banner. Stop expanding; prepare chests and begin the
+  big-reset procedure rather than patching further.
+- A failed `REFACTOR_REQUIRED` means "clean before building", not "retry build".
+
 ## 13. Token and time discipline
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.
