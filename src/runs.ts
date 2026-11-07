@@ -18,7 +18,6 @@ import {
   CRAFT_PENALTY_POINTS,
   CLEANUP_REWARD_POINTS,
   REFACTOR_REWARD_POINTS,
-  MANUAL_PENALTY_GRACE_SECONDS,
   manualPenaltyGraceActive,
   STATE_BLOCKED_PENALTY,
   STATE_DUE_PENALTY,
@@ -44,7 +43,15 @@ import {
   parseSnapshot,
   reached,
   TELEMETRY_COMMAND,
+  type ScoringConfig,
 } from "./benchmarks.js";
+import {
+  computeCapabilityScore,
+  computeDiscipline,
+  type CapabilityScore,
+  type DisciplineMetrics,
+} from "./evaluation-score.js";
+import { pointInRefactorCluster, type RefactorCluster } from "./refactor-audit.js";
 import { normalizeMapGen } from "./map-config.js";
 import {
   listRunBlueprints,
@@ -147,7 +154,38 @@ type RefactorState = {
   fingerprint: string;
   debt_since?: string;
   audits_with_debt: number;
+  /** Warning only: debt survived for RESET_AUDITS audits or BIG_RESET_BLACKOUTS blackouts. */
   big_reset_pending: boolean;
+  /** Highest invalid count observed during this run. */
+  debt_peak?: number;
+  /** Escalation ladder step derived from debt persistence. */
+  escalation_tier?: "normal" | "expansion_blocked" | "relayout_only";
+  /** Flagged rebuild windows the agent may build inside while expansion is gated. */
+  clusters?: RefactorCluster[];
+  /** Remaining in-cluster construction allowance (rebuild credits). */
+  build_credits?: number;
+  /** Credits earned by cleanup/deconstruction in this debt episode. */
+  credits_earned?: number;
+  /** Base repair credits were granted once for this debt episode. */
+  base_credits_granted?: boolean;
+  /** Top priority actions from the recorded audit, for 409 nudges and the UI. */
+  actions?: Array<{ kind?: string; severity?: string; count?: number; action?: string }>;
+};
+
+/** Build target in world tile coordinates, used by the refactor build gate. */
+export type RefactorBuildTarget = { x: number; y: number };
+
+export type RefactorBuildCheck = {
+  blocked: boolean;
+  reason?: "expansion" | "credits";
+  /** The gate is past its grace window and currently enforced. */
+  armed: boolean;
+  tier: "normal" | "expansion_blocked" | "relayout_only";
+  build_credits: number;
+  allowed_clusters: RefactorCluster[];
+  out_of_cluster: number;
+  message: string;
+  actions: RefactorState["actions"];
 };
 
 type Run = {
@@ -213,6 +251,16 @@ type Run = {
   };
   /** Automated production score and manual-work penalty (updated with telemetry). */
   automation?: AutomationScore & { updated_at?: string };
+  /** Resolved evaluation-scoring config snapshot (v2), fixed at run start. */
+  scoring?: ScoringConfig;
+  /** Capability + discipline evaluation (operator-only; never exposed to the agent). */
+  evaluation?: {
+    capability: CapabilityScore;
+    discipline: DisciplineMetrics;
+    computed_at: string;
+  };
+  /** Accumulated STATE.md due/blocked seconds for discipline metrics. */
+  state_metrics?: { due_seconds: number; blocked_seconds: number };
   /** A power plant/generator has produced capacity at least once. */
   power_plant_seen?: boolean;
   /** Previous telemetry sample was a full blackout. */
@@ -478,12 +526,6 @@ export class RunManager {
     this.persist(run);
   }
 
-  /** Effective manual-penalty grace; env override is useful for tests/operators. */
-  private manualPenaltyGraceSeconds(): number {
-    const raw = Number(process.env.AUTORIO_MANUAL_PENALTY_GRACE_SECONDS);
-    return Number.isFinite(raw) && raw >= 0 ? raw : MANUAL_PENALTY_GRACE_SECONDS;
-  }
-
   recordJob(phase: "submitted" | "finished", job: ActionJobRecord) {
     const run = this.active;
     if (!run || !["running", "saving"].includes(run.state)) return;
@@ -512,6 +554,16 @@ export class RunManager {
             run,
             `Cleanup reward +${reward} (${cleanup} player-owned invalid/obsolete entities removed)`,
           );
+          // Cleaning during a debt episode earns in-cluster rebuild credits, so
+          // deconstruct-then-rebuild refactors stay possible while expansion is gated.
+          if (run.refactor?.debt_since) {
+            run.refactor.build_credits = Math.max(0, Math.round((run.refactor.build_credits ?? 0) + cleanup));
+            run.refactor.credits_earned = Math.max(
+              0,
+              Math.round((run.refactor.credits_earned ?? 0) + cleanup),
+            );
+            this.event(run, `Rebuild credits +${cleanup} (cleanup during refactor debt)`);
+          }
         }
         // Opening grace: manual work is allowed without penalty while the
         // character is still bootstrapping the first power/production loop.
@@ -731,13 +783,6 @@ export class RunManager {
       age_seconds: age === null ? null : Math.round(age),
       research: run.latest?.current_research ?? null,
       research_progress: run.latest?.research_progress ?? null,
-      automation: run.automation
-        ? {
-            ...run.automation,
-            manual_penalty_grace_seconds: this.manualPenaltyGraceSeconds(),
-            manual_penalty_grace_active: !manualPenaltyGraceActive(this.elapsed()),
-          }
-        : undefined,
       state: this.stateStatus(),
       remaining_seconds: Math.max(0, run.max_seconds - this.elapsed()),
     };
@@ -993,24 +1038,80 @@ export class RunManager {
     this.persist(run);
   }
 
-  /** Record the latest prioritized refactor audit and compute debt/gate state. */
+  /** Env override that treats 0 as a real value (used by the refactor ladder). */
+  private refactorSetting(name: string, fallback: number): number {
+    const raw = process.env[name];
+    if (raw === undefined || raw === "") return fallback;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? value : fallback;
+  }
+
+  /** True once debt has persisted past the gate grace and the audit is fresh enough. */
+  private refactorArmed(state: RefactorState): boolean {
+    const debounce = this.refactorSetting("AUTORIO_REFACTOR_GATE_GRACE_SECONDS", 300);
+    const auditedAt = Date.parse(state.audited_at);
+    const fresh = Number.isFinite(auditedAt) && Date.now() - auditedAt < 15 * 60 * 1000;
+    return (
+      fresh && Boolean(state.debt_since) && Date.now() - Date.parse(state.debt_since!) >= debounce * 1000
+    );
+  }
+
+  /**
+   * Record the latest prioritized refactor audit and advance the escalation
+   * ladder: normal -> expansion_blocked -> relayout_only, with a big-reset
+   * warning on top.
+   *
+   * The gate only blocks *expansion*: while the debt persists the agent may
+   * still rebuild inside the flagged clusters using rebuild credits, so a
+   * refactor stays possible without tearing the whole base down.
+   */
   recordRefactorAudit(audit: {
     invalid_count: number;
     factory_problems: number;
     connection_issues: number;
     fingerprint: string;
+    clusters?: RefactorCluster[];
+    actions?: RefactorState["actions"];
   }): RefactorState | undefined {
     const run = this.active;
     if (!run) return undefined;
     const now = Date.now();
     const previous = run.refactor;
     const invalid = Math.max(0, Math.round(audit.invalid_count));
-    // Default matches the documented threshold: a few transient warnings
-    // (backpressure, momentarily starved machines, empty buffer chests) must
-    // not lock construction; sustained, larger debt still does.
-    const cleanTarget = Number(process.env.AUTORIO_REFACTOR_CLEAN_TARGET ?? 20);
-    const above = invalid > (Number.isFinite(cleanTarget) ? Math.max(0, cleanTarget) : 0);
+    // A few transient warnings (backpressure, momentarily starved machines,
+    // empty buffer chests) must not lock construction; sustained, larger debt
+    // still does.
+    const cleanTarget = Math.max(0, this.refactorSetting("AUTORIO_REFACTOR_CLEAN_TARGET", 20));
+    const above = invalid > cleanTarget;
     const sameDebt = Boolean(previous?.debt_since) && above;
+    const auditsWithDebt = above ? (sameDebt ? (previous?.audits_with_debt ?? 0) + 1 : 1) : 0;
+    const relayoutAudits = this.refactorSetting("AUTORIO_REFACTOR_RELAYOUT_AUDITS", 3);
+    const resetAudits = this.refactorSetting("AUTORIO_REFACTOR_RESET_AUDITS", 6);
+    const blackoutLimit = this.refactorSetting("AUTORIO_BIG_RESET_BLACKOUTS", 50);
+    const escalation: RefactorState["escalation_tier"] = !above
+      ? "normal"
+      : auditsWithDebt >= relayoutAudits
+        ? "relayout_only"
+        : "expansion_blocked";
+    const baseCredits = this.refactorSetting("AUTORIO_REFACTOR_BASE_BUILD_CREDITS", 12);
+    const creditsEarned = above ? Math.max(0, Math.round(previous?.credits_earned ?? 0)) : 0;
+    let buildCredits = above ? Math.max(0, Math.round(previous?.build_credits ?? 0)) : 0;
+    let baseGranted = above ? Boolean(previous?.base_credits_granted) : false;
+    if (above && escalation === "expansion_blocked" && !baseGranted) {
+      buildCredits += Math.min(baseCredits, invalid);
+      baseGranted = true;
+    }
+    if (above && escalation === "relayout_only") {
+      // Tier 2 revokes the unused repair allowance: only cleanup earns credits.
+      buildCredits = Math.min(buildCredits, creditsEarned);
+      baseGranted = true;
+    }
+    const blackouts = run.power_blackouts ?? 0;
+    const bigResetPending =
+      above &&
+      ((resetAudits > 0 && auditsWithDebt >= resetAudits) ||
+        (blackoutLimit > 0 && blackouts >= blackoutLimit));
+    const clusters = above ? (audit.clusters ?? previous?.clusters ?? []).slice(0, 8) : [];
     run.refactor = {
       audited_at: new Date(now).toISOString(),
       invalid_count: invalid,
@@ -1018,13 +1119,28 @@ export class RunManager {
       connection_issues: Math.max(0, Math.round(audit.connection_issues)),
       fingerprint: audit.fingerprint,
       debt_since: above ? (previous?.debt_since ?? new Date(now).toISOString()) : undefined,
-      audits_with_debt: above ? (sameDebt ? (previous?.audits_with_debt ?? 0) + 1 : 1) : 0,
-      big_reset_pending:
-        above &&
-        ((sameDebt ? (previous?.audits_with_debt ?? 0) + 1 : 1) >=
-          (Number(process.env.AUTORIO_REFACTOR_RESET_AUDITS || 0) || 3) ||
-          (run.power_blackouts ?? 0) >= (Number(process.env.AUTORIO_BIG_RESET_BLACKOUTS || 0) || 50)),
+      audits_with_debt: auditsWithDebt,
+      big_reset_pending: bigResetPending,
+      debt_peak: Math.max(previous?.debt_peak ?? 0, invalid),
+      escalation_tier: escalation,
+      clusters,
+      build_credits: buildCredits,
+      credits_earned: creditsEarned,
+      base_credits_granted: baseGranted,
+      actions: above ? (audit.actions ?? previous?.actions) : undefined,
     };
+    if (escalation !== (previous?.escalation_tier ?? "normal")) {
+      this.event(
+        run,
+        `Refactor escalation ${previous?.escalation_tier ?? "normal"} -> ${escalation} (debt ${invalid}, audits ${auditsWithDebt})`,
+      );
+    }
+    if (bigResetPending && !previous?.big_reset_pending) {
+      this.event(
+        run,
+        `Big-reset warning armed (debt ${invalid}, audits ${auditsWithDebt}, blackouts ${blackouts}); warning only, operator confirmation required`,
+      );
+    }
     if (run.automation && previous && previous.invalid_count > invalid) {
       const cleaned = previous.invalid_count - invalid;
       const reward = cleaned * REFACTOR_REWARD_POINTS;
@@ -1038,26 +1154,148 @@ export class RunManager {
     return run.refactor;
   }
 
-  /** Gate new construction while refactor debt remains unresolved. */
+  /** Gate new expansion while refactor debt remains unresolved. */
   refactorGate(): { blocked: boolean; state: RefactorState; message: string } | undefined {
     const run = this.active;
     if (!run?.refactor || run.state !== "running") return undefined;
     const state = run.refactor;
-    const rawDebounce = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
-    const debounce =
-      rawDebounce !== undefined && rawDebounce !== "" && Number.isFinite(Number(rawDebounce))
-        ? Math.max(0, Number(rawDebounce))
-        : 300;
-    const auditedAt = Date.parse(state.audited_at);
-    const fresh = Number.isFinite(auditedAt) && Date.now() - auditedAt < 15 * 60 * 1000;
-    const blocked =
-      fresh && Boolean(state.debt_since) && Date.now() - Date.parse(state.debt_since!) >= debounce * 1000;
+    const blocked = this.refactorArmed(state);
     return {
       blocked,
       state,
       message: blocked
-        ? `Refactor debt ${state.invalid_count} invalid connections/problems; clean the factory before expanding`
+        ? `Refactor debt ${state.invalid_count} invalid connections/problems; expansion is blocked — repair/rebuild inside the flagged clusters freely, clean flagged/obsolete entities, then re-audit`
         : "",
+    };
+  }
+
+  /**
+   * Check build targets against the refactor gate.
+   *
+   * Expansion targets (outside the flagged clusters) are refused. In-cluster
+   * rebuild targets are allowed while rebuild credits last; internal job
+   * loops pass `internal: true` and skip the credit check because the credits
+   * were already spent when the external build job was accepted.
+   */
+  refactorBuildCheck(
+    targets: RefactorBuildTarget[],
+    _options: { internal?: boolean } = {},
+  ): RefactorBuildCheck | undefined {
+    const run = this.active;
+    if (!run?.refactor || run.state !== "running") return undefined;
+    const state = run.refactor;
+    const tier = state.escalation_tier ?? "normal";
+    const allowed = (state.clusters ?? [])
+      .filter((cluster) =>
+        ["x", "y", "radius"].every((key) => Number.isFinite(Number(cluster[key as keyof RefactorCluster]))),
+      )
+      .slice(0, 8);
+    const credits = Math.max(0, Math.round(state.build_credits ?? 0));
+    const armed = this.refactorArmed(state);
+    const base: RefactorBuildCheck = {
+      blocked: false,
+      armed,
+      tier,
+      build_credits: credits,
+      allowed_clusters: allowed,
+      out_of_cluster: 0,
+      message: "",
+      actions: state.actions,
+    };
+    if (!armed) return base;
+    const points = (Array.isArray(targets) ? targets : []).filter(
+      (target) => Number.isFinite(Number(target?.x)) && Number.isFinite(Number(target?.y)),
+    );
+    const inside = points.filter((target) =>
+      allowed.some((cluster) => pointInRefactorCluster(cluster, Number(target.x), Number(target.y))),
+    ).length;
+    const outside = points.length - inside;
+    if (outside > 0) {
+      return {
+        ...base,
+        blocked: true,
+        reason: "expansion",
+        out_of_cluster: outside,
+        message:
+          `Refactor debt ${state.invalid_count} persists: expansion is blocked (${outside} target(s) outside the flagged rebuild clusters). ` +
+          "Repair/rebuild inside the flagged clusters freely, or clean flagged/obsolete entities and re-audit.",
+      };
+    }
+    // Repairs and local rebuilds inside a flagged cluster are deliberately free.
+    // Charging credits here made a zero-credit relayout_only tier block even the
+    // one-tile repairs needed to clear its own debt, pushing agents to dismantle
+    // working production blocks to earn credits.
+    return base;
+  }
+
+  /** Require building mining during refactor debt to be explicit flagged cleanup. */
+  refactorMineCheck(
+    targets: Array<{ x?: unknown; y?: unknown; cleanup?: unknown; allow_buildings?: unknown }>,
+  ): { blocked: boolean; message: string; out_of_cluster?: number } | undefined {
+    const run = this.active;
+    const state = run?.refactor;
+    if (!run || !state || !this.refactorArmed(state)) return undefined;
+    const buildingTargets = (Array.isArray(targets) ? targets : []).filter(
+      (target) => target?.allow_buildings === true,
+    );
+    if (!buildingTargets.length) return undefined;
+    const notCleanup = buildingTargets.some((target) => target.cleanup !== true);
+    if (notCleanup) {
+      return {
+        blocked: true,
+        message:
+          "Mining player-owned buildings while refactor debt is active requires cleanup=true on every target. " +
+          "Only flagged or obsolete entities may be cleaned; never dismantle a working production block.",
+      };
+    }
+    const allowed = (state.clusters ?? []).filter((cluster) =>
+      ["x", "y", "radius"].every((key) => Number.isFinite(Number(cluster[key as keyof RefactorCluster]))),
+    );
+    const outside = buildingTargets.filter(
+      (target) =>
+        !allowed.some((cluster) => pointInRefactorCluster(cluster, Number(target.x), Number(target.y))),
+    ).length;
+    if (outside > 0) {
+      return {
+        blocked: true,
+        out_of_cluster: outside,
+        message:
+          `Mining ${outside} cleanup target(s) outside the flagged rebuild clusters is blocked during refactor debt. ` +
+          "Clean only flagged/obsolete entities inside allowed_clusters, then re-audit.",
+      };
+    }
+    return undefined;
+  }
+
+  /** Spend in-cluster rebuild credits after an external build was authorized. */
+  consumeRefactorCredits(count: number): void {
+    const run = this.active;
+    const state = run?.refactor;
+    if (!run || !state) return;
+    const spend = Math.max(0, Math.round(Number(count) || 0));
+    if (!spend) return;
+    const current = Math.max(0, Math.round(state.build_credits ?? 0));
+    const next = Math.max(0, current - spend);
+    if (next === current) return;
+    state.build_credits = next;
+    this.persist(run);
+  }
+
+  /** Compact refactor view for agent observations (operational state, not the eval score). */
+  refactorView() {
+    const run = this.active;
+    const state = run?.refactor;
+    if (!state) return undefined;
+    return {
+      invalid_count: state.invalid_count,
+      tier: state.escalation_tier ?? "normal",
+      gate_active: this.refactorGate()?.blocked ?? false,
+      build_credits: Math.max(0, Math.round(state.build_credits ?? 0)),
+      local_repairs_free: true,
+      clusters: state.clusters ?? [],
+      actions: state.actions,
+      big_reset_pending: state.big_reset_pending,
+      audits_with_debt: state.audits_with_debt,
     };
   }
 
@@ -1232,6 +1470,8 @@ export class RunManager {
         refactor_reward: 0,
         breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0, refactor: 0 },
       },
+      scoring: { ...benchmark.scoring, progress_weights: { ...benchmark.scoring.progress_weights } },
+      state_metrics: { due_seconds: 0, blocked_seconds: 0 },
     };
     run.capture_video = run.agent !== "manual" && (options.capture_video ?? obsEnabled());
     if (run.capture_video && run.terminal)
@@ -2397,6 +2637,8 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
         ticks > 0 ? ((count - (previous.production[name] || 0)) * 3600) / ticks : 0,
       ]),
     );
+    const previousElapsed = Number(run.elapsed_seconds) || 0;
+    const elapsedDelta = Math.max(0, wallSeconds - previousElapsed);
     run.latest = snapshot;
     run.elapsed_seconds = wallSeconds;
     const now = new Date().toISOString();
@@ -2430,6 +2672,10 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
       : stateStatus?.due
         ? STATE_DUE_PENALTY
         : 0;
+    const stateMetrics = run.state_metrics ?? { due_seconds: 0, blocked_seconds: 0 };
+    if (stateStatus?.due) stateMetrics.due_seconds += elapsedDelta;
+    if (stateStatus?.blocked) stateMetrics.blocked_seconds += elapsedDelta;
+    run.state_metrics = stateMetrics;
     run.automation = {
       ...computeAutomationScore({
         productionTotals,
@@ -2475,6 +2721,24 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
         );
       }
     }
+    run.evaluation = {
+      capability: computeCapabilityScore({
+        benchmark: run.benchmark,
+        milestones: run.milestones,
+        latest: snapshot,
+        baseline: run.baseline ?? null,
+        activeSeconds: run.elapsed_seconds,
+      }),
+      discipline: computeDiscipline({
+        manualMines: run.automation?.manual_mines,
+        manualCrafts: run.automation?.manual_crafts,
+        blackouts: run.power_blackouts,
+        alertPenalty: run.automation?.alert_penalty,
+        stateMetrics: run.state_metrics,
+        refactor: run.refactor,
+      }),
+      computed_at: now,
+    };
     this.persist(run);
   }
 
@@ -2630,6 +2894,20 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
           `Agent: ${modelLabel(run)}`,
           `Language: ${run.language || "model default"}`,
           `Active play time: ${run.elapsed_seconds.toFixed(2)} seconds`,
+          ...(run.evaluation
+            ? [
+                `Capability: ${run.evaluation.capability.score} / 1000${
+                  run.evaluation.capability.completed
+                    ? " (completed)"
+                    : ` (progress ${Math.round(run.evaluation.capability.progress * 100)}%)`
+                }`,
+                `Milestones: ${run.evaluation.capability.milestones.completed}/${run.evaluation.capability.milestones.total}`,
+                `Scoring: v${run.evaluation.capability.scoring_version} · par ${run.evaluation.capability.par_seconds}s (${run.evaluation.capability.par_source})`,
+                `Discipline flags: ${
+                  run.evaluation.discipline.flags.length ? run.evaluation.discipline.flags.join(", ") : "none"
+                }`,
+              ]
+            : []),
           `Segments: ${run.segments?.length || 1}`,
           `Checkpoint: ${run.checkpoint?.file || "unavailable"}`,
           `Tokens: ${run.usage ? JSON.stringify(run.usage) : "unavailable"} (${run.usage_status || "unavailable"})`,

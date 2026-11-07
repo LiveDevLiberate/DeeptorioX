@@ -368,7 +368,7 @@ type ClearingSummary = {
 };
 
 export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
-  const { state, runManager, actionJobs, nativeController, rconCommand } = ctx;
+  const { state, runManager, actionJobs, nativeController, rconCommand, internalKey } = ctx;
 
   const nativeAction = (payload: Record<string, unknown>): Promise<NativeActionResult> => {
     const job = actionJobs.currentJob;
@@ -666,17 +666,28 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
       const trimmed = parseBuildRequests(entities, max);
-      const refactorGate = runManager.refactorGate();
-      if (refactorGate?.blocked) {
+      const internal = req.headers["x-autorio-internal"] === internalKey;
+      // Refactor gate: expansion is blocked, in-cluster rebuilds stay allowed.
+      // Internal job-loopback dispatches skip the credit check because the
+      // credits were already spent when the external build job was accepted.
+      const refactorCheck = runManager.refactorBuildCheck(
+        trimmed.map((entity) => ({ x: Number(entity.anchor.x), y: Number(entity.anchor.y) })),
+        { internal },
+      );
+      if (refactorCheck?.blocked) {
         return json(res, 409, {
           error: "REFACTOR_REQUIRED",
-          message: refactorGate.message,
-          refactor: refactorGate.state,
+          message: refactorCheck.message,
+          tier: refactorCheck.tier,
+          build_credits: refactorCheck.build_credits,
+          allowed_clusters: refactorCheck.allowed_clusters,
+          out_of_cluster: refactorCheck.out_of_cluster,
+          actions: refactorCheck.actions ?? [],
           nudge: {
             reason: "refactor_debt",
             first_step: "factory-audit",
             message:
-              "Fix the highest-priority audit action (repair/rotate/connect the flagged tiles) and re-audit; deconstruct only flagged or obsolete entities and relayout a belt section only after 3 failed audits.",
+              "Expansion is blocked while refactor debt persists. Repairs and local rebuilds inside the flagged clusters are free; clean only flagged/obsolete entities, re-audit, then expand. relayout-belts is for a belt section that still fails after 3 audits.",
           },
         });
       }
@@ -854,6 +865,14 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
       const trimmed = parsePositionTargets(targets, max);
+      const cleanupCheck = runManager.refactorMineCheck(trimmed);
+      if (cleanupCheck?.blocked) {
+        return json(res, 409, {
+          error: "REFACTOR_CLEANUP_REQUIRED",
+          message: cleanupCheck.message,
+          out_of_cluster: cleanupCheck.out_of_cluster ?? 0,
+        });
+      }
       try {
         const results: Record<string, unknown>[] = [];
         for (const target of trimmed) {
@@ -869,10 +888,11 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           });
           results.push({ ...result, x: Number(target.x), y: Number(target.y) });
         }
-        const automation = runManager.plan()?.automation;
+        // The evaluation score is internal/operator-only: agent responses never
+        // carry the automation block.
         return json(res, 200, {
           ok: true,
-          data: { results, ...(automation ? { automation } : {}) },
+          data: { results },
           truncated: targets.length > trimmed.length,
         });
       } catch (err) {
@@ -1152,8 +1172,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             data,
           });
         }
-        const automation = runManager.plan()?.automation;
-        return json(res, 200, { ok: true, data: automation ? { ...(data as object), automation } : data });
+        return json(res, 200, { ok: true, data });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }
@@ -1541,6 +1560,8 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             factory_problems: audit.summary.factory_problems,
             connection_issues: audit.summary.connection_issues,
             fingerprint: audit.fingerprint,
+            clusters: audit.clusters,
+            actions: audit.action_summary,
           });
         }
         return json(res, 200, { ok: true, data: { ...audit, debt_recorded: debtRecorded } });
@@ -1638,6 +1659,10 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         if (plan) (data as JsonObject).plan = plan;
         const state = runManager.stateStatus();
         if (state) (data as JsonObject).state = state;
+        // Operational refactor state (debt tier, rebuild clusters, credits) so
+        // the agent can repair/rebuild locally while expansion is gated.
+        const refactor = runManager.refactorView();
+        if (refactor) (data as JsonObject).refactor = refactor;
         return json(res, 200, { ok: true, data });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });

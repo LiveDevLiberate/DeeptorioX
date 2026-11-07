@@ -1,7 +1,7 @@
 import { Router } from "../http/router.js";
 import { json, readJsonBody } from "../http/plumbing.js";
 import { actionPaths, splitJobPayload, type JobAction } from "../action-jobs.js";
-import { asString } from "../validation.js";
+import { asRecord, asString } from "../validation.js";
 import { rconConfigured } from "./shared.js";
 import type { ApiContext } from "./context.js";
 
@@ -18,6 +18,21 @@ export function parseJobAction(value: unknown): JobAction | undefined {
 
 export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
   const { state, runManager, actionJobs, internalKey } = ctx;
+
+  /** Build targets from the per-entity job items produced by `splitJobPayload`. */
+  const buildTargets = (items: unknown[]): Array<{ x: number; y: number }> => {
+    const targets: Array<{ x: number; y: number }> = [];
+    for (const item of items) {
+      const record = asRecord(item);
+      const entities = record?.entities;
+      const entity = asRecord(Array.isArray(entities) ? entities[0] : undefined);
+      const anchor = asRecord(entity?.anchor);
+      const x = Number(anchor?.x);
+      const y = Number(anchor?.y);
+      if (Number.isFinite(x) && Number.isFinite(y)) targets.push({ x, y });
+    }
+    return targets;
+  };
 
   router.add({
     method: "POST",
@@ -44,22 +59,30 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
       if (!action) {
         return json(res, 400, { error: "Unknown job action", allowed_actions: Object.keys(actionPaths) });
       }
-      if (splitJobPayload(action, body.payload).length === 0) {
+      const items = splitJobPayload(action, body.payload);
+      if (items.length === 0) {
         return json(res, 400, { error: "Action payload contains no work" });
       }
       const internal = req.headers["x-autorio-internal"] === internalKey;
       if (!internal && action === "build") {
-        const gate = runManager.refactorGate();
-        if (gate?.blocked) {
+        // The refactor gate blocks expansion, not refactoring: in-cluster
+        // rebuilds are allowed while rebuild credits last (1 credit/entity).
+        const targets = buildTargets(items);
+        const check = runManager.refactorBuildCheck(targets);
+        if (check?.blocked) {
           return json(res, 409, {
             error: "REFACTOR_REQUIRED",
-            message: gate.message,
-            refactor: gate.state,
+            message: check.message,
+            tier: check.tier,
+            build_credits: check.build_credits,
+            allowed_clusters: check.allowed_clusters,
+            out_of_cluster: check.out_of_cluster,
+            actions: check.actions ?? [],
             nudge: {
               reason: "refactor_debt",
               first_step: "factory-audit",
               message:
-                "Fix the highest-priority factory-audit action (repair/rotate/connect the flagged tiles), re-audit, then resume building. Deconstruct only flagged or obsolete entities; use relayout-belts only when the same belt section still fails after 3 audits.",
+                "Expansion is blocked while refactor debt persists. Repairs and local rebuilds inside the flagged clusters are free; clean only flagged/obsolete entities, re-audit, then expand. relayout-belts is for a belt section that still fails after 3 audits.",
             },
           });
         }

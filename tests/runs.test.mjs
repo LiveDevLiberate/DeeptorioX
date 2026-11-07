@@ -909,3 +909,187 @@ test("repeated quota exhaustion preserves each checkpoint and a failed save cann
     delete process.env.AUTORIO_TEST_REPEAT_QUOTA;
   }
 });
+
+test("refactor ladder blocks expansion but allows in-cluster rebuilds with credits", async () => {
+  const previousGrace = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+  process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = "0";
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    manager.recordRefactorAudit({
+      invalid_count: 35,
+      factory_problems: 5,
+      connection_issues: 30,
+      fingerprint: "debt-a",
+      clusters: [{ x: 0, y: 0, radius: 12, count: 10, kinds: ["belt_dead_end"] }],
+      actions: [{ kind: "belt_dead_end", severity: "warning", count: 10, action: "Repair the belt." }],
+    });
+    const state = manager.get(run.id).refactor;
+    assert.equal(state.escalation_tier, "expansion_blocked");
+    assert.equal(state.build_credits, 12);
+    assert.equal(state.clusters.length, 1);
+    const expansion = manager.refactorBuildCheck([{ x: 200, y: 200 }]);
+    assert.equal(expansion?.blocked, true);
+    assert.equal(expansion?.reason, "expansion");
+    assert.equal(expansion?.out_of_cluster, 1);
+    assert.equal(expansion?.allowed_clusters.length, 1);
+    assert.equal(manager.refactorBuildCheck([{ x: 4, y: 4 }])?.blocked, false);
+    assert.equal(
+      manager.refactorMineCheck([{ x: 4, y: 4, allow_buildings: true }])?.blocked,
+      true,
+      "building mining without cleanup=true must be blocked during the gate",
+    );
+    assert.equal(
+      manager.refactorMineCheck([{ x: 4, y: 4, allow_buildings: true, cleanup: true }]),
+      undefined,
+      "flagged in-cluster cleanup stays allowed",
+    );
+    assert.equal(
+      manager.refactorMineCheck([{ x: 200, y: 200, allow_buildings: true, cleanup: true }])?.blocked,
+      true,
+      "cleanup outside the flagged clusters must be blocked",
+    );
+    manager.consumeRefactorCredits(12);
+    // In-cluster repairs stay free even after the historical credit counter reaches 0.
+    assert.equal(manager.refactorBuildCheck([{ x: 0, y: 0 }])?.blocked, false);
+    assert.equal(manager.refactorBuildCheck([{ x: 0, y: 0 }], { internal: true })?.blocked, false);
+    manager.recordJob("finished", {
+      action: "mine",
+      status: "completed",
+      payload: {
+        targets: [
+          { x: 0, y: 0, cleanup: true },
+          { x: 1, y: 0, cleanup: true },
+        ],
+      },
+      results: [{ ok: true }, { ok: true }],
+    });
+    assert.equal(manager.get(run.id).refactor.build_credits, 2);
+    assert.equal(
+      manager.refactorBuildCheck([
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+      ])?.blocked,
+      false,
+    );
+    manager.recordRefactorAudit({
+      invalid_count: 0,
+      factory_problems: 0,
+      connection_issues: 0,
+      fingerprint: "clean",
+    });
+    assert.equal(manager.refactorGate()?.blocked, false);
+    assert.equal(manager.get(run.id).refactor.build_credits, 0);
+    assert.equal(manager.get(run.id).refactor.escalation_tier, "normal");
+  } finally {
+    if (previousGrace === undefined) delete process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+    else process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = previousGrace;
+    await manager.stop();
+  }
+});
+
+test("refactor tier 2 revokes unused base credits after three debt audits", async () => {
+  const previousGrace = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+  process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = "0";
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    const audit = {
+      invalid_count: 35,
+      factory_problems: 5,
+      connection_issues: 30,
+      fingerprint: "debt-b",
+      clusters: [{ x: 0, y: 0, radius: 12, count: 10, kinds: ["belt_dead_end"] }],
+    };
+    for (let index = 0; index < 3; index += 1) manager.recordRefactorAudit(audit);
+    const state = manager.get(run.id).refactor;
+    assert.equal(state.audits_with_debt, 3);
+    assert.equal(state.escalation_tier, "relayout_only");
+    assert.equal(state.build_credits, 0, "tier 2 keeps only cleanup-earned credits");
+    assert.equal(state.big_reset_pending, false, "three audits no longer arm the big reset warning");
+    assert.equal(manager.refactorBuildCheck([{ x: 0, y: 0 }])?.blocked, false);
+    assert.equal(manager.refactorBuildCheck([{ x: 200, y: 200 }])?.reason, "expansion");
+  } finally {
+    if (previousGrace === undefined) delete process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+    else process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = previousGrace;
+    await manager.stop();
+  }
+});
+
+test("big reset warning arms after six debt audits without locking builds further", async () => {
+  const previousGrace = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+  process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = "0";
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    const audit = {
+      invalid_count: 35,
+      factory_problems: 5,
+      connection_issues: 30,
+      fingerprint: "debt-c",
+      clusters: [{ x: 0, y: 0, radius: 12, count: 10, kinds: ["belt_dead_end"] }],
+    };
+    for (let index = 0; index < 6; index += 1) manager.recordRefactorAudit(audit);
+    const state = manager.get(run.id).refactor;
+    assert.equal(state.big_reset_pending, true);
+    assert.equal(state.escalation_tier, "relayout_only");
+    // Big reset is a warning only: tier-2 rules still apply instead of a total build lock.
+    assert.equal(manager.refactorBuildCheck([{ x: 200, y: 200 }])?.reason, "expansion");
+    assert.equal(manager.refactorBuildCheck([{ x: 0, y: 0 }])?.blocked, false);
+  } finally {
+    if (previousGrace === undefined) delete process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+    else process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = previousGrace;
+    await manager.stop();
+  }
+});
+
+test("internal automation score is not exposed to the agent plan", async () => {
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    const plan = manager.plan();
+    assert.ok(plan);
+    assert.equal("automation" in plan, false, "plan must not expose the evaluation score");
+    assert.equal("manual_penalty_grace_active" in plan, false);
+    assert.equal("manual_penalty_grace_seconds" in plan, false);
+    // The operator-facing run record keeps the score for the run page/UI.
+    assert.ok(manager.get(run.id).automation, "operator view still carries automation");
+  } finally {
+    await manager.stop();
+  }
+});
+
+test("evaluation v2 records capability from milestone first-seen time", async () => {
+  const { manager, hooks } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  await waitFor(() => manager.get(run.id).state === "running");
+  const original = hooks.command;
+  hooks.command = async (lua) => {
+    if (lua.includes("get_item_production_statistics")) {
+      return JSON.stringify(snapshot({ "iron-gear-wheel": 1 }));
+    }
+    return original(lua);
+  };
+  try {
+    await manager.sample();
+    await waitFor(() => manager.get(run.id).state === "completed");
+    const view = manager.get(run.id);
+    const evaluation = view.evaluation;
+    assert.ok(evaluation, "run carries a v2 evaluation block");
+    assert.equal(evaluation.capability.completed, true);
+    assert.equal(evaluation.capability.scoring_version, 2);
+    assert.equal(evaluation.capability.par_seconds, 15);
+    assert.ok(evaluation.capability.score >= 500 && evaluation.capability.score <= 1000);
+    assert.equal(typeof evaluation.capability.completion_seconds, "number");
+    assert.equal(evaluation.capability.milestones.completed, 1);
+    assert.ok(Array.isArray(evaluation.discipline.flags));
+    assert.equal(view.scoring.par_seconds, 15);
+    assert.ok(view.legacy_automation !== undefined || view.automation !== undefined);
+  } finally {
+    await manager.shutdown();
+  }
+});

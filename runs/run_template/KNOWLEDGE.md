@@ -79,17 +79,28 @@ issue coordinates for exact repairs.
 - Layout marks crash-site spaceship debris as `X`; map overview uses `S`.
   Recover with `recover-debris` instead of leaving wreckage on paths.
 
-## 2.99 Refactor gate
+## 2.99 Refactor gate and escalation ladder
 
-- Invalid factory/belt debt blocks new build jobs with `REFACTOR_REQUIRED` once
-  it stays above the clean target (default 20) past the gate grace. Only
+- Above the clean target (default 20) each recorded full-scope audit advances
+  the escalation ladder; once the debt has persisted past the gate grace
+  (default 300 s) out-of-cluster builds return `REFACTOR_REQUIRED`. Only
   default-scope audits with radius >= 120 update the debt record.
+- `observe-factory()` returns `refactor` (`tier`, `gate_active`,
+  `build_credits`, `clusters`, `big_reset_pending`, `audits_with_debt`) so you
+  can see the current allowance before building.
+- T1 `expansion_blocked`: only out-of-cluster expansion is locked; repairs and
+  local rebuilds inside the audit bad clusters are free. Mining player-owned
+  buildings requires `cleanup=true` and must stay inside `allowed_clusters`.
+- T2 `relayout_only` (after 3 consecutive debt audits): stop patch-repairing
+  the same fingerprint; relayout the worst cluster. In-cluster repairs stay
+  free, and working production must not be dismantled.
+- T3 `big_reset_pending` (6 consecutive debt audits or 50 blackouts; a separate
+  warning flag, not a tier): red ATTENTION warning plus operator confirmation
+  only — no extra build lock, no automatic base reset.
 - Clean by fixing the highest-priority factory-audit action (repair/rotate/
-  connect the flagged tiles), then re-audit. Deconstruct only flagged or
-  obsolete entities; keep relayout-belts for a belt section that still fails
-  after 3 audits.
-- Three debt audits (or 50 blackouts) arm the red BIG RESET warning: stop
-  expanding and clean the worst debt; never dismantle a working production block.
+  connect the flagged tiles), deconstruct only flagged or obsolete entities,
+  then re-audit. Keep relayout-belts for a belt section that still fails after
+  3 audits.
 
 ## 2.995 Blueprint gate
 
@@ -107,11 +118,15 @@ issue coordinates for exact repairs.
 - Bulk deconstruct scans near-first and orders targets by nearest-neighbor
   travel; use --max-distance to avoid cross-map single-target trips.
 
-## 2.999 Cleanup rewards
+## 2.999 Cleanup and local repairs
 
-- Deconstruction with `cleanup=true` is unscored as manual mining and earns
-  positive cleanup/refactor points. Builds stay blocked (including direct
-  act-build) until invalid debt falls to the clean target (default 20).
+- Deconstruction with `cleanup=true` is not manual resource mining; use it to
+  remove invalid/obsolete entities and clear refactor debt.
+- Repairs and local rebuilds inside flagged clusters are free. Mining
+  player-owned buildings during the debt requires `cleanup=true` and must stay
+  inside the flagged clusters; never dismantle working production.
+- Out-of-cluster expansion unlocks when invalid debt falls to the clean target
+  (default 20).
 
 ## 2.9995 Refactor scope
 
@@ -193,7 +208,7 @@ issue coordinates for exact repairs.
 - Every agent response carries `alerts` (critical/warning, counts, first-seen).
 - Critical alerts older than the gate grace block mutating calls with
   `ALERTS_PENDING`; inspect/fix, then `alerts --ack`.
-- Unresolved critical alerts accrue an `alert_penalty`; there is no restart.
+- Fix and ack unresolved critical alerts promptly; there is no agent restart.
 
 ## 9. Blueprints (`blueprints`)
 

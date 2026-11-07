@@ -352,8 +352,7 @@ choose a reachable shore/waypoint and build the route in stages.
 - When blocked: run `alerts` / `observe-factory` to inspect the samples, fix
   power/fuel/fluid/resource causes, then `alerts --ack` and retry.
 - Acknowledgements are revision-based: if the alert set changes, the gate
-  re-arms. Unresolved critical alerts accrue an `alert_penalty` instead of
-  restarting the agent.
+  re-arms. Fix and ack critical alerts promptly; there is no agent restart.
 
 ## 12.4 Never idle
 
@@ -458,9 +457,10 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   deconstruct only flagged or obsolete entities. Do not start a new build while
   a critical action is unresolved.
 - If the same issue/action fingerprint (kind + count; coordinates are excluded)
-  persists after 3 audits, escalate: `relayout-belts` for that belt section
-  only, or redesign the affected machine block. Never recycle a whole working
-  area to fix a few bad links. Record the fingerprint/attempt count in STATE.md.
+  persists after 3 audits (`AUTORIO_REFACTOR_RELAYOUT_AUDITS`), the gate moves to
+  `relayout_only`: `relayout-belts` for that belt section only, or redesign the
+  affected machine block. Never recycle a whole working area to fix a few bad
+  links. Record the fingerprint/attempt count in STATE.md.
 - A clean audit (`actions: []`) is the go-ahead to expand; otherwise optimize
   before expanding.
 
@@ -483,29 +483,67 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   loot first, then mines the pieces). Do not leave debris blocking walkways or
   building sites.
 
-## 12.12 Refactor gate and big-reset warning
+## 12.12 Refactor escalation ladder and big-reset warning
 
-- The manager periodically audits factory + belt/inserter problems and records
-  a scoped invalid count. Build jobs return `REFACTOR_REQUIRED` once the debt is
-  above the clean target (`AUTORIO_REFACTOR_CLEAN_TARGET`, default 20) and stays
-  there past the gate grace (`AUTORIO_REFACTOR_GATE_GRACE_SECONDS`, default
-  300 s). Mines/deconstruction/relayout remain allowed.
+- The manager periodically audits factory + belt/inserter problems and records a
+  scoped invalid count. Once that debt stays above the clean target
+  (`AUTORIO_REFACTOR_CLEAN_TARGET`, default 20) past the gate grace
+  (`AUTORIO_REFACTOR_GATE_GRACE_SECONDS`, default 300 s; 0 = lock immediately),
+  builds return `REFACTOR_REQUIRED` and the gate escalates.
 - The clean target tolerates normal transient noise (momentary backpressure,
-  starved machines, empty buffer chests); sustained debt above it still blocks.
+  starved machines, empty buffer chests); sustained debt above it still locks
+  expansion.
 - Only default-scope audits with radius >= 120 update the debt record; local
   audits are advisory, so a narrow cleanup check does not clear the gate.
-- Run `factory-audit` and fix the highest-priority action:
-  - critical fuel/power/fluid first;
-  - repair/rotate the flagged belt tiles; use `relayout-belts` on that section
-    only after 3 failed audits (dry-run first);
-  - isolated/obsolete buildings: deconstruct or connect them.
-- Re-audit after cleanup. Building is allowed again when the audit invalid count
-  falls to the clean target.
-- If the debt persists for `AUTORIO_REFACTOR_RESET_AUDITS` (default 3) audits, or
-  blackouts reach 50, `big_reset_pending` is set and the UI shows a red flashing
-  **ATTENTION / BIG RESET** banner. Stop expanding and clean the worst debt; do
-  not dismantle a working production block.
-- A failed `REFACTOR_REQUIRED` means "clean before building", not "retry build".
+
+**T1 — `expansion_blocked` (only expansion is locked).**
+
+- Out-of-cluster **new** builds are rejected. Non-build actions (mine, rotate,
+  set-recipe, copy-settings, deconstruct, ...) always work.
+- Builds inside the audit-marked bad clusters (`allowed_clusters`: center x/y,
+  radius, count, kinds) are free: repair/rebuild does not require credits.
+- Mining player-owned buildings during the debt requires `cleanup=true` on
+  every target and must stay inside `allowed_clusters`; never clean a working
+  production block. Cleanup remains rewarded as normal.
+
+**T2 — `relayout_only` (after 3 consecutive debt audits).**
+
+- When the debt has persisted for `AUTORIO_REFACTOR_RELAYOUT_AUDITS`
+  (default 3; 0 = upgrade immediately) consecutive audits, stop patch-repairing
+  the same fingerprint. In-cluster repairs and rebuilds remain free.
+- `relayout-belts --dry-run` on the worst cluster, then the real relayout,
+  rebuild locally, re-audit. Never recycle the whole working area.
+
+**T3 — `big_reset_pending` (warning flag, not a tier value).**
+
+- Armed when the debt is still uncleared and either the debt survived
+  `AUTORIO_REFACTOR_RESET_AUDITS` (default 6) consecutive audits or blackouts
+  reached `AUTORIO_BIG_RESET_BLACKOUTS` (default 50). The UI shows a red flashing
+  **ATTENTION / BIG RESET** banner: it is a warning plus operator confirmation,
+  not an extra build lock, and it never tears down the base automatically.
+- Do not dismantle a working production block to chase the counter; clean the
+  highest-priority debt and keep the factory running.
+
+**Operating order (any tier).**
+
+1. Run `factory-audit`; read the prioritized `actions` and the bad clusters.
+2. Deconstruct/mine only flagged or obsolete entities (`cleanup=true`) to
+   remove debt. Working production equipment is not a cleanup target.
+3. Rebuild or relayout only inside the marked clusters; verify with
+   `observe-*`/`observe-connections`.
+4. Re-audit. Out-of-cluster expansion unlocks when the audit invalid count falls
+   to the clean target.
+
+**Failure handling.**
+
+- A failed `REFACTOR_REQUIRED` means "repair inside the clusters or clean more",
+  not "retry the same build". Read `tier`, `build_credits` and
+  `allowed_clusters` in the 409 before deciding.
+- If an in-cluster build still fails for collision/placement, run a geometry or
+  placement dry-run and fix the cell; do not fall back to building outside the
+  cluster.
+- Credits are for repairs, not free expansion: every in-cluster build should fix
+  a flagged problem and not add new debt.
 
 ## 12.13 Blueprint-first expansion
 
@@ -550,19 +588,23 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   the player, deconstruct the nearest local cluster, then select the next nearest
   cluster; never visit 10-20 fixed map coordinates in one pass.
 
-## 12.16 Cleanup is rewarded, rebuild waits
+## 12.16 Cleanup and local repairs
 
 - Cleanup deconstruction is marked `cleanup=true`: it does **not** count as
-  manual resource mining and earns positive points:
-  - `+5` per successfully removed invalid/obsolete player-owned entity;
-  - `+10` per unit of invalid debt removed between audits.
-- The build gate now blocks direct `act-build` too, not only queued build jobs.
-  Rebuild only after the audit invalid count falls to the clean target
-  (`AUTORIO_REFACTOR_CLEAN_TARGET`, default 20). `REFACTOR_REQUIRED` means keep
-  repairing/cleaning, not "retry build".
-- When `big_reset_pending` is set, stop expanding and clean the highest-priority
-  debt; do not start a new production block first, and do not dismantle a
-  working production block to chase the counter.
+  manual resource mining; it removes invalid/obsolete entities instead of
+  leaving them as refactor debt.
+- Cleanup is rewarded, but it is not a prerequisite for repairing the factory:
+  in-cluster repairs and local rebuilds are free while the gate is active.
+- Mining player-owned buildings requires `cleanup=true` during the debt and
+  must stay inside the flagged clusters. `REFACTOR_REQUIRED` means repair the
+  flagged tile or relayout the flagged cluster, not "dismantle the working
+  area".
+- Rebuild outside the clusters only after the audit invalid count falls to the
+  clean target (`AUTORIO_REFACTOR_CLEAN_TARGET`, default 20).
+- When `big_reset_pending` is set (6 consecutive debt audits or 50 blackouts),
+  it is a red operator warning only: clean the highest-priority debt, do not
+  start an unrelated production block first, and never dismantle a working
+  production block to chase the counter.
 
 ## 12.17 Refactor scope: power, pipes, rail
 
@@ -586,8 +628,9 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   Wire/pipes/poles are included; do not leave broken power or fluid links as
   “unrelated” debt. Rail cleanup only when a train/rail refactor is explicitly in
   scope.
-- Build gate counts the scoped debt; it stays closed until the clean target
-  (default 20) is reached.
+- Build gate counts the scoped debt; out-of-cluster expansion stays closed until
+  the clean target (default 20) is reached, while marked-cluster repairs spend
+  build credits.
 
 ## 12.18 Inserter direction
 
@@ -637,7 +680,7 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 
 - One observation can answer many questions: `observe-factory` + `observe-layout` once, then plan.
 - Need a tool signature? Run `factorio.py tools --json` / `client.tools()` first; the manifest is generated from the code.
-- Check `observe-factory().plan.automation` after each subtask: manual mines/crafts are penalty points; prefer drills/furnaces/assemblers.
+- After each subtask, review any hand mining/crafting: replace repeated manual work with drills/furnaces/assemblers/inserters. Manual work wastes active time and does not scale.
 - Keep STATE.md fresh (`state-write` / `write_state`) at least every 5 min; stale state blocks mutating actions after 10 min.
 - Dry-run placement before every multi-entity build; failures are cheaper than rebuilding.
 - Batch: up to 50 entities/targets per action; chain jobs instead of one call per entity.

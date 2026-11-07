@@ -85,7 +85,8 @@ and `AUTORIO_DATA_DIR` (README "Parallel evaluation cluster").
 | Runs | `src/runs.ts` | `RunManager`: state machine, workspace prep, baseline cache, spawn/close/lifecycle, token/context accounting, telemetry and scoring, recording hooks, save/checkpoint/resume. Provider specifics live in `src/agents/`. |
 | Runs | `src/agents/opencode-events.ts`, `src/agents/codex-events.ts` | Pure JSONL → transcript translators (thread/message/reasoning/command/usage/error ops) with typed appliers and reasoning dedup. |
 | Runs | `src/agents/*-launch.ts` | Pure launch specifications (prompt, args, env allow/deny list, WSL script, DSH model patch and play wrappers) for the OpenCode/Codex/DSH backends; `runs.ts` writes the files and spawns. |
-| Runs | `src/benchmarks.ts` | Loads/validates `benchmarks/*.json`; RCON telemetry command; `Snapshot` parsing and milestone `reached()` checks. |
+| Runs | `src/benchmarks.ts` | Loads/validates `benchmarks/*.json`; normalizes the scoring block (`version`/`ranked`/`par_seconds`/explicit `progress_weights`); RCON telemetry command; `Snapshot` parsing and milestone `reached()` checks. |
+| Runs | `src/evaluation-score.ts` | Scoring v2: per-benchmark time-normalised capability score (0-1000) and separate discipline metrics; pure functions over benchmark milestones and snapshots. |
 | Runs | `src/run-labels.ts`, `src/token-usage.ts`, `src/quota.ts` | Pacific-local labels; Codex token fallback (`last_reported`); quota detection that pauses a run. |
 | Game | `src/runtime.ts` | Paths, ports, config, isolated game profile (mod, `config.ini`, `server-settings.json`), map creation, version/Steam checks, mod hash. |
 | Game | `src/platform.ts` | Cross-platform process/executable helpers: PATHEXT/`.cmd` shims, `spawnExecutable`/`execExecutable`, `taskkill` trees, Steam/browser discovery, usage sampling. |
@@ -99,9 +100,10 @@ and `AUTORIO_DATA_DIR` (README "Parallel evaluation cluster").
 | Interfaces | `factorio.py` | Importable Python client + CLI: `FactorioClient`, action/job helpers, condition waits, belt/loader builders, blueprint-string codec + `build_blueprint` (chunked jobs, dry-run preflight), `observe_snapshot`/`observe_production`/`observe_fluids`/`observe_combat`/`observe_area`, copy-settings and pure construction planners (pipe/power/inserter/mining/defense). |
 | Blueprints | `src/blueprints.ts`, `src/run-blueprints.ts` | Blueprint-string decode/summary and the per-run catalogue (`blueprints/index.json` + raw `.txt` files); `save_blueprint`/`list_blueprints` client helpers and build-time auto-registration. |
 | Interfaces | `autorio_types.py`, `autorio_gym.py`, `autorio_trajectory.py` | Typed observation dataclasses; dependency-free Gym-style `FactorioEnv`; SQLite (WAL) episode/step store. |
-| Interfaces | `public/` | Operator UI: `index`+`runs.js` (launch/history), `run`+`run.js` (details), `compare`, `recording`+`recording.js` (live transcript/status bar), `transcript-view-model.js` (DOM-free reasoning/action summaries, loop detection, telemetry metrics/markers), renderers, `production-chart.js`, `runs.css`. |
+| Interfaces | `public/` | Operator UI: `index`+`runs.js` (launch/history), `run`+`run.js` (details), `compare`, `recording`+`recording.js` (live transcript/status bar with adaptive milestone progress row), `transcript-view-model.js` (DOM-free reasoning/action summaries, loop detection, telemetry metrics/markers), renderers, `production-chart.js`, `runs.css`. |
 | Interfaces | `scripts/cluster.mjs`, `scripts/cluster-lib.mjs` | Cluster supervisor and side-effect-free helpers for instance planning, env, metadata, run requests. |
 | Tooling | `scripts/api-selftest.py`, `scripts/game-status.py`, `scripts/doctor.mjs` | Read-only live API self-test, live game helper, environment doctor. |
+| Tooling | `scripts/calibrate-scoring.mjs` | Suggests per-benchmark `scoring.par_seconds` from completed runs (median `completion_seconds`); advisory unless `--apply`. |
 | Tooling | `tests/`, `scripts/check-repo.mjs`, `scripts/package.mjs`, `.github/workflows/ci.yml` | Node/Python suites (no real game needed), repo hygiene gate, reproducible packaging, CI matrix. |
 | Tooling | `eslint.config.mjs`, `scripts/coverage-gate.mjs`, `.githooks/pre-commit`, `scripts/install-hooks.mjs` | Type-aware ESLint (`no-floating-promises`/`no-misused-promises` errors, `no-explicit-any` warning), coverage thresholds (82/78/84 via Node's built-in report), and the fast pre-commit hook (check:repo + format:check + typecheck). |
 | Tooling | `scripts/release.mjs`, `.github/workflows/live-selftest.yml`, `scripts/ci-live-selftest.ps1` | Semver/CHANGELOG/annotated-tag release automation and the manual self-hosted Windows live selftest (Steam + real game required). |
@@ -158,12 +160,48 @@ logger writes JSONL to `<data-dir>/manager.log`, mirrors one human line per reco
 secret-looking keys, and records HTTP requests (method, path, status, duration; health polls excluded).
 `AUTORIO_LOG_LEVEL` selects `debug|info|warn|error`.
 
-**Automation scoring.** `src/automation-score.ts` computes the agent score from
-automated production, science, power satisfaction, research and rockets, minus
-manual mining/crafting, stale STATE.md and full-blackout penalties. A blackout
-is counted once per transition after any network reports positive production
-capacity: demand > 0 and satisfaction ≤ 0.5% subtracts 500 points; the count and
-active state persist in `run.json`.
+**Evaluation scoring v2.** Ranking uses a per-benchmark capability score from
+`src/evaluation-score.ts`; discipline metrics are reported beside it and never
+change the ranking. A completed run scores `500 + 500 * r / (1 + r)` with
+`r = par_seconds / completion active seconds` (finishing at par = 750, and
+completion always scores at least 500), using the completion milestone's
+first-seen wall time. An unfinished run scores `499 * weighted progress`, where
+each scored milestone contributes its weighted fractional achievement
+(first-seen research/rocket/production progress against the baseline).
+
+Each `benchmarks/*.json` carries a `scoring` block: `version`, `ranked`,
+`completion_basis` (`milestone_first_seen`), `par_seconds`, `par_source`
+(provenance such as `median_completed:<date>` or `fallback:max_seconds/3`) and an
+explicit `progress_weights` set — unlisted milestones contribute nothing and the
+completion milestone must be scored (older files fall back to equal weights and
+`max_seconds/3` par). `scripts/calibrate-scoring.mjs` suggests `par_seconds` from
+completed runs (median `completion_seconds`); it is advisory unless run with
+`--apply`. `run.json` stores the resolved `scoring` snapshot (fixed at run
+start), `evaluation` (capability + discipline) and `state_metrics` (STATE.md
+due/blocked durations).
+
+**Discipline metrics.** Manual mines/crafts, STATE.md `due`/`blocked` seconds,
+blackouts, ignored-alert penalty and refactor debt (peak/invalid/cleanup/tier/
+audits) are recorded separately and never folded into the capability ranking.
+The legacy `automation` block is retained for history/compatibility but no longer
+ranked. Everything is operator-only: the run page and recording view show the
+results, while `/api/agent/*` and agent prompts expose no evaluation scores (no
+`plan.automation` in `observe-factory`, no score block in
+`act-mine`/`act-craft` responses). The recording header also renders an adaptive
+milestone progress row: up to six milestones as dots, larger sets as
+`42% · 3/7 · next`, and `✓ <time> · N/N` once completed.
+
+**Agent plan (STATE.md).** `POST /api/agent/state` / CLI `state-write` renders
+the agent's operator-visible plan. Alongside `objective`, `current`, `done_when`,
+`next`, `timebox`, `progress` and `notes`, the agent may write `scores`: six
+0-100 task-priority ratings (production, logistics, mining, research, defense,
+exploration) that it uses to choose its next subtask. These are **planning**
+self-scores only and do not feed the manager's evaluation; the state status
+reports them as `scores_source: "agent_self_reported"`, and the run page and
+recording view show them as self-reported plan scores (the recording header
+renders the six-axis radar). Evaluation remains the manager's internal scoring
+v2 (capability + discipline), never exposed on `/api/agent/*` or in prompts (see
+above).
 
 **Agent interface usage.** Every `/api/agent/...` request handled while a run is
 active is counted by `METHOD /path` (job IDs normalize to
@@ -180,9 +218,10 @@ both endpoints (big pole default, 30 reach). The planner avoids using big poles
 as a dense coverage grid.
 
 **Manual-penalty grace.** `recordJob` counts manual mines/crafts only after
-`MANUAL_PENALTY_GRACE_SECONDS` (default 1800) of active play; the run view exposes
-`manual_penalty_grace_active`/`manual_penalty_grace_seconds`, and recovery
-recounting follows the same window. State/blackout penalties are unaffected.
+`MANUAL_PENALTY_GRACE_SECONDS` (default 1800) of active play; the counts feed
+the discipline metrics and the legacy automation block, while the agent-facing
+`plan` carries no evaluation fields. Recovery recounting follows the same
+window. State/blackout accounting is unaffected.
 
 **Resource mining.** `FactorioClient.mine_continuous` repeats the native mine
 action on the *same* target until no resource remains or a count is reached;
@@ -204,6 +243,9 @@ adds rail when requested. `invalid_count` is the scoped sum; `deconstruct-area
 
 **Cleanup rewards.** `cleanupMineUnits` reads `cleanup=true` targets; successful
 entities add positive score and are subtracted from manual mining penalties.
+Cleanup also earns one refactor **build credit** per removed entity during a
+debt episode, so repairs and in-cluster rebuilds stay affordable while
+expansion is locked.
 `recordRefactorAudit` adds a positive reward per invalid-debt unit removed. Both
 queued and direct build paths share the refactor/blueprint gate.
 
@@ -268,14 +310,37 @@ only the bottleneck section. `LAYOUT.md` is the agent's persistent geometry
 memory for anchors, grids, corridors and gaps.
 
 **Refactor debt/gate.** The manager periodically stores a `refactor` state
-(invalid count, fingerprint, debt age, audit count). A build job is rejected with
-`REFACTOR_REQUIRED` once the scoped debt stays above the clean target
-(`AUTORIO_REFACTOR_CLEAN_TARGET`, default 20) past the gate grace; cleanup
-actions stay allowed. Only full-window audits (default scope, radius >= 120)
-update the debt record, and the recorded window is the player-centered scan
-window echoed by the observation rather than the map origin. Three debt audits
-or 50 blackouts arm `big_reset_pending` and the run page shows a flashing
-attention banner (stop expanding and clean; there is no automated reset).
+(invalid count, fingerprint, debt age, audit count). Above the clean target
+(`AUTORIO_REFACTOR_CLEAN_TARGET`, default 20) each recorded audit advances
+`escalation_tier` (`normal` → `expansion_blocked` → `relayout_only`), and the
+expansion lock arms once the debt has persisted past the gate grace
+(`AUTORIO_REFACTOR_GATE_GRACE_SECONDS`, default 300 s; 0 = arm immediately):
+
+- `expansion_blocked` (T1): only out-of-cluster expansion is rejected. Repairs
+  and local rebuilds inside the audit-marked bad clusters
+  (`clusters: x, y, radius, count, kinds`) are free. Mining player-owned
+  buildings during the debt requires `cleanup=true` on every target and must
+  stay inside `allowed_clusters`.
+- `relayout_only` (T2): after the debt has persisted for
+  `AUTORIO_REFACTOR_RELAYOUT_AUDITS` consecutive audits (default 3; 0 = upgrade
+  immediately), the 409 nudge points at a local relayout of the worst cluster
+  (`relayout-belts` first); in-cluster repairs/rebuilds stay free.
+- `big_reset_pending` (T3, a separate warning flag rather than a tier value):
+  armed when the debt is not cleared and either `AUTORIO_REFACTOR_RESET_AUDITS`
+  consecutive debt audits (default 6) or `AUTORIO_BIG_RESET_BLACKOUTS` power
+  blackouts (default 50) have accrued. It is a red ATTENTION warning plus
+  operator confirmation only: no extra build lock and never an automatic base
+  teardown.
+
+Non-build actions (mine, rotate, set-recipe, copy-settings, deconstruct, ...)
+stay allowed at every tier. A rejected build returns 409 `REFACTOR_REQUIRED`
+with `tier`, `build_credits`, `allowed_clusters`, `out_of_cluster` and the
+prioritized `actions` summary. `observe-factory` echoes the operational view
+(`tier`, `gate_active`, `build_credits`, `clusters`, `big_reset_pending`,
+`audits_with_debt`) so the agent can see its allowance. Only full-window audits
+(default scope, radius >= 120) update the debt record, and the recorded window
+is the player-centered scan window echoed by the observation rather than the
+map origin.
 
 **Blueprint capture.** `encodeCapturedBlueprint` turns observed built entities
 (center positions + directions/recipes) into a normal wire string, and
@@ -353,8 +418,10 @@ target returns `protected_building` instead of silently dismantling the factory.
 counts into revisioned critical/warning alerts. `/api/agent/*` responses are
 augmented with an `alerts` envelope, and critical alerts older than the gate
 grace block mutating requests with `ALERTS_PENDING` until the current revision is
-acked. Long-unresolved critical alerts accrue a cumulative `alert_penalty` in the
-automation score; there is no agent restart path.
+acked. The envelope carries alert state only (revision, counts, items, ack
+state), never evaluation scores. Long-unresolved critical alerts accrue a
+cumulative `alert_penalty` in the operator-only discipline metrics; there is no
+agent restart path.
 
 **Agent knowledge.** `src/agent-knowledge.ts` is the canonical compact
 engineering reference (inserters, pipes, trains, power, chemistry, defense,

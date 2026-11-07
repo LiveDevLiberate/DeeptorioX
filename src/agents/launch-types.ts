@@ -95,7 +95,7 @@ const BASE_TASK_PROMPT =
   "For resource veins, call act-mine --resource with one target and the default count=all; keep mining that vein until depleted instead of switching after each cycle. " +
   "Never mine near a building with a generic act-mine: player-owned buildings are protected unless --allow-buildings is explicit; use deconstruct-area for intentional dismantling. " +
   "Run factory-audit after builds and when stalled: fix the highest-priority action, verify, re-audit; only after 3 repeats on the same fingerprint relayout/redesign the affected section instead of patching. Full-scope audits (default scope, radius >= 120) update the run's refactor debt; narrower local audits are advisory. " +
-  "If a build returns REFACTOR_REQUIRED, stop building: fix the highest-priority audit action (repair/rotate/connect the flagged tiles) and re-audit. Deconstruct only flagged or obsolete entities; use relayout-belts only when the same belt section still fails after 3 audits. big_reset_pending means stop expanding and clean the worst debt, never dismantle a working production block. " +
+  "If a build returns REFACTOR_REQUIRED, only expansion is locked: repair and local rebuilds inside the factory-audit bad clusters (allowed_clusters) are free, no credits required. Clean only flagged or obsolete entities; mining player-owned buildings during the debt requires cleanup=true and must target allowed_clusters. Do not dismantle a working production block. relayout_only means relayout the worst cluster with relayout-belts, not recycle the area; big_reset_pending is a warning only. Wait until the audit debt falls to the clean target (default 20) for out-of-cluster expansion. " +
   "If the player is enclosed/no_path, call unstick: it tries short routes then mines low-value player-owned blockers; never teleport, and repair a gate/walkway afterward. " +
   "Check belt contents with belt-contents and pipe liquid with fluid-contents before diagnosing logistics. " +
   "Before/after belt deployment validate connectivity (plan validator + observe-connections): corners must face the next tile; crossings need underground pairs; no head-on/dead-end belts. " +
@@ -107,13 +107,13 @@ const BASE_TASK_PROMPT =
   "If a build returns BLUEPRINT_REQUIRED, capture the current validated cell with blueprint-capture before retrying; blueprint count is visible in the run UI. " +
   "Bulk deconstruction is nearest-first (deconstruct-area --max-distance/--start): finish the local cluster, never cross the map for one building. " +
   "Do not hard-code cross-map center lists in sweep scripts; re-observe the player, clear the nearest cluster, then pick the next. " +
-  "Cleanup earns +5/entity and +10/invalid-debt unit and ignores the manual-mining penalty; builds (including direct act-build) stay blocked until invalid debt falls to the clean target (default 20). " +
+  "Cleanup deconstruction is not manual resource mining: it removes invalid/obsolete entities, clears refactor debt, and adds +1 refactor build credit per entity. The gate locks out-of-cluster expansion only: in-cluster repairs (queued and direct act-build) spend build credits until invalid debt falls to the clean target (default 20). " +
   "Refactor scope defaults to belts+power+pipes+machines+containers (empty chests); rail is opt-in with --include-rail/--scope rail. Container cleanup removes empty chests only. " +
   "Evaluate blueprints with blueprint-evaluate: static density first, then output/tile, output/machine and output/kW with --output/--power-kw after building; keep Pareto improvements. " +
   "Crash debris is neutral: layout shows X and map-overview S; recover it with recover-debris so it does not block paths. " +
   "If a mutating call returns ALERTS_PENDING, call alerts (CLI alerts --ack) after inspecting/fixing the critical causes; observations/state/alerts remain allowed while blocked. " +
   "For power, use substations or small/medium poles for local coverage and a straight build-power-line with big poles for long trunks; do not place a dense grid of big poles. " +
-  "Watch the automation score in observe_factory().plan.automation: automate extraction and crafting instead of hand work (manual mines/crafts are penalty points). " +
+  "Automate extraction and crafting instead of hand work: manual work wastes active time and blocks scale. " +
   "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
 
 const OUTPUT_PROTOCOL =
