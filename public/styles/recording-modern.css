@@ -1590,17 +1590,24 @@ body.recording .metrics-table {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-/* At genuinely narrow recording windows, stack the readout and radar; overlap is worse than wrapping. */
+/* Very narrow windows keep the radar beside the readout table; the table cell
+   scrolls internally rather than painting over the radar. */
 @media (max-width: 680px) {
   body.recording .status-telemetry .status-data {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "metrics"
-      "scores";
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "metrics scores";
+    gap: 8px;
   }
   body.recording .status-scores {
-    justify-content: flex-start;
-    align-self: auto;
+    justify-content: flex-end;
+    align-self: start;
+  }
+  body.recording .status-scores .score-radar {
+    width: 68px;
+    height: 68px;
+  }
+  body.recording .status-metrics {
+    overflow-x: auto;
   }
 }
 
