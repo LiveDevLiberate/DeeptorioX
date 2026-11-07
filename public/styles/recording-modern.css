@@ -1178,9 +1178,7 @@ html[data-theme="light"] body.recording .metrics-table tr + tr > * {
 body.recording .status-telemetry .status-data {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "metrics scores"
-    "production production";
+  grid-template-areas: "metrics scores";
   align-items: start;
   justify-content: space-between;
   gap: 10px 24px;
@@ -1568,4 +1566,53 @@ body.recording .production-list {
    close to the bottom edge of the recording window. */
 body.recording #codexOutput {
   padding-bottom: 6px;
+}
+
+/* Production output always stretches across its full row. */
+body.recording .status-production {
+  width: 100%;
+}
+body.recording .production-list {
+  width: 100%;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 2px 14px;
+}
+/* Keep the metrics table inside its grid cell instead of painting over the radar. */
+body.recording .status-metrics {
+  min-width: 0;
+  overflow-x: auto;
+}
+body.recording .metrics-table {
+  width: 100%;
+}
+@media (max-width: 900px) {
+  body.recording .production-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+/* At genuinely narrow recording windows, stack the readout and radar; overlap is worse than wrapping. */
+@media (max-width: 680px) {
+  body.recording .status-telemetry .status-data {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "metrics"
+      "scores";
+  }
+  body.recording .status-scores {
+    justify-content: flex-start;
+    align-self: auto;
+  }
+}
+
+/* Item output is a page-wide row below the plan/telemetry split. */
+body.recording .status-inner.ui-grid-12 > .status-production {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+#agentStatus.collapsed .status-production {
+  display: none;
 }
