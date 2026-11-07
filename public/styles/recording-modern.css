@@ -329,23 +329,17 @@ body.recording .status-telemetry {
 }
 body.recording .status-plan {
   position: relative;
-  padding: 12px 0 13px 18px;
+  padding: 12px 0 13px;
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
 }
 body.recording .status-plan::before {
-  content: "";
-  position: absolute;
-  top: 12px;
-  bottom: 13px;
-  left: 0;
-  width: 3px;
-  background: var(--safety);
+  display: none;
 }
 body.recording #agentStatus.stale-plan .status-plan {
   border-color: var(--rule);
 }
-body.recording #agentStatus.stale-plan .status-plan::before {
+body.recording #agentStatus.stale-plan .section-kicker::before {
   background: var(--danger);
 }
 body.recording .status-telemetry {
@@ -839,10 +833,7 @@ body.recording .connection-notice button:hover {
     padding-left: 0;
   }
   body.recording .status-plan {
-    padding-left: 14px;
-  }
-  body.recording .status-plan::before {
-    left: 0;
+    padding-left: 0;
   }
   body.recording .connection-notice {
     width: calc(100% - 28px);
