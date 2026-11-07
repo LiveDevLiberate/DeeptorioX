@@ -1892,3 +1892,10 @@ body.recording .status-model-label {
     overflow-wrap: normal;
   }
 }
+
+/* Reasoning rows fill the transcript line width. */
+body.recording #codexOutput .reasoning,
+body.recording #codexOutput .reasoning:not([open]) {
+  width: 100%;
+  max-width: 100%;
+}
