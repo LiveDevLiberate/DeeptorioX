@@ -2341,3 +2341,8 @@ body.recording .status-inner {
 body.recording .status-head {
   margin-bottom: 12px;
 }
+
+/* Goal message text starts at the same column as reasoning/command text. */
+body.recording #codexOutput .message.decision .decision-icon {
+  margin-right: 0;
+}
