@@ -102,6 +102,11 @@ test("pipeline graph exposes machine ports, belt segments, pipes, power and bott
   assert.equal(graph.machines[0].actual_flow, 2);
   assert.equal(graph.belt_segments[0].actual_flow, 7.5);
   assert.deepEqual(graph.pipes[0].fluid, { water: 10 });
+  assert.equal(graph.counts.pipe_components, 1);
+  assert.equal(graph.counts.pipe_dead_ends, 2);
+  assert.equal(graph.pipe_topology.components, 1);
+  assert.equal(graph.pipe_topology.surface_pipes, 2);
+  assert.ok(graph.bottlenecks.some((entry) => entry.kind === "pipe_dead_end"));
   assert.ok(graph.bottlenecks.some((entry) => entry.kind === "no_power"));
   assert.ok(graph.bottlenecks.some((entry) => entry.kind === "belt_no_input"));
   assert.equal(graph.bottlenecks[0].severity, "critical");

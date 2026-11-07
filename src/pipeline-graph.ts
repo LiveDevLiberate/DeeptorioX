@@ -328,6 +328,91 @@ export function buildPipelineGraph(
     }
   }
 
+  // Pipe topology summary: connected components, dead ends, branches and
+  // surface-vs-underground clutter. This is advisory for pipeline-audit.
+  const pipeByTile = new Map<string, PipelineNode>();
+  for (const pipe of pipes) pipeByTile.set(tileKey(pipe.x, pipe.y), pipe);
+  const serviceTiles = new Set<string>();
+  for (const node of nodes.values()) {
+    if (
+      node.role === "machine" ||
+      node.type === "pump" ||
+      node.type === "offshore-pump" ||
+      node.type === "storage-tank"
+    ) {
+      serviceTiles.add(tileKey(node.x, node.y));
+    }
+  }
+  const pipeNeighbors = new Map<string, string[]>();
+  for (const pipe of pipes) {
+    const neighbors: string[] = [];
+    for (const [dx, dy] of [
+      [0, -1],
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+    ] as const) {
+      const neighbor = pipeByTile.get(tileKey(pipe.x + dx, pipe.y + dy));
+      if (neighbor) neighbors.push(neighbor.id);
+    }
+    pipeNeighbors.set(pipe.id, neighbors);
+  }
+  const pipeComponents: Array<{
+    id: number;
+    size: number;
+    x: number;
+    y: number;
+    fluids: string[];
+    dead_ends: number;
+    branches: number;
+  }> = [];
+  const pipeSeen = new Set<string>();
+  for (const pipe of pipes) {
+    if (pipeSeen.has(pipe.id)) continue;
+    const componentId = pipeComponents.length;
+    const stack = [pipe];
+    pipeSeen.add(pipe.id);
+    const members: PipelineNode[] = [];
+    while (stack.length) {
+      const node = stack.pop()!;
+      members.push(node);
+      for (const neighborId of pipeNeighbors.get(node.id) ?? []) {
+        if (pipeSeen.has(neighborId)) continue;
+        pipeSeen.add(neighborId);
+        const neighbor = pipeByTile.get(neighborId.split("@").pop() ?? "");
+        const found = neighbor ?? pipes.find((candidate) => candidate.id === neighborId);
+        if (found) stack.push(found);
+      }
+    }
+    const fluids = [...new Set(members.flatMap((node) => Object.keys(node.fluid ?? {})))];
+    let deadEnds = 0;
+    let branches = 0;
+    for (const member of members) {
+      const degree = (pipeNeighbors.get(member.id) ?? []).length;
+      if (degree >= 3) branches += 1;
+      if (degree !== 1) continue;
+      const touchesService = [
+        [0, -1],
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+      ].some(([dx, dy]) => serviceTiles.has(tileKey(member.x + dx, member.y + dy)));
+      if (!touchesService) deadEnds += 1;
+    }
+    pipeComponents.push({
+      id: componentId,
+      size: members.length,
+      x: Math.round(members.reduce((sum, node) => sum + node.x, 0) / members.length),
+      y: Math.round(members.reduce((sum, node) => sum + node.y, 0) / members.length),
+      fluids,
+      dead_ends: deadEnds,
+      branches,
+    });
+  }
+  const pipeDeadEnds = pipeComponents.reduce((sum, component) => sum + component.dead_ends, 0);
+  const pipeBranches = pipeComponents.reduce((sum, component) => sum + component.branches, 0);
+  const surfacePipes = pipes.filter((node) => node.type === "pipe").length;
+  const undergroundPipes = pipes.filter((node) => node.type === "pipe-to-ground").length;
   const powerPoles = [...nodes.values()].filter((node) => node.role === "power");
   const powerNetworkGroups = new Map<number, Array<{ id: string; name: string; x: number; y: number }>>();
   for (const pole of powerPoles) {
@@ -381,6 +466,74 @@ export function buildPipelineGraph(
     if (existing) existing.count += entry.count ?? 1;
     else bottlenecks.push({ ...entry, count: entry.count ?? 1 });
   };
+
+  if (pipes.length >= 2) {
+    const fluidOwners = new Map<string, number>();
+    for (const component of pipeComponents) {
+      for (const fluid of component.fluids) fluidOwners.set(fluid, (fluidOwners.get(fluid) ?? 0) + 1);
+    }
+    const splitFluids = [...fluidOwners.entries()].filter(([, count]) => count > 1).map(([fluid]) => fluid);
+    if (splitFluids.length) {
+      addBottleneck({
+        id: `pipe:split-network:${splitFluids.join(",")}`,
+        kind: "pipe_split_network",
+        severity: "warning",
+        entity: null,
+        node: null,
+        x: pipeComponents[0]?.x ?? null,
+        y: pipeComponents[0]?.y ?? null,
+        count: splitFluids.length,
+        reason: `Same fluid is split across disconnected networks: ${splitFluids.join(", ")}`,
+        action:
+          "Merge the disconnected runs with build-line --kind pipe --route auto; use underground pipes for crossings.",
+      });
+    }
+    if (pipeDeadEnds > 0) {
+      addBottleneck({
+        id: "pipe:dead-ends",
+        kind: "pipe_dead_end",
+        severity: "warning",
+        entity: null,
+        node: null,
+        x: pipeComponents[0]?.x ?? null,
+        y: pipeComponents[0]?.y ?? null,
+        count: pipeDeadEnds,
+        reason: `${pipeDeadEnds} pipe dead end(s) not attached to a machine, pump or tank`,
+        action:
+          "Remove the stub or connect it to a valid port; prefer one planned trunk with short branches over ad-hoc pipe patches.",
+      });
+    }
+    if (pipeBranches >= 6) {
+      addBottleneck({
+        id: "pipe:branches",
+        kind: "pipe_branching",
+        severity: "warning",
+        entity: null,
+        node: null,
+        x: pipeComponents[0]?.x ?? null,
+        y: pipeComponents[0]?.y ?? null,
+        count: pipeBranches,
+        reason: `${pipeBranches} pipe branch node(s); topology looks patched rather than trunk-and-branch`,
+        action:
+          "Run build-line --kind pipe --route auto for the trunk and underground-pipe-line for crossings; keep LAYOUT.md's pipe corridor aligned.",
+      });
+    }
+    if (surfacePipes >= 20 && undergroundPipes <= surfacePipes * 0.15) {
+      addBottleneck({
+        id: "pipe:surface-clutter",
+        kind: "pipe_surface_clutter",
+        severity: "warning",
+        entity: null,
+        node: null,
+        x: pipeComponents[0]?.x ?? null,
+        y: pipeComponents[0]?.y ?? null,
+        count: surfacePipes,
+        reason: `${surfacePipes} surface pipes vs ${undergroundPipes} underground pipes`,
+        action:
+          "Replace crossings and long runs with pipe-to-ground; use build-line --kind pipe --route auto instead of hand-placing single tiles.",
+      });
+    }
+  }
 
   for (const issue of list(connectionData.issues)) {
     const kind = text(issue.kind) ?? "unknown";
@@ -467,6 +620,9 @@ export function buildPipelineGraph(
       belts: belts.length,
       belt_segments: beltSegments.length,
       pipes: pipes.length,
+      pipe_components: pipeComponents.length,
+      pipe_dead_ends: pipeDeadEnds,
+      pipe_branches: pipeBranches,
       power_poles: powerPoles.length,
       edges: edges.size,
       power_networks: powerNetworkGroups.size,
@@ -483,6 +639,14 @@ export function buildPipelineGraph(
       y: node.y,
       fluid: node.fluid,
     })),
+    pipe_components: pipeComponents,
+    pipe_topology: {
+      components: pipeComponents.length,
+      dead_ends: pipeDeadEnds,
+      branches: pipeBranches,
+      surface_pipes: surfacePipes,
+      underground_pipes: undergroundPipes,
+    },
     power_poles: powerPoles.map((node) => ({
       id: node.id,
       name: node.name,

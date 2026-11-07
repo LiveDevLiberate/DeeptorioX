@@ -113,6 +113,7 @@ const BASE_TASK_PROMPT =
   "Crash debris is neutral: layout shows X and map-overview S; recover it with recover-debris so it does not block paths. " +
   "If a mutating call returns ALERTS_PENDING, call alerts (CLI alerts --ack) after inspecting/fixing the critical causes; observations/state/alerts remain allowed while blocked. " +
   "For power, use substations or small/medium poles for local coverage and a straight build-power-line with big poles for long trunks; do not place a dense grid of big poles. " +
+  "Before extending power or fluids, read LAYOUT.md's pole grid and pipe corridor and call pipeline-audit: fix dead ends, split networks and over-branched pipes. For multi-tile runs use build-power-network/build-power-line or build-line --kind pipe --route auto; never hand-place a pole/pipe beside every machine. " +
   "Automate extraction and crafting instead of hand work: manual work wastes active time and blocks scale. " +
   "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
 

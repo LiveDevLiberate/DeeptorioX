@@ -68,6 +68,10 @@ Belt direction = the direction items move. A compact smelting row:
 - Use `build-power-network --pole substation` for an aligned local coverage grid, or
   `build-power-line --from x,y --to x,y --pole big-electric-pole` for a straight trunk.
   Keep rows/columns aligned; do not hand-place a pole beside every machine.
+- Before adding poles or pipes, call `pipeline-audit` and read `pipe_topology`:
+  fix `pipe_dead_end`, `pipe_split_network`, `pipe_branching` and
+  `pipe_surface_clutter` warnings. Use underground pipes for crossings; never
+  hand-place long runs one tile at a time.
 - Check `power.satisfaction` (must stay ~1.0) and `observe-factory` for `no_power`.
 - Add a chest of coal next to boilers and an inserter to feed them automatically.
 
