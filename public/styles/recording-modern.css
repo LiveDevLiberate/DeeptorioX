@@ -37,6 +37,7 @@ body.recording .status-telemetry {
 }
 body.recording .status-plan {
   gap: 6px;
+  padding-top: 0;
 }
 body.recording .status-telemetry {
   justify-self: stretch;
@@ -1403,7 +1404,7 @@ body.recording .status-secondary {
   align-items: center;
   gap: 6px 18px;
   width: 100%;
-  margin-top: 5px;
+  margin-top: 1px;
 }
 body.recording .status-secondary .status-activity {
   color: var(--ink);
@@ -1518,4 +1519,47 @@ body.recording .plan-heading-meta .status-model .icon {
   width: 13px;
   height: 13px;
   flex: 0 0 auto;
+}
+
+body.recording .status-inner {
+  padding-top: 4px;
+}
+
+/* Activity sits immediately after the work-order title; model stays right. */
+body.recording .plan-heading-row {
+  flex-wrap: wrap;
+}
+body.recording .plan-heading-row .status-activity {
+  margin-left: 0;
+}
+body.recording .plan-heading-spacer {
+  flex: 1 1 24px;
+}
+body.recording .plan-heading-row .status-model {
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: visible;
+  font-size: 10px;
+}
+body.recording .plan-heading-meta .status-model {
+  display: inline-flex;
+}
+
+/* Production table keeps a compact, non-full-width six-column layout. */
+body.recording .production-kicker {
+  font-size: 7.5px;
+}
+body.recording .production-row {
+  font-size: 7.5px;
+  line-height: 1.25;
+}
+body.recording .production-list {
+  grid-template-columns: repeat(6, 116px);
+  justify-content: start;
+  gap: 2px 14px;
+}
+@media (max-width: 900px) {
+  body.recording .production-list {
+    grid-template-columns: repeat(3, 116px);
+  }
 }
