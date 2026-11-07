@@ -5,6 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { setImmediate } from "node:timers";
+import fs from "node:fs";
 
 class FakeNode {
   constructor(tag = "div") {
@@ -443,4 +444,16 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     delete globalThis.history;
     delete globalThis.fetch;
   }
+});
+
+test("recording page exposes map and blueprint previews", () => {
+  const html = fs.readFileSync("public/recording.html", "utf8");
+  const js = fs.readFileSync("public/recording.js", "utf8");
+  assert.match(html, /id="recordingSeedPreview"/);
+  assert.match(html, /id="recordingPreviewOverlay"/);
+  assert.match(html, /id="recordingPreviewBody"/);
+  assert.match(js, /openRecordingPreview/);
+  assert.match(js, /map-preview/);
+  assert.match(js, /blueprint-viewer\/viewer\.html/);
+  assert.match(js, /toolkit-viewer\/index\.html/);
 });

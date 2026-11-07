@@ -232,10 +232,12 @@ const I18N = {
     blueprintsBuilt: "built",
     blueprintsEntities: "entities",
     blueprintsTiles: "tiles",
+    blueprintPreview: "Preview",
     blueprintDecode: "Decode blueprint",
     blueprintDownload: "Download",
     blueprintLoading: "Loading…",
     blueprintError: "Could not decode blueprint.",
+    seedPreviewLoading: "Generating preview…",
     light: "Light",
     dark: "Dark",
     switchLight: "Switch to light theme",
@@ -397,10 +399,12 @@ const I18N = {
     blueprintsBuilt: "已建造",
     blueprintsEntities: "个实体",
     blueprintsTiles: "个 tile",
+    blueprintPreview: "预览",
     blueprintDecode: "解析蓝图",
     blueprintDownload: "下载蓝图",
     blueprintLoading: "加载中…",
     blueprintError: "无法解析蓝图。",
+    seedPreviewLoading: "正在生成预览…",
     light: "浅色",
     dark: "深色",
     switchLight: "切换到浅色主题",
@@ -433,6 +437,15 @@ const statusToggle = document.getElementById("statusToggle");
 const mapInfoToggle = document.getElementById("mapInfoToggle");
 const mapInfoOverlay = document.getElementById("mapInfoOverlay");
 const mapThumbnail = document.getElementById("mapThumbnail");
+const recordingSeedPreview = document.getElementById("recordingSeedPreview");
+const recordingSeedPreviewStatus = document.getElementById("recordingSeedPreviewStatus");
+const recordingPreviewOverlay = document.getElementById("recordingPreviewOverlay");
+const recordingPreviewBody = document.getElementById("recordingPreviewBody");
+const recordingPreviewTitle = document.getElementById("recordingPreviewTitle");
+const recordingPreviewNewTab = document.getElementById("recordingPreviewNewTab");
+const recordingPreviewClose = document.getElementById("recordingPreviewClose");
+const recordingPreviewDialog = document.getElementById("recordingPreviewDialog");
+let recordingPreviewReturnFocus = null;
 const mapInfoBody = document.getElementById("mapInfoBody");
 const mapInfoClose = document.getElementById("mapInfoClose");
 const mapInfoTitle = document.getElementById("mapInfoTitle");
@@ -644,7 +657,15 @@ function renderBlueprints() {
       download.href = `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(blueprint.id)}?download=1`;
       download.download = `blueprint-${blueprint.id}.txt`;
       const actions = element("div", "", "blueprint-actions");
-      actions.append(download);
+      const preview = element("button", strings.blueprintPreview || "Preview", "blueprint-preview");
+      preview.type = "button";
+      preview.addEventListener("click", () =>
+        openRecordingPreview(
+          `Blueprint preview · ${blueprint.label || blueprint.id}`,
+          `/blueprint-viewer/viewer.html?run=${encodeURIComponent(id)}&id=${encodeURIComponent(blueprint.id)}`,
+        ),
+      );
+      actions.append(preview, download);
       head.append(actions);
       const entities = element(
         "p",
@@ -812,6 +833,68 @@ function loadMapThumbnail() {
     unavailable: strings.mapThumbnailUnavailable,
   });
 }
+function recordingUnderlyingOverlayOpen() {
+  return [mapInfoOverlay, blueprintOverlay, toolCallsOverlay].some((overlay) => overlay && !overlay.hidden);
+}
+function openRecordingPreview(title, url) {
+  if (!recordingPreviewOverlay || !recordingPreviewBody) return;
+  recordingPreviewReturnFocus = document.activeElement;
+  if (recordingPreviewTitle) recordingPreviewTitle.textContent = title || "Preview";
+  if (recordingPreviewNewTab) recordingPreviewNewTab.href = url;
+  const frame = document.createElement("iframe");
+  frame.className = "recording-preview-frame";
+  frame.title = title || "Preview";
+  frame.src = url;
+  recordingPreviewBody.replaceChildren(frame);
+  recordingPreviewOverlay.hidden = false;
+  setModalBackgroundInert(true);
+  recordingPreviewClose?.focus?.();
+}
+function closeRecordingPreview() {
+  if (!recordingPreviewOverlay) return;
+  recordingPreviewOverlay.hidden = true;
+  recordingPreviewBody?.replaceChildren();
+  setModalBackgroundInert(recordingUnderlyingOverlayOpen());
+  const target = recordingPreviewReturnFocus?.isConnected
+    ? recordingPreviewReturnFocus
+    : recordingSeedPreview;
+  target?.focus?.();
+  recordingPreviewReturnFocus = null;
+}
+function openRecordingMapPreview() {
+  if (!id || !recordingSeedPreview) return;
+  const strings = I18N[uiLang || "en"];
+  recordingSeedPreview.disabled = true;
+  if (recordingSeedPreviewStatus)
+    recordingSeedPreviewStatus.textContent = strings.seedPreviewLoading || "Generating…";
+  void (async () => {
+    try {
+      const response = await fetch(`/api/runs/${encodeURIComponent(id)}/map-preview`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ size: 1024, all_planets: true }),
+      });
+      if (!response.ok) throw new Error(`map preview HTTP ${response.status}`);
+      const result = await response.json();
+      const sources = Object.fromEntries((result.planets || []).map((planet) => [planet.planet, planet.url]));
+      const url = `/toolkit-viewer/index.html?images=${encodeURIComponent(JSON.stringify(sources))}`;
+      if (recordingSeedPreviewStatus) {
+        recordingSeedPreviewStatus.textContent = `${result.planets?.length || 0} planets`;
+      }
+      openRecordingPreview("Seed map preview", url);
+    } catch (error) {
+      if (recordingSeedPreviewStatus) recordingSeedPreviewStatus.textContent = error.message;
+    } finally {
+      recordingSeedPreview.disabled = false;
+    }
+  })();
+}
+recordingSeedPreview?.addEventListener("click", openRecordingMapPreview);
+recordingPreviewClose?.addEventListener("click", closeRecordingPreview);
+recordingPreviewOverlay?.addEventListener("click", (event) => {
+  if (event.target === recordingPreviewOverlay) closeRecordingPreview();
+});
+
 function openMapInfo() {
   if (!mapInfoOverlay) return;
   const active = document.activeElement;
@@ -874,13 +957,15 @@ toolCallsOverlay?.addEventListener("click", (event) => {
 });
 document.addEventListener?.("keydown", (event) => {
   const openDialog =
-    mapInfoOverlay && !mapInfoOverlay.hidden
-      ? { dialog: document.getElementById("mapInfoDialog"), close: closeMapInfo }
-      : blueprintOverlay && !blueprintOverlay.hidden
-        ? { dialog: document.getElementById("blueprintDialog"), close: closeBlueprints }
-        : toolCallsOverlay && !toolCallsOverlay.hidden
-          ? { dialog: document.getElementById("toolCallsDialog"), close: closeToolCalls }
-          : null;
+    recordingPreviewOverlay && !recordingPreviewOverlay.hidden
+      ? { dialog: recordingPreviewDialog, close: closeRecordingPreview }
+      : mapInfoOverlay && !mapInfoOverlay.hidden
+        ? { dialog: document.getElementById("mapInfoDialog"), close: closeMapInfo }
+        : blueprintOverlay && !blueprintOverlay.hidden
+          ? { dialog: document.getElementById("blueprintDialog"), close: closeBlueprints }
+          : toolCallsOverlay && !toolCallsOverlay.hidden
+            ? { dialog: document.getElementById("toolCallsDialog"), close: closeToolCalls }
+            : null;
   if (!openDialog) return;
   if (event.key === "Escape") {
     openDialog.close();
@@ -1830,3 +1915,8 @@ async function poll() {
   }
 }
 void poll();
+
+if (params.get("preview") === "seed" && id) {
+  mapInfoToggle?.click();
+  setTimeout(() => recordingSeedPreview?.click(), 600);
+}
