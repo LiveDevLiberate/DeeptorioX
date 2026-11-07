@@ -210,6 +210,26 @@ On Windows the manager is reached through WSL's mirrored `127.0.0.1`. The
 dashboard at `http://127.0.0.1:3000/` shows milestones, production graphs and
 live activity.
 
+## Narrating agent thoughts (edge-tts)
+
+`scripts/narrate-edge.py` is the edge-tts narrator. It speaks one decision-like
+digest line every 5 minutes and every new `STATE.md updated:` activity line.
+Default voices are young female Edge voices:
+
+- Chinese: `zh-CN-XiaoxiaoNeural`
+- English: `en-US-AvaNeural`
+
+```powershell
+python -m pip install edge-tts
+.\scripts\narrate-edge.ps1 -RunId RUN_ID
+.\scripts\narrate-edge.ps1 -RunId RUN_ID -DryRun
+.\scripts\narrate-edge.ps1 -RunId RUN_ID -NoPlay
+```
+
+MP3 playback uses Windows Media Foundation via PowerShell; on Linux it tries
+`afplay`/`mpv`/`ffplay`. The script starts at the current end of the logs unless
+`--from-start` is passed.
+
 ## Narrating agent thoughts (TTS)
 
 OpenCode is launched with `--thinking`, so its reasoning is saved as a plain
