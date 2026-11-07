@@ -208,28 +208,37 @@ node scripts/calibrate-scoring.mjs --data-dir <runs-dir> --apply
 
 ## 8. UI specification (operator-only)
 
-### 8.1 Recording window — adaptive milestone row
+### 8.1 Recording window — readout table
 
-Element: `#statusMilestones` (`public/recording.html`), rendered by `renderStatus` in
-`public/recording.js` using the DOM-free helper `milestoneProgressView` in
+The recording status area has two content panels: the **plan panel** (`#planPanel`, "Work order")
+and the **telemetry panel** (`#telemetryPanel`, "Readouts"). Everything evaluation-related renders
+inside the telemetry panel's readout table (`#statusMetrics`) built by `renderMetrics` in
+`public/recording.js`, using the DOM-free helper `milestoneProgressView` in
 `public/transcript-view-model.js`.
 
-| Condition | Rendering |
-| --- | --- |
-| no `evaluation.capability` or `total <= 0` | row hidden |
-| `total <= 6` | dots: one dot per scored milestone (done/undone) + `3/6` |
-| `total > 6` | progress bar: fill = `progress`, text `42% · 3/7 · next: <label>` |
-| `completed` | `✓ MM:SS · N/N` (completion_seconds formatted) |
-| `?overlay=1` (body.overlay) | hides the `next` text; keeps bar/percent/count |
+The table has a milestone row (only when `evaluation.capability` exists) with three columns:
+`Milestones`/`里程碑` title → next milestone (`Next:`/`下一个:`) → progress bar/percent/count.
 
-`total`/`completed` are the scored-set counts; `next` is the label (fallback id) of the first
-not-yet-achieved scored milestone. Row is single-line and truncates on narrow widths.
+| Condition | Title (1st) | Next milestone (2nd) | Progress (3rd) |
+| --- | --- | --- | --- |
+| no `evaluation.capability` or `total <= 0` | row omitted | — | — |
+| `total <= 6` | `Milestones` / `里程碑` | `Next: <localized target>` / `下一个: …` | dots + `3/6` |
+| `total > 6` | `Milestones` / `里程碑` | `Next: <localized target>` / `下一个: …` | bar + `42%` + `3/7` |
+| `completed` | `Milestones` / `里程碑` | `Completed` / `已完成` | bar + `100%` + `N/N` + `✓ MM:SS` |
+
+`total`/`completed` are the scored-set counts; `next` is the first not-yet-achieved scored
+milestone. Its label is localised: production milestones use the locale item name, research
+milestones the technology name, rocket milestones the UI string, and the `next:` prefix follows the
+run language. The row truncates on narrow widths. Below it the table continues
+with the Research, Power and Discipline rows (research/power from telemetry samples; discipline
+badges from `evaluation.discipline`).
 
 The legacy v1 **Automation** and **Penalty** metric rows are no longer rendered in the recording
 window (they only remain as `run.automation` in `run.json`, labelled legacy on the run page). In
 their place, a single neutral **Discipline** badge row appears only when something is non-zero:
-manual work (mines + crafts, pickaxe icon), blackouts (bolt) and accumulated alert penalty (siren).
-Badges are counts, never signed scores; capability stays on the run and comparison pages.
+manual work (mines + crafts), blackouts and accumulated alert penalty. Each badge uses the
+`icon + label + count` format (e.g. `⛏ Manual 13`, `⚡ Blackouts 2`, `🚨 Alerts 75`); badges are
+counts, never signed scores, and capability stays on the run and comparison pages.
 
 ### 8.2 Run details page
 

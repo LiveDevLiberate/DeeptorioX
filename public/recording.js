@@ -60,7 +60,6 @@ const statusModel = document.getElementById("statusModel");
 const statusMeta = document.getElementById("statusMeta");
 const statusCurrent = document.getElementById("statusCurrent");
 const statusDone = document.getElementById("statusDone");
-const statusMilestones = document.getElementById("statusMilestones");
 const statusScores = document.getElementById("statusScores");
 const statusMetrics = document.getElementById("statusMetrics");
 const statusProduction = document.getElementById("statusProduction");
@@ -116,7 +115,9 @@ const I18N = {
       exploration: "Expl",
     },
     done: "Done",
-    next: "next",
+    next: "Next",
+    rocketMilestone: "launch rocket",
+    milestoneDone: "Completed",
     tokens: "tok",
     plan: "plan",
     turn: "turn",
@@ -145,14 +146,19 @@ const I18N = {
       production: "Production",
       research: "Research",
       power: "Power",
+      progress: "Milestones",
       discipline: "Discipline",
       telemetry: "Telemetry",
       error: "Error",
       automation: "Automation",
       penalty: "Penalty",
+      manualWork: "Manual",
       manualMines: "mined",
       manualCrafts: "crafted",
-      blackouts: "blackouts",
+      blackouts: "Blackouts",
+      alerts: "Alerts",
+      stateLate: "STATE late",
+      refactorDebt: "Refactor debt",
     },
     sparkStable: "stable",
     sparkUp: "+{percent}%",
@@ -293,7 +299,9 @@ const I18N = {
       exploration: "探索",
     },
     done: "完成条件",
-    next: "下一目标",
+    next: "下一个",
+    rocketMilestone: "发射火箭",
+    milestoneDone: "已完成",
     tokens: "令牌",
     plan: "计划",
     turn: "回合",
@@ -322,14 +330,19 @@ const I18N = {
       production: "产量",
       research: "研究",
       power: "电力",
+      progress: "里程碑",
       discipline: "纪律",
       telemetry: "遥测",
       error: "错误",
       automation: "自动化",
       penalty: "惩罚",
+      manualWork: "手工",
       manualMines: "采矿",
       manualCrafts: "合成",
       blackouts: "停电",
+      alerts: "告警",
+      stateLate: "计划超时",
+      refactorDebt: "重构债",
     },
     sparkStable: "稳定",
     sparkUp: "+{percent}%",
@@ -1117,6 +1130,16 @@ function parseScores(markdown) {
   }
   return scores;
 }
+/** Localised label for the next milestone (item/technology names follow the game locale). */
+function milestoneDisplayLabel(run, milestoneId, fallback, text) {
+  if (!milestoneId) return "";
+  const milestone = (run?.benchmark?.milestones || []).find((entry) => entry && entry.id === milestoneId);
+  if (!milestone) return fallback || milestoneId;
+  if (milestone.kind === "rockets") return text.rocketMilestone || milestone.label || fallback || milestoneId;
+  const kind = milestone.kind === "production" ? "item" : milestone.kind === "research" ? "technology" : null;
+  const localized = kind && milestone.name ? gameName(kind, milestone.name) : "";
+  return localized || milestone.label || fallback || milestoneId;
+}
 function pickLanguage(run) {
   const value = String(run?.language || "").toLowerCase();
   if (/chinese|中文|zh/.test(value)) return "zh";
@@ -1251,42 +1274,6 @@ function statusStat(iconName, label, value, progress, title) {
   if (title) cell.title = title;
   return cell;
 }
-/** Scoring-v2 milestone row: dots for <= 6 targets, a bar plus next target above that. */
-function renderMilestones(run, text) {
-  if (!statusMilestones) return;
-  const capability = run?.evaluation?.capability;
-  const view = milestoneProgressView(capability);
-  if (!view) {
-    statusMilestones.replaceChildren();
-    statusMilestones.hidden = true;
-    return;
-  }
-  const done = Math.max(0, Math.min(view.total, Math.floor(Number(capability.milestones?.completed) || 0)));
-  const children = [];
-  if (view.mode === "dots") {
-    const dots = element("span", "", "ms-dots");
-    for (const dot of view.dots) dots.append(element("span", "", dot.done ? "ms-dot done" : "ms-dot"));
-    children.push(dots);
-  } else {
-    const bar = element("span", "", "ms-bar");
-    const fill = element("span", "", "ms-fill");
-    fill.style.width = `${Math.max(0, Math.min(100, view.percent))}%`;
-    bar.append(fill);
-    children.push(bar);
-  }
-  if (view.completed) {
-    const clock = formatMilestoneClock(view.completion_seconds);
-    const count = `${done}/${view.total}`;
-    children.push(element("span", clock ? `✓ ${clock} · ${count}` : `✓ ${count}`, "ms-text"));
-  } else if (view.mode === "dots") {
-    children.push(element("span", `${done}/${view.total}`, "ms-text"));
-  } else {
-    children.push(element("span", `${view.percent}% · ${done}/${view.total}`, "ms-text"));
-    if (view.next) children.push(element("span", `${text.next}: ${view.next}`, "ms-next"));
-  }
-  statusMilestones.replaceChildren(...children);
-  statusMilestones.hidden = false;
-}
 function renderStatus(run) {
   if (!statusState || !statusScores) return;
   currentRun = run;
@@ -1385,7 +1372,6 @@ function renderStatus(run) {
     statusDone.hidden = !done;
     statusHeader?.classList.remove("stale-plan");
   }
-  renderMilestones(run, strings);
   if (!mapAutoOpened && params.get("map") === "1") {
     mapAutoOpened = true;
     openMapInfo();
@@ -1981,6 +1967,50 @@ function renderMetrics() {
   if (!statusMetrics) return;
   const text = strings();
   const rows = [];
+  const capability = currentRun?.evaluation?.capability;
+  const milestoneView = milestoneProgressView(capability);
+  if (milestoneView) {
+    const done = Math.max(
+      0,
+      Math.min(milestoneView.total, Math.floor(Number(capability.milestones?.completed) || 0)),
+    );
+    const row = element("tr", "", "metric metric-milestones");
+    // Column 1: the "Milestones" row title. Column 2: the next milestone.
+    // Column 3: progress bar, percentage and completed count.
+    const labelCell = element("th", text.metrics.progress, "metric-label");
+    const valueCell = element("td", "", "metric-value");
+    const trend = element("td", "", "metric-trend");
+    if (milestoneView.completed) {
+      valueCell.textContent = text.milestoneDone;
+      const clock = formatMilestoneClock(milestoneView.completion_seconds);
+      if (clock) trend.append(element("span", `✓ ${clock}`, "metric-delta"));
+    } else if (milestoneView.next) {
+      const nextLabel = milestoneDisplayLabel(
+        currentRun,
+        capability.next_milestone,
+        milestoneView.next,
+        text,
+      );
+      valueCell.append(element("span", `${text.next}: ${nextLabel}`, "metric-next"));
+    }
+    const progressParts = [];
+    if (milestoneView.mode === "dots") {
+      const dots = element("span", "", "ms-dots");
+      for (const dot of milestoneView.dots)
+        dots.append(element("span", "", dot.done ? "ms-dot done" : "ms-dot"));
+      progressParts.push(dots);
+    } else {
+      const bar = element("span", "", "ms-bar");
+      const fill = element("span", "", "ms-fill");
+      fill.style.width = `${Math.max(0, Math.min(100, milestoneView.percent))}%`;
+      bar.append(fill);
+      progressParts.push(bar, element("span", `${milestoneView.percent}%`, "metric-delta"));
+    }
+    progressParts.push(element("span", `${done}/${milestoneView.total}`, "ms-count"));
+    trend.append(...progressParts);
+    row.append(labelCell, valueCell, trend);
+    rows.push(row);
+  }
   if (telemetrySamples.length) {
     const research = telemetryResearchDetail(telemetrySamples);
     if (research) {
@@ -2026,26 +2056,34 @@ function renderMetrics() {
     const badges = [];
     const manual =
       Math.round(Number(discipline.manual_mines) || 0) + Math.round(Number(discipline.manual_crafts) || 0);
-    if (manual > 0) badges.push(["pickaxe", `${manual}`]);
+    if (manual > 0) badges.push(["pickaxe", text.metrics.manualWork, `${manual}`]);
     if (Number(discipline.blackouts) > 0)
-      badges.push(["bolt", `${Math.round(Number(discipline.blackouts))}`]);
+      badges.push(["bolt", text.metrics.blackouts, `${Math.round(Number(discipline.blackouts))}`]);
     if (Number(discipline.alert_penalty) > 0)
-      badges.push(["siren", `${Math.round(Number(discipline.alert_penalty))}`]);
+      badges.push(["siren", text.metrics.alerts, `${Math.round(Number(discipline.alert_penalty))}`]);
+    const stateLate =
+      Math.round(Number(discipline.state_blocked_seconds) || 0) +
+      Math.round(Number(discipline.state_due_seconds) || 0);
+    if (stateLate > 0) badges.push(["clock", text.metrics.stateLate, `${stateLate}s`]);
+    const debtPeak = Math.round(Number(discipline.refactor?.debt_peak) || 0);
+    if (debtPeak > 0) badges.push(["factory", text.metrics.refactorDebt, `${debtPeak}`]);
     if (badges.length > 0) {
       const row = element("tr", "", "metric metric-discipline");
+      // All discipline records stay in one cell (label column + one record cell).
       const valueCell = element("td", "", "metric-value");
+      valueCell.colSpan = 2;
       const badgesCell = element("span", "", "discipline-badges");
-      for (const [iconName, value] of badges) {
+      for (const [iconName, label, value] of badges) {
         const badge = element("span", "", "discipline-badge");
-        badge.append(icon(iconName), element("span", value));
+        badge.append(
+          icon(iconName),
+          element("span", label, "discipline-label"),
+          element("span", value, "discipline-count"),
+        );
         badgesCell.append(badge);
       }
       valueCell.append(badgesCell);
-      row.append(
-        element("th", text.metrics.discipline, "metric-label"),
-        valueCell,
-        element("td", "", "metric-trend"),
-      );
+      row.append(element("th", text.metrics.discipline, "metric-label"), valueCell);
       rows.push(row);
     }
   }

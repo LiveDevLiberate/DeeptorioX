@@ -25,6 +25,7 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(html, /<section id="planPanel" class="status-plan ui-col-1-7" aria-label="Current plan">/);
   assert.match(html, /id="planKicker"[^>]*>Work order</);
   assert.match(html, /id="telemetryKicker"[^>]*>Readouts</);
+  assert.doesNotMatch(html, /id="statusMilestones"/);
   assert.match(
     html,
     /<section id="telemetryPanel" class="status-telemetry ui-col-8-12" aria-label="Live telemetry">/,
@@ -49,6 +50,18 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(css, /--font-body:/);
   assert.match(css, /--icon-sm: 12px/);
   assert.match(css, /--icon-md: 14px/);
+  // Readout columns stay fixed; discipline badges wrap instead of widening them.
+  assert.match(css, /body\.recording \.metrics-table \{[\s\S]*?table-layout: fixed;/);
+  assert.match(css, /body\.recording \.metric-discipline td\.metric-value \{[\s\S]*?white-space: normal;/);
+  // Narrow recording windows must keep the milestone percent/count visible.
+  assert.match(
+    css,
+    /@media \(max-width: 680px\) \{[\s\S]*?body\.recording \.metric-milestones \.metric-trend \{[\s\S]*?flex-wrap: nowrap;/,
+  );
+  assert.match(
+    css,
+    /body\.recording \.metric-milestones \.ms-bar \{[\s\S]*?width: clamp\(20px, 14vw, 64px\);/,
+  );
   assert.match(css, /body\.recording \.connection-notice/);
   assert.match(css, /body\.recording \.status-tools/);
   assert.match(css, /html\[data-theme="light"\] body\.recording #agentStatus\.stale-plan \.status-current/);

@@ -75,7 +75,6 @@ const PAGE_ELEMENT_IDS = [
   "statusMeta",
   "statusCurrent",
   "statusDone",
-  "statusMilestones",
   "statusScores",
   "statusMetrics",
   "statusToggle",
@@ -391,7 +390,9 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     assert.equal(metricClass("metric-penalty"), null, "legacy penalty row removed");
     assert.ok(metricClass("metric-discipline"), "missing discipline badges row");
     assert.ok(
-      metrics.some((text) => /discipline/i.test(text) && /13/.test(text)),
+      metrics.some(
+        (text) => /discipline/i.test(text) && /Manual 13/.test(text) && /Refactor debt 18/.test(text),
+      ),
       `discipline badges: ${metrics.join(" | ")}`,
     );
     const findClass = (root, name) => {
@@ -407,14 +408,15 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     assert.ok(durationNode, "missing action duration");
     assert.equal(durationNode.textContent, "1.4s");
 
-    // Scoring-v2 milestone row: one dot per milestone (<= 6) plus the done count.
-    assert.equal(nodes.statusMilestones.hidden, false);
-    const milestoneDots = findClass(nodes.statusMilestones, "ms-dots");
+    // Scoring-v2 milestone progress is a row inside the readout table (dots <= 6).
+    const milestoneRow = findClass(metricsTable, "metric-milestones");
+    assert.ok(milestoneRow, "missing milestone progress row in the readout table");
+    const milestoneDots = findClass(milestoneRow, "ms-dots");
     assert.ok(milestoneDots, "missing milestone dots");
     assert.equal(milestoneDots.children.length, 6);
     assert.equal(milestoneDots.children.filter((node) => node.classList.contains("done")).length, 3);
-    assert.match(nodeText(nodes.statusMilestones), /3\/6/);
-    assert.equal(findClass(nodes.statusMilestones, "ms-bar"), null);
+    assert.match(nodeText(milestoneRow), /3\/6/);
+    assert.equal(findClass(milestoneRow, "ms-bar"), null);
 
     // Filter chips hide non-matching transcript entries and persist the choice.
     nodes.filterThinking.fire("click");
@@ -610,13 +612,17 @@ test("recording page renders a milestone bar with the next target", async () => 
       }
       return null;
     };
-    assert.equal(nodes.statusMilestones.hidden, false);
-    assert.equal(findClass(nodes.statusMilestones, "ms-dots"), null);
-    const fill = findClass(nodes.statusMilestones, "ms-fill");
+    const milestoneRow = findClass(nodes.statusMetrics, "metric-milestones");
+    assert.ok(milestoneRow, "missing milestone progress row in the readout table");
+    assert.equal(findClass(milestoneRow, "ms-dots"), null);
+    const fill = findClass(milestoneRow, "ms-fill");
     assert.ok(fill, "missing milestone bar fill");
     assert.equal(fill.style.width, "42%");
-    assert.match(nodeText(nodes.statusMilestones), /42% · 3\/7/);
-    assert.match(nodeText(nodes.statusMilestones), /next: Logistic science/);
+    const [labelCell, valueCell, trendCell] = milestoneRow.children;
+    assert.equal(nodeText(labelCell), "Milestones");
+    assert.match(nodeText(valueCell), /Next: Logistic science/);
+    assert.match(nodeText(trendCell), /42%/);
+    assert.match(nodeText(trendCell), /3\/7/);
   } finally {
     globalThis.setTimeout = realSetTimeout;
     if (hadNavigator) globalThis.navigator = realNavigator;
@@ -655,8 +661,109 @@ test("recording page exposes map and blueprint previews", () => {
   assert.match(js, /api\/factorio-locale/);
   assert.match(js, /gameName\("technology"/);
   assert.match(js, /gameName\("item"/);
-  assert.match(html, /id="statusMilestones"/);
-  assert.match(html, /class="status-milestones"/);
-  assert.match(js, /function renderMilestones/);
+  assert.doesNotMatch(html, /id="statusMilestones"/);
+  assert.match(js, /metric-milestones/);
   assert.match(js, /milestoneProgressView/);
+});
+
+test("milestone next target follows the run language and game locale", async () => {
+  const nodes = Object.fromEntries(PAGE_ELEMENT_IDS.map((id) => [id, new FakeNode()]));
+  const body = new FakeNode("body");
+  const documentElement = new FakeNode("html");
+  documentElement.lang = "en";
+  const timers = [];
+  const realSetTimeout = globalThis.setTimeout;
+  const hadNavigator = Object.prototype.hasOwnProperty.call(globalThis, "navigator");
+  const realNavigator = globalThis.navigator;
+  const runFixture = {
+    id: "run1",
+    name: "zh milestone run",
+    state: "running",
+    language: "Chinese",
+    output_format: "events",
+    elapsed_seconds: 641,
+    max_seconds: 1800,
+    state_md: "",
+    benchmark: {
+      milestones: [{ id: "smelt-plates", kind: "production", name: "iron-plate" }],
+    },
+    evaluation: {
+      capability: {
+        score: 125,
+        max: 1000,
+        completed: false,
+        progress: 0.42,
+        milestones: { completed: 3, total: 7 },
+        next_milestone: "smelt-plates",
+        next_milestone_label: "iron-plate",
+        par_seconds: 9600,
+        par_source: "fallback:max_seconds/3",
+      },
+    },
+  };
+  globalThis.document = {
+    getElementById: (id) => nodes[id] || null,
+    createElement: (tag) => new FakeNode(tag),
+    body,
+    documentElement,
+    title: "",
+  };
+  globalThis.location = { search: "?run=run1" };
+  globalThis.history = { replaceState() {} };
+  const storage = new Map();
+  globalThis.localStorage = {
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, String(value)),
+  };
+  if (hadNavigator) globalThis.navigator = { language: "zh-CN" };
+  else
+    Object.defineProperty(globalThis, "navigator", {
+      value: { language: "zh-CN" },
+      configurable: true,
+    });
+  globalThis.setTimeout = (callback) => {
+    timers.push(callback);
+    return timers.length;
+  };
+  globalThis.fetch = async (url) => {
+    if (url === "/api/runs/run1") return { ok: true, json: async () => runFixture };
+    if (url === "/api/factorio-locale")
+      return { ok: true, json: async () => ({ "zh-CN": { item: { "iron-plate": "铁板" } } }) };
+    if (url.includes("source=telemetry")) return { ok: true, json: async () => ({ data: "", offset: 0 }) };
+    if (url.includes("/log?")) return { ok: true, json: async () => ({ data: "", offset: 0 }) };
+    if (url.includes("/blueprints")) return { ok: true, json: async () => ({ blueprints: [] }) };
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const flush = async () => {
+    for (let index = 0; index < 60; index += 1) await new Promise((resolve) => setImmediate(resolve));
+  };
+  try {
+    await import("../public/recording.js?smoke=zh-milestone");
+    await flush();
+    const nodeText = (node) =>
+      [node.textContent, ...(node.children || []).map(nodeText)].filter(Boolean).join(" ");
+    const findClass = (root, name) => {
+      if (String(root.className || "").includes(name)) return root;
+      for (const child of root.children || []) {
+        const hit = findClass(child, name);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    const milestoneRow = findClass(nodes.statusMetrics, "metric-milestones");
+    assert.ok(milestoneRow, "missing milestone row");
+    const [labelCell, valueCell, trendCell] = milestoneRow.children;
+    assert.equal(nodeText(labelCell), "里程碑");
+    assert.equal(nodeText(valueCell), "下一个: 铁板");
+    assert.match(nodeText(trendCell), /42%/);
+    assert.match(nodeText(trendCell), /3\/7/);
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    if (hadNavigator) globalThis.navigator = realNavigator;
+    else delete globalThis.navigator;
+    delete globalThis.document;
+    delete globalThis.location;
+    delete globalThis.history;
+    delete globalThis.fetch;
+  }
 });

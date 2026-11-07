@@ -408,15 +408,22 @@ body.recording .metrics-table .metric-label {
 
 body.recording .metric-discipline .discipline-badges {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 4px 10px;
   color: var(--muted);
 }
 body.recording .metric-discipline .discipline-badge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   font-variant-numeric: tabular-nums;
+}
+body.recording .metric-discipline .discipline-label {
+  color: var(--muted);
+}
+body.recording .metric-discipline .discipline-count {
+  color: var(--ink-soft);
 }
 body.recording .metric-discipline .discipline-badge .icon {
   width: 11px;
@@ -2433,70 +2440,109 @@ body.recording #codexOutput .event-marker-text {
   }
 }
 
-/* Milestone progress row (scoring v2) ------------------------------------- */
-/* Small milestone sets stay as dots; larger sets use a bar plus the next
-   target. Overlay/streaming mode drops the next label so progress still fits. */
-body.recording .status-milestones {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  max-width: 92ch;
-  margin-top: 4px;
-  color: var(--muted);
-  font-family: var(--font-body);
-  font-size: 11.5px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.5;
-}
-body.recording .status-milestones .ms-dots {
+/* Milestone progress row (scoring v2) — rendered inside the readout table. */
+body.recording .metric-milestones .ms-dots {
   display: inline-flex;
-  flex: 0 0 auto;
   align-items: center;
   gap: 3px;
 }
-body.recording .status-milestones .ms-dot {
+body.recording .metric-milestones .ms-dot {
   width: 8px;
   height: 8px;
   border: 1px solid var(--rule);
   border-radius: 50%;
   background: transparent;
 }
-body.recording .status-milestones .ms-dot.done {
+body.recording .metric-milestones .ms-dot.done {
   border-color: var(--safety);
   background: var(--safety);
 }
-body.recording .status-milestones .ms-bar {
+body.recording .metric-milestones .ms-bar {
   position: relative;
   display: inline-flex;
-  flex: 0 0 auto;
   width: 96px;
   height: 6px;
   border: 1px solid var(--rule);
   background: var(--surface);
   overflow: hidden;
+  vertical-align: -1px;
 }
-body.recording .status-milestones .ms-fill {
+body.recording .metric-milestones .ms-fill {
   display: block;
   height: 100%;
   background: var(--safety);
 }
-body.recording .status-milestones .ms-text {
-  min-width: 0;
+body.recording .metric-milestones .metric-next {
+  display: block;
   color: var(--ink-soft);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-body.recording .status-milestones .ms-next {
-  min-width: 0;
-  color: var(--steel);
+body.recording .metric-milestones .metric-value {
   white-space: nowrap;
+}
+body.recording .metric-milestones .metric-trend {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+body.recording .metric-milestones .metric-trend .metric-delta,
+body.recording .metric-milestones .ms-count {
+  margin-left: 6px;
+}
+body.recording .metric-milestones .ms-count {
+  color: var(--ink-soft);
+}
+/* Stable readout columns: discipline records wrap inside their cell instead of
+   widening the value column when more records appear (18% / 41% / 41%). */
+body.recording .metrics-table {
+  width: 100%;
+  table-layout: fixed;
+}
+body.recording .metrics-table tr > th.metric-label {
+  width: 18%;
+}
+body.recording .metrics-table tr > td.metric-value,
+body.recording .metrics-table tr > td.metric-trend {
+  width: 41%;
+}
+body.recording .metrics-table tr > th,
+body.recording .metrics-table tr > td {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-body.overlay .status-milestones .ms-next {
-  display: none;
+body.recording .metric-discipline td.metric-value {
+  white-space: normal;
+}
+
+/* Narrow windows: keep percent/count on one line and shrink the bar so the
+   progress block matches the readout column width (no wrapping, no clipping). */
+@media (max-width: 680px) {
+  body.recording .metric-milestones .metric-value .metric-next {
+    /* Let the next milestone use the available width; only ellipsis when the
+       column is genuinely too narrow (screenshot showed room but 14ch clipped). */
+    max-width: min(24ch, 48vw);
+  }
+  body.recording .metric-milestones .metric-trend {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 2px 3px;
+    white-space: nowrap;
+  }
+  body.recording .metric-milestones .ms-bar {
+    flex: 0 0 auto;
+    width: clamp(20px, 14vw, 64px);
+    min-width: 20px;
+  }
+  body.recording .metric-milestones .metric-trend .metric-delta,
+  body.recording .metric-milestones .ms-count {
+    flex: 0 0 auto;
+    margin-left: 0;
+  }
+  body.recording .metric-milestones .ms-count {
+    color: var(--ink-soft);
+  }
 }
 @media (max-width: 560px) {
   body.recording .status-milestones {

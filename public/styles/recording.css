@@ -1469,7 +1469,14 @@ body.recording .status-line .status-toggle[aria-expanded="true"] {
 .metric-discipline .discipline-badge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.metric-discipline .discipline-label {
+  color: var(--dim);
+}
+.metric-discipline .discipline-count {
+  color: var(--ink-soft);
 }
 .metric-discipline .discipline-badge .icon {
   width: 10px;
