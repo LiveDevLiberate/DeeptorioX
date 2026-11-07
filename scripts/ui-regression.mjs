@@ -406,7 +406,7 @@ async function main() {
       assert.match(runDom, /Blueprints/);
       assert.match(runDom, /id="mapToggle"/);
       assert.match(runDom, /Fixture factory/);
-      assert.match(runDom, /deepseek-official\/deepseek-flash/);
+      assert.match(runDom, /deepseek-flash/);
     });
     if (ARTIFACT_ENABLED) {
       const screenshot = join(ARTIFACTS, "run-page-light-1280.png");

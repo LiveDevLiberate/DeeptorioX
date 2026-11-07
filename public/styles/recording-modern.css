@@ -1311,8 +1311,8 @@ body.recording #agentStatus .status-current {
 /* Keep the work-order icon on the title line so the done-condition line can sit
    right under it instead of after the icon's full 2em height (dead space). */
 body.recording #agentStatus .status-current .icon {
-  width: 1.1em;
-  height: 1.1em;
+  width: 1em;
+  height: 1em;
   flex: 0 0 auto;
   margin: 0;
 }
