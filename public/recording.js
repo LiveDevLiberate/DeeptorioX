@@ -1453,6 +1453,9 @@ function refreshCommandGroup(group) {
   const dominant =
     [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || "script";
   group.summary.className = `commands-summary cat-${dominant}`;
+  for (const child of [...group.summary.children]) {
+    if (child.classList?.contains("icon") && typeof child.remove === "function") child.remove();
+  }
   prependIcon(group.summary, badgeIcon(dominant));
   group.details.classList.toggle("failed", stats.failed > 0);
   group.details.classList.toggle("loop", group.loop > 0);
