@@ -119,7 +119,7 @@ const I18N = {
     newEvents: "new",
     loop: "loop?",
     repeated: "repeated",
-    raw: "raw",
+    raw: "Details",
     rateSuffix: "/min",
     productionColumn: "Item output",
     reasoningLabel: "Thinking",
@@ -293,7 +293,7 @@ const I18N = {
     newEvents: "条新消息",
     loop: "循环?",
     repeated: "重复",
-    raw: "原始",
+    raw: "详情",
     rateSuffix: "/分",
     productionColumn: "物品产量",
     reasoningLabel: "思考",
@@ -1443,15 +1443,6 @@ function refreshCommandGroup(group) {
   group.details.classList.toggle("failed", stats.failed > 0);
   group.details.classList.toggle("loop", group.loop > 0);
 }
-function cleanCommandSummary(value) {
-  let text = String(value || "").trim();
-  text = text
-    .replace(/<path>.*?<\/path>/gi, "")
-    .replace(/[A-Za-z]:\\[^\s]+/g, "")
-    .trim();
-  if (/\.(?:py|ps1|cmd|bat|sh|mjs|js)\b/i.test(text)) return "";
-  return text;
-}
 function renderCommand(item) {
   const group = ensureCommandGroup();
   const summary = summarizeCommand(item);
@@ -1471,8 +1462,6 @@ function renderCommand(item) {
   prependIcon(badge, badgeIcon(summary.category));
   const main = element("span", "", "action-main");
   if (summary.target) main.append(element("span", summary.target, "action-target"));
-  const outcome = cleanCommandSummary(summary.outcome);
-  if (outcome) main.append(element("span", outcome, "action-outcome"));
   if (summary.durationMs != null)
     main.append(element("span", formatDurationText(summary.durationMs), "action-duration"));
   if (summary.running) main.append(element("span", strings().activity.acting, "action-flag"));
