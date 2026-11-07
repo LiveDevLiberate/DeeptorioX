@@ -3858,7 +3858,7 @@
     "src/api/agent.ts": "538cc87a01ef7029f6d05510cf3b24cc2ce83d5654e99aa76b9e77044cc395ef",
     "src/api/alerts.ts": "d491a17165f4d93f4153e8d465b4e345a72ef313225b57fd8942e6beb9b77e78",
     "src/api/area-edit.ts": "5b868956879d478e2467d22ba503c86e899f19dead41e1c1585f38b3117ccfac",
-    "src/api/construction.ts": "34c579b4bb0b5f17d0884edc6d67829e50962aa50c0b96fabce2a4cddacb172f",
+    "src/api/construction.ts": "a4fc34a3ec4ae785807956897d95658cff2c65688ba129acf1adb59bd915a65e",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",
     "src/api/jobs.ts": "8efa31bfe9fc19862316d932b167eccf0464b38056423f7f3b632b34cf7d9ab3",
     "src/api/live.ts": "945223cf08aa2c9e377a1daf2a7cb894df9ebf2c25f57cd55a465dbea988d625",

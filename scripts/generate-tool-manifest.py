@@ -77,7 +77,7 @@ def main(argv: list[str]) -> int:
         print("tool manifest is current")
         return 0
     MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
-    MANIFEST_PATH.write_text(rendered, encoding="utf-8")
+    MANIFEST_PATH.write_text(rendered, encoding="utf-8", newline="\n")
     print(f"wrote {MANIFEST_PATH.relative_to(ROOT)} ({len(rendered)} bytes)")
     return 0
 
