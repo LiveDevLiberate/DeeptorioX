@@ -1258,7 +1258,8 @@ function renderStatus(run) {
     statusModel.title = model;
     statusModel.replaceChildren(
       icon("laptop"),
-      element("span", `${strings.modelLabel} ${model}`, "status-model-text"),
+      element("span", `${strings.modelLabel} `, "status-model-label"),
+      element("span", model, "status-model-text"),
     );
   }
   const usage = run.usage || {};

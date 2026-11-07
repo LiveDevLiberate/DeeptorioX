@@ -1810,3 +1810,85 @@ body.recording #codexOutput .action-badge .icon {
   margin-right: 0;
   vertical-align: middle;
 }
+
+/* Narrow windows keep the model on the same title line, compacted rather than wrapped. */
+@media (max-width: 560px) {
+  body.recording .plan-heading-row > .plan-heading-spacer {
+    display: block;
+    flex: 1 1 8px;
+  }
+  body.recording .plan-heading-row > .status-model {
+    flex: 0 1 auto;
+    order: 3;
+    justify-content: flex-end;
+    margin-left: auto;
+    max-width: 100%;
+    padding-left: 6px;
+    gap: 3px;
+    font-size: 9px;
+    white-space: nowrap;
+  }
+  body.recording .plan-heading-row > .status-model .status-model-text {
+    white-space: nowrap;
+    overflow: visible;
+    overflow-wrap: normal;
+  }
+  body.recording .plan-heading-row > .status-model .icon {
+    width: 11px;
+    height: 11px;
+  }
+}
+
+body.recording .status-model-label {
+  font-size: 10px;
+}
+@media (max-width: 560px) {
+  body.recording .plan-heading-row > .status-model .status-model-label,
+  body.recording .plan-heading-row > .status-model .icon {
+    display: none;
+  }
+  body.recording .plan-heading-row > .status-model {
+    gap: 0;
+    padding-left: 8px;
+    font-size: 8.5px;
+  }
+}
+
+/* Clamp the narrow header to the viewport before right-aligning the model. */
+@media (max-width: 560px) {
+  body.recording #agentStatus,
+  body.recording .status-inner,
+  body.recording .status-plan.ui-col-1-7,
+  body.recording .plan-heading-row {
+    width: 100vw;
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+  body.recording .status-inner {
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* Same-line model on very narrow widths: place it after the activity text
+   rather than right-aligning it into the clipped page edge. */
+@media (max-width: 560px) {
+  body.recording .plan-heading-row > .plan-heading-spacer {
+    display: none;
+  }
+  body.recording .plan-heading-row > .status-model {
+    order: 2;
+    flex: 0 1 auto;
+    justify-content: flex-start;
+    margin-left: 8px;
+    max-width: none;
+    white-space: nowrap;
+  }
+  body.recording .plan-heading-row > .status-model .status-model-text {
+    white-space: nowrap;
+    overflow: visible;
+    overflow-wrap: normal;
+  }
+}
