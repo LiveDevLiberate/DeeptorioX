@@ -10,10 +10,11 @@
     <div id="standalone" hidden>
       <div>
         Standalone page: viewing, editing, flow and feeds all work here, and feeds are remembered by this
-        browser. For real item icons, run <code>fbp icons</code> against your own Factorio installation and
-        load the <code>icons.png</code> and <code>icons.js</code> it writes with the <b>icons…</b> button
-        &mdash; the game's art is Wube's and is not served from here. <b>export</b> needs the VS Code panel
-        &mdash; open the blueprint .txt and run <b>fbp: Open blueprint viewer</b> (Ctrl+Shift+P).
+        browser. Item icons are loaded automatically from this machine's local Factorio installation through
+        <code>/api/blueprint-icons.js</code>; the game's art is Wube's and is never committed or uploaded. If
+        no local installation is available, use <b>icons…</b> to load an atlas manually. <b>export</b> needs
+        the VS Code panel &mdash; open the blueprint .txt and run
+        <b>fbp: Open blueprint viewer</b> (Ctrl+Shift+P).
       </div>
       <div class="spacer"></div>
       <button id="dismiss" type="button" title="hide this notice">&times;</button>
