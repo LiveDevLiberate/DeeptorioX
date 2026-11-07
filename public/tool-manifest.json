@@ -3574,7 +3574,7 @@
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",
-    "src/api/jobs.ts": "ddb0136f81daa326328678493479d88ed29fd66f1281d0356702984889ad564d",
+    "src/api/jobs.ts": "3b9e04b51c617537b69ab274ea2d48b610694dd9de35457bb1acd48b7118bd8d",
     "src/api/manager.ts": "e6bcd846551415382491c67ce7c85ed2f47757fd7c2080b6e56c9a46a59b1642",
     "src/api/runs.ts": "2f1e827c7921cb1fb20fce9f42f90e264284b852580255a6428d0d49401b7f28",
     "src/api/saves.ts": "8b958dc012a81bbae03e0374769b566b0c5b6ab5c11a75084fb52b1401b4024c",

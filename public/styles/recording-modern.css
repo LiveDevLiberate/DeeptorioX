@@ -2286,3 +2286,17 @@ body.recording #codexOutput .event-marker {
 body.recording #codexOutput .event-marker.tech {
   border-left-color: #7fd8e8;
 }
+
+/* Unify event-marker geometry with reasoning/command/message rows. */
+body.recording #codexOutput .event-marker,
+body.recording #codexOutput .event-marker.tech {
+  padding-left: 2.5px;
+  padding-right: 8px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+body.recording #codexOutput .event-marker .icon,
+body.recording #codexOutput .message.decision .decision-icon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
