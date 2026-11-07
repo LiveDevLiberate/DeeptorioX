@@ -1715,3 +1715,66 @@ body.recording .plan-heading-row > .plan-heading-spacer {
 body.recording .plan-heading-row > .status-model {
   order: 3;
 }
+
+/* Model labels are short after displayModel(); never ellipsize them. */
+body.recording .status-model,
+body.recording .plan-heading-row .status-model {
+  max-width: none;
+  overflow: visible;
+}
+body.recording .status-model-text {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  body.recording .status-model,
+  body.recording .plan-heading-row .status-model {
+    max-width: none;
+  }
+}
+
+/* On very narrow pages give the full model label its own right-aligned line
+   instead of letting it run off the viewport. */
+@media (max-width: 560px) {
+  body.recording .plan-heading-row > .plan-heading-spacer {
+    display: none;
+  }
+  body.recording .plan-heading-row > .status-model {
+    flex: 0 0 100%;
+    order: 4;
+    justify-content: flex-end;
+    margin-left: 0;
+    max-width: 100%;
+  }
+}
+
+/* Keep the narrow header inside the viewport and let the full model label wrap
+   instead of being clipped by a wider grid item. */
+body.recording .status-inner,
+body.recording .status-plan.ui-col-1-7 {
+  width: 100%;
+  max-width: 100%;
+}
+@media (max-width: 560px) {
+  body.recording .status-inner,
+  body.recording .status-plan.ui-col-1-7,
+  body.recording .plan-heading-row {
+    width: 100%;
+    max-width: 100vw;
+    min-width: 0;
+  }
+  body.recording .plan-heading-row > .status-model {
+    flex: 0 0 100%;
+    order: 4;
+    justify-content: flex-start;
+    margin-left: 0;
+    max-width: 100%;
+    white-space: normal;
+  }
+  body.recording .plan-heading-row > .status-model .status-model-text {
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+}
