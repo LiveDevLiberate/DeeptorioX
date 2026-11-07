@@ -72,6 +72,7 @@ const FILTER_BUTTONS = {
   errors: document.getElementById("filterErrors"),
   decisions: document.getElementById("filterDecisions"),
 };
+const GOAL_MESSAGE = /^\s*(?:目标|goal)\s*[:：]/i;
 const FILTER_ICONS = {
   all: "stack",
   thinking: "brain",
@@ -1586,8 +1587,10 @@ function renderMessage(item) {
   }
   entry.node._kind = "message";
   entry.node._error = item.type === "error";
+  entry.node._decision = GOAL_MESSAGE.test(String(item.text || ""));
   if (item.type === "error") lastErrorText = String(item.text || "agent error").slice(0, 80);
   entry.node.classList.toggle("error", item.type === "error");
+  entry.node.classList.toggle("decision", entry.node._decision);
   entry.body.textContent = item.text || "";
 }
 function renderTool(item) {
@@ -1675,10 +1678,11 @@ function nodeMatchesFilter(node) {
   const kind = node._kind;
   if (filterMode === "thinking") return kind === "reasoning" && !node._decision;
   if (filterMode === "actions") return kind === "commands";
-  if (filterMode === "messages") return kind === "message";
+  if (filterMode === "messages") return kind === "message" && !node._decision;
   if (filterMode === "errors")
     return Boolean(node._error) || (kind === "commands" && node.classList.contains("failed"));
-  if (filterMode === "decisions") return kind === "reasoning" && Boolean(node._decision);
+  if (filterMode === "decisions")
+    return (kind === "reasoning" || kind === "message") && Boolean(node._decision);
   return true;
 }
 function applyFilters() {

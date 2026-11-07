@@ -466,9 +466,11 @@ export class LoopDetector {
 
 /** True when a reasoning block contains a plan/decision keyword (filter mode). */
 export function isDecisionText(text) {
-  // Every run now starts a reasoning entry with a `目标:` / `Goal:` line. That
-  // line is a label, not a decision, so exclude it before matching.
-  const withoutGoal = String(text ?? "").replace(/^\s*(?:目标|goal)\s*[:：].*$/gim, " ");
+  const source = String(text ?? "").trimStart();
+  // Goal messages are decisions by definition.
+  if (/^(?:目标|goal)\s*[:：]/i.test(source)) return true;
+  // Other leading goal labels are stripped before checking plan language.
+  const withoutGoal = source.replace(/^\s*(?:目标|goal)\s*[:：].*$/gim, " ");
   return DECISION_WORDS.test(normalizeReasoning(withoutGoal));
 }
 

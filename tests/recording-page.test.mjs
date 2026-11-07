@@ -141,6 +141,10 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     },
     {
       type: "item.completed",
+      item: { id: "m0", type: "agent_message", text: "目标：清理审计债务" },
+    },
+    {
+      type: "item.completed",
       item: {
         id: "r1",
         type: "reasoning",
@@ -300,7 +304,8 @@ test("recording page renders summaries, loops, turns and unread updates", async 
       (node) =>
         node.className.includes("message") &&
         !node.className.includes("reasoning") &&
-        node.children[0]?.className === "message-body",
+        node.children[0]?.className === "message-body" &&
+        String(node.children[0].textContent).includes("Mining complete"),
     );
     assert.match(message.children[0].textContent, /Mining complete/);
 
@@ -376,6 +381,11 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     assert.ok(thinkingNodes.filter((node) => !node._decision).every((node) => !node.hidden));
     assert.ok(thinkingNodes.filter((node) => node._decision).every((node) => node.hidden));
     assert.ok(thinkingNodes.some((node) => !node._decision && !node.hidden));
+    assert.ok(
+      output.children
+        .filter((node) => node._kind === "message" && node._decision)
+        .every((node) => node.hidden),
+    );
     assert.equal(storage.get("autorio.filter"), "thinking");
     nodes.filterAll.fire("click");
     assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, false);
@@ -387,14 +397,18 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     nodes.filterMessages.fire("click");
     const messageNodes = output.children.filter((node) => node._kind === "message");
     assert.ok(messageNodes.length >= 1, "fixture should include agent messages");
-    assert.ok(messageNodes.every((node) => node.hidden === false));
+    assert.ok(messageNodes.filter((node) => !node._decision).every((node) => node.hidden === false));
+    assert.ok(messageNodes.filter((node) => node._decision).every((node) => node.hidden === true));
     assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, true);
     assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, true);
-    // Decisions filter keeps only reasoning cards marked as decisions.
+    // Decisions filter keeps decision reasoning and goal messages.
     nodes.filterDecisions.fire("click");
     const reasoningNodes = output.children.filter((node) => node._kind === "reasoning");
     assert.ok(reasoningNodes.some((node) => node._decision && !node.hidden));
     assert.ok(reasoningNodes.filter((node) => !node._decision).every((node) => node.hidden));
+    const decisionMessages = output.children.filter((node) => node._kind === "message" && node._decision);
+    assert.ok(decisionMessages.length >= 1, "goal message should count as a decision");
+    assert.ok(decisionMessages.every((node) => node.hidden === false));
     // A filter with no matching entries shows an explicit empty-state note.
     nodes.filterErrors.fire("click");
     const emptyNote = output.children.find((node) => node.className.includes("filter-empty"));

@@ -2084,3 +2084,8 @@ body.recording #codexOutput .message:not(.tool):not(.reasoning) > .msg-time {
   margin-left: 0;
   margin-right: 5px;
 }
+
+/* Goal messages are decisions, so they use the decision accent. */
+body.recording #codexOutput .message.decision {
+  border-left-color: #c0a8f0;
+}
