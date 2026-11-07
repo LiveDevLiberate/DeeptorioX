@@ -85,6 +85,12 @@
       "usage": "Usage: factorio.py belt-contents --target x,y"
     },
     {
+      "command": "belt-lanes",
+      "description": "Inspect belt lanes with left/right mapping, content saturation, lane balance and lane-mix warnings.",
+      "help": "Usage: factorio.py belt-lanes [--center-x n --center-y n --radius n] [--limit n] [--target x,y ...] Defaults: player position, radius 32, limit 100. --target inspects explicit belt tiles instead of the window. Each belt reports lanes.left/right (items, item_count, saturation), lane_balance, lane_mix and side-load feeders.",
+      "usage": "Usage: factorio.py belt-lanes [--center-x n --center-y n --radius n] [--limit n] [--target x,y ...]"
+    },
+    {
       "command": "blueprint-analyze",
       "description": "Static geometry, lane flow, supply check, lint and lane-mix analysis.",
       "help": "Usage: factorio.py blueprint-analyze (--blueprint-file path|--blueprint string|--id id) Ported from factorio-blueprint-tools (MIT): no throughput/fluid analysis.",
@@ -529,6 +535,48 @@
         }
       ],
       "signature": "belt_contents(self, x: 'float', y: 'float') -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Per-tile belt lane contents (left/right), saturation and lane-mix warnings.",
+      "name": "belt_lanes",
+      "parameters": [
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "x",
+          "required": false
+        },
+        {
+          "annotation": "float | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "y",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "32",
+          "kind": "keyword_only",
+          "name": "radius",
+          "required": false
+        },
+        {
+          "annotation": "list[dict[str, Any]] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "targets",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "100",
+          "kind": "keyword_only",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "signature": "belt_lanes(self, *, x: 'float | None' = None, y: 'float | None' = None, radius: 'int' = 32, targets: 'list[dict[str, Any]] | None' = None, limit: 'int' = 100) -> 'Any'"
     },
     {
       "description": "Build entities after mining trees/rocks from their footprints.",
@@ -3322,7 +3370,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "7a9b6b89deec291ec0443287a2a9a56f2cc353d0fcf12477344bd424060633fe",
+  "client_sha256": "e49f6382b76f89b11f372adf114829f72db34a81d38f4fb48fde01570cb6ab71",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3403,6 +3451,10 @@
     {
       "method": "POST",
       "path": "/api/agent/observe/audit"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/observe/belts"
     },
     {
       "method": "POST",
@@ -3517,8 +3569,8 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "7a9b6b89deec291ec0443287a2a9a56f2cc353d0fcf12477344bd424060633fe",
-    "src/api/agent.ts": "2b646d9df5848952af4c0d622ae877ac3ed2cfc5f28a8be57ceb4c1411c98ac5",
+    "factorio.py": "e49f6382b76f89b11f372adf114829f72db34a81d38f4fb48fde01570cb6ab71",
+    "src/api/agent.ts": "88be3b49fcfeaedfa8b420d58aed92d4bbcf89f8ab1a1565d33e43934a447178",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",

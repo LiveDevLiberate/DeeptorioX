@@ -1964,3 +1964,24 @@ body.recording #codexOutput details.reasoning:not([open]) {
   max-width: 100%;
   align-self: stretch;
 }
+
+/* Item output labels stay plain white at zero output; changed values use bold,
+   never the old blue name highlight. */
+body.recording .production-row {
+  color: var(--ink);
+}
+body.recording .production-name {
+  color: var(--ink);
+  font-weight: 500;
+}
+body.recording .production-rate {
+  color: var(--ink);
+  font-weight: 500;
+}
+body.recording .production-rate.changed {
+  color: var(--ink);
+  font-weight: 700;
+}
+body.recording .production-row.zero {
+  opacity: 1;
+}
