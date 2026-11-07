@@ -1820,9 +1820,9 @@ function renderProduction() {
     const value = Number(rates[name]) || 0;
     row._productionName.textContent = gameName("item", row._productionKey);
     if (row._lastProductionRate !== undefined && row._lastProductionRate !== value) {
-      row._productionName.classList.add("changed");
+      row._productionRate.classList.add("changed");
       clearTimeout(row._productionChangeTimer);
-      row._productionChangeTimer = setTimeout(() => row._productionName.classList.remove("changed"), 1200);
+      row._productionChangeTimer = setTimeout(() => row._productionRate.classList.remove("changed"), 1200);
     }
     row._lastProductionRate = value;
     row._productionRate.textContent = `${Math.round(value)}${text.rateSuffix}`;

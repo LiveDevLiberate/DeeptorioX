@@ -1933,10 +1933,6 @@ body.recording .production-name {
   font-weight: 500;
   transition: color 120ms ease;
 }
-body.recording .production-name.changed {
-  color: #6da8ff;
-}
-
 /* Collapsible transcript rows have no disclosure triangle; icon + text start
    flush left and remain the only visual affordance. */
 body.recording #codexOutput .reasoning-summary::before,
