@@ -105,7 +105,12 @@ Each `benchmarks/<id>.json` may add:
 "construction": {
   "default_mode": "free",
   "modes": ["free", "planned"],
-  "variant": "free-build-v1"
+  "variant": "free-build-v1",
+  "blueprints": {
+    "enabled": true,
+    "source": "agent",
+    "catalog": "run"
+  }
 }
 ```
 
@@ -116,6 +121,9 @@ Fields:
 | `default_mode` | `"free" \| "planned"` | mode used when the launcher does not specify one |
 | `modes` | array | modes this benchmark may run in; first entry is the canonical variant |
 | `variant` | string | stable benchmark variant name used for leaderboard grouping |
+| `blueprints.enabled` | boolean | whether blueprint-assisted construction is allowed |
+| `blueprints.source` | `"none" \| "agent" \| "preloaded"` | where blueprints may come from |
+| `blueprints.catalog` | string | optional preloaded catalog id; `run` means agent-captured blueprints only |
 
 Defaults for old configs:
 
@@ -128,6 +136,11 @@ Defaults for old configs:
 ```
 
 This keeps historical benchmarks runnable and clearly identifies them as free-build.
+This keeps historical benchmarks runnable and clearly identifies them as free-build.
+
+Blueprint policy is part of the variant identity. A run using a preloaded blueprint
+catalog is not comparable to an agent-authored-blueprint run, even when both use the
+same construction mode.
 
 If a benchmark wants both modes, it must define both variants explicitly, for example:
 
@@ -145,12 +158,19 @@ At run start:
   "construction": {
     "mode": "free",
     "variant": "free-build-v1",
-    "plan_required": false
+    "plan_required": false,
+    "blueprints": {
+      "enabled": true,
+      "source": "agent",
+      "catalog": "run",
+      "catalog_hash": null
+    }
   },
   "scoring": {
     "version": 2,
     "construction_mode": "free",
-    "benchmark_variant": "free-build-v1"
+    "benchmark_variant": "free-build-v1",
+    "blueprint_policy": "agent"
   }
 }
 ```
@@ -163,6 +183,7 @@ At scoring time:
     "score": 812,
     "variant": "free-build-v1",
     "construction_mode": "free",
+    "blueprint_policy": "agent",
     "...": "existing v2 fields"
   },
   "discipline": {
@@ -175,7 +196,11 @@ At scoring time:
       "plan_rejections": 0,
       "plan_ineffective": 0,
       "plan_regressions": 0,
-      "cleanup_units": 12
+      "cleanup_units": 12,
+      "blueprints_used": 2,
+      "blueprint_entities_planned": 48,
+      "blueprint_entities_placed": 48,
+      "blueprint_entities_failed": 0
     },
     "...": "existing discipline fields"
   }
@@ -216,6 +241,10 @@ plan_rejections
 plan_ineffective
 plan_regressions
 cleanup_units
+blueprints_used
+blueprint_entities_planned
+blueprint_entities_placed
+blueprint_entities_failed
 ```
 
 `unplanned_actions > 0` in planned mode is a discipline flag (`plan_bypass`). In free
@@ -377,6 +406,146 @@ Persistence:
 | `expansion` | place outside clusters | only when audit debt is below the clean target |
 
 All entity prototypes are covered. There is no power/pipe-only allowlist.
+| `expansion` | place outside clusters | only when audit debt is below the clean target |
+
+All entity prototypes are covered. There is no power/pipe-only allowlist.
+
+### 4.5.1 Blueprint integration
+
+A blueprint is a **design**, not an authorization. In planned mode, placing a
+blueprint is still a construction plan and goes through the same scope, validation,
+execution and verification path as a hand-written entity list.
+
+#### Blueprint sources
+
+- `agent`: blueprint captured or authored by the agent in this run.
+- `preloaded`: benchmark-provided catalog (documented and versioned).
+- `none`: blueprint placement is disabled.
+
+Capture and evaluation are read-only design operations and do not require a
+construction plan. Only **building** from a blueprint is gated.
+
+#### Plan request
+
+The agent references a registered blueprint and supplies placement intent only:
+
+```json
+{
+  "kind": "blueprint",
+  "blueprint_id": "bp_01J...",
+  "anchor": {"x": -24, "y": -40},
+  "rotation": 0,
+  "mirror": false,
+  "window": {"x": -24, "y": -40, "radius": 40},
+  "audit_revision": 42
+}
+```
+
+The plan service, not the raw build endpoint, expands the blueprint:
+
+1. decode/validate the blueprint string;
+2. expand entities relative to anchor/rotation/mirror;
+3. resolve recipes, filters, modules and underground subtypes;
+4. compute footprint, required items and entity hash;
+5. run the same collision/reach/scope policy as a normal plan;
+6. store the canonical expanded entity list in the plan token;
+7. return a `blueprint` plan token.
+
+The execution payload is only:
+
+```json
+{ "plan_id": "pln_...", "action": "build-blueprint" }
+```
+
+The executor uses the token's stored entity list. The client must not re-expand or
+substitute a different blueprint at execution time.
+
+#### Token binding
+
+`blueprint` plans extend the token with:
+
+```ts
+{
+  source: "blueprint",
+  blueprint_id: string,
+  blueprint_hash: string,
+  anchor: { x: number; y: number },
+  rotation: 0 | 2 | 4 | 6,
+  mirror: boolean,
+  expanded_entities_hash: string,
+  required_items: Record<string, number>
+}
+```
+
+`targets_hash` is the hash of the expanded entity set including anchor, rotation and
+mirror. A different blueprint, anchor or rotation returns `PLAN_TARGET_MISMATCH`.
+
+#### Blueprint-specific validation
+
+- **Material preflight**: missing items reject the plan before the job is queued
+  (`BLUEPRINT_MATERIAL_SHORTAGE`). There is no implicit partial build unless the
+  benchmark configuration explicitly permits it.
+- **Placement**: every expanded entity must fit inside the plan window and scope.
+- **Underground entities**: input/output subtypes are preserved from the blueprint;
+  direction/rotation validation is mandatory.
+- **Power/fluid**: the same planners and topology audit apply; a blueprint cannot
+  bypass pole-coverage or pipe-topology validation.
+- **Obstacles**: clearing trees/rocks is allowed; removing player-owned entities
+  requires a separate `cleanup` plan. A blueprint plan never silently deletes a
+  working production block.
+- **Scope**: the full blueprint footprint must fit the allowed cluster or be classified
+  as `expansion`.
+
+#### Partial and chunked execution
+
+Blueprints may exceed the per-job entity limit. The plan is executed in ordered
+chunks under one token:
+
+- the token is consumed when the job is accepted;
+- per-entity results are recorded;
+- a failed environment (blocked/reach) stops the remaining chunks unless the plan was
+  issued with an explicit retry policy;
+- retrying the failed subset requires a new plan for the remaining entities, with a
+  new expanded hash;
+- partial completion is reported to the verifier and the operator UI.
+
+#### Verification
+
+After execution:
+
+```text
+effective   : all planned entities placed, target issue fixed
+neutral     : placed but no measurable improvement
+ineffective : placement failed for a significant subset
+regressed   : placement created new critical audit issues
+```
+
+Metrics recorded per blueprint:
+
+```text
+blueprint_id, blueprint_hash, source
+entities_planned, entities_placed, entities_failed
+required_items, missing_items
+plan_id, verification result
+```
+
+These are discipline/telemetry, not capability score bonuses.
+
+#### Free mode
+
+In free mode, `/act/build-blueprint` remains directly callable, with the legacy
+expansion path. The run still records blueprint metrics so free-build and planned
+results remain explainable. Blueprint policy is still part of the benchmark variant.
+
+#### Evaluation fairness
+
+Preloaded blueprints can make a benchmark easier. Therefore:
+
+- `construction.blueprints.source` is part of the benchmark variant;
+- a preloaded catalog must be versioned and hashed into the variant identity;
+- free and planned runs with different blueprint policies are not ranked together;
+- agent-captured blueprints are part of the agent's capability, not a benchmark
+  shortcut.
 
 ### 4.6 Scope policy
 
@@ -488,6 +657,11 @@ still carry `cleanup=true` and a cleanup plan.
 | `PLAN_KIND_MISMATCH` | e.g. cleanup token used for build |
 | `PLAN_ALREADY_CONSUMED` | token reused |
 | `CONSTRUCTION_MODE_FREE` | plan endpoint called in free mode |
+| `CONSTRUCTION_MODE_FREE` | plan endpoint called in free mode |
+| `BLUEPRINT_INVALID` | malformed/unsupported blueprint |
+| `BLUEPRINT_MATERIAL_SHORTAGE` | required items missing before execution |
+| `BLUEPRINT_TARGET_MISMATCH` | blueprint/anchor/rotation differs from token |
+| `BLUEPRINT_PARTIAL_FAILURE` | chunked placement stopped before the plan completed |
 
 Every error includes:
 
@@ -508,7 +682,7 @@ Free mode is deliberately simple and legacy-compatible.
 
 Enabled:
 
-- direct build / blueprints / mutations / cleanup,
+- direct build / direct blueprint build / mutations / cleanup,
 - legacy planners that call raw action endpoints,
 - existing STATE and ALERT gates,
 - audit metrics collection.
@@ -570,6 +744,9 @@ counts rejected unplanned calls for the `plan_bypass` discipline flag.
 ### Python client / CLI
 
 - `FactorioClient.plan(...)` creates a plan.
+- `FactorioClient.plan_blueprint(...)` registers/loads the blueprint, requests a
+  `kind=blueprint` plan and returns the token; the raw blueprint string is never sent
+  directly to the planned build endpoint.
 - Planning wrappers (`build_power_network`, `build_power_line`, `build_line`,
   `build_blueprint`, `plan_build`) automatically request a token and pass `plan_id`.
 - Raw `c.build(...)` without a plan raises a structured error in planned mode.
@@ -641,12 +818,19 @@ counts rejected unplanned calls for the `plan_bypass` discipline flag.
 5. An audit change after planning returns `PLAN_REVISION_CHANGED`.
 6. Reusing a consumed token returns `PLAN_ALREADY_CONSUMED`.
 7. Cleanup of a working production entity is rejected in planned mode.
-8. Free and planned runs are never ranked together; `evaluation.capability.variant`
+7. Cleanup of a working production entity is rejected in planned mode.
+8. In planned mode, direct `/act/build-blueprint` without a `blueprint` plan token
+   returns `PLAN_REQUIRED`; a different blueprint/anchor/rotation returns
+   `BLUEPRINT_TARGET_MISMATCH`.
+9. A blueprint plan with missing materials is rejected before any entity is placed.
+10. Blueprint partial failure is reported per entity and the operator UI shows the
+    plan/blueprint verification result.
+11. Free and planned runs are never ranked together; `evaluation.capability.variant`
    differs and the UI/leaderboard groups by variant.
-9. Post-plan verification records `effective`/`ineffective` and blocks repeated
+12. Post-plan verification records `effective`/`ineffective` and blocks repeated
    ineffective plans.
-10. Existing audit and pipeline-audit tests remain green; new plan-gate tests cover
-    build, mutation, cleanup and free-mode compatibility.
+13. Existing audit and pipeline-audit tests remain green; new plan-gate tests cover
+    build, mutation, cleanup, blueprint and free-mode compatibility.
 
 ---
 
@@ -660,5 +844,7 @@ counts rejected unplanned calls for the `plan_bypass` discipline flag.
 - Should plan tokens survive manager restarts? The default is no; re-plan is safer
   than executing a stale plan.
 - When service-generated layouts land, should arbitrary entity lists remain available
-  for blueprints? Blueprints are expected to remain validated plans because they are
-  user-supplied designs.
+  for blueprints? This spec keeps blueprints as validated plans: manager expansion and
+  a bound entity hash, because a blueprint is a user-supplied design.
+- Should preloaded blueprint catalogs be global or benchmark-scoped? Either is
+  acceptable, but the catalog id and hash must be part of the variant identity.
