@@ -2218,3 +2218,20 @@ body.recording #codexOutput .event-marker .msg-time {
   margin-left: 0;
   margin-right: 0;
 }
+
+/* Keep the transcript rule aligned with the status-plan/telemetry kicker at
+   responsive widths where the status header relaxes its horizontal padding. */
+@media (max-width: 720px) {
+  body.recording main.transcript-pane > #transcriptTools,
+  body.recording main.transcript-pane > #codexOutput {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+@media (max-width: 560px) {
+  body.recording main.transcript-pane > #transcriptTools,
+  body.recording main.transcript-pane > #codexOutput {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
