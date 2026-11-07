@@ -109,8 +109,8 @@ export function workingBlockTiles(entities: unknown): Set<string> {
     ? entities.filter((entry): entry is AreaEntity => Boolean(entry) && typeof entry === "object")
     : [];
   const activeMachines = list.filter((entity) => {
-    const type = String(entity.type ?? "");
-    const status = String(entity.status ?? "none");
+    const type = typeof entity.type === "string" ? entity.type : "";
+    const status = typeof entity.status === "string" ? entity.status : "none";
     return MACHINE_TYPES.has(type) && !INACTIVE_STATUSES.has(status);
   });
   const protectedTiles = new Set<string>();
@@ -123,7 +123,7 @@ export function workingBlockTiles(entities: unknown): Set<string> {
     .filter((box): box is { left: number; top: number; right: number; bottom: number } => Boolean(box));
 
   const activeInserters = list.filter((entity) => {
-    if (String(entity.type ?? "") !== "inserter") return false;
+    if ((typeof entity.type === "string" ? entity.type : "") !== "inserter") return false;
     const tile = entityTile(entity);
     if (!tile) return false;
     const touchesMachine = activeMachineBoxes.some(
@@ -145,7 +145,7 @@ export function workingBlockTiles(entities: unknown): Set<string> {
   }
 
   const feeders = list.filter((entity) => {
-    const type = String(entity.type ?? "");
+    const type = typeof entity.type === "string" ? entity.type : "";
     if (
       !["transport-belt", "underground-belt", "splitter", "container", "logistic-container"].includes(type)
     ) {
