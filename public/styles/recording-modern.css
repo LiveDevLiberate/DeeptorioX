@@ -1899,3 +1899,12 @@ body.recording #codexOutput .reasoning:not([open]) {
   width: 100%;
   max-width: 100%;
 }
+
+/* Transcript filter bar and reasoning rows share the full window width. */
+body.recording main.transcript-pane > #transcriptTools,
+body.recording main.transcript-pane > #codexOutput {
+  width: 100%;
+  max-width: none;
+  padding-left: var(--ui-gutter);
+  padding-right: var(--ui-gutter);
+}
