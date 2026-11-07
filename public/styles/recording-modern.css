@@ -1786,7 +1786,7 @@ body.recording #codexOutput .tool-details summary,
 body.recording #codexOutput .event-marker {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 2.5px;
 }
 body.recording #codexOutput .reasoning-summary .icon,
 body.recording #codexOutput .commands-summary .icon,
@@ -1914,7 +1914,7 @@ body.recording main.transcript-pane > #codexOutput {
 body.recording #codexOutput .message:not(.tool):not(.reasoning) {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 2.5px;
 }
 body.recording #codexOutput .message:not(.tool):not(.reasoning) .message-body {
   flex: 1 1 auto;
@@ -2102,7 +2102,7 @@ body.recording #codexOutput .command {
 body.recording #codexOutput .reasoning-summary,
 body.recording #codexOutput .commands-summary,
 body.recording #codexOutput .tool-details summary {
-  padding-left: 7px;
+  padding-left: 0;
 }
 body.recording #codexOutput .msg-time,
 body.recording #codexOutput .reasoning-summary .msg-time,
@@ -2110,5 +2110,9 @@ body.recording #codexOutput .commands-summary .msg-time,
 body.recording #codexOutput .command > .msg-time,
 body.recording #codexOutput .message:not(.tool):not(.reasoning) > .msg-time,
 body.recording #codexOutput .tool-details summary .msg-time {
-  margin-right: 2.5px;
+  margin-right: 0;
+}
+
+body.recording #codexOutput .command {
+  gap: 2.5px;
 }
