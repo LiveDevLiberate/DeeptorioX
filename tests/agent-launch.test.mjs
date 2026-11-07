@@ -38,6 +38,7 @@ test("agentPrompt composes language, discipline and base instructions", () => {
     assert.match(languagePrompt(chinese), /Simplified Chinese \(简体中文\)/);
 
   const fresh = agentPrompt({ resume: false, restart: false });
+  assert.match(fresh, /^MANDATORY OUTPUT PROTOCOL/);
   assert.match(fresh, /Never wait or sleep idly\./);
   assert.match(fresh, /Batch at least five related actions or observations per tool call/);
   assert.match(
@@ -59,7 +60,7 @@ test("agentPrompt composes language, discipline and base instructions", () => {
   assert.doesNotMatch(restart, /Continue the same benchmark from its saved game/);
 
   const localized = agentPrompt({ resume: false, restart: false, language: "中文" });
-  assert.match(localized, /^CRITICAL OUTPUT LANGUAGE: Simplified Chinese \(简体中文\)\./);
+  assert.match(localized, /CRITICAL OUTPUT LANGUAGE: Simplified Chinese \(简体中文\)\./);
 });
 
 test("shortWaitGuardFiles plans the sleep shim and Python sitecustomize hook", () => {
@@ -205,7 +206,7 @@ test("OpenCode resume and restart sessions change only the session/prompt clause
     sessionId: "ses_zh",
     language: "Chinese",
   });
-  assert.match(promptOf(localized), /^CRITICAL OUTPUT LANGUAGE: Simplified Chinese/);
+  assert.match(promptOf(localized), /CRITICAL OUTPUT LANGUAGE: Simplified Chinese/);
   assert.match(promptOf(localized), /Continue the same benchmark from its saved game\./);
 });
 

@@ -116,6 +116,9 @@ const BASE_TASK_PROMPT =
   "Watch the automation score in observe_factory().plan.automation: automate extraction and crafting instead of hand work (manual mines/crafts are penalty points). " +
   "Write Python scripts in this workspace as needed. The game is already running. Do not manage game processes or access raw RCON.";
 
+const OUTPUT_PROTOCOL =
+  "MANDATORY OUTPUT PROTOCOL: before every script or action batch, emit a standalone assistant message (a normal text message, not hidden reasoning) whose first line is `目标：<5-6 Chinese characters>` for Chinese runs or `Goal: <5-6 English words>` for English runs. This message is consumed by the recording UI and narration; do not omit it and do not put it only in reasoning. ";
+
 /** Optional output-language instruction; empty when the run uses the default. */
 export function languagePrompt(language?: string): string {
   if (!language) return "";
@@ -126,6 +129,7 @@ export function languagePrompt(language?: string): string {
 /** Shared agent task prompt: language + discipline + resume/restart clause. */
 export function agentPrompt(input: Pick<AgentLaunchInput, "language" | "resume" | "restart">): string {
   return (
+    OUTPUT_PROTOCOL +
     languagePrompt(input.language) +
     DISCIPLINE_PROMPT +
     (input.restart ? RESTART_PROMPT : input.resume ? RESUME_PROMPT : "") +

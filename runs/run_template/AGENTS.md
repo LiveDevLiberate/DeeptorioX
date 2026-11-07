@@ -160,6 +160,9 @@ Next candidate: research (50) or armed exploration (25) when idle
 
 - Follow the output language requested by the run prompt for every message and
   reasoning summary; keep code, commands, paths and identifiers unchanged.
+- Emit a standalone assistant message before every script or action batch:
+  `目标：<5–6 个字>` (or `Goal: <5–6 words>`). This must be a message, not only
+  reasoning; the recording UI and narrator consume it.
 - Before each script or action batch, start the reasoning with a compact goal:
   Chinese 5–6 characters or English 5–6 words, prefixed `目标:` or `Goal:`
   (`目标：修复铜矿供电`). The UI uses that line as the collapsed thought label.
