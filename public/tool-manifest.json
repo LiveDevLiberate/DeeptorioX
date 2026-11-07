@@ -85,16 +85,34 @@
       "usage": "Usage: factorio.py belt-contents --target x,y"
     },
     {
+      "command": "blueprint-analyze",
+      "description": "Static geometry, lane flow, supply check, lint and lane-mix analysis.",
+      "help": "Usage: factorio.py blueprint-analyze (--blueprint-file path|--blueprint string|--id id) Ported from factorio-blueprint-tools (MIT): no throughput/fluid analysis.",
+      "usage": "Usage: factorio.py blueprint-analyze (--blueprint-file path|--blueprint string|--id id)"
+    },
+    {
       "command": "blueprint-capture",
       "description": "Capture the player-built layout in an area into the run blueprint registry.",
       "help": "Usage: factorio.py blueprint-capture [--center-x n --center-y n --radius n] [--label text] [--description text] Capture after the layout passes factory-audit/observe-connections; reuse and iterate on saved blueprints.",
       "usage": "Usage: factorio.py blueprint-capture [--center-x n --center-y n --radius n] [--label text] [--description text]"
     },
     {
+      "command": "blueprint-diff",
+      "description": "Compare entity/recipe geometry, check, lint and lane-mix between two blueprints.",
+      "help": "Usage: factorio.py blueprint-diff (--before-file path|--before string|--before-id id) (--after-file path|--after string|--after-id id)",
+      "usage": "Usage: factorio.py blueprint-diff (--before-file path|--before string|--before-id id) (--after-file path|--after string|--after-id id)"
+    },
+    {
       "command": "blueprint-evaluate",
       "description": "Report structural and optional dynamic efficiency for a blueprint.",
       "help": "Usage: factorio.py blueprint-evaluate (--blueprint-file path|--blueprint string|--id id) [--output item=rate] [--power-kw n] [--build-seconds n] Static: footprint/entity/machine/belt/inserter density. Dynamic requires built-cell output rates, power and build time.",
       "usage": "Usage: factorio.py blueprint-evaluate (--blueprint-file path|--blueprint string|--id id) [--output item=rate] [--power-kw n] [--build-seconds n]"
+    },
+    {
+      "command": "blueprint-gamedata",
+      "description": "Regenerate blueprint recipe/footprint data from a local data-raw-dump.json.",
+      "help": "Usage: factorio.py blueprint-gamedata [--dump-file path] Run `factorio --dump-data` first; writes blueprint_analysis/data/gamedata.json.",
+      "usage": "Usage: factorio.py blueprint-gamedata [--dump-file path]"
     },
     {
       "command": "blueprint-list",
@@ -457,6 +475,27 @@
       "name": "alerts",
       "parameters": [],
       "signature": "alerts(self) -> 'Any'"
+    },
+    {
+      "description": "Lane-level flow, supply check, lint and lane-mix analysis.",
+      "name": "analyze_blueprint",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "blueprint",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "blueprint_id",
+          "required": false
+        }
+      ],
+      "signature": "analyze_blueprint(self, *, blueprint: 'Any' = None, blueprint_id: 'str | None' = None) -> 'dict[str, Any]'"
     },
     {
       "description": "Read items currently on a belt/splitter/underground line at a tile.",
@@ -1467,6 +1506,41 @@
       "signature": "describe(self, name: 'str', *, kind: 'str' = 'entity') -> 'Any'"
     },
     {
+      "description": "Structural difference between two blueprint versions/ids.",
+      "name": "diff_blueprint",
+      "parameters": [
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "before",
+          "required": false
+        },
+        {
+          "annotation": "Any",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "after",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "before_id",
+          "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "after_id",
+          "required": false
+        }
+      ],
+      "signature": "diff_blueprint(self, *, before: 'Any' = None, after: 'Any' = None, before_id: 'str | None' = None, after_id: 'str | None' = None) -> 'dict[str, Any]'"
+    },
+    {
       "description": "Curated behavior/placement rules plus prototype metadata for an entity.",
       "name": "entity_usage",
       "parameters": [
@@ -1625,6 +1699,20 @@
         }
       ],
       "signature": "fluid_contents(self, x: 'float', y: 'float') -> 'dict[str, Any]'"
+    },
+    {
+      "description": "Regenerate blueprint recipe/footprint data from Factorio --dump-data.",
+      "name": "generate_blueprint_gamedata",
+      "parameters": [
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "dump_file",
+          "required": false
+        }
+      ],
+      "signature": "generate_blueprint_gamedata(self, dump_file: 'str | None' = None) -> 'dict[str, Any]'"
     },
     {
       "description": "Check planned footprints, rotations, overlaps and native placement.",
@@ -3187,7 +3275,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "e3f73dce6b0952572f479705f9ca99d612c89f48bf09721a1c43eea1f2f58285",
+  "client_sha256": "3ffa16767bde3080df3500a7333315224fa78b7476f0faa6973ad8054669f8a5",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3382,7 +3470,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "e3f73dce6b0952572f479705f9ca99d612c89f48bf09721a1c43eea1f2f58285",
+    "factorio.py": "3ffa16767bde3080df3500a7333315224fa78b7476f0faa6973ad8054669f8a5",
     "src/api/agent.ts": "f34752ae629f3f324a0f485072d52c79caa253bd4af44f4a54b5382916114e21",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",

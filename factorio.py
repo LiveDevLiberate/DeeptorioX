@@ -94,6 +94,9 @@ Commands:
   blueprint-save (--blueprint-file <path>|--blueprint <string>) [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]
   blueprint-capture [--center-x n --center-y n --radius n] [--label <text>] [--description <text>]
   blueprint-evaluate (--blueprint-file <path>|--blueprint <string>|--id <id>) [--output item=rate] [--power-kw n] [--build-seconds n]
+  blueprint-analyze (--blueprint-file <path>|--blueprint <string>|--id <id>)
+  blueprint-diff (--before-file <path>|--before <string>|--before-id <id>) (--after-file <path>|--after <string>|--after-id <id>)
+  blueprint-gamedata [--dump-file <path>]
   state-show
   state-write --current <text> [--done-when <text>] [--next <text>] [--scores k=v,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]
   observe-factory --center-x <n> --center-y <n> --radius <n>
@@ -178,6 +181,9 @@ COMMAND_USAGE = {
     "observe-factory": "observe-factory: Summarize power, fuel, and entity status counts in a window.\nUsage: factorio.py observe-factory --center-x <n> --center-y <n> --radius <n>\n",
     "tools": "tools: Fetch the generated tool manifest (client methods, parameters, CLI usage, manager endpoints).\nUsage: factorio.py tools [--json] [--local] [--query <text>]\n--json prints the manifest as JSON; --local introspects factorio.py without the manager; --query filters matching commands/methods/endpoints. (The manager also serves GET /api/agent/tools?q=...)\n",
     "blueprint-capture": "blueprint-capture: Capture the player-built layout in an area into the run blueprint registry.\nUsage: factorio.py blueprint-capture [--center-x n --center-y n --radius n] [--label text] [--description text]\nCapture after the layout passes factory-audit/observe-connections; reuse and iterate on saved blueprints.\n",
+    "blueprint-analyze": "blueprint-analyze: Static geometry, lane flow, supply check, lint and lane-mix analysis.\nUsage: factorio.py blueprint-analyze (--blueprint-file path|--blueprint string|--id id)\nPorted from factorio-blueprint-tools (MIT): no throughput/fluid analysis.\n",
+    "blueprint-diff": "blueprint-diff: Compare entity/recipe geometry, check, lint and lane-mix between two blueprints.\nUsage: factorio.py blueprint-diff (--before-file path|--before string|--before-id id) (--after-file path|--after string|--after-id id)\n",
+    "blueprint-gamedata": "blueprint-gamedata: Regenerate blueprint recipe/footprint data from a local data-raw-dump.json.\nUsage: factorio.py blueprint-gamedata [--dump-file path]\nRun `factorio --dump-data` first; writes blueprint_analysis/data/gamedata.json.\n",
     "blueprint-evaluate": "blueprint-evaluate: Report structural and optional dynamic efficiency for a blueprint.\nUsage: factorio.py blueprint-evaluate (--blueprint-file path|--blueprint string|--id id) [--output item=rate] [--power-kw n] [--build-seconds n]\nStatic: footprint/entity/machine/belt/inserter density. Dynamic requires built-cell output rates, power and build time.\n",
     "blueprint-list": "blueprint-list: List blueprints recorded for a run (active run by default).\nUsage: factorio.py blueprint-list [--run-id <id>]\n",
     "blueprint-save": "blueprint-save: Persist a designed blueprint string for the active run without building it.\nUsage: factorio.py blueprint-save --blueprint-file <path> [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]\n   or: factorio.py blueprint-save --blueprint <string> [--label <text>]\n",
@@ -2197,6 +2203,72 @@ class FactorioClient:
             "build_seconds": build_seconds,
         }
         return self.request("POST", "/api/agent/blueprints/evaluate", body)
+
+    def _blueprint_payload(self, *, blueprint: Any = None,
+                           blueprint_id: str | None = None) -> dict[str, Any]:
+        if blueprint_id:
+            active_id = os.environ.get("AUTORIO_RUN_ID")
+            path = (f"/api/runs/{quote(active_id, safe='')}/blueprints/{quote(blueprint_id, safe='')}"
+                    if active_id else f"/api/blueprints/{quote(blueprint_id, safe='')}")
+            detail = data_value(self.request("GET", path))
+            wire = detail.get("wire") if isinstance(detail, dict) else None
+            if not isinstance(wire, str):
+                raise ValueError("blueprint detail did not contain a wire string")
+            return decode_blueprint_string(wire)
+        if isinstance(blueprint, str):
+            return decode_blueprint_string(blueprint)
+        if isinstance(blueprint, dict):
+            return blueprint
+        raise ValueError("provide blueprint, blueprint_id or a file")
+
+    def analyze_blueprint(self, *, blueprint: Any = None,
+                          blueprint_id: str | None = None) -> dict[str, Any]:
+        """Lane-level flow, supply check, lint and lane-mix analysis.
+
+        Ported from factorio-blueprint-tools (MIT); see blueprint_analysis/NOTICE.
+        """
+        payload = self._blueprint_payload(blueprint=blueprint, blueprint_id=blueprint_id)
+        from blueprint_analysis import analyze_blueprint_payload
+        return analyze_blueprint_payload(payload)
+
+    def diff_blueprint(self, *, before: Any = None, after: Any = None,
+                       before_id: str | None = None,
+                       after_id: str | None = None) -> dict[str, Any]:
+        """Structural difference between two blueprint versions/ids."""
+        before_payload = self._blueprint_payload(blueprint=before, blueprint_id=before_id)
+        after_payload = self._blueprint_payload(blueprint=after, blueprint_id=after_id)
+        from blueprint_analysis import diff_blueprint_payloads
+        return diff_blueprint_payloads(before_payload, after_payload)
+
+    def generate_blueprint_gamedata(self, dump_file: str | None = None) -> dict[str, Any]:
+        """Regenerate blueprint recipe/footprint data from Factorio --dump-data."""
+        import json
+        from blueprint_analysis.gamedata import SLIM_PATH, slim_from_dump
+
+        candidate = dump_file or os.environ.get("FBP_DATA_DUMP")
+        if not candidate:
+            appdata = os.environ.get("APPDATA")
+            if appdata:
+                candidate = str(Path(appdata) / "Factorio" / "script-output" / "data-raw-dump.json")
+        if not candidate:
+            raise ValueError("No data-raw-dump.json path; pass --dump-file or set FBP_DATA_DUMP")
+        source = Path(candidate)
+        if not source.exists():
+            raise ValueError(f"data dump not found: {source}")
+        dump = json.loads(source.read_text(encoding="utf-8"))
+        slim = slim_from_dump(dump)
+        slim["source"] = f"{source} (regenerated locally)"
+        target = Path(SLIM_PATH)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(slim, sort_keys=True, indent=0) + "\n", encoding="utf-8")
+        return {
+            "ok": True,
+            "source": str(source),
+            "output": str(target),
+            "recipes": len(slim["recipes"]),
+            "footprints": len(slim["footprints"]),
+            "bytes": target.stat().st_size,
+        }
 
     def server_status(self) -> Any:
         return self.request("GET", "/api/server/status")
@@ -4280,6 +4352,34 @@ def run(argv: list[str]) -> int:
                 description=flag("description"),
             ))
             return output(result, ok=True)
+        if cmd == "blueprint-gamedata":
+            result = FactorioClient(parsed.base).generate_blueprint_gamedata(flag("dump-file"))
+            return output(result, ok=True)
+        if cmd in ("blueprint-analyze", "blueprint-diff"):
+            def read_bp(file_flag: str, string_flag: str, id_flag: str) -> Any:
+                file_value = flag(file_flag)
+                if file_value:
+                    try:
+                        with open(file_value, "r", encoding="utf-8") as handle:
+                            return handle.read()
+                    except OSError as error:
+                        raise ValueError(f"Cannot read {file_value!r}: {error}") from error
+                return flag(string_flag) or None
+            if cmd == "blueprint-analyze":
+                bp = read_bp("blueprint-file", "blueprint", "id")
+                if not bp and not flag("id"):
+                    raise ValueError("Missing --blueprint-file, --blueprint or --id")
+                result = FactorioClient(parsed.base).analyze_blueprint(
+                    blueprint=bp, blueprint_id=flag("id"))
+                return output(result, ok=True)
+            before_value = read_bp("before-file", "before", "before-id")
+            after_value = read_bp("after-file", "after", "after-id")
+            if not (before_value or flag("before-id")) or not (after_value or flag("after-id")):
+                raise ValueError("Missing before/after blueprint or id")
+            result = FactorioClient(parsed.base).diff_blueprint(
+                before=before_value, after=after_value,
+                before_id=flag("before-id"), after_id=flag("after-id"))
+            return output(result, ok=bool(result.get("ok")))
         if cmd == "blueprint-evaluate":
             blueprint_file = flag("blueprint-file")
             blueprint_string = flag("blueprint")

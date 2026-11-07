@@ -64,6 +64,7 @@ export default tseslint.config(
       "factorio-mod/**",
       "native/**",
       "public/*.html",
+      "public/blueprint-viewer/**",
       "benchmarks/**",
       "runs/**",
     ],

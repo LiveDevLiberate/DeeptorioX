@@ -93,6 +93,16 @@ this file.
 - **Geometry direction validation.** `geometry-check` rejects cardinal directions
   outside 0/4/8/12 in addition to footprint/rotation/overlap and native placement
   blockers.
+- **Ported blueprint viewer.** Full MIT factorio-blueprint-tools viewer
+  (`viewer.html/css/js`, `flow.js`) is hosted under `/blueprint-viewer/` with
+  pan/zoom, belt tiers, underground pairing, inserter pickup/drop, splitter and
+  lane-flow rendering, plus `?run=&id=` registry loading. `gamedata.js` is
+  regenerated from local Factorio 2.1.24 data. UI links and attribution added.
+- **Blueprint analysis/diff (P0/P1).** Ports the MIT factorio-blueprint-tools
+  model/trace/flow/check/lint/diff stack into `blueprint_analysis/` and exposes
+  `blueprint-analyze`/`blueprint-diff`: lane-level item flow, machine supply
+  status, structural lint, lane-mix warnings and version diffs. README/NOTICE/
+  docs include attribution; the package is copied into run workspaces.
 - **Map generation preview.** Adds an isolated Factorio CLI preview generator,
   `/api/map-preview` and run-page endpoints, PNG serving, and a reusable
   pan/zoom viewer on the launch and run pages. Based on the MIT-licensed

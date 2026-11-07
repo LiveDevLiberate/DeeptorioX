@@ -1295,6 +1295,7 @@ export class RunManager {
     if (!checkpoint || !fs.existsSync(path.join(this.dir(run), checkpoint.file))) return false;
     if (!["paused", "failed", "interrupted", "timed_out"].includes(run.state)) return false;
     if (run.elapsed_seconds >= run.max_seconds) return false;
+    if (run.state === "timed_out" && run.elapsed_seconds >= run.max_seconds - 1) return false;
     if (run.state === "paused" || checkpoint.segment === this.segment(run).index) return true;
     // A failed run can have started a new segment after saving its checkpoint;
     // resuming the immediately previous segment is still safe when the run
@@ -1398,6 +1399,10 @@ export class RunManager {
     fs.writeFileSync(path.join(workspace, "COOKBOOK.md"), cookbook);
     fs.writeFileSync(path.join(workspace, "KNOWLEDGE.md"), knowledge);
     fs.writeFileSync(path.join(workspace, "LAYOUT.md"), layout);
+    const analysisDir = path.join(ROOT, "blueprint_analysis");
+    if (fs.existsSync(analysisDir)) {
+      fs.cpSync(analysisDir, path.join(workspace, "blueprint_analysis"), { recursive: true });
+    }
     fs.writeFileSync(
       path.join(workspace, "TASK.md"),
       `# Task\n\n${run.benchmark.task}\n\nTime limit: ${run.max_seconds} wall-clock seconds.\n`,

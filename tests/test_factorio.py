@@ -152,6 +152,65 @@ class ContinuousMiningTests(unittest.TestCase):
         self.assertFalse(result["depleted"])
 
 
+class BlueprintAnalysisTests(unittest.TestCase):
+    def _wire(self, entities):
+        return factorio.encode_blueprint_string({"blueprint": {
+            "item": "blueprint", "version": 0, "entities": entities,
+        }})
+
+    def test_analyze_blueprint_reports_flow_check_lint(self):
+        wire = self._wire([
+            {"entity_number": 1, "name": "assembling-machine-2",
+             "position": {"x": 10.5, "y": 10.5}, "recipe": "iron-gear-wheel"},
+            {"entity_number": 2, "name": "transport-belt",
+             "position": {"x": 5.5, "y": 10.5}, "direction": 4},
+            {"entity_number": 3, "name": "inserter",
+             "position": {"x": 8.5, "y": 10.5}, "direction": 12},
+        ])
+        result = factorio.FactorioClient(poll_interval=0).analyze_blueprint(blueprint=wire)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["summary"]["entities"], 3)
+        self.assertIn("lanes", result["flow"])
+        self.assertIn("check", result)
+        self.assertIn("lint", result)
+        self.assertIn("lane_mix", result)
+
+    def test_generate_gamedata_from_dump(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "dump.json"
+            source.write_text(json.dumps({
+                "recipe": {"test-recipe": {
+                    "ingredients": [{"name": "iron-plate", "amount": 1}],
+                    "results": [{"name": "iron-gear-wheel", "amount": 2}],
+                    "category": "crafting",
+                }},
+                "item": {},
+                "assembling-machine": {"test-machine": {"collision_box": [[-1.5, -1.5], [1.5, 1.5]]}},
+            }), encoding="utf-8")
+            result = factorio.FactorioClient(poll_interval=0).generate_blueprint_gamedata(
+                str(source))
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["recipes"], 1)
+        self.assertGreaterEqual(result["footprints"], 1)
+        self.assertIn("blueprint-gamedata", factorio.COMMAND_USAGE)
+
+    def test_diff_blueprint_reports_no_change_for_identical_versions(self):
+        wire = self._wire([
+            {"entity_number": 1, "name": "transport-belt",
+             "position": {"x": 0.5, "y": 0.5}, "direction": 4},
+        ])
+        client = factorio.FactorioClient(poll_interval=0)
+        result = client.diff_blueprint(before=wire, after=wire)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["machines_changed"], 0)
+        self.assertIn("entities 1 -> 1", result["text"])
+        self.assertIn("blueprint-analyze", factorio.COMMAND_USAGE)
+        self.assertIn("blueprint-diff", factorio.COMMAND_USAGE)
+
+
 class BlueprintEvaluateTests(unittest.TestCase):
     def test_evaluate_blueprint_payload_and_usage(self):
         client = factorio.FactorioClient(poll_interval=0)

@@ -9,3 +9,5 @@ __pycache__/
 /.pnpm-store/
 .DS_Store
 /.ui-review/
+
+tmp-map-preview.png

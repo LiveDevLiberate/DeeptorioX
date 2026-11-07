@@ -973,3 +973,21 @@ Codex session files and the run's workspace intact to retain conversation contex
 This handles reported quota exhaustion with a clean shutdown; a power loss or
 forced manager kill still appears as **interrupted**, rather than promising a
 checkpoint that was never saved. Resuming requires the same Factorio version.
+
+## Acknowledgements
+
+Portions of the blueprint analysis stack (`blueprint_analysis/`) are adapted
+from the MIT-licensed
+[factorio-blueprint-tools](https://github.com/chrisjmendoza/factorio-blueprint-tools)
+by Christopher J. Mendoza: footprint/inserter geometry, belt tracing,
+lane-level flow, supply checks, linting and blueprint diffing. The bundled
+recipe/footprint data originates from that project and must be regenerated from
+the local Factorio install for exact current-version results.
+
+The seed map preview approach is adapted from the MIT-licensed
+[FactorioPreviewToolkit](https://github.com/AntiElitz/FactorioPreviewToolkit) by
+AntiElitz (independent profile + Factorio `--generate-map-preview`, and the
+pan/zoom viewer pattern).
+
+Factorio is a trademark of Wube Software. This project is not affiliated with
+Wube Software.

@@ -100,7 +100,13 @@ function renderBlueprints() {
       download.className = "blueprint-download";
       download.href = `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(blueprint.id)}?download=1`;
       download.download = `blueprint-${blueprint.id}.txt`;
-      actions.append(download, rename, remove);
+      const viewer = document.createElement("a");
+      viewer.textContent = "Full viewer";
+      viewer.className = "blueprint-download";
+      viewer.href = `/blueprint-viewer/viewer.html?run=${encodeURIComponent(id)}&id=${encodeURIComponent(blueprint.id)}`;
+      viewer.target = "_blank";
+      viewer.rel = "noopener";
+      actions.append(download, viewer, rename, remove);
       const entities = text(
         "p",
         (blueprint.top_entities || []).map((entry) => `${entry.name} × ${entry.count}`).join(" · "),

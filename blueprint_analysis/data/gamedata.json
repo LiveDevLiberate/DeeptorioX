@@ -1,0 +1,21 @@
+{
+"crafting_categories": {},
+"footprints": {
+"test-machine": [
+3,
+3
+]
+},
+"recipes": {
+"test-recipe": {
+"category": "crafting",
+"ingredients": {
+"iron-plate": 1
+},
+"results": {
+"iron-gear-wheel": 2
+}
+}
+},
+"source": "/tmp/tmp9sqcgprt/dump.json (regenerated locally)"
+}

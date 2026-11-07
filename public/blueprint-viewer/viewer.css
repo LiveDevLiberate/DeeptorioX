@@ -1,0 +1,412 @@
+/* Layout: the page is a flex column of bars with the map filling what is left, so a bar that
+   wraps to a second line pushes the map down instead of being clipped. */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font: 12px var(--vscode-font-family, system-ui, sans-serif);
+  color: var(--vscode-foreground, #d4d4d4);
+  background: var(--vscode-editor-background, #1e1e1e);
+}
+body {
+  display: flex;
+  flex-direction: column;
+}
+#main {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+}
+#map {
+  flex: 1 1 0;
+  min-width: 0;
+  display: block;
+  cursor: grab;
+  background: #1b1b1d;
+}
+#map.dragging {
+  cursor: grabbing;
+}
+#map:focus {
+  outline: none;
+}
+#side {
+  flex: 0 0 280px;
+  min-width: 280px;
+  overflow: auto;
+  border-left: 1px solid var(--vscode-panel-border, #444);
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+/* Bars */
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--vscode-panel-border, #444);
+  flex: 0 0 auto;
+}
+#edittools {
+  display: none;
+  background: rgba(255, 159, 28, 0.08);
+}
+#feedtools {
+  display: none;
+  background: rgba(63, 169, 163, 0.1);
+}
+body.editing #edittools,
+body.feeding #feedtools {
+  display: flex;
+}
+.bar label {
+  -webkit-user-select: none;
+  user-select: none;
+  white-space: nowrap;
+}
+.bar select,
+.bar input[type="search"] {
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #ddd);
+  border: 1px solid var(--vscode-input-border, #555);
+  padding: 2px 6px;
+  font: inherit;
+  max-width: 200px;
+}
+#toolbar input[type="search"] {
+  flex: 1 1 140px;
+  min-width: 110px;
+  max-width: 260px;
+}
+#file {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A group keeps related controls together and lets a row wrap between groups, not inside one. */
+.group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.group.toggles {
+  gap: 9px;
+  padding: 0 9px;
+  border-left: 1px solid var(--vscode-panel-border, #444);
+  border-right: 1px solid var(--vscode-panel-border, #444);
+}
+.spacer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.hint {
+  flex: 1 1 180px;
+  min-width: 0;
+  font-size: 11px;
+  opacity: 0.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button {
+  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #eee);
+  border: none;
+  padding: 3px 10px;
+  cursor: pointer;
+  font: inherit;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+button:hover {
+  filter: brightness(1.25);
+}
+button.primary {
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #fff);
+}
+button.ghost {
+  background: transparent;
+  border: 1px solid var(--vscode-panel-border, #555);
+}
+#coords {
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: nowrap;
+  opacity: 0.65;
+}
+#patchcount {
+  color: #ff9f1c;
+  font-weight: 600;
+  white-space: nowrap;
+}
+#flowstatus {
+  font-size: 11px;
+  opacity: 0.75;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.muted {
+  opacity: 0.65;
+}
+.edittoggle {
+  color: #ff9f1c;
+}
+.flowtoggle {
+  color: #3fa9a3;
+}
+
+/* Standalone notice */
+#standalone {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #4a330f;
+  color: #ffe0a8;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  border-bottom: 1px solid #8a5f1e;
+  flex: 0 0 auto;
+}
+#standalone[hidden] {
+  display: none;
+}
+#standalone b {
+  color: #fff;
+}
+#standalone button {
+  background: transparent;
+  color: #ffe0a8;
+  border: 1px solid #8a5f1e;
+  padding: 0 7px;
+  line-height: 18px;
+}
+
+/* Side panel */
+#legend,
+#items {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 3px 6px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+#legend i,
+#items i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+#items h4 {
+  grid-column: 1 / -1;
+  margin: 6px 0 2px;
+  font-size: 12px;
+  color: #3fa9a3;
+  font-weight: 600;
+}
+#items .feed {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+}
+#items .feed button,
+#changes .change button {
+  padding: 0 6px;
+  line-height: 16px;
+  color: #ff6b6b;
+  background: transparent;
+}
+#changeshead {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #ff9f1c;
+  font-weight: 600;
+}
+#changeshead[hidden] {
+  display: none;
+}
+#changes {
+  margin-bottom: 12px;
+}
+#changes .change {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 1px 0;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+}
+#changes .change span,
+#items .feed span {
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#changes .change span:hover,
+#items .feed span:hover {
+  text-decoration: underline;
+}
+#detail h3 {
+  margin: 6px 0 4px;
+  font-size: 13px;
+}
+#detail pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  background: var(--vscode-textCodeBlock-background, #252526);
+  padding: 6px;
+  border-radius: 3px;
+}
+#detail button {
+  margin: 2px 4px 6px 0;
+}
+.recipebox {
+  margin: 6px 0 10px;
+  padding: 7px 8px;
+  border: 1px solid var(--vscode-panel-border, #555);
+  border-left: 3px solid #5fae6a;
+  background: rgba(95, 174, 106, 0.07);
+  border-radius: 2px;
+}
+.recipepick {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.recipepick .current {
+  font-size: 13px;
+  word-break: break-all;
+}
+.recipebox input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #ddd);
+  border: 1px solid var(--vscode-input-border, #555);
+  padding: 3px 6px;
+  font: inherit;
+}
+.verdict {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.verdict.ok {
+  color: #39d353;
+}
+.verdict.missing {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+.verdict.unknown {
+  color: #9a9a9a;
+}
+.recipe-option.is-current {
+  color: #5fae6a;
+  font-weight: 600;
+}
+.recipe-options {
+  margin: 2px 0 0 0;
+  border: 1px solid var(--vscode-input-border, #555);
+  background: var(--vscode-input-background, #2a2a2a);
+  max-height: 220px;
+  overflow: auto;
+}
+.recipe-options[hidden] {
+  display: none;
+}
+.recipe-option {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+}
+.opt-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  background-repeat: no-repeat;
+}
+#legend i,
+#items i {
+  background-repeat: no-repeat;
+}
+.recipe-option:hover {
+  background: rgba(255, 159, 28, 0.25);
+}
+
+/* Overlays */
+#tip {
+  position: fixed;
+  pointer-events: none;
+  background: rgba(20, 20, 22, 0.92);
+  color: #eee;
+  padding: 4px 7px;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  max-width: 320px;
+  z-index: 10;
+}
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  background: rgba(160, 20, 20, 0.92);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 20;
+  pointer-events: none;
+}
+#drop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(27, 27, 29, 0.96);
+  z-index: 5;
+}
+#drop.over {
+  outline: 3px dashed #c9a227;
+  outline-offset: -12px;
+}
+#drop h2 {
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+#drop code {
+  background: #333;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+#drop[hidden],
+#tip[hidden],
+#toast[hidden] {
+  display: none;
+}

@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Run Details · Autorio</title><link rel="stylesheet" href="/runs.css"></head>
 <body><main>
-    <header><div><span class="eyebrow">FACTORIO · AGENT RUNS</span><h1>Run Details</h1></div><nav><a href="/">← All runs</a><a href="/pipeline.html">Pipeline</a><a id="recordingLink" hidden>Recording view</a></nav></header>
+    <header><div><span class="eyebrow">FACTORIO · AGENT RUNS</span><h1>Run Details</h1></div><nav><a href="/">← All runs</a><a href="/pipeline.html">Pipeline</a><a href="/blueprint-viewer/viewer.html" target="_blank" rel="noopener">Blueprint viewer</a><a id="recordingLink" hidden>Recording view</a></nav></header>
     <p id="error" role="alert"></p><div id="runContent" hidden>
     <div id="refactorAlert" class="big-reset-alert" role="alert" hidden>
       <strong>⚠ ATTENTION</strong>
@@ -50,4 +50,4 @@
     </section>
     <section class="activity" aria-label="Agent activity"><div class="section-title"><h2>Live activity</h2><label class="check"><input id="follow" type="checkbox" checked> Follow</label></div><pre id="activity" tabindex="0">Select a run to view activity.</pre></section>
     <section id="productionPanel"><h2>Production since run start</h2><div id="production" class="production-list"></div></section>
-    </div></main><script src="/map-thumbnail.js"></script><script src="/map-viewer.js"></script><script src="/blueprint-preview.js"></script><script type="module" src="/run.js"></script></body></html>
+    </div><footer class="credits"><p>Blueprint analysis &amp; viewer adapted from <a href="https://github.com/chrisjmendoza/factorio-blueprint-tools" target="_blank" rel="noopener">factorio-blueprint-tools</a> (MIT). Seed preview adapted from <a href="https://github.com/AntiElitz/FactorioPreviewToolkit" target="_blank" rel="noopener">FactorioPreviewToolkit</a> (MIT). Factorio is a trademark of Wube Software.</p></footer></main><script src="/map-thumbnail.js"></script><script src="/map-viewer.js"></script><script src="/blueprint-preview.js"></script><script type="module" src="/run.js"></script></body></html>

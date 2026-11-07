@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--CSP-->
+    <link rel="stylesheet" href="viewer.css" />
+    <title>fbp viewer</title>
+  </head>
+  <body>
+    <div id="standalone" hidden>
+      <div>
+        Standalone page: viewing, editing, flow and feeds all work here, and feeds are remembered by this
+        browser. For real item icons, run <code>fbp icons</code> against your own Factorio installation and
+        load the <code>icons.png</code> and <code>icons.js</code> it writes with the <b>icons…</b> button
+        &mdash; the game's art is Wube's and is not served from here. <b>export</b> needs the VS Code panel
+        &mdash; open the blueprint .txt and run <b>fbp: Open blueprint viewer</b> (Ctrl+Shift+P).
+      </div>
+      <div class="spacer"></div>
+      <button id="dismiss" type="button" title="hide this notice">&times;</button>
+    </div>
+
+    <div id="toolbar" class="bar">
+      <button id="open" type="button" title="open a blueprint string file (.txt)">open…</button>
+      <span id="file" class="muted">no blueprint</span>
+      <input id="search" type="search" placeholder="highlight name or recipe…" spellcheck="false" />
+      <span class="group toggles">
+        <label title="circuit and copper wires"><input id="wires" type="checkbox" /> wires</label>
+        <label title="recipe names on machines"><input id="labels" type="checkbox" checked /> labels</label>
+        <label title="tile grid"><input id="gridlines" type="checkbox" /> grid</label>
+        <label title="dashed line from each underground to its partner"
+          ><input id="tunnels" type="checkbox" checked /> tunnels</label
+        >
+        <label title="colour legend on the map (Ctrl+L)"
+          ><input id="itemlegend" type="checkbox" checked /> legend</label
+        >
+        <label title="real item icons; build them with `fbp icons`"
+          ><input id="icons" type="checkbox" checked /> icons</label
+        >
+        <button
+          id="pickicons"
+          type="button"
+          class="ghost"
+          title="use an icon atlas built by `fbp icons` on this machine; the browser remembers it"
+        >
+          icons…
+        </button>
+      </span>
+      <span class="group">
+        <label class="flowtoggle" title="paint each belt lane with what can be on it"
+          ><input id="flow" type="checkbox" /> flow</label
+        >
+        <label class="flowtoggle" title="declare items entering from outside the print"
+          ><input id="feedmode" type="checkbox" /> feed</label
+        >
+        <label class="edittoggle" title="remove, rotate, re-recipe and place entities"
+          ><input id="editmode" type="checkbox" /> edit</label
+        >
+      </span>
+      <button id="fit" type="button" class="ghost" title="fit blueprint to view (F)">fit</button>
+      <span class="spacer"></span>
+      <span id="coords"></span>
+    </div>
+
+    <div id="edittools" class="bar">
+      <span class="group">
+        <span class="muted">place</span>
+        <select id="palette" title="entity to place">
+          <option value="">(select an entity)</option>
+        </select>
+        <select id="pdir" title="the way items move (belt travel, inserter throw); R rotates">
+          <option value="0">north</option>
+          <option value="4">east</option>
+          <option value="8">south</option>
+          <option value="12">west</option>
+        </select>
+        <select id="ptype" hidden title="underground end">
+          <option value="input">entrance</option>
+          <option value="output">exit</option>
+        </select>
+        <button id="nopalette" type="button" class="ghost" title="stop placing (Esc)">done</button>
+      </span>
+      <span class="hint"
+        >click places · click a placed item to replace it · shift+drag paints a run · right-click, ctrl+click
+        or X deletes · R rotates · T flips underground</span
+      >
+      <span class="group">
+        <span id="patchcount"></span>
+        <button id="undo" type="button" title="undo the last edit (Ctrl+Z)">undo</button>
+        <button id="clear" type="button" title="revert every edit (undoable)">clear all</button>
+        <button id="copypatch" type="button" title="copy the patch JSON to the clipboard">copy patch</button>
+        <button
+          id="export"
+          type="button"
+          class="primary"
+          title="apply the patch with fbp, then diff and check it"
+        >
+          export…
+        </button>
+      </span>
+    </div>
+
+    <div id="feedtools" class="bar">
+      <span class="group">
+        <span class="muted">feed</span>
+        <select id="feeditem" title="item entering the print">
+          <option value="">(item)</option>
+        </select>
+        <select id="feedlane" title="which lane it arrives on">
+          <option value="both">both lanes</option>
+          <option value="left">left lane</option>
+          <option value="right">right lane</option>
+        </select>
+      </span>
+      <span class="hint"
+        >click a belt tile to declare an input · right-click a marker to remove it ·
+        <span id="feedsfile">remembered by this browser</span></span
+      >
+      <span id="flowstatus"></span>
+    </div>
+
+    <div id="main">
+      <canvas id="map" tabindex="0"></canvas>
+      <div id="side">
+        <div id="items"></div>
+        <h4 id="changeshead" hidden>changes (× reverts one)</h4>
+        <div id="changes"></div>
+        <div id="legend"></div>
+        <div id="detail">
+          <div class="muted">Hover for details, click to pin. Drag to pan, wheel to zoom.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="drop" hidden>
+      <div>
+        <h2>fbp blueprint viewer</h2>
+        <p>
+          Drop a blueprint <code>.txt</code> here, paste a blueprint string (Ctrl+V), or use <b>open…</b>.
+        </p>
+        <p><button id="sample" type="button" hidden>load an example blueprint</button></p>
+        <p class="muted" id="mode"></p>
+      </div>
+    </div>
+    <input id="filepick" type="file" accept=".txt,.fbp,.json" hidden />
+    <input id="iconpick" type="file" accept=".png,.js,.json" multiple hidden />
+    <div id="tip" hidden></div>
+    <div id="toast" hidden></div>
+    <script src="gamedata.js"></script>
+    <script src="icons.js"></script>
+    <script src="flow.js"></script>
+    <script src="viewer.js"></script>
+    <script src="autorio-load.js"></script>
+  </body>
+</html>

@@ -231,6 +231,16 @@ avoids O(N²) power edges in a large base.
 node/segment id so callers can attach measured rates as `actual_flow`; capacity
 and contained-item saturation are always reported.
 
+**Blueprint viewer.** A full port of the MIT factorio-blueprint-tools canvas
+viewer lives under `public/blueprint-viewer/`; `autorio-load.js` fetches a
+registered blueprint by `?run=&id=`. Attribution is in its NOTICE/license.
+
+**Blueprint analysis.** `blueprint_analysis/` (ported from MIT
+factorio-blueprint-tools) decodes a blueprint into a footprint/tile grid, traces
+belt/underground/splitter topology, propagates lane item sets to a fixed point,
+checks machine supply, lints structure and diffs versions. Exposed through
+`blueprint-analyze`/`blueprint-diff`.
+
 **Map generation preview.** `generateMapPreview` invokes Factorio's
 `--generate-map-preview` with an isolated profile and caches PNGs under
 `.autorio/map-previews`; `/api/map-preview` and run-page routes expose them to a
