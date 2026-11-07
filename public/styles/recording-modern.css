@@ -2506,6 +2506,38 @@ body.recording .metric-milestones .ms-count {
 body.recording .metric-milestones .ms-count {
   color: var(--ink-soft);
 }
+/* Research row uses the same progress scheme as the milestone row. */
+body.recording .metric-research .metric-trend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: visible;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+body.recording .metric-research .ms-bar {
+  position: relative;
+  display: inline-flex;
+  flex: 1 1 auto;
+  width: 96px;
+  min-width: 20px;
+  max-width: 96px;
+  height: 6px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  overflow: hidden;
+  vertical-align: -1px;
+}
+body.recording .metric-research .ms-fill {
+  display: block;
+  height: 100%;
+  background: var(--safety);
+}
+body.recording .metric-research .metric-trend .metric-delta {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+
 /* Stable readout columns: discipline records wrap inside their cell instead of
    widening the value column when more records appear (18% / 41% / 41%). */
 body.recording .metrics-table {
@@ -2536,13 +2568,20 @@ body.recording .metric-discipline td.metric-value {
        column is genuinely too narrow (screenshot showed room but 14ch clipped). */
     max-width: min(24ch, 48vw);
   }
-  body.recording .metric-milestones .metric-trend {
+  body.recording .metric-milestones .metric-trend,
+  body.recording .metric-research .metric-trend {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
     gap: 4px;
     overflow: visible;
     white-space: nowrap;
+  }
+  body.recording .metric-research .ms-bar {
+    flex: 0 1 auto;
+    width: clamp(20px, 14vw, 64px);
+    min-width: 20px;
+    max-width: 64px;
   }
   body.recording .metric-milestones .ms-bar {
     flex: 0 1 auto;

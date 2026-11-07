@@ -2024,11 +2024,13 @@ function renderMetrics() {
       const trendCell = element("td", "", "metric-trend");
       if (research.progress !== null) {
         const percent = Math.round(research.progress * 100);
-        const track = element("span", "", "metric-progress");
-        const fill = element("span", "", "metric-progress-fill");
+        // Same progress scheme as the milestone row: shared bar classes, a
+        // shrinkable track and a fixed percentage label.
+        const bar = element("span", "", "ms-bar");
+        const fill = element("span", "", "ms-fill");
         fill.style.width = `${percent}%`;
-        track.append(fill);
-        trendCell.append(track, element("span", `${percent}%`, "metric-delta"));
+        bar.append(fill);
+        trendCell.append(bar, element("span", `${percent}%`, "metric-delta"));
       }
       row.append(trendCell);
       rows.push(row);

@@ -379,7 +379,20 @@ test("recording page renders summaries, loops, turns and unread updates", async 
       };
       return walk(metricsTable);
     };
-    assert.ok(metricClass("metric-progress"), "missing research progress");
+    const findIn = (root, name) => {
+      if (String(root.className || "").includes(name)) return root;
+      for (const child of root.children || []) {
+        const hit = findIn(child, name);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    const researchRow = metricClass("metric-research");
+    assert.ok(researchRow, "missing research row");
+    const researchFill = findIn(researchRow, "ms-fill");
+    assert.ok(researchFill, "missing research progress bar");
+    assert.equal(researchFill.style.width, "42%");
+    assert.match(nodeText(researchRow), /42%/);
     assert.ok(
       output.children.some((node) => String(node.className).includes("event-marker")),
       "missing stale-state event marker",
