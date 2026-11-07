@@ -2076,3 +2076,11 @@ body.recording #codexOutput .msg-time {
   margin-right: 5px;
   line-height: 1.4;
 }
+
+/* Message rows previously forced the timestamp to flex-start; center it with
+   the other transcript rows and keep the 5px gutter. */
+body.recording #codexOutput .message:not(.tool):not(.reasoning) > .msg-time {
+  align-self: center;
+  margin-left: 0;
+  margin-right: 5px;
+}
