@@ -1,7 +1,7 @@
 # autorio architecture
 
 Maps the internals for contributors at the `15465ed` development batch (`package.json` `0.1.0`),
-including the repository tooling added on top of it. `README.md` is the user manual, `AGENTS.md` the
+including the repository tooling added on top of it. `docs/user-manual.md` is the user manual, `AGENTS.md` the
 agent-facing summary, and `CONTRIBUTING.md` the development guide. If code and this document
 disagree, the code wins; please send a correction.
 
@@ -628,7 +628,7 @@ manually.
 
 ## 10. Further reading
 
-- `README.md` (user manual), `CONTRIBUTING.md` (setup, gates, tests, style, recipes).
+- `docs/user-manual.md` (user manual), `CONTRIBUTING.md` (setup, gates, tests, style, recipes).
 - `CHANGELOG.md` (current batch); `AGENTS.md`, `runs/run_template/AGENTS.md` and
   `runs/run_template/COOKBOOK.md` (agent summaries, the run playbook and the design cookbook).
 - `docs/agent-capability-plan.md` (agent capability gaps, blueprint/telemetry/planner roadmap).

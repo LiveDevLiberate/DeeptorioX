@@ -1,7 +1,7 @@
 # Contributing to autorio
 
 Thanks for helping improve autorio. Read `docs/architecture.md` for how the code fits together,
-`README.md` for the user manual, and `AGENTS.md` for the compact agent-facing summary.
+`docs/user-manual.md` for the user manual, and `AGENTS.md` for the compact agent-facing summary.
 
 ## Before you start
 
@@ -137,7 +137,7 @@ No game/Steam is needed.
   and `check:repo` fails if one is added; use the standard library or vendor code.
 - **Python:** standard library only, 4-space indentation; keep `factorio.py`'s
   duck-typed public API stable.
-- **Docs:** update `README.md`, `AGENTS.md`, or `docs/` when an interface/workflow
+- **Docs:** update `docs/user-manual.md`, `AGENTS.md`, or `docs/` when an interface/workflow
   changes; add an `[Unreleased]` entry in `CHANGELOG.md` for user-visible changes.
 
 ## Commit conventions
@@ -158,14 +158,14 @@ No game/Steam is needed.
    `POST /api/agent/jobs`) instead of being directly callable.
 2. Add the `factorio.py` method and CLI subcommand in `ParsedArgs`, cover it in
    `scripts/api-selftest.py`, and expose it as an MCP tool or Gym action where it
-   belongs; update `README.md`/`AGENTS.md`.
+   belongs; update `docs/user-manual.md`/`AGENTS.md`.
 
 ### Add an MCP tool
 
 Add a `ToolDefinition` to `TOOLS` in `src/mcp-server.ts` (`name`, `description`, `inputSchema`,
 `request()` mapping) — use `jobRequest()` for game-changing actions and poll `job_status` from the
 client. Only stderr may carry diagnostics; stdout is the MCP transport. Extend
-`tests/mcp-server.test.mjs` (fake HTTP server) and update the tool list in `README.md`.
+`tests/mcp-server.test.mjs` (fake HTTP server) and update the tool list in `docs/user-manual.md`.
 
 ### Add an agent backend
 
@@ -175,7 +175,7 @@ client. Only stderr may carry diagnostics; stdout is the MCP transport. Extend
    the backend's output into the shared transcript events (`thread.started`,
    `item.completed`, `turn.completed`, `error`), handles token/context/quota/resume,
    and is covered by a fake-CLI lifecycle test (`tests/dsh.test.mjs` style). Document
-   configuration in `README.md`, `AGENTS.md`, and `.env.example`.
+   configuration in `docs/user-manual.md`, `AGENTS.md`, and `.env.example`.
 
 ## Questions
 
