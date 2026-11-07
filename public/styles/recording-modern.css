@@ -2408,3 +2408,15 @@ body.recording #codexOutput .event-marker-text {
   font-family:
     "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Segoe UI", sans-serif;
 }
+
+/* Wide displays fit twelve production columns. */
+@media (min-width: 1280px) {
+  body.recording .production-list {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 2px 10px;
+  }
+  body.recording .production-row:not(:nth-child(12n + 1)) {
+    padding-left: 6px;
+    border-left: 1px solid var(--rule);
+  }
+}
