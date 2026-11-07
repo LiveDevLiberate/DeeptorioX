@@ -1417,10 +1417,12 @@ function ensureCommandGroup() {
     const details = element("details", "", "commands");
     details._kind = "commands";
     const summary = element("summary", "", "commands-summary");
+    const summaryText = element("span", "", "commands-summary-text summary-text");
+    summary.append(summaryText);
     details.append(summary);
     setDetailsOpen(details, false);
     output.append(details);
-    commandGroup = { details, summary, items: new Map(), loop: 0 };
+    commandGroup = { details, summary, summaryText, items: new Map(), loop: 0 };
   }
   return commandGroup;
 }
@@ -1434,7 +1436,7 @@ function refreshCommandGroup(group) {
     ran: (count) => String(text.ranCommands || "Ran {count} commands").replace("{count}", String(count)),
   });
   const loopPrefix = group.loop ? `⚠ ${strings().loop} ×${group.loop} · ` : "";
-  group.summary.textContent = `${loopPrefix}${stats.text}`;
+  group.summaryText.textContent = `${loopPrefix}${stats.text}`;
   // Let the group icon reflect its dominant action category instead of every
   // command group showing the same blue laptop glyph.
   const counts = new Map();
@@ -1524,7 +1526,13 @@ function renderReasoning(item) {
   const segments = splitReasoning(text);
   const node = element("details", "", "message reasoning");
   const summary = element("summary", "", "reasoning-summary");
-  summary.textContent = `${strings().reasoningLabel} · ${segments[0]?.summary || "…"}`;
+  summary.append(
+    element(
+      "span",
+      `${strings().reasoningLabel} · ${segments[0]?.summary || "…"}`,
+      "reasoning-summary-text summary-text",
+    ),
+  );
   prependIcon(summary, "brain");
   const badge = element("span", "", "dedupe-badge");
   badge.hidden = true;
@@ -1580,13 +1588,15 @@ function renderTool(item) {
     const node = element("div", "", "message tool");
     const details = element("details", "", "tool-details");
     const summary = element("summary");
+    const summaryText = element("span", "", "tool-summary-text summary-text");
+    summary.append(summaryText);
     const raw = element("pre", "", "tool-raw");
     details.append(summary, raw);
     node.append(details);
     const label = timeLabel(item);
     if (label) summary.append(element("span", label, "msg-time"));
     output.append(node);
-    entry = { node, summary, raw, title: "" };
+    entry = { node, summary, summaryText, raw, title: "" };
     node._kind = "tool";
     entries.set(item.id, entry);
   }
@@ -1594,7 +1604,7 @@ function renderTool(item) {
   const title = info.label;
   if (entry.title !== title) {
     entry.title = title;
-    entry.summary.textContent = title;
+    entry.summaryText.textContent = title;
     prependIcon(entry.summary, "wrench");
     const label = timeLabel(item);
     if (label) entry.summary.append(element("span", label, "msg-time"));

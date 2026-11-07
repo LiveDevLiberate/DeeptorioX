@@ -282,18 +282,19 @@ test("recording page renders summaries, loops, turns and unread updates", async 
 
     // Turn divider, then a collapsed reasoning block, a command group and a message.
     assert.ok(classes.includes("turn-separator"), `missing turn separator in ${classes.join(" | ")}`);
+    const flatText = (node) =>
+      [node?.textContent, ...(node?.children || []).map(flatText)].filter(Boolean).join(" ");
     const reasoning = output.children.find(
       (node) =>
-        node.className.includes("reasoning") &&
-        String(node.children[0]?.textContent || "").includes("Next step: mine coal"),
+        node.className.includes("reasoning") && flatText(node.children[0]).includes("Next step: mine coal"),
     );
     assert.ok(reasoning, "missing decision reasoning block");
-    assert.match(reasoning.children[0].textContent, /Next step: mine coal/);
+    assert.match(flatText(reasoning.children[0]), /Next step: mine coal/);
     assert.equal(reasoning.open, false);
     const commands = output.children.find((node) => node.className.includes("commands"));
     assert.ok(commands, "missing command group");
-    assert.match(commands.children[0].textContent, /3 mine/);
-    assert.match(commands.children[0].textContent, /loop\? ×3/);
+    assert.match(flatText(commands.children[0]), /3 mine/);
+    assert.match(flatText(commands.children[0]), /loop\? ×3/);
     assert.equal(commands.classList.contains("loop"), true);
     const message = output.children.find(
       (node) =>

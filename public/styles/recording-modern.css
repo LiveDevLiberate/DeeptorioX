@@ -1911,16 +1911,16 @@ body.recording main.transcript-pane > #codexOutput {
 
 /* Agent messages: keep the relative timestamp on the same line as the message,
    matching reasoning rows instead of wrapping after the body. */
-body.recording #codexOutput .message:not(.tool) {
+body.recording #codexOutput .message:not(.tool):not(.reasoning) {
   display: flex;
   align-items: flex-start;
   gap: 12px;
 }
-body.recording #codexOutput .message:not(.tool) .message-body {
+body.recording #codexOutput .message:not(.tool):not(.reasoning) .message-body {
   flex: 1 1 auto;
   min-width: 0;
 }
-body.recording #codexOutput .message:not(.tool) > .msg-time {
+body.recording #codexOutput .message:not(.tool):not(.reasoning) > .msg-time {
   flex: 0 0 auto;
   margin-left: auto;
   white-space: nowrap;
@@ -2025,4 +2025,32 @@ body.recording #codexOutput .tool-details summary .msg-time {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* Summary text owns the flexible middle; timestamps stay on the left. */
+body.recording #codexOutput .summary-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+body.recording #codexOutput .reasoning[open] .reasoning-summary-text,
+body.recording #codexOutput .commands[open] .commands-summary-text {
+  white-space: normal;
+}
+
+/* Command detail always opens as its own full-width row below the command. */
+body.recording #codexOutput .command > .action-raw[open] {
+  flex: 0 0 100%;
+  order: 99;
+  width: 100%;
+  margin: 4px 0 0;
+}
+body.recording #codexOutput .action-raw[open] pre {
+  display: block;
+  width: 100%;
+}
+
+/* Reasoning details must stack summary above body, never sit in a row. */
+body.recording #codexOutput details.reasoning {
+  display: block;
 }
