@@ -393,14 +393,7 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     const commandsAfterFilter = output.children.find((node) => node.className.includes("commands"));
     assert.equal(commandsAfterFilter.hidden, false, "action filter must keep command groups visible");
     assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, true);
-    // Messages filter keeps agent messages only.
-    nodes.filterMessages.fire("click");
-    const messageNodes = output.children.filter((node) => node._kind === "message");
-    assert.ok(messageNodes.length >= 1, "fixture should include agent messages");
-    assert.ok(messageNodes.filter((node) => !node._decision).every((node) => node.hidden === false));
-    assert.ok(messageNodes.filter((node) => node._decision).every((node) => node.hidden === true));
-    assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, true);
-    assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, true);
+    // Messages filter has been removed; decisions is the remaining goal view.
     // Decisions filter keeps decision reasoning and goal messages.
     nodes.filterDecisions.fire("click");
     const reasoningNodes = output.children.filter((node) => node._kind === "reasoning");

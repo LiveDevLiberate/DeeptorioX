@@ -68,7 +68,6 @@ const FILTER_BUTTONS = {
   all: document.getElementById("filterAll"),
   thinking: document.getElementById("filterThinking"),
   actions: document.getElementById("filterActions"),
-  messages: document.getElementById("filterMessages"),
   errors: document.getElementById("filterErrors"),
   decisions: document.getElementById("filterDecisions"),
 };
@@ -77,7 +76,6 @@ const FILTER_ICONS = {
   all: "stack",
   thinking: "brain",
   actions: "wrench",
-  messages: "chat",
   errors: "siren",
   decisions: "compass",
 };
@@ -252,7 +250,6 @@ const I18N = {
       all: "All",
       thinking: "Thinking",
       actions: "Actions",
-      messages: "Messages",
       errors: "Errors",
       decisions: "Decisions",
     },
@@ -425,7 +422,6 @@ const I18N = {
       all: "全部",
       thinking: "思考",
       actions: "动作",
-      messages: "消息",
       errors: "错误",
       decisions: "决策",
     },
@@ -1678,7 +1674,6 @@ function nodeMatchesFilter(node) {
   const kind = node._kind;
   if (filterMode === "thinking") return kind === "reasoning" && !node._decision;
   if (filterMode === "actions") return kind === "commands";
-  if (filterMode === "messages") return kind === "message" && !node._decision;
   if (filterMode === "errors")
     return Boolean(node._error) || (kind === "commands" && node.classList.contains("failed"));
   if (filterMode === "decisions")
