@@ -2116,3 +2116,16 @@ body.recording #codexOutput .tool-details summary .msg-time {
 body.recording #codexOutput .command {
   gap: 2.5px;
 }
+
+/* Align the first text line across reasoning, goal and command rows. */
+body.recording #codexOutput .reasoning-summary,
+body.recording #codexOutput .commands-summary,
+body.recording #codexOutput .tool-details summary {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+body.recording #codexOutput .message,
+body.recording #codexOutput .message-body {
+  font-size: 11.5px;
+  line-height: 1.35;
+}
