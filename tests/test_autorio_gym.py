@@ -810,7 +810,7 @@ class RewardAndTerminationTests(EnvTestCase):
 
 class TrajectoryStoreTests(unittest.TestCase):
     def test_episode_and_step_round_trip(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             path = os.path.join(directory, "nested", "deeper", "trajectory.db")
             store = TrajectoryStore(path)
             try:
@@ -880,7 +880,7 @@ class TrajectoryStoreTests(unittest.TestCase):
             self.assertEqual(str(journal_mode).lower(), "wal")
 
     def test_writes_validate_episode_ids(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             store = TrajectoryStore(os.path.join(directory, "trajectory.db"))
             try:
                 with self.assertRaises(sqlite3.IntegrityError):
@@ -901,7 +901,7 @@ class TrajectoryStoreTests(unittest.TestCase):
             store.start_episode({"name": "late"})
 
     def test_context_manager(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             path = os.path.join(directory, "trajectory.db")
             with TrajectoryStore(path) as store:
                 episode_id = store.start_episode({"name": "ctx"})
@@ -917,7 +917,7 @@ class EnvironmentTrajectoryTests(EnvTestCase):
         return store
 
     def test_env_records_episode_and_steps(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             path = os.path.join(directory, "autorio", "trajectories.db")
             env, _manager = self.make_env(trajectory_path=path, max_steps=10)
             env.reset({"name": "unit-test"})
@@ -951,7 +951,7 @@ class EnvironmentTrajectoryTests(EnvTestCase):
             self.assertEqual(stored_observation["factory"]["power"]["satisfaction"], 0.98)
 
     def test_terminated_episode_records_reward_and_status(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             path = os.path.join(directory, "terminated.db")
             env, _manager = self.make_env(
                 trajectory_path=path,
@@ -974,7 +974,7 @@ class EnvironmentTrajectoryTests(EnvTestCase):
             self.assertTrue(steps[0]["info"]["verification"])
 
     def test_truncated_episode_records_status(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             path = os.path.join(directory, "truncated.db")
             env, _manager = self.make_env(trajectory_path=path, max_steps=1)
             env.reset()
@@ -987,7 +987,7 @@ class EnvironmentTrajectoryTests(EnvTestCase):
             self.assertTrue(store.get_steps(episode["id"])[0]["truncated"])
 
     def test_reset_abandons_previous_episode(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             path = os.path.join(directory, "reset.db")
             env, _manager = self.make_env(trajectory_path=path)
             env.reset({"name": "first"})
