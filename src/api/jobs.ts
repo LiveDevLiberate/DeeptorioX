@@ -269,8 +269,8 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
                 entities?: Array<Record<string, unknown>>;
               };
               const activeMachines = (area.entities ?? []).filter((entity) => {
-                const type = String(entity.type ?? "");
-                const status = String(entity.status ?? "none");
+                const type = typeof entity.type === "string" ? entity.type : "";
+                const status = typeof entity.status === "string" ? entity.status : "none";
                 return protectedTypes.has(type) && !inactive.has(status);
               });
               const chainHit = targets.find((target) => {
