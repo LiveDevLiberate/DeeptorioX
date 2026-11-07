@@ -161,6 +161,7 @@ const I18N = {
       alerts: "Alerts",
       stateLate: "STATE late",
       refactorDebt: "Refactor debt",
+      construction: "Construction",
     },
     sparkStable: "stable",
     sparkUp: "+{percent}%",
@@ -345,6 +346,7 @@ const I18N = {
       alerts: "告警",
       stateLate: "计划超时",
       refactorDebt: "重构债",
+      construction: "建造",
     },
     sparkStable: "稳定",
     sparkUp: "+{percent}%",
@@ -2071,6 +2073,13 @@ function renderMetrics() {
     if (stateLate > 0) badges.push(["clock", text.metrics.stateLate, `${stateLate}s`]);
     const debtPeak = Math.round(Number(discipline.refactor?.debt_peak) || 0);
     if (debtPeak > 0) badges.push(["factory", text.metrics.refactorDebt, `${debtPeak}`]);
+    const constructionMode = currentRun?.construction?.mode;
+    const constructionPlans = Array.isArray(currentRun?.construction_plans)
+      ? currentRun.construction_plans.length
+      : 0;
+    if (constructionMode === "planned") {
+      badges.push(["factory", text.metrics.construction, `${constructionPlans}`]);
+    }
     if (badges.length > 0) {
       const row = element("tr", "", "metric metric-discipline");
       // All discipline records stay in one cell (label column + one record cell).

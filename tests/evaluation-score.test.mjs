@@ -156,3 +156,21 @@ test("discipline metrics are reported separately with flags", () => {
     "refactor_debt",
   ]);
 });
+
+test("scoring variants override par per construction variant", async () => {
+  const { scoringForVariant } = await import("../dist/benchmarks.js");
+  const base = {
+    version: 2,
+    ranked: true,
+    completion_basis: "milestone_first_seen",
+    par_seconds: 100,
+    par_source: "base",
+    progress_weights: { done: 1 },
+    variants: { "smoke:planned:agent": { par_seconds: 40, par_source: "variant" } },
+  };
+  const resolved = scoringForVariant(base, "smoke:planned:agent");
+  assert.equal(resolved.par_seconds, 40);
+  assert.equal(resolved.par_source, "variant");
+  assert.equal(resolved.progress_weights.done, 1);
+  assert.equal(scoringForVariant(base, "unknown").par_seconds, 100);
+});

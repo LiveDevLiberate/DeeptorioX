@@ -43,8 +43,11 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
     path: "/api/leaderboard",
     name: "/api/leaderboard",
     handler: (request) => {
-      const { res } = request;
-      return json(res, 200, runManager.leaderboard());
+      const { res, url } = request;
+      const benchmark = url.searchParams.get("benchmark") || undefined;
+      const variant = url.searchParams.get("variant") || undefined;
+      const model = url.searchParams.get("model") || undefined;
+      return json(res, 200, runManager.leaderboard({ benchmark, variant, model }));
     },
   });
 

@@ -6,10 +6,47 @@ const text = (tag, value, className) => {
   return node;
 };
 
+let optionSource = null;
+
+function fillSelect(id, values) {
+  const select = $(id);
+  const current = select.value;
+  select.replaceChildren(
+    text("option", "All"),
+    ...values.map((value) => {
+      const option = text("option", value);
+      option.value = value;
+      return option;
+    }),
+  );
+  select.firstChild.value = "";
+  select.value = values.includes(current) ? current : "";
+}
+
 async function load() {
-  const response = await fetch("/api/leaderboard");
+  const params = new URLSearchParams();
+  const benchmark = $("filterBenchmark")?.value;
+  const variant = $("filterVariant")?.value;
+  const model = $("filterModel")?.value;
+  if (benchmark) params.set("benchmark", benchmark);
+  if (variant) params.set("variant", variant);
+  if (model) params.set("model", model);
+  const endpoint = params.size ? `/api/leaderboard?${params}` : "/api/leaderboard";
+  const response = await fetch(endpoint);
   if (!response.ok) throw new Error(`leaderboard request failed (${response.status})`);
   const data = await response.json();
+  if (!optionSource) {
+    const all = await fetch("/api/leaderboard").then((entry) => entry.json());
+    optionSource = all.groups || [];
+    fillSelect("filterBenchmark", [...new Set(optionSource.map((group) => group.benchmark))].sort());
+    fillSelect("filterVariant", [...new Set(optionSource.map((group) => group.variant))].sort());
+    fillSelect(
+      "filterModel",
+      [
+        ...new Set(optionSource.flatMap((group) => group.runs.map((run) => run.model)).filter(Boolean)),
+      ].sort(),
+    );
+  }
   const root = $("leaderboard");
   root.replaceChildren(
     ...(data.groups || []).map((group) => {
@@ -65,3 +102,11 @@ async function load() {
 load().catch((error) => {
   $("error").textContent = error.message;
 });
+
+for (const id of ["filterBenchmark", "filterVariant", "filterModel"]) {
+  $(id)?.addEventListener("change", () => {
+    load().catch((error) => {
+      $("error").textContent = error.message;
+    });
+  });
+}

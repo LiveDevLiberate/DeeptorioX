@@ -53,6 +53,8 @@ export type ScoringConfig = {
   benchmark_variant?: string;
   /** Frozen blueprint policy source. */
   blueprint_policy?: string;
+  /** Per-construction-variant par overrides (calibrated independently). */
+  variants?: Record<string, { par_seconds: number; par_source: string }>;
 };
 
 export type Benchmark = {
@@ -119,6 +121,24 @@ export function normalizeScoring(
   if (!Number.isFinite(weights[benchmark.completion]) || weights[benchmark.completion] <= 0) {
     throw new Error("Invalid scoring.progress_weights: completion milestone must be scored");
   }
+  const variants: Record<string, { par_seconds: number; par_source: string }> = {};
+  if (source.variants !== undefined) {
+    if (!source.variants || typeof source.variants !== "object" || Array.isArray(source.variants)) {
+      throw new Error("Invalid scoring.variants: expected an object");
+    }
+    for (const [variant, raw] of Object.entries(source.variants as Record<string, unknown>)) {
+      const entry = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+      const par = Number(entry.par_seconds);
+      if (!Number.isFinite(par) || par <= 0) {
+        throw new Error(`Invalid scoring.variants.${variant}.par_seconds`);
+      }
+      const provenance =
+        typeof entry.par_source === "string" && entry.par_source.trim()
+          ? entry.par_source.trim()
+          : "configured";
+      variants[variant] = { par_seconds: par, par_source: provenance };
+    }
+  }
   return {
     version,
     ranked,
@@ -126,7 +146,16 @@ export function normalizeScoring(
     par_seconds: parSeconds,
     par_source: parSource,
     progress_weights: weights,
+    ...(Object.keys(variants).length ? { variants } : {}),
   };
+}
+
+/** Resolve a construction variant's calibrated par overrides. */
+export function scoringForVariant(scoring: ScoringConfig, variant?: string): ScoringConfig {
+  const override = variant ? scoring.variants?.[variant] : undefined;
+  return override
+    ? { ...scoring, par_seconds: override.par_seconds, par_source: override.par_source }
+    : scoring;
 }
 
 export function loadBenchmarks(root: string): Benchmark[] {

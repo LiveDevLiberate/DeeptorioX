@@ -141,3 +141,38 @@ test("calibration leaves benchmarks without a suggested par untouched", () => {
     fs.rmSync(benchmarks, { recursive: true, force: true });
   }
 });
+
+test("calibration groups runs by construction variant and writes variant par overrides", () => {
+  const runs = fs.mkdtempSync(path.join(os.tmpdir(), "autorio-calibrate-runs-"));
+  const benchmarks = fs.mkdtempSync(path.join(os.tmpdir(), "autorio-calibrate-bench-"));
+  try {
+    writeRun(runs, "free", {
+      benchmark: { id: "smoke", completion: "first-gear" },
+      scoring: { benchmark_variant: "smoke:free:agent" },
+      milestones: { "first-gear": { wall_seconds: 100 } },
+    });
+    writeRun(runs, "planned", {
+      benchmark: { id: "smoke", completion: "first-gear" },
+      scoring: { benchmark_variant: "smoke:planned:agent" },
+      milestones: { "first-gear": { wall_seconds: 200 } },
+    });
+    fs.writeFileSync(
+      path.join(benchmarks, "smoke.json"),
+      JSON.stringify({ id: "smoke", scoring: { par_seconds: 1 } }, null, 2),
+    );
+    const summary = summarizeCompletionTimes(loadRunRecords(runs));
+    assert.equal(summary.get("smoke:free:agent").parse, 100);
+    assert.equal(summary.get("smoke:planned:agent").parse, 200);
+    assert.deepEqual(applyPar(benchmarks, summary), [
+      "smoke:free:agent",
+      "smoke:planned:agent",
+    ]);
+    const updated = JSON.parse(fs.readFileSync(path.join(benchmarks, "smoke.json"), "utf8"));
+    assert.equal(updated.scoring.par_seconds, 1);
+    assert.equal(updated.scoring.variants["smoke:free:agent"].par_seconds, 100);
+    assert.equal(updated.scoring.variants["smoke:planned:agent"].par_seconds, 200);
+  } finally {
+    fs.rmSync(runs, { recursive: true, force: true });
+    fs.rmSync(benchmarks, { recursive: true, force: true });
+  }
+});

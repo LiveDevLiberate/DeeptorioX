@@ -39,6 +39,7 @@ import {
   Benchmark,
   Snapshot,
   loadBenchmarks,
+  scoringForVariant,
   trackedMilestones,
   parseSnapshot,
   reached,
@@ -441,6 +442,23 @@ export function digestThought(text: string): string {
   const cut = chosen.slice(0, DIGEST_MAX_CHARS);
   const lastSpace = cut.lastIndexOf(" ");
   return lastSpace > 0 ? cut.slice(0, lastSpace).trimEnd() : cut;
+}
+
+function clusterCountInBBox(
+  clusters: RefactorCluster[] | undefined,
+  bbox: { left: number; top: number; right: number; bottom: number },
+): number {
+  let count = 0;
+  for (const cluster of clusters ?? []) {
+    const cx = Number(cluster.x);
+    const cy = Number(cluster.y);
+    const radius = Number(cluster.radius);
+    if (![cx, cy, radius].every(Number.isFinite)) continue;
+    const nearestX = Math.max(bbox.left, Math.min(cx, bbox.right));
+    const nearestY = Math.max(bbox.top, Math.min(cy, bbox.bottom));
+    if (Math.hypot(cx - nearestX, cy - nearestY) <= radius) count += Number(cluster.count) || 1;
+  }
+  return count;
 }
 
 function integerLayoutPoint(value: unknown): { x: number; y: number } | undefined {
@@ -1633,6 +1651,7 @@ export class RunManager {
       audit_revision: auditRevision,
       refactor_revision: auditRevision,
       audit_invalid_before: run.refactor?.invalid_count ?? 0,
+      target_cluster_before: clusterCountInBBox(run.refactor?.clusters, planBBox(entities, targets)),
       targets_hash: planHash,
       required_items: requiredItems,
       bbox: planBBox(entities, targets),
@@ -1740,7 +1759,11 @@ export class RunManager {
         new ConstructionPlanError("PLAN_EXPIRED", `Plan ${plan.plan_id} expired`),
       );
     }
-    if ((run.audit_revision ?? 0) !== plan.audit_revision) {
+    const inProgressChunked =
+      ["blueprint", "power", "pipe", "belt"].includes(plan.kind) &&
+      plan.status === "issued" &&
+      (plan.executed_entities?.length ?? 0) > 0;
+    if (!inProgressChunked && (run.audit_revision ?? 0) !== plan.audit_revision) {
       this.rejectConstructionPlan(
         run,
         new ConstructionPlanError(
@@ -1874,8 +1897,13 @@ export class RunManager {
     if (!run || !plan || plan.status !== "consumed" || plan.verification) return undefined;
     const before = plan.audit_invalid_before;
     const after = run.refactor?.invalid_count ?? before;
+    const targetBefore = plan.target_cluster_before ?? 0;
+    const targetAfter = clusterCountInBBox(run.refactor?.clusters, plan.bbox);
+    const targetDelta = targetAfter - targetBefore;
     let result: "effective" | "neutral" | "ineffective" | "regressed";
     if (job.status !== "completed") result = "ineffective";
+    else if (targetDelta < 0) result = "effective";
+    else if (targetDelta > 0) result = "regressed";
     else if (after < before) result = "effective";
     else if (after === before) result = "neutral";
     else result = "regressed";
@@ -2043,7 +2071,7 @@ export class RunManager {
    * Operator leaderboard grouped by benchmark construction variant. Free and
    * planned runs never share a ranking group.
    */
-  leaderboard() {
+  leaderboard(filters: { benchmark?: string; variant?: string; model?: string } = {}) {
     const groups = new Map<
       string,
       {
@@ -2109,11 +2137,21 @@ export class RunManager {
       );
       return group;
     });
-    sorted.sort(
+    const filtered = sorted
+      .filter((group) => !filters.benchmark || group.benchmark === filters.benchmark)
+      .filter((group) => !filters.variant || group.variant === filters.variant)
+      .map((group) => ({
+        ...group,
+        runs: filters.model
+          ? group.runs.filter((entry) => (entry.model ?? "") === filters.model)
+          : group.runs,
+      }))
+      .filter((group) => group.runs.length > 0);
+    filtered.sort(
       (left, right) =>
         left.benchmark.localeCompare(right.benchmark) || left.variant.localeCompare(right.variant),
     );
-    return { generated_at: new Date().toISOString(), groups: sorted };
+    return { generated_at: new Date().toISOString(), groups: filtered };
   }
 
   private view(run: Run) {
@@ -2289,7 +2327,7 @@ export class RunManager {
         breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0, refactor: 0 },
       },
       scoring: {
-        ...benchmark.scoring,
+        ...scoringForVariant(benchmark.scoring, constructionVariantName),
         progress_weights: { ...benchmark.scoring.progress_weights },
         construction_mode: constructionMode,
         benchmark_variant: constructionVariantName,

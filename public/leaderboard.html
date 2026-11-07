@@ -4,6 +4,11 @@
 <body><main>
   <header><div><span class="eyebrow">FACTORIO · AGENT EVALUATION</span><h1>Leaderboard</h1></div><nav><a href="/">← All runs</a><a href="/pipeline.html">Pipeline</a></nav></header>
   <p id="error" role="alert"></p>
+  <div class="leaderboard-filters">
+    <label>Benchmark<select id="filterBenchmark"><option value="">All</option></select></label>
+    <label>Variant<select id="filterVariant"><option value="">All</option></select></label>
+    <label>Model<select id="filterModel"><option value="">All</option></select></label>
+  </div>
   <p class="muted">Groups are separated by benchmark construction variant. Free-build and planned-build scores are not mixed.</p>
   <div id="leaderboard"></div>
 </main><script type="module" src="/leaderboard.js"></script></body></html>

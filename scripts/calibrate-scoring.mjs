@@ -43,9 +43,16 @@ export function loadRunRecords(runsDir) {
       const completion = typeof benchmark.completion === "string" ? benchmark.completion : undefined;
       const milestones = run?.milestones && typeof run.milestones === "object" ? run.milestones : {};
       const completionSeconds = completion ? Number(milestones?.[completion]?.wall_seconds) : NaN;
+      const variant =
+        (typeof run?.scoring?.benchmark_variant === "string" && run.scoring.benchmark_variant) ||
+        (typeof run?.construction?.variant === "string" && run.construction.variant) ||
+        (typeof run?.evaluation?.capability?.variant === "string" &&
+          run.evaluation.capability.variant) ||
+        undefined;
       records.push({
         id: entry.name,
         benchmark: typeof benchmark.id === "string" ? benchmark.id : undefined,
+        variant,
         completion,
         completion_seconds: Number.isFinite(completionSeconds) ? completionSeconds : undefined,
         milestone_seconds: Object.fromEntries(
@@ -66,7 +73,8 @@ export function summarizeCompletionTimes(records) {
   const byBenchmark = new Map();
   for (const record of records) {
     if (!record.benchmark) continue;
-    const state = byBenchmark.get(record.benchmark) ?? {
+    const key = record.variant || record.benchmark;
+    const state = byBenchmark.get(key) ?? {
       completed_times: [],
       milestone_times: new Map(),
     };
@@ -78,13 +86,15 @@ export function summarizeCompletionTimes(records) {
       list.push(seconds);
       state.milestone_times.set(id, list);
     }
-    byBenchmark.set(record.benchmark, state);
+    byBenchmark.set(key, state);
   }
   const summary = new Map();
   for (const [benchmark, state] of byBenchmark) {
     const times = state.completed_times;
     const parsed = times.length > 0 ? Math.round(median(times)) : undefined;
     summary.set(benchmark, {
+      benchmark: benchmark.includes(":") ? benchmark.split(":")[0] : benchmark,
+      variant: benchmark.includes(":") ? benchmark : undefined,
       completed: times.length,
       median: parsed,
       p25:
@@ -113,16 +123,35 @@ export function summarizeCompletionTimes(records) {
 export function applyPar(benchmarksDir, summary) {
   const written = [];
   const date = new Date().toISOString().slice(0, 10);
-  for (const [benchmark, stats] of summary) {
+  for (const [key, stats] of summary) {
     if (!stats.parse) continue;
-    const file = path.join(benchmarksDir, `${benchmark}.json`);
-    if (!fs.existsSync(file)) continue;
+    let benchmark = stats.benchmark || key;
+    let variant = stats.variant;
+    let file = path.join(benchmarksDir, `${benchmark}.json`);
+    if (!fs.existsSync(file)) {
+      const match = fs
+        .readdirSync(benchmarksDir)
+        .find((entry) => entry.endsWith(".json") && key.startsWith(`${entry.slice(0, -5)}:`));
+      if (!match) continue;
+      benchmark = match.slice(0, -5);
+      variant = key;
+      file = path.join(benchmarksDir, match);
+    }
     const config = JSON.parse(fs.readFileSync(file, "utf8"));
     config.scoring = config.scoring && typeof config.scoring === "object" ? config.scoring : {};
-    config.scoring.par_seconds = stats.parse;
-    config.scoring.par_source = `median_completed:${date} (n=${stats.completed}${stats.provisional ? ", provisional" : ""})`;
+    const parSource = `median_completed:${date} (n=${stats.completed}${stats.provisional ? ", provisional" : ""})`;
+    if (variant) {
+      config.scoring.variants =
+        config.scoring.variants && typeof config.scoring.variants === "object"
+          ? config.scoring.variants
+          : {};
+      config.scoring.variants[key] = { par_seconds: stats.parse, par_source: parSource };
+    } else {
+      config.scoring.par_seconds = stats.parse;
+      config.scoring.par_source = parSource;
+    }
     fs.writeFileSync(file, JSON.stringify(config, null, 2) + "\n");
-    written.push(benchmark);
+    written.push(key);
   }
   return written;
 }

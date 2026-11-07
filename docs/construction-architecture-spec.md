@@ -884,9 +884,24 @@ Implemented in this branch:
 - tests for modes, token consume/mismatch/expiry-by-audit, blueprint expansion,
   chunked plans, cleanup plans, verifier behavior, layouts and API route behavior.
 
+Final polish implemented:
+
+- production-chain working-block guard (active machines plus their local feeder
+  neighborhood);
+- target-aware verifier using the plan bbox cluster delta, with global debt as
+  fallback;
+- audit-revision freeze for in-progress chunked plans;
+- per-variant scoring par overrides (`scoring.variants`) and variant-aware
+  calibration;
+- leaderboard filters by benchmark/variant/model;
+- run-page construction plan history and recording construction badge;
+- turn-penalized manager route (straight corridors preferred);
+- generic plan material preflight (blueprint and layout plans).
+
 Remaining follow-ups:
 
-- richer working-block classification for production chains and shared inputs;
-- cross-benchmark aggregation and calibration UI beyond variant groups;
-- route optimization (current manager BFS finds a shortest grid path but does
-  not yet weigh existing belts, power coverage or construction cost).
+- exact blueprint rotation/mirror expansion (currently anchor/prototype-size
+  expansion without rotation transforms);
+- route optimization that reuses existing power/belt assets instead of only
+  penalizing turns;
+- production-chain classification beyond the local feeder neighborhood.

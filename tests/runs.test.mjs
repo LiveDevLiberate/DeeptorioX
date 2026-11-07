@@ -1119,6 +1119,12 @@ test("evaluation v2 records capability from milestone first-seen time", async ()
     assert.match(group.variant, /smoke:free:/);
     assert.equal(group.construction_mode, "free");
     assert.ok(group.runs.some((entry) => entry.id === run.id && entry.completed));
+    assert.equal(manager.leaderboard({ benchmark: "smoke" }).groups.length >= 1, true);
+    assert.equal(manager.leaderboard({ benchmark: "missing" }).groups.length, 0);
+    assert.equal(
+      manager.leaderboard({ variant: group.variant }).groups.some((entry) => entry.variant === group.variant),
+      true,
+    );
   } finally {
     await manager.shutdown();
   }
@@ -1382,6 +1388,13 @@ test("manager expands a blueprint plan and accepts chunked execution", async () 
     });
     assert.equal(first?.status, "issued");
     assert.equal(first?.executed_entities?.length, 1);
+    // A periodic audit during a chunked plan must not invalidate later chunks.
+    manager.recordRefactorAudit({
+      invalid_count: 0,
+      factory_problems: 0,
+      connection_issues: 0,
+      fingerprint: "during-chunks",
+    });
     const second = manager.requireConstructionPlan({
       plan_id: plan.plan_id,
       allowed_kinds: ["build", "blueprint"],
@@ -1458,6 +1471,60 @@ test("manager layout plans generate power, pipe and belt entities without agent 
       pathBelt.planned_entities.map((entry) => entry.direction),
       [4, 4, 8, 8, 8],
     );
+  } finally {
+    await manager.stop();
+  }
+});
+
+test("target-aware verifier uses the plan bbox cluster delta over global debt", async () => {
+  const { manager } = setup();
+  try {
+    const run = manager.start({ agent: "manual", benchmark: "smoke", construction_mode: "planned" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    const audit = {
+      invalid_count: 35,
+      factory_problems: 2,
+      connection_issues: 33,
+      fingerprint: "target-before",
+      clusters: [{ x: 2, y: 2, radius: 3, count: 6, kinds: ["belt_dead_end"] }],
+    };
+    manager.recordRefactorAudit(audit);
+    const entities = [{ name: "transport-belt", anchor: { x: 2, y: 2 } }];
+    const plan = manager.createConstructionPlan({ kind: "build", entities });
+    assert.equal(plan.target_cluster_before, 6);
+    manager.requireConstructionPlan({
+      plan_id: plan.plan_id,
+      allowed_kinds: ["build"],
+      entities,
+    });
+    manager.recordRefactorAudit({
+      invalid_count: 10,
+      factory_problems: 0,
+      connection_issues: 10,
+      fingerprint: "target-after",
+      clusters: [],
+    });
+    const verification = manager.verifyConstructionPlan(plan.plan_id, { status: "completed" });
+    assert.equal(verification?.result, "effective");
+
+    const regressionPlan = manager.createConstructionPlan({
+      kind: "build",
+      entities: [{ name: "transport-belt", anchor: { x: 20, y: 20 } }],
+    });
+    manager.requireConstructionPlan({
+      plan_id: regressionPlan.plan_id,
+      allowed_kinds: ["build"],
+      entities: [{ name: "transport-belt", anchor: { x: 20, y: 20 } }],
+    });
+    manager.recordRefactorAudit({
+      invalid_count: 11,
+      factory_problems: 1,
+      connection_issues: 10,
+      fingerprint: "target-regression",
+      clusters: [{ x: 20, y: 20, radius: 2, count: 4, kinds: ["no_power"] }],
+    });
+    const regressed = manager.verifyConstructionPlan(regressionPlan.plan_id, { status: "completed" });
+    assert.equal(regressed?.result, "regressed");
   } finally {
     await manager.stop();
   }

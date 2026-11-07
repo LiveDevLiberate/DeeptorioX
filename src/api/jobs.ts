@@ -4,6 +4,7 @@ import { actionPaths, splitJobPayload, type JobAction } from "../action-jobs.js"
 import { asRecord, asString } from "../validation.js";
 import { ConstructionPlanError } from "../construction.js";
 import { agentObserveEntityCommand, agentPlayerCommand } from "../command-builders.js";
+import { observeAreaCommand } from "../area-edit.js";
 import { rconConfigured } from "./shared.js";
 import type { ApiContext } from "./context.js";
 
@@ -168,8 +169,8 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
               .sort((left, right) => left.name.localeCompare(right.name));
             if (missing.length) {
               return json(res, 409, {
-                error: "BLUEPRINT_MATERIAL_SHORTAGE",
-                message: "The blueprint plan needs items that are not in the player inventory.",
+                error: plan.kind === "blueprint" ? "BLUEPRINT_MATERIAL_SHORTAGE" : "PLAN_MATERIAL_SHORTAGE",
+                message: "The plan needs items that are not in the player inventory.",
                 missing,
                 plan_id: preflightPlanId,
               });
@@ -177,8 +178,8 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
           } catch (error) {
             if (error instanceof SyntaxError) {
               return json(res, 409, {
-                error: "BLUEPRINT_MATERIAL_SHORTAGE",
-                message: "Could not read the player inventory for blueprint preflight.",
+                error: plan.kind === "blueprint" ? "BLUEPRINT_MATERIAL_SHORTAGE" : "PLAN_MATERIAL_SHORTAGE",
+                message: "Could not read the player inventory for plan preflight.",
               });
             }
             // RCON/observation failure: do not block; the build result reports missing items.
@@ -242,6 +243,68 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
             "normal",
             "idle",
           ]);
+          try {
+            // Production-chain guard: look at the local machine neighborhood, not
+            // only the target tile. A feeder belt/inserter/chest next to an active
+            // machine is part of the working block and must not be cleaned.
+            const xs = targets.map((target) => Number(asRecord(target)?.x)).filter(Number.isFinite);
+            const ys = targets.map((target) => Number(asRecord(target)?.y)).filter(Number.isFinite);
+            if (xs.length && ys.length) {
+              const centerX = Math.round((Math.min(...xs) + Math.max(...xs)) / 2);
+              const centerY = Math.round((Math.min(...ys) + Math.max(...ys)) / 2);
+              const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+              const areaRadius = Math.min(64, Math.max(6, Math.ceil(span / 2 + 4)));
+              const areaResponse = await rconCommand(
+                observeAreaCommand({
+                  x: centerX,
+                  y: centerY,
+                  radius: areaRadius,
+                  limit: 300,
+                  playerOnly: false,
+                  order: "near",
+                }),
+                8000,
+              );
+              const area = JSON.parse(areaResponse) as {
+                entities?: Array<Record<string, unknown>>;
+              };
+              const activeMachines = (area.entities ?? []).filter((entity) => {
+                const type = String(entity.type ?? "");
+                const status = String(entity.status ?? "none");
+                return protectedTypes.has(type) && !inactive.has(status);
+              });
+              const chainHit = targets.find((target) => {
+                const record = asRecord(target) ?? {};
+                const x = Number(record.x);
+                const y = Number(record.y);
+                return activeMachines.some((machine) => {
+                  const mx = Number(machine.x);
+                  const my = Number(machine.y);
+                  return (
+                    Number.isFinite(mx) &&
+                    Number.isFinite(my) &&
+                    Math.abs(mx - x) <= 4 &&
+                    Math.abs(my - y) <= 4
+                  );
+                });
+              });
+              if (chainHit && activeMachines.length) {
+                return json(res, 409, {
+                  error: "REFACTOR_WORKING_BLOCK",
+                  message:
+                    "Cleanup target is part of an active production chain. Mark the chain obsolete or let it finish before cleanup.",
+                  working: activeMachines.slice(0, 10).map((machine) => ({
+                    name: machine.name,
+                    x: machine.x,
+                    y: machine.y,
+                    status: machine.status,
+                  })),
+                });
+              }
+            }
+          } catch {
+            // Neighborhood scan is advisory; the per-target guard below still runs.
+          }
           try {
             const response = await rconCommand(
               agentObserveEntityCommand(
