@@ -53,4 +53,8 @@ test("both MIT toolkits are fully vendored with licenses and entrypoints", () =>
   );
   assert.equal(config.status, 0, config.stderr);
   assert.match(config.stdout, /map_preview_size/);
+  const mapView = fs.readFileSync("public/toolkit-viewer/js/mapView.js", "utf8");
+  assert.match(mapView, /defaultZoomScale = 0\.5/);
+  assert.match(mapView, /defaultZoomScale \* Math\.pow/);
+  assert.match(fs.readFileSync("public/toolkit-viewer/index.html", "utf8"), /Zoom: 50%/);
 });

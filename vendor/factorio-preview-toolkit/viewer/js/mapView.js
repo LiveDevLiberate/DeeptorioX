@@ -1,4 +1,5 @@
 const baseZoomFactor = 1.14;
+const defaultZoomScale = 0.5;
 const statePerPlanet = {};
 let currentPlanet = null;
 let zoomStepIndex = 0;
@@ -105,7 +106,7 @@ function resetMapView(mapImage, container, zoomDisplay) {
 }
 
 function getScaleFromStep(step) {
-  return Math.pow(baseZoomFactor, step);
+  return defaultZoomScale * Math.pow(baseZoomFactor, step);
 }
 
 function updateTransform(target) {
