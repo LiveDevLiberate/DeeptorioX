@@ -2134,3 +2134,9 @@ body.recording #codexOutput .message-body {
 body.recording .status-inner {
   row-gap: 3.5px;
 }
+
+/* Thinking summaries use normal body weight, not a heavier label weight. */
+body.recording #codexOutput .reasoning-summary,
+body.recording #codexOutput .reasoning-summary-text {
+  font-weight: 400;
+}
