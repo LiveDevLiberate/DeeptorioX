@@ -31,7 +31,6 @@ const decoder = new TextDecoder(),
   transcript = new CodexTranscript();
 const entries = new Map();
 let commandGroup;
-let openCommandGroup = null;
 const loops = new LoopDetector({ threshold: 3, window: 12 });
 const thoughtLoops = new LoopDetector({ threshold: 2, window: 6 });
 const seenThoughts = new Map();
@@ -1410,9 +1409,7 @@ function ensureCommandGroup() {
     details._kind = "commands";
     const summary = element("summary", "", "commands-summary");
     details.append(summary);
-    if (openCommandGroup && openCommandGroup !== details) setDetailsOpen(openCommandGroup, false);
-    openCommandGroup = details;
-    setDetailsOpen(details, true);
+    setDetailsOpen(details, false);
     output.append(details);
     commandGroup = { details, summary, items: new Map(), loop: 0 };
   }
