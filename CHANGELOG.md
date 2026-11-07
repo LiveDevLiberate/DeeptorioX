@@ -72,7 +72,9 @@ this file.
   The run page adds capability/completion rows and a full discipline table, and
   the comparison page ranks columns by capability, shows completion time and
   discipline flags, and warns when selected runs use different scoring
-  configurations.
+  configurations. The recording window drops the legacy v1 automation/penalty
+  metric rows and shows only a neutral discipline badge row (manual work,
+  blackouts, ignored alerts) when non-zero.
 - **Refactor escalation ladder.** The refactor gate no longer rejects every
   build job. Sustained scoped audit debt above `AUTORIO_REFACTOR_CLEAN_TARGET`
   (default 20) past `AUTORIO_REFACTOR_GATE_GRACE_SECONDS` (default 300 s) now

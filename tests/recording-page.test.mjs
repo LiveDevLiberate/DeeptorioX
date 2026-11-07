@@ -140,6 +140,16 @@ test("recording page renders summaries, loops, turns and unread updates", async 
         par_seconds: 640,
         par_source: "median_completed:2026-11-08",
       },
+      discipline: {
+        manual_mines: 6,
+        manual_crafts: 7,
+        blackouts: 0,
+        alert_penalty: 0,
+        state_due_seconds: 0,
+        state_blocked_seconds: 0,
+        refactor: { debt_peak: 18, invalid_count: 0, cleanup_units: 2, tier: "normal", audits_with_debt: 1 },
+        flags: ["manual_work", "refactor_debt"],
+      },
     },
   };
   const firstBatch = [
@@ -344,7 +354,7 @@ test("recording page renders summaries, loops, turns and unread updates", async 
       false,
     );
 
-    // Status metrics are a compact table: research, power, automation, penalty.
+    // Status metrics are a compact table: research, power, discipline badges.
     const nodeText = (node) =>
       [node.textContent, ...(node.children || []).map(nodeText)].filter(Boolean).join(" ");
     const metricsTable = nodes.statusMetrics.children[0];
@@ -377,13 +387,12 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     );
     assert.equal(nodes.stateTimer.hidden, false);
     assert.match(nodeText(nodes.stateTimer), /Plan 8:00/, `timer: ${nodeText(nodes.stateTimer)}`);
+    assert.equal(metricClass("metric-automation"), null, "legacy automation row removed");
+    assert.equal(metricClass("metric-penalty"), null, "legacy penalty row removed");
+    assert.ok(metricClass("metric-discipline"), "missing discipline badges row");
     assert.ok(
-      metrics.some((text) => /Automation 120/i.test(text)),
-      `metrics: ${metrics.join(" | ")}`,
-    );
-    assert.ok(
-      metrics.some((text) => /Penalty -20/i.test(text)),
-      `metrics: ${metrics.join(" | ")}`,
+      metrics.some((text) => /discipline/i.test(text) && /13/.test(text)),
+      `discipline badges: ${metrics.join(" | ")}`,
     );
     const findClass = (root, name) => {
       if (String(root.className || "").includes(name)) return root;

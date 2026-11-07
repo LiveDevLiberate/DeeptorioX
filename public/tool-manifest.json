@@ -3370,7 +3370,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "e44f2bda854a46d688d3e705ce8dac7cc9085affa0e6e02a212c4b6591836495",
+  "client_sha256": "3f367e81f1c20d11d96aa62e9fcaa1b9ff9e4144b40cc7c3354a9d5f6cc6ee39",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3569,7 +3569,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "e44f2bda854a46d688d3e705ce8dac7cc9085affa0e6e02a212c4b6591836495",
+    "factorio.py": "3f367e81f1c20d11d96aa62e9fcaa1b9ff9e4144b40cc7c3354a9d5f6cc6ee39",
     "src/api/agent.ts": "e26066a5dbb9d643dcbeab256e88838ff027e8868c241c100ccc9598cda8c1f8",
     "src/api/alerts.ts": "d491a17165f4d93f4153e8d465b4e345a72ef313225b57fd8942e6beb9b77e78",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",

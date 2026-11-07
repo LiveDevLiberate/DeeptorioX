@@ -225,6 +225,12 @@ Element: `#statusMilestones` (`public/recording.html`), rendered by `renderStatu
 `total`/`completed` are the scored-set counts; `next` is the label (fallback id) of the first
 not-yet-achieved scored milestone. Row is single-line and truncates on narrow widths.
 
+The legacy v1 **Automation** and **Penalty** metric rows are no longer rendered in the recording
+window (they only remain as `run.automation` in `run.json`, labelled legacy on the run page). In
+their place, a single neutral **Discipline** badge row appears only when something is non-zero:
+manual work (mines + crafts, pickaxe icon), blackouts (bolt) and accumulated alert penalty (siren).
+Badges are counts, never signed scores; capability stays on the run and comparison pages.
+
 ### 8.2 Run details page
 
 `public/run.js` run information adds (operator view):

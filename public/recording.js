@@ -145,6 +145,7 @@ const I18N = {
       production: "Production",
       research: "Research",
       power: "Power",
+      discipline: "Discipline",
       telemetry: "Telemetry",
       error: "Error",
       automation: "Automation",
@@ -321,6 +322,7 @@ const I18N = {
       production: "产量",
       research: "研究",
       power: "电力",
+      discipline: "纪律",
       telemetry: "遥测",
       error: "错误",
       automation: "自动化",
@@ -2019,49 +2021,33 @@ function renderMetrics() {
     );
     rows.push(row);
   }
-  const automation = currentRun?.automation;
-  if (automation) {
-    const score = Math.round(Number(automation.score) || 0);
-    const row = element("tr", "", "metric metric-automation");
-    const automationValue = metricValue("factory", `${score}`);
-    automationValue.classList.add(score < 0 ? "negative" : "positive");
-    row.append(
-      element("th", text.metrics.automation, "metric-label"),
-      automationValue,
-      element("td", `+${Math.round(Number(automation.positive) || 0)}`, "metric-trend metric-delta"),
-    );
-    rows.push(row);
-    const penaltyRow = element("tr", "", "metric metric-penalty");
-    const penaltyValue = metricValue("pickaxe", `-${Math.round(Number(automation.penalty) || 0)}`);
-    penaltyValue.classList.add("penalised");
-    const penaltyTrend = element("td", "", "metric-trend");
-    const details = element("span", "", "penalty-details");
-    details.append(
-      icon("pickaxe"),
-      element("span", `${Math.round(Number(automation.manual_mines) || 0)}`),
-      icon("wrench"),
-      element("span", `${Math.round(Number(automation.manual_crafts) || 0)}`),
-    );
-    if (Number(automation.state_penalty) > 0) {
-      details.append(
-        icon("clock"),
-        element("span", `-${Math.round(Number(automation.state_penalty))}`, "penalty-state"),
+  const discipline = currentRun?.evaluation?.discipline;
+  if (discipline) {
+    const badges = [];
+    const manual =
+      Math.round(Number(discipline.manual_mines) || 0) + Math.round(Number(discipline.manual_crafts) || 0);
+    if (manual > 0) badges.push(["pickaxe", `${manual}`]);
+    if (Number(discipline.blackouts) > 0)
+      badges.push(["bolt", `${Math.round(Number(discipline.blackouts))}`]);
+    if (Number(discipline.alert_penalty) > 0)
+      badges.push(["siren", `${Math.round(Number(discipline.alert_penalty))}`]);
+    if (badges.length > 0) {
+      const row = element("tr", "", "metric metric-discipline");
+      const valueCell = element("td", "", "metric-value");
+      const badgesCell = element("span", "", "discipline-badges");
+      for (const [iconName, value] of badges) {
+        const badge = element("span", "", "discipline-badge");
+        badge.append(icon(iconName), element("span", value));
+        badgesCell.append(badge);
+      }
+      valueCell.append(badgesCell);
+      row.append(
+        element("th", text.metrics.discipline, "metric-label"),
+        valueCell,
+        element("td", "", "metric-trend"),
       );
+      rows.push(row);
     }
-    if (Number(automation.blackouts) > 0) {
-      details.append(
-        icon("bolt", "icon penalty-blackout-icon"),
-        element("span", `${Math.round(Number(automation.blackouts))}`, "penalty-blackout"),
-      );
-    }
-    const blackoutText =
-      Number(automation.blackouts) > 0
-        ? ` / ${Math.round(Number(automation.blackouts))} ${text.metrics.blackouts || "blackouts"}`
-        : "";
-    details.title = `${text.metrics.penalty}: ${text.metrics.manualMines || "mined"} / ${text.metrics.manualCrafts || "crafted"}${blackoutText}`;
-    penaltyTrend.append(details);
-    penaltyRow.append(element("th", text.metrics.penalty, "metric-label"), penaltyValue, penaltyTrend);
-    rows.push(penaltyRow);
   }
   if (lastErrorText) {
     const row = element("tr", "", "metric error");
