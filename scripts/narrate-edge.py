@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Narrate autorio decisions and STATE plan updates with edge-tts.
 
-Every --interval seconds it speaks the newest decision-like digest line that
-appeared since the previous narration. New ``STATE.md updated: ...`` activity
-lines are spoken as soon as they appear.
+It speaks every new decision message (an agent message starting with
+``目标:`` / ``Goal:``) and every changed ``STATE.md updated: ...`` plan line.
 
 Default voices are young female Edge voices:
   Chinese: zh-CN-XiaoxiaoNeural
@@ -14,6 +13,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
+import json
 import re
 import subprocess
 import sys
@@ -26,6 +26,7 @@ DEFAULT_ZH_VOICE = "zh-CN-XiaoxiaoNeural"
 DEFAULT_EN_VOICE = "en-US-AvaNeural"
 CJK = re.compile(r"[\u3400-\u9fff]")
 STATE_LINE = re.compile(r"STATE\.md updated:\s*(.*?)\s*\(revision\s+\d+\)")
+GOAL_MESSAGE = re.compile(r"^\s*(?:目标|goal)\s*[:：]", re.I)
 
 
 def clean_text(text: str, limit: int = 280) -> str:
@@ -140,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", default=str(ROOT))
     parser.add_argument("--run-dir")
     parser.add_argument("--run-id")
-    parser.add_argument("--interval", type=float, default=300.0)
+    parser.add_argument("--interval", type=float, default=300.0, help="ignored; retention for old launchers")
     parser.add_argument("--voice-zh", default=DEFAULT_ZH_VOICE)
     parser.add_argument("--voice-en", default=DEFAULT_EN_VOICE)
     parser.add_argument("--min-chars", type=int, default=10)
@@ -150,36 +151,38 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-play", action="store_true", help="synthesize but do not play audio")
     args = parser.parse_args(argv)
     run_dir = resolve_run_dir(args)
-    digest = Tail(run_dir / "thoughts.digest.log", args.from_start)
+    events = Tail(run_dir / "agent.events.jsonl", args.from_start)
     activity = Tail(run_dir / "activity.log", args.from_start)
-    print(f"[narrate] run={run_dir.name} interval={args.interval:.0f}s", flush=True)
-    next_decision = time.monotonic() + max(1.0, args.interval)
-    pending_decision = ""
-    pending_state = ""
+    print(f"[narrate] run={run_dir.name} decisions+state", flush=True)
+    pending: list[str] = []
+    last_state = ""
     while True:
-        for line in digest.read_lines():
-            text = clean_text(line)
-            if len(text) >= args.min_chars and not text.startswith(("{", "[", "/sc")):
-                pending_decision = text
+        for line in events.read_lines():
+            try:
+                event = json.loads(line)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if event.get("type") != "item.completed":
+                continue
+            item = event.get("item") or {}
+            if item.get("type") != "agent_message":
+                continue
+            text = clean_text(str(item.get("text") or ""))
+            if GOAL_MESSAGE.match(text):
+                pending.append(text)
         for line in activity.read_lines():
             match = STATE_LINE.search(line)
-            if match:
-                pending_state = clean_text(match.group(1))
-        if pending_state:
-            text = f"计划更新：{pending_state}"
-            pending_state = ""
+            if not match:
+                continue
+            state = clean_text(match.group(1))
+            if state and state != last_state:
+                last_state = state
+                pending.append(f"计划更新：{state}")
+        while pending:
+            text = pending.pop(0)
             speak(text, choose_voice(text, args.voice_zh, args.voice_en), args.dry_run, args.no_play)
             if args.once:
                 return 0
-        now = time.monotonic()
-        if now >= next_decision:
-            if pending_decision:
-                text = pending_decision
-                pending_decision = ""
-                speak(text, choose_voice(text, args.voice_zh, args.voice_en), args.dry_run, args.no_play)
-                if args.once:
-                    return 0
-            next_decision = now + max(1.0, args.interval)
         time.sleep(1.0)
 
 

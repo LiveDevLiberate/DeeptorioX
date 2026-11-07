@@ -1,4 +1,4 @@
-# edge-tts narration for autorio: one decision every 5 minutes plus STATE updates.
+# edge-tts narration for autorio: every goal/decision and every STATE plan change.
 #   .\scripts\narrate-edge.ps1 -RunId <id>
 #   .\scripts\narrate-edge.ps1 -RunId <id> -DryRun
 #   .\scripts\narrate-edge.ps1 -RunId <id> -NoPlay
