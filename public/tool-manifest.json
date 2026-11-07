@@ -611,6 +611,13 @@
           "required": false
         },
         {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "plan_id",
+          "required": false
+        },
+        {
           "annotation": "Any",
           "default": null,
           "kind": "var_keyword",
@@ -618,7 +625,7 @@
           "required": true
         }
       ],
-      "signature": "build(self, entities: 'list[dict[str, Any]]', *, clear: 'bool' = True, plan_kind: 'str | None' = None, plan_meta: 'dict[str, Any] | None' = None, **options: 'Any') -> 'Any'"
+      "signature": "build(self, entities: 'list[dict[str, Any]]', *, clear: 'bool' = True, plan_kind: 'str | None' = None, plan_meta: 'dict[str, Any] | None' = None, plan_id: 'str | None' = None, **options: 'Any') -> 'Any'"
     },
     {
       "description": "",
@@ -2700,6 +2707,20 @@
           "required": false
         },
         {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "blueprint",
+          "required": false
+        },
+        {
+          "annotation": "dict[str, Any] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "prototype_sizes",
+          "required": false
+        },
+        {
           "annotation": "Any",
           "default": "None",
           "kind": "keyword_only",
@@ -2721,7 +2742,7 @@
           "required": false
         }
       ],
-      "signature": "plan_construction(self, kind: 'str', *, entities: 'list[dict[str, Any]] | None' = None, targets: 'list[dict[str, Any]] | None' = None, blueprint_id: 'str | None' = None, blueprint_hash: 'str | None' = None, anchor: 'Any' = None, rotation: 'int | None' = None, mirror: 'bool | None' = None) -> 'dict[str, Any] | None'"
+      "signature": "plan_construction(self, kind: 'str', *, entities: 'list[dict[str, Any]] | None' = None, targets: 'list[dict[str, Any]] | None' = None, blueprint_id: 'str | None' = None, blueprint_hash: 'str | None' = None, blueprint: 'str | None' = None, prototype_sizes: 'dict[str, Any] | None' = None, anchor: 'Any' = None, rotation: 'int | None' = None, mirror: 'bool | None' = None) -> 'dict[str, Any] | None'"
     },
     {
       "description": "Plan an orthogonal belt/pipe/wall/power route through free space.",
@@ -3453,7 +3474,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "6958e7eccd515d471292fee51c0a36c39ae7a3cf9e82cfa56225eff2cb5a5d28",
+  "client_sha256": "9f96ded69814648c584b7103ed05021bf993bab9c81c566272f47d702af79afc",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3660,7 +3681,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "6958e7eccd515d471292fee51c0a36c39ae7a3cf9e82cfa56225eff2cb5a5d28",
+    "factorio.py": "9f96ded69814648c584b7103ed05021bf993bab9c81c566272f47d702af79afc",
     "src/api/agent.ts": "e7f9dbd682d764c31703bf254ff82389043d91173443e2dcfedbea0017e9d98c",
     "src/api/alerts.ts": "d491a17165f4d93f4153e8d465b4e345a72ef313225b57fd8942e6beb9b77e78",
     "src/api/area-edit.ts": "ac0571688c4e2649e1bdbcecf8f7a1f40adba663c7e3632ed8ec29f252b2ee3f",

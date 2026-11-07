@@ -153,6 +153,144 @@ function summarize(payload: Record<string, unknown>): BlueprintSummary {
   };
 }
 
+export type BlueprintPrototypeSize = { width: number; height: number };
+
+function blueprintEntities(payload: Record<string, unknown>): Array<Record<string, unknown>> {
+  const root = record(payload.blueprint);
+  const effective = root ?? payload;
+  if (!root && payload.blueprint_book !== undefined) {
+    throw new Error("blueprint books are not supported; export a single blueprint");
+  }
+  const entities = effective.entities;
+  if (entities === undefined || entities === null) return [];
+  if (!Array.isArray(entities)) throw new Error("blueprint entities must be a list");
+  return entities.map((entry, index) => {
+    const value = record(entry);
+    if (!value) throw new Error(`blueprint entity ${index} is not an object`);
+    return value;
+  });
+}
+
+function blueprintPoint(value: unknown, label: string): { x: number; y: number } {
+  const point = record(value);
+  const x = asNumber(point?.x ?? (Array.isArray(value) ? value[0] : undefined));
+  const y = asNumber(point?.y ?? (Array.isArray(value) ? value[1] : undefined));
+  if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new Error(`${label} must contain finite x/y numbers`);
+  }
+  return { x, y };
+}
+
+function prototypeSize(
+  sizes: Record<string, BlueprintPrototypeSize> | undefined,
+  name: string,
+): { width: number; height: number } | undefined {
+  const size = sizes?.[name];
+  return size &&
+    Number.isInteger(size.width) &&
+    Number.isInteger(size.height) &&
+    size.width > 0 &&
+    size.height > 0
+    ? size
+    : undefined;
+}
+
+function blueprintUndergroundType(
+  entity: Record<string, unknown>,
+  index: number,
+): "input" | "output" | undefined {
+  const name = asString(entity.name);
+  if (!name || !(name === "pipe-to-ground" || name.endsWith("underground-belt"))) return undefined;
+  if (entity.type !== "input" && entity.type !== "output") {
+    throw new Error(`blueprint entity ${index} (${name}) needs type 'input' or 'output'`);
+  }
+  return entity.type;
+}
+
+export type ExpandedBlueprintEntity = {
+  name: string;
+  anchor: { x: number; y: number };
+  direction?: number;
+  underground_type?: "input" | "output";
+};
+
+/**
+ * Expand a decoded blueprint payload into manager build entities.
+ *
+ * Positions in blueprint JSON are entity centers; manager entities carry the
+ * integer top-left anchor. Prototype footprints are required for multi-tile
+ * entities; unknown names fall back to a 1x1 anchor.
+ */
+export function expandBlueprintPayload(
+  payload: Record<string, unknown>,
+  options: {
+    anchor?: { x: number; y: number };
+    offset?: { x: number; y: number };
+    prototype_sizes?: Record<string, BlueprintPrototypeSize>;
+  } = {},
+): ExpandedBlueprintEntity[] {
+  const entities = blueprintEntities(payload);
+  const expanded: ExpandedBlueprintEntity[] = [];
+  const numbers: number[] = [];
+  for (const [index, entity] of entities.entries()) {
+    const name = asString(entity.name);
+    if (!name) throw new Error(`blueprint entity ${index} has no name`);
+    const position = blueprintPoint(entity.position, `blueprint entity ${index} position`);
+    const rawDirection = asNumber(entity.direction);
+    let direction: number | undefined;
+    if (rawDirection !== undefined) {
+      if (!Number.isInteger(rawDirection) || rawDirection < 0 || rawDirection > 15) {
+        throw new Error(`blueprint entity ${index} direction must be 0-15`);
+      }
+      direction = rawDirection;
+    }
+    const underground = blueprintUndergroundType(entity, index);
+    const size = prototypeSize(options.prototype_sizes, name);
+    let anchorX: number;
+    let anchorY: number;
+    if (size) {
+      const width = direction === 4 || direction === 12 ? size.height : size.width;
+      const height = direction === 4 || direction === 12 ? size.width : size.height;
+      anchorX = Math.round(position.x - width / 2);
+      anchorY = Math.round(position.y - height / 2);
+    } else {
+      anchorX = Math.floor(position.x);
+      anchorY = Math.floor(position.y);
+    }
+    const item: ExpandedBlueprintEntity = { name, anchor: { x: anchorX, y: anchorY } };
+    if (direction !== undefined) item.direction = direction;
+    if (underground) item.underground_type = underground;
+    expanded.push(item);
+    numbers.push(Number.isInteger(entity.entity_number) ? Number(entity.entity_number) : index);
+  }
+  const anchor = options.anchor;
+  if (anchor && expanded.length) {
+    const minX = Math.min(...expanded.map((entity) => entity.anchor.x));
+    const minY = Math.min(...expanded.map((entity) => entity.anchor.y));
+    for (const entity of expanded) {
+      entity.anchor.x = Math.round(entity.anchor.x + anchor.x - minX);
+      entity.anchor.y = Math.round(entity.anchor.y + anchor.y - minY);
+    }
+  }
+  const offset = options.offset;
+  if (offset && (offset.x || offset.y)) {
+    for (const entity of expanded) {
+      entity.anchor.x = Math.round(entity.anchor.x + offset.x);
+      entity.anchor.y = Math.round(entity.anchor.y + offset.y);
+    }
+  }
+  const order = expanded
+    .map((entity, index) => ({ entity, index, number: numbers[index] }))
+    .sort(
+      (left, right) =>
+        left.entity.anchor.y - right.entity.anchor.y ||
+        left.entity.anchor.x - right.entity.anchor.x ||
+        left.number - right.number ||
+        left.index - right.index,
+    );
+  return order.map((entry) => entry.entity);
+}
+
 /**
  * Decode a Factorio blueprint wire string and produce the run-page summary.
  *

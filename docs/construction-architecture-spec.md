@@ -864,14 +864,17 @@ Implemented in this branch:
 - Python client auto-planning for build, mine-cleanup, rotate, set-recipe,
   copy-settings and blueprints;
 - construction metrics in discipline and capability variant fields;
-- tests for modes, token consume/mismatch/expiry-by-audit, blueprint/cleanup
-  plans and API route behavior.
+- manager-side blueprint decoding/expansion with prototype-size anchors and
+  chunked blueprint plans;
+- post-plan verifier classification (`effective`, `neutral`, `ineffective`,
+  `regressed`) and repeated-ineffective plan blocking;
+- tests for modes, token consume/mismatch/expiry-by-audit, blueprint expansion,
+  chunked plans, cleanup plans, verifier behavior and API route behavior.
 
 Deferred to the next implementation phase:
 
-- manager-side blueprint decoding/expansion (v1 binds client-expanded entities
-  to a blueprint hash; the manager does not yet expand the blueprint string);
 - service-generated power/pipe/belt layouts;
-- post-plan verifier and `effective`/`ineffective` classification;
 - leaderboard UI grouping and cross-variant comparison controls;
-- working-block protection beyond the existing cleanup cluster guard.
+- working-block protection beyond the existing cleanup cluster guard;
+- automatic required-item preflight for manager-expanded blueprints (the
+  placement/material preflight still uses the client's inventory check).

@@ -66,6 +66,7 @@ import {
   type ConstructionTarget,
 } from "./construction.js";
 import { pointInRefactorCluster, type RefactorCluster } from "./refactor-audit.js";
+import { decodeBlueprintString, expandBlueprintPayload } from "./blueprints.js";
 import { normalizeMapGen } from "./map-config.js";
 import {
   listRunBlueprints,
@@ -1306,7 +1307,7 @@ export class RunManager {
     const kind = rawKind as ConstructionPlanKind;
     const rawEntities = Array.isArray(record.entities) ? record.entities : [];
     const rawTargets = Array.isArray(record.targets) ? record.targets : [];
-    const entities = rawEntities
+    let entities = rawEntities
       .map((entry) => normalizeConstructionEntity(entry))
       .filter((entry): entry is ConstructionEntity => Boolean(entry));
     const targets = rawTargets
@@ -1327,6 +1328,76 @@ export class RunManager {
         {},
         400,
       );
+    }
+    const anchorRecord =
+      record.anchor && typeof record.anchor === "object"
+        ? (record.anchor as Record<string, unknown>)
+        : undefined;
+    const anchorX = Number(anchorRecord?.x);
+    const anchorY = Number(anchorRecord?.y);
+    const anchor =
+      Number.isFinite(anchorX) && Number.isFinite(anchorY) ? { x: anchorX, y: anchorY } : undefined;
+    let decodedBlueprintHash: string | undefined;
+    if (kind === "blueprint" && typeof record.blueprint === "string") {
+      let decoded;
+      try {
+        decoded = decodeBlueprintString(record.blueprint);
+      } catch (error) {
+        throw new ConstructionPlanError(
+          "BLUEPRINT_INVALID",
+          error instanceof Error ? error.message : "invalid blueprint",
+        );
+      }
+      const sizesRecord =
+        record.prototype_sizes && typeof record.prototype_sizes === "object"
+          ? (record.prototype_sizes as Record<string, unknown>)
+          : undefined;
+      const prototypeSizes: Record<string, { width: number; height: number }> = {};
+      for (const [name, value] of Object.entries(sizesRecord ?? {})) {
+        const size = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+        const width = Number(size.width);
+        const height = Number(size.height);
+        if (Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0) {
+          prototypeSizes[name] = { width, height };
+        }
+      }
+      let expanded;
+      try {
+        expanded = expandBlueprintPayload(decoded.payload, {
+          ...(anchor ? { anchor } : {}),
+          prototype_sizes: prototypeSizes,
+        });
+      } catch (error) {
+        throw new ConstructionPlanError(
+          "BLUEPRINT_INVALID",
+          error instanceof Error ? error.message : "blueprint expansion failed",
+        );
+      }
+      const canonical = expanded
+        .map((entry) => normalizeConstructionEntity(entry))
+        .filter((entry): entry is ConstructionEntity => Boolean(entry));
+      if (entities.length) {
+        const expected = entities.map((entry) => ({
+          name: entry.name,
+          anchor: entry.anchor,
+          direction: entry.direction,
+          underground_type: entry.underground_type,
+        }));
+        const actual = canonical.map((entry) => ({
+          name: entry.name,
+          anchor: entry.anchor,
+          direction: entry.direction,
+          underground_type: entry.underground_type,
+        }));
+        if (JSON.stringify(expected) !== JSON.stringify(actual)) {
+          throw new ConstructionPlanError(
+            "BLUEPRINT_TARGET_MISMATCH",
+            "The submitted entities do not match manager-side blueprint expansion.",
+          );
+        }
+      }
+      entities = canonical;
+      decodedBlueprintHash = decoded.sha256;
     }
     if ((kind === "build" || kind === "blueprint" || kind === "expansion") && entities.length === 0) {
       throw new ConstructionPlanError("PLAN_BAD_REQUEST", `${kind} plan needs entities`, {}, 400);
@@ -1393,14 +1464,6 @@ export class RunManager {
         { audit_revision: auditRevision },
       );
     }
-    const anchorRecord =
-      record.anchor && typeof record.anchor === "object"
-        ? (record.anchor as Record<string, unknown>)
-        : undefined;
-    const anchorX = Number(anchorRecord?.x);
-    const anchorY = Number(anchorRecord?.y);
-    const anchor =
-      Number.isFinite(anchorX) && Number.isFinite(anchorY) ? { x: anchorX, y: anchorY } : undefined;
     const rotation = Number(record.rotation);
     const normalizedRotation = [0, 2, 4, 6].includes(rotation) ? rotation : undefined;
     const mirror = record.mirror === true;
@@ -1411,12 +1474,46 @@ export class RunManager {
     const blueprintHash =
       typeof record.blueprint_hash === "string" && record.blueprint_hash.trim()
         ? record.blueprint_hash.trim()
-        : undefined;
+        : decodedBlueprintHash;
+    if (
+      decodedBlueprintHash &&
+      typeof record.blueprint_hash === "string" &&
+      record.blueprint_hash.trim() &&
+      record.blueprint_hash.trim() !== decodedBlueprintHash
+    ) {
+      throw new ConstructionPlanError(
+        "BLUEPRINT_TARGET_MISMATCH",
+        "blueprint_hash does not match the supplied blueprint.",
+      );
+    }
     if (blueprintId && !blueprintHash) {
       // The token must bind the design, not just its label.
       throw new ConstructionPlanError(
         "BLUEPRINT_INVALID",
         "blueprint_hash is required when blueprint_id is supplied",
+      );
+    }
+    const planHash = constructionPlanHash({
+      kind,
+      entities,
+      targets,
+      ...(blueprintId ? { blueprint_id: blueprintId } : {}),
+      ...(blueprintHash ? { blueprint_hash: blueprintHash } : {}),
+      ...(anchor ? { anchor } : {}),
+      ...(normalizedRotation !== undefined ? { rotation: normalizedRotation } : {}),
+      ...(mirror ? { mirror } : {}),
+    });
+    const repeatedIneffective = run.construction_plans?.find(
+      (entry) =>
+        entry.targets_hash === planHash &&
+        entry.verification?.result === "ineffective" &&
+        Date.now() - Date.parse(entry.verification.verified_at) < 5 * 60 * 1000,
+    );
+    if (repeatedIneffective) {
+      throw new ConstructionPlanError(
+        "PLAN_INEFFECTIVE",
+        "The same plan was ineffective within the last five minutes; change the plan before retrying.",
+        { previous_plan_id: repeatedIneffective.plan_id },
       );
     }
     const ttlRaw = Number(process.env.AUTORIO_CONSTRUCTION_PLAN_TTL_SECONDS ?? 300);
@@ -1439,16 +1536,8 @@ export class RunManager {
       expires_at: now + ttl * 1000,
       audit_revision: auditRevision,
       refactor_revision: auditRevision,
-      targets_hash: constructionPlanHash({
-        kind,
-        entities,
-        targets,
-        ...(blueprintId ? { blueprint_id: blueprintId } : {}),
-        ...(blueprintHash ? { blueprint_hash: blueprintHash } : {}),
-        ...(anchor ? { anchor } : {}),
-        ...(normalizedRotation !== undefined ? { rotation: normalizedRotation } : {}),
-        ...(mirror ? { mirror } : {}),
-      }),
+      audit_invalid_before: run.refactor?.invalid_count ?? 0,
+      targets_hash: planHash,
       bbox: planBBox(entities, targets),
       entities,
       targets,
@@ -1570,6 +1659,65 @@ export class RunManager {
     const actionTargets = (Array.isArray(input.targets) ? input.targets : [])
       .map((entry) => normalizeConstructionTarget(entry))
       .filter((entry): entry is ConstructionTarget => Boolean(entry));
+    if (plan.kind === "blueprint") {
+      // Blueprints execute in chunks. Every chunk entity must belong to the
+      // manager-expanded plan; the token is consumed only after the full set.
+      if (!actionEntities.length) {
+        this.rejectConstructionPlan(
+          run,
+          new ConstructionPlanError("PLAN_TARGET_MISMATCH", "Blueprint action has no entities"),
+        );
+      }
+      const planned = new Set(
+        plan.entities.map((entity) =>
+          JSON.stringify({
+            name: entity.name,
+            anchor: entity.anchor,
+            direction: entity.direction,
+            underground_type: entity.underground_type,
+          }),
+        ),
+      );
+      const executed = new Set(plan.executed_entities ?? []);
+      for (const entity of actionEntities) {
+        const key = JSON.stringify({
+          name: entity.name,
+          anchor: entity.anchor,
+          direction: entity.direction,
+          underground_type: entity.underground_type,
+        });
+        if (!planned.has(key)) {
+          this.rejectConstructionPlan(
+            run,
+            new ConstructionPlanError(
+              "PLAN_TARGET_MISMATCH",
+              "Blueprint chunk contains an entity outside the manager-expanded plan.",
+              { plan_id: plan.plan_id },
+            ),
+          );
+        }
+        if (executed.has(key)) {
+          this.rejectConstructionPlan(
+            run,
+            new ConstructionPlanError(
+              "PLAN_ALREADY_CONSUMED",
+              "Blueprint chunk repeats an already executed entity.",
+              { plan_id: plan.plan_id },
+            ),
+          );
+        }
+        executed.add(key);
+      }
+      plan.executed_entities = [...executed];
+      state.metrics.planned_actions += 1;
+      if (plan.executed_entities.length >= plan.entities.length) plan.status = "consumed";
+      this.persist(run);
+      this.event(
+        run,
+        `Blueprint plan ${plan.plan_id} chunk accepted (${plan.executed_entities.length}/${plan.entities.length})`,
+      );
+      return plan;
+    }
     const actionHash = constructionPlanHash({
       kind: plan.kind,
       entities: actionEntities,
@@ -1613,6 +1761,40 @@ export class RunManager {
     this.persist(run);
     this.event(run, `Construction plan ${plan.plan_id} consumed (${plan.kind})`);
     return plan;
+  }
+
+  /**
+   * Classify a consumed plan after its job finished and an audit refresh ran.
+   * Called by the server's action-job recorder, never by the agent.
+   */
+  verifyConstructionPlan(
+    planId: string,
+    job: { status?: string; error?: string | null; results?: unknown[] },
+  ) {
+    const run = this.active;
+    const plan = run?.construction_plans?.find((entry) => entry.plan_id === planId);
+    if (!run || !plan || plan.status !== "consumed" || plan.verification) return undefined;
+    const before = plan.audit_invalid_before;
+    const after = run.refactor?.invalid_count ?? before;
+    let result: "effective" | "neutral" | "ineffective" | "regressed";
+    if (job.status !== "completed") result = "ineffective";
+    else if (after < before) result = "effective";
+    else if (after === before) result = "neutral";
+    else result = "regressed";
+    plan.verification = {
+      result,
+      audit_before: before,
+      audit_after: after,
+      verified_at: new Date().toISOString(),
+      ...(job.error ? { error: String(job.error).slice(0, 300) } : {}),
+    };
+    if (run.construction) {
+      if (result === "ineffective") run.construction.metrics.plan_ineffective += 1;
+      if (result === "regressed") run.construction.metrics.plan_regressions += 1;
+    }
+    this.persist(run);
+    this.event(run, `Construction plan ${plan.plan_id} verified: ${result} (audit ${before} -> ${after})`);
+    return plan.verification;
   }
 
   refactorBuildCheck(

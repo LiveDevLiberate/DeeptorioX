@@ -49,6 +49,7 @@ export type ConstructionPlan = {
   expires_at: number;
   audit_revision: number;
   refactor_revision: number;
+  audit_invalid_before: number;
   targets_hash: string;
   bbox: { left: number; top: number; right: number; bottom: number };
   entities: ConstructionEntity[];
@@ -62,6 +63,15 @@ export type ConstructionPlan = {
   mirror?: boolean;
   single_use: true;
   status: "issued" | "consumed" | "expired" | "invalidated";
+  /** Blueprint plans are consumed after every expanded entity has been sent. */
+  executed_entities?: string[];
+  verification?: {
+    result: "effective" | "neutral" | "ineffective" | "regressed";
+    audit_before: number;
+    audit_after: number;
+    verified_at: string;
+    error?: string;
+  };
 };
 
 export type ConstructionPlanErrorCode =
@@ -73,6 +83,7 @@ export type ConstructionPlanErrorCode =
   | "PLAN_REVISION_CHANGED"
   | "PLAN_KIND_MISMATCH"
   | "PLAN_ALREADY_CONSUMED"
+  | "PLAN_INEFFECTIVE"
   | "PLAN_BAD_REQUEST"
   | "BLUEPRINT_INVALID"
   | "BLUEPRINT_TARGET_MISMATCH";
@@ -261,6 +272,8 @@ export function constructionPlanPublic(plan: ConstructionPlan) {
     expires_at: plan.expires_at,
     audit_revision: plan.audit_revision,
     refactor_revision: plan.refactor_revision,
+    audit_invalid_before: plan.audit_invalid_before,
+    verification: plan.verification,
     targets_hash: plan.targets_hash,
     bbox: plan.bbox,
     allowed_entity_names: plan.allowed_entity_names,
@@ -271,5 +284,11 @@ export function constructionPlanPublic(plan: ConstructionPlan) {
     rotation: plan.rotation,
     mirror: plan.mirror,
     status: plan.status,
+    ...(plan.kind === "blueprint"
+      ? {
+          blueprint_entities: plan.entities,
+          executed_entity_count: plan.executed_entities?.length ?? 0,
+        }
+      : {}),
   };
 }

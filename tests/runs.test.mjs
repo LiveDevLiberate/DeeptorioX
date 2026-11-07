@@ -1286,3 +1286,112 @@ test("blueprint and cleanup plans bind their kind, hash and cleanup targets", as
     await manager.stop();
   }
 });
+
+test("construction verifier classifies effective and failed plans and blocks repeats", async () => {
+  const { manager } = setup();
+  try {
+    const run = manager.start({ agent: "manual", benchmark: "smoke", construction_mode: "planned" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    manager.recordRefactorAudit({
+      invalid_count: 12,
+      factory_problems: 3,
+      connection_issues: 9,
+      fingerprint: "before-effective",
+    });
+    const entities = [{ name: "stone-furnace", anchor: { x: 2, y: 2 } }];
+    const plan = manager.createConstructionPlan({ kind: "build", entities });
+    assert.equal(plan.audit_invalid_before, 12);
+    manager.requireConstructionPlan({
+      plan_id: plan.plan_id,
+      allowed_kinds: ["build"],
+      entities,
+    });
+    manager.recordRefactorAudit({
+      invalid_count: 4,
+      factory_problems: 1,
+      connection_issues: 3,
+      fingerprint: "after-effective",
+    });
+    const verified = manager.verifyConstructionPlan(plan.plan_id, { status: "completed" });
+    assert.equal(verified?.result, "effective");
+    assert.deepEqual(
+      [verified?.audit_before, verified?.audit_after],
+      [12, 4],
+    );
+
+    const failed = manager.createConstructionPlan({
+      kind: "build",
+      entities: [{ name: "stone-furnace", anchor: { x: 7, y: 7 } }],
+    });
+    manager.requireConstructionPlan({
+      plan_id: failed.plan_id,
+      allowed_kinds: ["build"],
+      entities: [{ name: "stone-furnace", anchor: { x: 7, y: 7 } }],
+    });
+    const ineffective = manager.verifyConstructionPlan(failed.plan_id, { status: "failed" });
+    assert.equal(ineffective?.result, "ineffective");
+    assert.throws(
+      () =>
+        manager.createConstructionPlan({
+          kind: "build",
+          entities: [{ name: "stone-furnace", anchor: { x: 7, y: 7 } }],
+        }),
+      (error) => error.code === "PLAN_INEFFECTIVE",
+    );
+  } finally {
+    await manager.stop();
+  }
+});
+
+test("manager expands a blueprint plan and accepts chunked execution", async () => {
+  const { manager } = setup();
+  try {
+    const run = manager.start({ agent: "manual", benchmark: "smoke", construction_mode: "planned" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    const wire = encodeCapturedBlueprint(
+      [
+        { name: "transport-belt", position: { x: 0.5, y: 0.5 }, direction: 4, entity_number: 1 },
+        { name: "transport-belt", position: { x: 1.5, y: 0.5 }, direction: 4, entity_number: 2 },
+      ],
+      "chunk test",
+    ).wire;
+    const plan = manager.createConstructionPlan({
+      kind: "blueprint",
+      blueprint: wire,
+      anchor: { x: 5, y: 6 },
+      prototype_sizes: { "transport-belt": { width: 1, height: 1 } },
+    });
+    assert.equal(plan.kind, "blueprint");
+    assert.ok(plan.blueprint_hash);
+    assert.equal(plan.blueprint_entities.length, 2);
+    assert.deepEqual(plan.blueprint_entities.map((entry) => entry.anchor), [
+      { x: 5, y: 6 },
+      { x: 6, y: 6 },
+    ]);
+    const first = manager.requireConstructionPlan({
+      plan_id: plan.plan_id,
+      allowed_kinds: ["build", "blueprint"],
+      entities: [plan.blueprint_entities[0]],
+    });
+    assert.equal(first?.status, "issued");
+    assert.equal(first?.executed_entities?.length, 1);
+    const second = manager.requireConstructionPlan({
+      plan_id: plan.plan_id,
+      allowed_kinds: ["build", "blueprint"],
+      entities: [plan.blueprint_entities[1]],
+    });
+    assert.equal(second?.status, "consumed");
+    assert.equal(second?.executed_entities?.length, 2);
+    assert.throws(
+      () =>
+        manager.requireConstructionPlan({
+          plan_id: plan.plan_id,
+          allowed_kinds: ["build", "blueprint"],
+          entities: [plan.blueprint_entities[0]],
+        }),
+      (error) => error.code === "PLAN_ALREADY_CONSUMED",
+    );
+  } finally {
+    await manager.stop();
+  }
+});

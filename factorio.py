@@ -3113,6 +3113,8 @@ class FactorioClient:
         targets: list[dict[str, Any]] | None = None,
         blueprint_id: str | None = None,
         blueprint_hash: str | None = None,
+        blueprint: str | None = None,
+        prototype_sizes: dict[str, Any] | None = None,
         anchor: Any = None,
         rotation: int | None = None,
         mirror: bool | None = None,
@@ -3148,6 +3150,10 @@ class FactorioClient:
             body["blueprint_id"] = blueprint_id
         if blueprint_hash:
             body["blueprint_hash"] = blueprint_hash
+        if blueprint:
+            body["blueprint"] = blueprint
+        if prototype_sizes:
+            body["prototype_sizes"] = prototype_sizes
         if anchor is not None:
             body["anchor"] = anchor
         if rotation is not None:
@@ -3184,19 +3190,22 @@ class FactorioClient:
     def build(self, entities: list[dict[str, Any]], *, clear: bool = True,
               plan_kind: str | None = None,
               plan_meta: dict[str, Any] | None = None,
+              plan_id: str | None = None,
               **options: Any) -> Any:
         """Build entities after mining trees/rocks from their footprints."""
         payload: dict[str, Any] = {"entities": entities, "clear_obstacles": clear}
         kind = plan_kind or getattr(self, "_active_plan_kind", "build")
         meta = dict(plan_meta if plan_meta is not None
                     else getattr(self, "_active_plan_meta", None) or {})
-        plan_id = self._construction_plan_id(
-            kind,
-            entities=entities,
-            blueprint_hash=meta.get("blueprint_hash"),
-        )
-        if plan_id:
-            payload["plan_id"] = plan_id
+        resolved_plan_id = plan_id or getattr(self, "_active_plan_id", None)
+        if resolved_plan_id is None:
+            resolved_plan_id = self._construction_plan_id(
+                kind,
+                entities=entities,
+                blueprint_hash=meta.get("blueprint_hash"),
+            )
+        if resolved_plan_id:
+            payload["plan_id"] = resolved_plan_id
         return self.submit_action("build", payload, **options)
 
     def _blueprint_prototype_sizes(
@@ -3330,6 +3339,18 @@ class FactorioClient:
             }
         wire = blueprint if isinstance(blueprint, str) else encode_blueprint_string(payload)
         blueprint_hash = hashlib.sha256(wire.encode("utf-8")).hexdigest()
+        plan_id = None
+        plan = self.plan_construction(
+            "blueprint",
+            blueprint=wire,
+            prototype_sizes=sizes,
+            anchor=anchor,
+        )
+        if plan:
+            plan_id = str(plan.get("plan_id") or "") or None
+            manager_entities = plan.get("blueprint_entities")
+            if isinstance(manager_entities, list) and manager_entities:
+                entities = [dict(entry) for entry in manager_entities if isinstance(entry, dict)]
         summary = self._submit_planned(
             entities,
             clear=clear,
@@ -3338,9 +3359,12 @@ class FactorioClient:
             include_entities=False,
             plan_kind="blueprint",
             plan_meta={"blueprint_hash": blueprint_hash},
+            plan_id=plan_id,
         )
         summary["blueprint_entities"] = len(entities)
         summary["blueprint_hash"] = blueprint_hash
+        if plan_id:
+            summary["plan_id"] = plan_id
         return summary
 
     def _run_chunks(
@@ -3423,6 +3447,7 @@ class FactorioClient:
         include_entities: bool = True,
         plan_kind: str = "build",
         plan_meta: dict[str, Any] | None = None,
+        plan_id: str | None = None,
     ) -> dict[str, Any]:
         """Submit a planned entity list in <=50-entity jobs and aggregate results.
 
@@ -3433,8 +3458,10 @@ class FactorioClient:
         plan_entities = [dict(entity) for entity in plan_entities]
         previous_kind = getattr(self, "_active_plan_kind", None)
         previous_meta = getattr(self, "_active_plan_meta", None)
+        previous_plan = getattr(self, "_active_plan_id", None)
         self._active_plan_kind = plan_kind
         self._active_plan_meta = plan_meta
+        self._active_plan_id = plan_id
         try:
             summary = self._run_chunks(
                 plan_entities,
@@ -3444,6 +3471,7 @@ class FactorioClient:
         finally:
             self._active_plan_kind = previous_kind
             self._active_plan_meta = previous_meta
+            self._active_plan_id = previous_plan
         cleared = 0
         skipped: list[Any] = []
         pending_remaining = 0

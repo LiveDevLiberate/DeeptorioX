@@ -462,7 +462,24 @@ const actionJobs = new ActionJobQueue({
   internalKey: INTERNAL_JOB_KEY,
   nativeStop: stopNativeController,
   isCancelled: () => runManager.busy && !runManager.acceptingActions,
-  onRecord: (event, record) => runManager.recordJob(event, record),
+  onRecord: (event, record) => {
+    runManager.recordJob(event, record);
+    const planId =
+      record.payload && typeof record.payload === "object"
+        ? (record.payload as Record<string, unknown>).plan_id
+        : undefined;
+    if (event === "finished" && typeof planId === "string") {
+      const plan = runManager.constructionPlan(planId);
+      // Blueprint plans are executed in chunks; do not refresh the audit between
+      // chunks or the remaining chunks would hit PLAN_REVISION_CHANGED.
+      if (plan?.status === "consumed") {
+        void (async () => {
+          await refreshRefactorAudit(true);
+          runManager.verifyConstructionPlan(planId, record);
+        })();
+      }
+    }
+  },
 });
 
 setInterval(() => {

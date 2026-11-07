@@ -2725,7 +2725,8 @@ class ConstructionPlanClientTests(unittest.TestCase):
                 clear=False,
             )
         self.assertEqual(plan.call_args.args[0], "blueprint")
-        self.assertIn("blueprint_hash", plan.call_args.kwargs)
+        self.assertIn("blueprint", plan.call_args.kwargs)
+        self.assertIn("prototype_sizes", plan.call_args.kwargs)
         self.assertEqual(submit.call_args.args[1]["plan_id"], "pln_bp")
 
 
