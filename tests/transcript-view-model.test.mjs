@@ -13,6 +13,8 @@ import {
   extractFactorioAction,
   extractTarget,
   parseEnvelope,
+  parseTelemetryLines,
+  loopKey,
   LoopDetector,
   mapSettingsView,
   milestoneProgressView,
@@ -498,4 +500,34 @@ test("milestoneProgressView returns null without a usable capability", () => {
   assert.equal(milestoneProgressView({}), null);
   assert.equal(milestoneProgressView({ milestones: { total: 0 } }), null);
   assert.equal(milestoneProgressView({ milestones: null }), null);
+});
+
+test("parseEnvelope skips malformed tail lines and summarizes non-observe envelopes", () => {
+  assert.deepEqual(parseEnvelope('{"ok":true}\n{bad}'), { envelope: { ok: true } });
+  assert.deepEqual(parseEnvelope(""), { envelope: null });
+  const run = (command, envelope) =>
+    summarizeCommand({ command, aggregated_output: JSON.stringify(envelope) });
+  assert.equal(run("factorio.py observe-connections", { counts: { entities: 5 } }).outcome, "5 entities");
+  assert.equal(run("factorio.py observe-connections", { ok: false, error: "boom" }).outcome, "boom");
+  assert.equal(run("factorio.py observe-connections", { ok: false }).outcome, "not connected");
+  assert.equal(run("factorio.py observe-connections", {}).outcome, "observed");
+  assert.equal(run("factorio.py act-build", { job_id: "j1", status: "running" }).outcome, "running");
+  assert.equal(run("factorio.py act-build", { status: "done" }).outcome, "done");
+  assert.equal(run("factorio.py act-build", { ok: true }).outcome, "ok");
+  assert.equal(run("python tool.py", {}).outcome, "");
+  assert.equal(run("factorio.py act-build", { ok: false }).outcome, "failed");
+  assert.equal(
+    run("factorio.py observe-factory", { problems: {}, counts: { entities: 7 } }).outcome,
+    "7 entities",
+  );
+  assert.equal(
+    run("factorio.py observe-factory", { problems: { power: ["a", "b"], fuel: ["c"] } }).outcome,
+    "2 power · 1 fuel",
+  );
+});
+
+test("loopKey and malformed telemetry lines stay safe", () => {
+  assert.equal(loopKey({ key: "command:x" }), "command:x");
+  assert.equal(parseTelemetryLines('not json\n{"a":1}\n{bad}\n{"b":2}').length, 2);
+  assert.deepEqual(parseTelemetryLines(""), []);
 });

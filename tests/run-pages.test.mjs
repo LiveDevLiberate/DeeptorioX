@@ -218,3 +218,96 @@ test("comparison page ranks by capability and warns on mixed scoring configs", a
     delete globalThis.location;
   }
 });
+
+test("comparison page reports selection errors", async () => {
+  class Node {
+    textContent = "";
+  }
+  const nodes = {
+    error: new Node(),
+    matching: new Node(),
+    scoringNotice: new Node(),
+    comparison: new Node(),
+  };
+  globalThis.document = { getElementById: (id) => nodes[id], createElement: () => new Node() };
+  globalThis.location = { search: "?runs=only-one" };
+  try {
+    await import("../public/compare.js?single");
+    assert.match(nodes.error.textContent, /at least two runs/);
+  } finally {
+    delete globalThis.document;
+    delete globalThis.location;
+  }
+});
+
+test("comparison page falls back for legacy runs and warns about variants", async () => {
+  class Node {
+    children = [];
+    textContent = "";
+    className = "";
+    append(...nodes) {
+      this.children.push(...nodes);
+    }
+    replaceChildren(...nodes) {
+      this.children = nodes;
+    }
+  }
+  const nodes = Object.fromEntries(
+    ["error", "matching", "scoringNotice", "comparison"].map((id) => [id, new Node()]),
+  );
+  const fixtures = {
+    legacy: {
+      id: "legacy",
+      agent: "codex",
+      state: "completed",
+      failure_kind: "timed_out",
+      elapsed_seconds: 65,
+      hashes: { benchmark: "one", baseline_save: "a", client: "c1" },
+      milestones: {},
+      automation: { score: 120, blackouts: 3 },
+      construction: { mode: "planned", variant: "planned:grid" },
+    },
+    modern: {
+      id: "modern",
+      agent: "opencode",
+      state: "running",
+      elapsed_seconds: 2,
+      hashes: { benchmark: "two", baseline_save: "b", client: "c2" },
+      milestones: {},
+      construction: { mode: "free", variant: "free:legacy" },
+    },
+  };
+  const oldFetch = globalThis.fetch;
+  globalThis.document = {
+    getElementById: (id) => nodes[id],
+    createElement: () => new Node(),
+  };
+  globalThis.location = { search: "?runs=legacy,modern" };
+  globalThis.fetch = async (url) => ({ ok: true, json: async () => fixtures[url.split("/").at(-1)] });
+  try {
+    await import("../public/compare.js?legacy");
+    assert.equal(nodes.error.textContent, "");
+    assert.match(nodes.matching.textContent, /Different benchmark/);
+    assert.match(nodes.scoringNotice.textContent, /Different construction variants/);
+    const rows = nodes.comparison.children;
+    const values = (label) =>
+      rows
+        .find((row) => row.children[0].textContent === label)
+        .children.slice(1)
+        .map((cell) => cell.textContent);
+    assert.deepEqual(values("Construction"), ["planned", "free"]);
+    assert.deepEqual(values("Construction variant"), ["planned:grid", "free:legacy"]);
+    assert.deepEqual(values("Failure kind"), ["timed_out", "—"]);
+    assert.deepEqual(values("Capability"), ["—", "—"]);
+    assert.deepEqual(values("Discipline flags"), ["—", "—"]);
+    assert.deepEqual(values("Manual mines/crafts"), ["—", "—"]);
+    assert.deepEqual(values("Blackouts"), ["3", "—"]);
+    assert.deepEqual(values("Refactor debt peak"), ["—", "—"]);
+    assert.deepEqual(values("Automation score (legacy)"), ["120", "—"]);
+    assert.deepEqual(values("Input tokens"), ["—", "—"]);
+  } finally {
+    globalThis.fetch = oldFetch;
+    delete globalThis.document;
+    delete globalThis.location;
+  }
+});

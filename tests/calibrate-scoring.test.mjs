@@ -74,3 +74,70 @@ test("calibration ignores benchmarks without completed runs", () => {
     fs.rmSync(runs, { recursive: true, force: true });
   }
 });
+
+test("calibration skips corrupt runs and computes quartiles only with enough samples", () => {
+  const runs = fs.mkdtempSync(path.join(os.tmpdir(), "autorio-calibrate-runs-"));
+  const benchmarks = fs.mkdtempSync(path.join(os.tmpdir(), "autorio-calibrate-bench-"));
+  try {
+    assert.deepEqual(loadRunRecords(path.join(runs, "missing")), []);
+    fs.mkdirSync(path.join(runs, "empty-dir"), { recursive: true });
+    fs.writeFileSync(path.join(runs, "not-a-dir"), "x");
+    fs.mkdirSync(path.join(runs, "no-run"), { recursive: true });
+    fs.mkdirSync(path.join(runs, "corrupt"), { recursive: true });
+    fs.writeFileSync(path.join(runs, "corrupt", "run.json"), "{bad json");
+    writeRun(runs, "a", { benchmark: { id: "smoke", completion: "first-gear" }, milestones: {} });
+    writeRun(runs, "b", { benchmark: { id: "smoke", completion: "first-gear" }, milestones: {} });
+    writeRun(runs, "c", { benchmark: { id: "smoke", completion: "first-gear" }, milestones: {} });
+    writeRun(runs, "d", { benchmark: { id: "smoke", completion: "first-gear" }, milestones: {} });
+    writeRun(runs, "e", {
+      benchmark: { id: "smoke", completion: "first-gear" },
+      milestones: {
+        "first-gear": { wall_seconds: 10 },
+        "second-gear": { wall_seconds: 20 },
+      },
+    });
+    writeRun(runs, "f", { benchmark: { id: "smoke" }, milestones: {} });
+    writeRun(runs, "g", { milestones: {} });
+    const records = loadRunRecords(runs);
+    assert.equal(records.length, 7);
+    assert.equal(records.find((record) => record.id === "f").completion_seconds, undefined);
+    assert.equal(records.find((record) => record.id === "g").benchmark, undefined);
+    const summary = summarizeCompletionTimes(records);
+    const smoke = summary.get("smoke");
+    assert.ok(smoke);
+    assert.equal(smoke.completed, 1);
+    assert.equal(smoke.parse, 10);
+    assert.equal(smoke.min, 10);
+    assert.equal(smoke.provisional, true);
+    assert.equal(summarizeCompletionTimes([{ benchmark: null, milestone_seconds: {} }]).size, 0);
+    fs.writeFileSync(path.join(benchmarks, "smoke.json"), JSON.stringify({ id: "smoke" }));
+    applyPar(benchmarks, summary);
+    const updated = JSON.parse(fs.readFileSync(path.join(benchmarks, "smoke.json"), "utf8"));
+    assert.equal(updated.scoring.par_seconds, 10);
+    assert.match(updated.scoring.par_source, /provisional/);
+    assert.deepEqual(
+      applyPar(benchmarks, new Map([["smoke", { parse: 10, completed: 3, provisional: false }]])),
+      ["smoke"],
+    );
+    const settled = JSON.parse(fs.readFileSync(path.join(benchmarks, "smoke.json"), "utf8"));
+    assert.doesNotMatch(settled.scoring.par_source, /provisional/);
+    assert.deepEqual(applyPar(benchmarks, new Map([["missing", { parse: 10, completed: 3 }]])), []);
+  } finally {
+    fs.rmSync(runs, { recursive: true, force: true });
+    fs.rmSync(benchmarks, { recursive: true, force: true });
+  }
+});
+
+test("calibration leaves benchmarks without a suggested par untouched", () => {
+  const runs = fs.mkdtempSync(path.join(os.tmpdir(), "autorio-calibrate-runs-"));
+  const benchmarks = fs.mkdtempSync(path.join(os.tmpdir(), "autorio-calibrate-bench-"));
+  try {
+    writeRun(runs, "a", { benchmark: { id: "rocket" }, milestones: {} });
+    const summary = summarizeCompletionTimes(loadRunRecords(runs));
+    assert.equal(summary.get("rocket").completed, 0);
+    assert.deepEqual(applyPar(benchmarks, summary), []);
+  } finally {
+    fs.rmSync(runs, { recursive: true, force: true });
+    fs.rmSync(benchmarks, { recursive: true, force: true });
+  }
+});

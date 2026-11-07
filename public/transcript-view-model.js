@@ -220,7 +220,6 @@ function categorize(action) {
   for (const [prefix, category] of CATEGORY_BY_PREFIX) {
     if (action === prefix || action.startsWith(prefix)) return category;
   }
-  if (action === "") return "other";
   return action.startsWith("act-") ? "action" : "other";
 }
 

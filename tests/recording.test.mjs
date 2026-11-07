@@ -78,3 +78,63 @@ test("transcript keeps commands with reused IDs distinct across resumed Codex se
   assert.notEqual(items[0].id, items[1].id);
   assert.equal(transcript.items.size, 2);
 });
+
+test("codex output covers every SGR colour and style branch", () => {
+  const styleAfter = (sequence) => {
+    const parser = new CodexOutput();
+    const segments = parser.push(`\x1b[0m${sequence}text`);
+    return segments.at(-1).style;
+  };
+  assert.deepEqual(styleAfter("\x1b[31m"), { color: "#f2777a" });
+  assert.deepEqual(styleAfter("\x1b[37m"), { color: "#d3d0c8" });
+  assert.deepEqual(styleAfter("\x1b[91m"), { color: "#ff9999" });
+  assert.deepEqual(styleAfter("\x1b[41m"), { backgroundColor: "#f2777a" });
+  assert.deepEqual(styleAfter("\x1b[101m"), { backgroundColor: "#ff9999" });
+  assert.deepEqual(styleAfter("\x1b[38;5;196m"), { color: "rgb(255,0,0)" });
+  assert.deepEqual(styleAfter("\x1b[38;5;232m"), { color: "rgb(8,8,8)" });
+  assert.deepEqual(styleAfter("\x1b[38;5;255m"), { color: "rgb(238,238,238)" });
+  assert.deepEqual(styleAfter("\x1b[48;5;9m"), { backgroundColor: "#ff9999" });
+  assert.deepEqual(styleAfter("\x1b[38;5;300m"), {});
+  assert.deepEqual(styleAfter("\x1b[38;5m"), {});
+  assert.deepEqual(styleAfter("\x1b[38;2;1;2;3m"), { color: "rgb(1,2,3)" });
+  assert.deepEqual(styleAfter("\x1b[48;2;10;20;30m"), { backgroundColor: "rgb(10,20,30)" });
+  assert.deepEqual(styleAfter("\x1b[38;2;1;2m"), { fontWeight: "bold", opacity: "0.65" });
+  assert.deepEqual(styleAfter("\x1b[38;2;256;1;1m"), { fontWeight: "bold", opacity: "0.65" });
+  assert.deepEqual(styleAfter("\x1b[m"), {});
+  assert.deepEqual(styleAfter("\x1b[;1m"), { fontWeight: "bold" });
+});
+
+test("codex output resets and composes style flags", () => {
+  const parser = new CodexOutput();
+  const segments = parser.push(
+    "\x1b[1;2;3;4mflags\x1b[22mno-weight\x1b[23mno-italic\x1b[24mno-underline\x1b[31mred\x1b[39mplain\x1b[41mbg\x1b[49mclear",
+  );
+  const byText = (value) => segments.find((segment) => segment.text === value)?.style;
+  assert.deepEqual(byText("flags"), {
+    fontWeight: "bold",
+    opacity: "0.65",
+    fontStyle: "italic",
+    textDecoration: "underline",
+  });
+  assert.equal(byText("no-weight")?.fontWeight, undefined);
+  assert.equal(byText("no-weight")?.opacity, undefined);
+  assert.equal(byText("no-italic")?.fontStyle, undefined);
+  assert.equal(byText("no-underline")?.textDecoration, undefined);
+  assert.equal(byText("red")?.color, "#f2777a");
+  assert.deepEqual(byText("plain"), {});
+  assert.equal(byText("bg")?.backgroundColor, "#f2777a");
+  assert.deepEqual(byText("clear"), {});
+});
+
+test("codex output buffers incomplete escapes and skips non-SGR commands", () => {
+  const split = new CodexOutput();
+  assert.deepEqual(split.push("a\x1b[3"), [{ text: "a", style: {} }]);
+  assert.deepEqual(split.push("1mB"), [{ text: "B", style: { color: "#f2777a" } }]);
+  const lone = new CodexOutput();
+  assert.deepEqual(lone.push("\x1b"), []);
+  // A bare ESC plus a non-CSI byte is skipped as an unknown escape, not SGR.
+  assert.deepEqual(lone.push("0m"), [{ text: "m", style: {} }]);
+  assert.deepEqual(lone.push("Q"), [{ text: "Q", style: {} }]);
+  assert.deepEqual(new CodexOutput().push("\x1bX"), []);
+  assert.deepEqual(new CodexOutput().push("\x1b[0m"), []);
+});
