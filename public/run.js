@@ -14,6 +14,36 @@ let toolCallsLoading = false;
 let toolCallsError = false;
 let stateHistory = null;
 let stateHistoryLoading = false;
+function closePreview() {
+  $("previewOverlay").hidden = true;
+  $("previewBody").replaceChildren();
+}
+function openPreview(url, title, kind = "iframe") {
+  $("previewTitle").textContent = title || "Preview";
+  $("previewNewTab").href = url;
+  $("previewBody").replaceChildren();
+  $("previewOverlay").hidden = false;
+  if (kind === "image") {
+    const host = document.createElement("div");
+    host.className = "map-viewer";
+    $("previewBody").append(host);
+    globalThis.createMapViewer(host, url);
+  } else {
+    const frame = document.createElement("iframe");
+    frame.src = url;
+    frame.title = title || "Preview";
+    frame.loading = "eager";
+    $("previewBody").append(frame);
+  }
+}
+$("previewClose").onclick = closePreview;
+$("previewOverlay").addEventListener("click", (event) => {
+  if (event.target === $("previewOverlay")) closePreview();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$("previewOverlay").hidden) closePreview();
+});
+
 function renderVideo() {
   const segment = videoSegments.find((segment) => String(segment.index) === selectedVideoSegment);
   const video = segment?.video;
@@ -100,12 +130,16 @@ function renderBlueprints() {
       download.className = "blueprint-download";
       download.href = `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(blueprint.id)}?download=1`;
       download.download = `blueprint-${blueprint.id}.txt`;
-      const viewer = document.createElement("a");
-      viewer.textContent = "Full viewer";
-      viewer.className = "blueprint-download";
-      viewer.href = `/blueprint-viewer/viewer.html?run=${encodeURIComponent(id)}&id=${encodeURIComponent(blueprint.id)}`;
-      viewer.target = "_blank";
-      viewer.rel = "noopener";
+      const viewer = text("button", "Preview");
+      viewer.type = "button";
+      viewer.className = "blueprint-preview";
+      viewer.addEventListener("click", () =>
+        openPreview(
+          `/blueprint-viewer/viewer.html?run=${encodeURIComponent(id)}&id=${encodeURIComponent(blueprint.id)}`,
+          `Blueprint preview · ${blueprint.label || blueprint.id}`,
+          "iframe",
+        ),
+      );
       actions.append(download, viewer, rename, remove);
       const entities = text(
         "p",
@@ -543,6 +577,10 @@ $("resume").onclick = async () => {
   }
 };
 let seedMapViewer = null;
+let seedPreviewUrl = null;
+$("seedPreviewExpand").onclick = () => {
+  if (seedPreviewUrl) openPreview(seedPreviewUrl, "Seed map preview", "image");
+};
 $("seedPreviewGenerate").onclick = async () => {
   const button = $("seedPreviewGenerate");
   button.disabled = true;
@@ -550,8 +588,10 @@ $("seedPreviewGenerate").onclick = async () => {
   try {
     const result = await api(`/api/runs/${encodeURIComponent(id)}/map-preview`, { size: 2048 });
     $("seedPreviewViewer").hidden = false;
+    seedPreviewUrl = result.url;
     if (!seedMapViewer) seedMapViewer = globalThis.createMapViewer($("seedPreviewViewer"), result.url);
     else seedMapViewer.setSource(result.url);
+    $("seedPreviewExpand").hidden = false;
     $("seedPreviewStatus").textContent = `seed ${result.seed} · ${result.size}px`;
   } catch (error) {
     $("seedPreviewStatus").textContent = error.message;

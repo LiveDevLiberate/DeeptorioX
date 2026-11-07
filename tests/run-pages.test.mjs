@@ -85,6 +85,12 @@ test("run page exposes the agent blueprint catalogue and its toggle", () => {
   assert.match(js, /Decode blueprint/);
   assert.match(js, /download=1/);
   assert.match(js, /blueprint-download/);
+  assert.match(html, /id="previewOverlay"/);
+  assert.match(html, /id="previewBody"/);
+  assert.match(html, /id="seedPreviewExpand"/);
+  assert.match(js, /function openPreview/);
+  assert.match(js, /blueprint-viewer\/viewer\.html/);
+  assert.match(js, /seedPreviewUrl/);
   const recordingJs = fs.readFileSync(path.join(process.cwd(), "public", "recording.js"), "utf8");
   assert.match(recordingJs, /download=1/);
   assert.match(recordingJs, /blueprintDownload/);
