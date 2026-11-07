@@ -1201,9 +1201,11 @@ body.recording .status-telemetry .status-data {
 .production-list {
   display: flex;
   flex-direction: column;
+  flex-wrap: nowrap;
   gap: 2px;
-  max-height: 118px;
-  overflow: auto;
+  height: 118px;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
 }
 .production-row {
@@ -1225,6 +1227,9 @@ body.recording .status-telemetry .status-data {
 .production-rate {
   flex: 0 0 auto;
   color: var(--ok);
+}
+.production-row.zero {
+  opacity: 0.45;
 }
 body.recording .status-scores {
   display: flex;
@@ -1255,7 +1260,7 @@ body.recording .status-scores .score-radar {
     padding-top: 6px;
   }
   .production-list {
-    max-height: 88px;
+    height: 88px;
   }
   body.recording .status-scores {
     justify-content: flex-start;

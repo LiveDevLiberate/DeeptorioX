@@ -17,6 +17,7 @@ import {
 import { parseMapExchange } from "../preview-exchange.js";
 import { uploadMapPreview } from "../map-preview-upload.js";
 import { ensureBlueprintIcons, iconFile } from "../blueprint-icons.js";
+import { ensureBlueprintPreview } from "../blueprint-preview.js";
 import { obsStatus } from "../obs.js";
 import type { ApiContext } from "./context.js";
 
@@ -388,6 +389,34 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
       } catch (error) {
         return json(res, 400, { error: errorMessage(error) });
       }
+    },
+  });
+
+  router.add({
+    method: "GET",
+    path: /^\/api\/runs\/([^/]+)\/blueprints\/([a-f0-9]{16})\/preview\.png$/,
+    name: "runBlueprintPreview",
+    handler: async (request) => {
+      const { req, res, url } = request;
+      const match = url.pathname.match(/^\/api\/runs\/([^/]+)\/blueprints\/([a-f0-9]{16})\/preview\.png$/);
+      if (!match) return false;
+      const runId = decodeURIComponent(match[1]);
+      const blueprint = runManager.blueprint(runId, match[2]);
+      if (!blueprint) return json(res, 404, { error: "Blueprint not found" });
+      try {
+        const file = await ensureBlueprintPreview(match[2], blueprint.wire);
+        const stat = fsSync.statSync(file);
+        res.writeHead(200, {
+          "Content-Type": "image/png",
+          "Content-Length": stat.size,
+          "Cache-Control": "public, max-age=86400",
+        });
+        if (req.method === "HEAD") return res.end();
+        fsSync.createReadStream(file).pipe(res);
+      } catch (error) {
+        return json(res, 500, { error: errorMessage(error) });
+      }
+      return undefined;
     },
   });
 

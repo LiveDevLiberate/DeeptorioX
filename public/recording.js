@@ -12,7 +12,6 @@ import {
   LoopDetector,
   isDecisionText,
   parseTelemetryLines,
-  telemetryRates,
   telemetryResearchDetail,
   telemetryPowerSatisfaction,
   telemetryMarkers,
@@ -238,6 +237,7 @@ const I18N = {
     blueprintsEntities: "entities",
     blueprintsTiles: "tiles",
     blueprintPreview: "Preview",
+    newBlueprint: "New blueprint saved",
     blueprintDecode: "Decode blueprint",
     blueprintDownload: "Download",
     blueprintLoading: "Loading…",
@@ -410,6 +410,7 @@ const I18N = {
     blueprintsEntities: "个实体",
     blueprintsTiles: "个 tile",
     blueprintPreview: "预览",
+    newBlueprint: "已保存新蓝图",
     blueprintDecode: "解析蓝图",
     blueprintDownload: "下载蓝图",
     blueprintLoading: "加载中…",
@@ -447,6 +448,10 @@ const statusToggle = document.getElementById("statusToggle");
 const mapInfoToggle = document.getElementById("mapInfoToggle");
 const mapInfoOverlay = document.getElementById("mapInfoOverlay");
 const mapThumbnail = document.getElementById("mapThumbnail");
+const blueprintToast = document.getElementById("blueprintToast");
+const blueprintToastImage = document.getElementById("blueprintToastImage");
+const blueprintToastTitle = document.getElementById("blueprintToastTitle");
+const blueprintToastLabel = document.getElementById("blueprintToastLabel");
 const recordingSeedPreview = document.getElementById("recordingSeedPreview");
 const recordingSeedInline = document.getElementById("recordingSeedInline");
 const recordingSeedPreviewStatus = document.getElementById("recordingSeedPreviewStatus");
@@ -1671,27 +1676,73 @@ function metricValue(iconName, value) {
   cell.append(icon(iconName), element("span", value, "metric-text"));
   return cell;
 }
+const productionRows = new Map();
+const productionItemOrder = [];
+let productionInitialized = false;
+function latestProductionRates() {
+  for (let index = telemetrySamples.length - 1; index >= 0; index -= 1) {
+    const sample = telemetrySamples[index];
+    if (
+      sample?.production_per_game_minute &&
+      typeof sample.production_per_game_minute === "object" &&
+      !Array.isArray(sample.production_per_game_minute)
+    ) {
+      return sample.production_per_game_minute;
+    }
+  }
+  return null;
+}
 function renderProduction() {
   if (!statusProduction || !statusProductionList) return;
   const text = strings();
-  const rates = telemetryRates(telemetrySamples, { limit: 999 });
   if (productionKicker) productionKicker.textContent = text.productionColumn;
-  if (!rates.length) {
+  const rates = latestProductionRates();
+  if (!rates) {
     statusProduction.hidden = true;
-    statusProductionList.replaceChildren();
     return;
   }
-  const rows = rates.map((entry) => {
-    const row = element("div", "", "production-row");
-    row.append(
-      element("span", entry.name, "production-name"),
-      element("span", `${Math.round(entry.rate)}${text.rateSuffix}`, "production-rate"),
-    );
-    return row;
-  });
-  statusProductionList.replaceChildren(...rows);
+  const entries = Object.entries(rates).map(([name, rate]) => ({
+    name,
+    rate: Number(rate) || 0,
+  }));
+  if (!productionInitialized) {
+    entries
+      .slice()
+      .sort((left, right) => right.rate - left.rate)
+      .forEach((entry) => {
+        if (productionRows.has(entry.name)) return;
+        const row = element("div", "", "production-row");
+        const name = element("span", entry.name, "production-name");
+        const rate = element("span", "", "production-rate");
+        row.append(name, rate);
+        row._productionRate = rate;
+        productionRows.set(entry.name, row);
+        productionItemOrder.push(entry.name);
+        statusProductionList.append(row);
+      });
+    productionInitialized = true;
+  } else {
+    for (const entry of entries) {
+      if (productionRows.has(entry.name)) continue;
+      const row = element("div", "", "production-row");
+      const name = element("span", entry.name, "production-name");
+      const rate = element("span", "", "production-rate");
+      row.append(name, rate);
+      row._productionRate = rate;
+      productionRows.set(entry.name, row);
+      productionItemOrder.push(entry.name);
+      statusProductionList.append(row);
+    }
+  }
+  for (const name of productionItemOrder) {
+    const row = productionRows.get(name);
+    const value = Number(rates[name]) || 0;
+    row._productionRate.textContent = `${Math.round(value)}${text.rateSuffix}`;
+    row.classList.toggle("zero", value <= 0);
+  }
   statusProduction.hidden = false;
 }
+
 function renderMetrics() {
   renderProduction();
   if (!statusMetrics) return;
@@ -1967,4 +2018,73 @@ if (params.get("preview") === "seed" && id) {
 
 if (params.get("preview") === "map" && id) {
   mapInfoToggle?.click();
+}
+
+const knownBlueprintIds = new Set();
+let blueprintBaselineLoaded = false;
+let blueprintToastTimer = null;
+const blueprintToastQueue = [];
+
+function hideBlueprintToast() {
+  if (blueprintToast) blueprintToast.hidden = true;
+  blueprintToastTimer = null;
+  const next = blueprintToastQueue.shift();
+  if (next) showBlueprintToast(next);
+}
+function showBlueprintToast(blueprint) {
+  if (!blueprintToast || !blueprintToastImage) return;
+  blueprintToastQueue.push(blueprint);
+  if (blueprintToastTimer) return;
+  const current = blueprintToastQueue.shift();
+  if (!current) return;
+  const text = I18N[uiLang || "en"];
+  if (blueprintToastTitle) blueprintToastTitle.textContent = text.newBlueprint;
+  if (blueprintToastLabel) blueprintToastLabel.textContent = current.label || current.id;
+  blueprintToastImage.src = `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(current.id)}/preview.png`;
+  blueprintToastImage.alt = current.label || "Blueprint preview";
+  blueprintToast.hidden = false;
+  blueprintToastTimer = setTimeout(hideBlueprintToast, 5000);
+}
+async function pollNewBlueprints() {
+  if (!id) return;
+  try {
+    const response = await fetch(`/api/runs/${encodeURIComponent(id)}/blueprints`);
+    if (!response.ok) return;
+    const data = await response.json();
+    const blueprints = Array.isArray(data.blueprints) ? data.blueprints : [];
+    if (!blueprintBaselineLoaded) {
+      for (const blueprint of blueprints) knownBlueprintIds.add(blueprint.id);
+      blueprintBaselineLoaded = true;
+      return;
+    }
+    for (const blueprint of [...blueprints].reverse()) {
+      if (!blueprint.id || knownBlueprintIds.has(blueprint.id)) continue;
+      knownBlueprintIds.add(blueprint.id);
+      showBlueprintToast(blueprint);
+    }
+  } catch {
+    /* blueprint polling is best-effort */
+  }
+}
+if (id) {
+  void pollNewBlueprints();
+  const blueprintPoll = setInterval(pollNewBlueprints, 4000);
+  blueprintPoll?.unref?.();
+}
+
+const toastBlueprintId = params.get("toastBlueprint");
+if (id && toastBlueprintId) {
+  void (async () => {
+    try {
+      const response = await fetch(
+        `/api/runs/${encodeURIComponent(id)}/blueprints/${encodeURIComponent(toastBlueprintId)}`,
+      );
+      if (response.ok) {
+        const detail = await response.json();
+        showBlueprintToast({ id: toastBlueprintId, label: detail.label || detail.id });
+      }
+    } catch {
+      /* debug deep link only */
+    }
+  })();
 }
