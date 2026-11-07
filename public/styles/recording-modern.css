@@ -2054,3 +2054,25 @@ body.recording #codexOutput .action-raw[open] pre {
 body.recording #codexOutput details.reasoning {
   display: block;
 }
+
+/* Compact left timestamp gutter: 5px inset, 5px gap, vertically centered. */
+body.recording #codexOutput .reasoning,
+body.recording #codexOutput .commands,
+body.recording #codexOutput .message,
+body.recording #codexOutput .tool-details,
+body.recording #codexOutput .command {
+  padding-left: 5px;
+}
+body.recording #codexOutput .reasoning-summary,
+body.recording #codexOutput .commands-summary,
+body.recording #codexOutput .tool-details summary,
+body.recording #codexOutput .command,
+body.recording #codexOutput .message:not(.tool):not(.reasoning) {
+  align-items: center;
+}
+body.recording #codexOutput .msg-time {
+  align-self: center;
+  margin-left: 0;
+  margin-right: 5px;
+  line-height: 1.4;
+}
