@@ -1676,7 +1676,8 @@ function nodeMatchesFilter(node) {
     return false;
   if (filterMode === "all") return true;
   const kind = node._kind;
-  if (filterMode === "thinking") return kind === "reasoning";
+  if (filterMode === "thinking")
+    return kind === "reasoning" || (kind === "message" && Boolean(node._decision));
   if (filterMode === "actions") return kind === "commands";
   if (filterMode === "errors")
     return Boolean(node._error) || (kind === "commands" && node.classList.contains("failed"));
