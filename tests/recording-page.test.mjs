@@ -452,8 +452,10 @@ test("recording page exposes map and blueprint previews", () => {
   assert.match(html, /id="recordingSeedPreview"/);
   assert.match(html, /id="recordingPreviewOverlay"/);
   assert.match(html, /id="recordingPreviewBody"/);
+  assert.match(html, /id="recordingSeedInline"/);
   assert.match(js, /openRecordingPreview/);
   assert.match(js, /map-preview/);
   assert.match(js, /blueprint-viewer\/viewer\.html/);
   assert.match(js, /toolkit-viewer\/index\.html/);
+  assert.match(js, /loadRecordingSeedInline/);
 });

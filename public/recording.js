@@ -438,6 +438,7 @@ const mapInfoToggle = document.getElementById("mapInfoToggle");
 const mapInfoOverlay = document.getElementById("mapInfoOverlay");
 const mapThumbnail = document.getElementById("mapThumbnail");
 const recordingSeedPreview = document.getElementById("recordingSeedPreview");
+const recordingSeedInline = document.getElementById("recordingSeedInline");
 const recordingSeedPreviewStatus = document.getElementById("recordingSeedPreviewStatus");
 const recordingPreviewOverlay = document.getElementById("recordingPreviewOverlay");
 const recordingPreviewBody = document.getElementById("recordingPreviewBody");
@@ -895,6 +896,35 @@ recordingPreviewOverlay?.addEventListener("click", (event) => {
   if (event.target === recordingPreviewOverlay) closeRecordingPreview();
 });
 
+function loadRecordingSeedInline() {
+  if (!id || !recordingSeedInline) return;
+  recordingSeedInline.hidden = false;
+  const strings = I18N[uiLang || "en"];
+  recordingSeedInline.replaceChildren(
+    element("p", strings.seedPreviewLoading || "Generating preview…", "map-info-muted"),
+  );
+  void (async () => {
+    try {
+      const response = await fetch(`/api/runs/${encodeURIComponent(id)}/map-preview`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ size: 1024, all_planets: true }),
+      });
+      if (!response.ok) throw new Error(`map preview HTTP ${response.status}`);
+      const result = await response.json();
+      const sources = Object.fromEntries((result.planets || []).map((planet) => [planet.planet, planet.url]));
+      const frame = document.createElement("iframe");
+      frame.className = "recording-seed-frame";
+      frame.title = "Seed map preview";
+      frame.src = `/toolkit-viewer/index.html?images=${encodeURIComponent(JSON.stringify(sources))}`;
+      recordingSeedInline.replaceChildren(frame);
+    } catch {
+      recordingSeedInline.hidden = true;
+      loadMapThumbnail();
+    }
+  })();
+}
+
 function openMapInfo() {
   if (!mapInfoOverlay) return;
   const active = document.activeElement;
@@ -904,7 +934,7 @@ function openMapInfo() {
   renderMapInfo();
   mapInfoOverlay.hidden = false;
   mapInfoToggle?.setAttribute("aria-expanded", "true");
-  loadMapThumbnail();
+  loadRecordingSeedInline();
   mapInfoClose?.focus?.();
 }
 function closeMapInfo() {
@@ -1919,4 +1949,8 @@ void poll();
 if (params.get("preview") === "seed" && id) {
   mapInfoToggle?.click();
   setTimeout(() => recordingSeedPreview?.click(), 600);
+}
+
+if (params.get("preview") === "map" && id) {
+  mapInfoToggle?.click();
 }
