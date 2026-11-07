@@ -2056,13 +2056,6 @@ body.recording #codexOutput details.reasoning {
 }
 
 /* Compact left timestamp gutter: 5px inset, 5px gap, vertically centered. */
-body.recording #codexOutput .reasoning,
-body.recording #codexOutput .commands,
-body.recording #codexOutput .message,
-body.recording #codexOutput .tool-details,
-body.recording #codexOutput .command {
-  padding-left: 5px;
-}
 body.recording #codexOutput .reasoning-summary,
 body.recording #codexOutput .commands-summary,
 body.recording #codexOutput .tool-details summary,
@@ -2096,4 +2089,26 @@ body.recording #codexOutput .message.decision .decision-icon {
   width: var(--icon-sm);
   height: var(--icon-sm);
   color: #c0a8f0;
+}
+
+/* Halve the timestamp gutters: inset and icon/content gap are both tighter. */
+body.recording #codexOutput .reasoning,
+body.recording #codexOutput .commands,
+body.recording #codexOutput .message,
+body.recording #codexOutput .tool-details,
+body.recording #codexOutput .command {
+  padding-left: 2.5px;
+}
+body.recording #codexOutput .reasoning-summary,
+body.recording #codexOutput .commands-summary,
+body.recording #codexOutput .tool-details summary {
+  padding-left: 7px;
+}
+body.recording #codexOutput .msg-time,
+body.recording #codexOutput .reasoning-summary .msg-time,
+body.recording #codexOutput .commands-summary .msg-time,
+body.recording #codexOutput .command > .msg-time,
+body.recording #codexOutput .message:not(.tool):not(.reasoning) > .msg-time,
+body.recording #codexOutput .tool-details summary .msg-time {
+  margin-right: 2.5px;
 }
