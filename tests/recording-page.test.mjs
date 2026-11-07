@@ -621,6 +621,10 @@ test("recording page renders a milestone bar with the next target", async () => 
     const [labelCell, valueCell, trendCell] = milestoneRow.children;
     assert.equal(nodeText(labelCell), "Milestones");
     assert.match(nodeText(valueCell), /Next: Logistic science/);
+    assert.equal(
+      globalThis.document.title,
+      "DeeptorioX | Running on Factorio | AI agents exploring the space industry",
+    );
     assert.match(nodeText(trendCell), /42%/);
     assert.match(nodeText(trendCell), /3\/7/);
   } finally {
@@ -755,6 +759,7 @@ test("milestone next target follows the run language and game locale", async () 
     const [labelCell, valueCell, trendCell] = milestoneRow.children;
     assert.equal(nodeText(labelCell), "里程碑");
     assert.equal(nodeText(valueCell), "下一个: 铁板");
+    assert.equal(globalThis.document.title, "DeeptorioX | 运行于 Factorio | 智能体探索太空工业");
     assert.match(nodeText(trendCell), /42%/);
     assert.match(nodeText(trendCell), /3\/7/);
   } finally {

@@ -330,7 +330,7 @@ body.recording .status-telemetry {
 }
 body.recording .status-plan {
   position: relative;
-  padding: 12px 0 13px;
+  padding: 9px 0 10px;
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
 }
@@ -381,7 +381,7 @@ body.recording .status-current {
 body.recording .status-done {
   display: block;
   max-width: 92ch;
-  margin-top: 5px;
+  margin-top: 2px;
   color: var(--muted);
   font-family: var(--font-body);
   font-size: 11.5px;
@@ -1305,9 +1305,14 @@ body.recording .status-scores .score-radar {
 body.recording .status-scores {
   margin-top: 0;
 }
+body.recording #agentStatus .status-current {
+  align-items: center;
+}
+/* Keep the work-order icon on the title line so the done-condition line can sit
+   right under it instead of after the icon's full 2em height (dead space). */
 body.recording #agentStatus .status-current .icon {
-  width: 2em;
-  height: 2em;
+  width: 1.1em;
+  height: 1.1em;
   flex: 0 0 auto;
   margin: 0;
 }
@@ -2460,7 +2465,10 @@ body.recording .metric-milestones .ms-dot.done {
 body.recording .metric-milestones .ms-bar {
   position: relative;
   display: inline-flex;
+  flex: 1 1 auto;
   width: 96px;
+  min-width: 20px;
+  max-width: 96px;
   height: 6px;
   border: 1px solid var(--rule);
   background: var(--surface);
@@ -2483,12 +2491,17 @@ body.recording .metric-milestones .metric-value {
   white-space: nowrap;
 }
 body.recording .metric-milestones .metric-trend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: visible;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 body.recording .metric-milestones .metric-trend .metric-delta,
 body.recording .metric-milestones .ms-count {
-  margin-left: 6px;
+  flex: 0 0 auto;
+  margin-left: 0;
 }
 body.recording .metric-milestones .ms-count {
   color: var(--ink-soft);
@@ -2527,13 +2540,15 @@ body.recording .metric-discipline td.metric-value {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 2px 3px;
+    gap: 4px;
+    overflow: visible;
     white-space: nowrap;
   }
   body.recording .metric-milestones .ms-bar {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
     width: clamp(20px, 14vw, 64px);
     min-width: 20px;
+    max-width: 64px;
   }
   body.recording .metric-milestones .metric-trend .metric-delta,
   body.recording .metric-milestones .ms-count {

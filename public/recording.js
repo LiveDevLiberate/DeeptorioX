@@ -75,6 +75,8 @@ const FILTER_BUTTONS = {
   decisions: document.getElementById("filterDecisions"),
 };
 const GOAL_MESSAGE = /^\s*(?:目标|goal)\s*[:：]/i;
+const DEFAULT_DOCUMENT_TITLE = "DeeptorioX | Running on Factorio | AI agents exploring the space industry";
+
 const FILTER_ICONS = {
   all: "stack",
   thinking: "brain",
@@ -203,7 +205,7 @@ const I18N = {
     filterGroupLabel: "Filter by category",
     planKicker: "Work order",
     telemetryKicker: "Game state",
-    documentTitle: "DeeptorioX factory log",
+    documentTitle: DEFAULT_DOCUMENT_TITLE,
     factoryLog: "factory log",
     modelLabel: "model",
     elapsedLabel: "elapsed",
@@ -387,7 +389,7 @@ const I18N = {
     filterGroupLabel: "按类别过滤",
     planKicker: "作业指令",
     telemetryKicker: "游戏状态",
-    documentTitle: "DeeptorioX 工厂日志",
+    documentTitle: "DeeptorioX | 运行于 Factorio | 智能体探索太空工业",
     factoryLog: "工厂日志",
     modelLabel: "模型",
     elapsedLabel: "已用时",
@@ -1059,7 +1061,7 @@ document.addEventListener?.("keydown", (event) => {
   }
 });
 updateThemeToggleLabel();
-document.title = "DeeptorioX factory log";
+document.title = DEFAULT_DOCUMENT_TITLE;
 function element(tag, text, className) {
   const node = document.createElement(tag);
   if (text) node.textContent = text;
@@ -1750,7 +1752,7 @@ function updateTranscriptTools(text) {
     .getElementById("filterGroup")
     ?.setAttribute("aria-label", text.filterGroupLabel || "Filter by category");
   updateSectionLabels(text);
-  document.title = text.documentTitle || "DeeptorioX factory log";
+  document.title = text.documentTitle || DEFAULT_DOCUMENT_TITLE;
   updateStatusToggleLabel();
 }
 function nodeMatchesFilter(node) {
@@ -2267,10 +2269,10 @@ async function poll() {
       void pollTelemetry();
       offset = log.offset;
     }
-    document.title = "DeeptorioX factory log";
+    document.title = strings().documentTitle || DEFAULT_DOCUMENT_TITLE;
   } catch {
     showConnectionNotice();
-    document.title = "DeeptorioX factory log";
+    document.title = strings().documentTitle || DEFAULT_DOCUMENT_TITLE;
   } finally {
     setTimeout(poll, 250);
   }

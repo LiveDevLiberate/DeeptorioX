@@ -25,6 +25,10 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(html, /<section id="planPanel" class="status-plan ui-col-1-7" aria-label="Current plan">/);
   assert.match(html, /id="planKicker"[^>]*>Work order</);
   assert.match(html, /id="telemetryKicker"[^>]*>Readouts</);
+  assert.match(
+    html,
+    /<title>DeeptorioX \| Running on Factorio \| AI agents exploring the space industry<\/title>/,
+  );
   assert.doesNotMatch(html, /id="statusMilestones"/);
   assert.match(
     html,
@@ -50,6 +54,15 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(css, /--font-body:/);
   assert.match(css, /--icon-sm: 12px/);
   assert.match(css, /--icon-md: 14px/);
+  // Percent/count must stay visible: the trend is a flex row and the bar shrinks.
+  assert.match(
+    css,
+    /body\.recording \.metric-milestones \.metric-trend \{[\s\S]*?display: flex;[\s\S]*?overflow: visible;/,
+  );
+  assert.match(css, /body\.recording \.metric-milestones \.ms-bar \{[\s\S]*?flex: 1 1 auto;/);
+  // The work-order icon stays on the title line and the done condition hugs it.
+  assert.match(css, /body\.recording #agentStatus \.status-current \.icon \{[\s\S]*?width: 1\.1em;/);
+  assert.match(css, /body\.recording \.status-done \{[\s\S]*?margin-top: 2px;/);
   // Readout columns stay fixed; discipline badges wrap instead of widening them.
   assert.match(css, /body\.recording \.metrics-table \{[\s\S]*?table-layout: fixed;/);
   assert.match(css, /body\.recording \.metric-discipline td\.metric-value \{[\s\S]*?white-space: normal;/);
