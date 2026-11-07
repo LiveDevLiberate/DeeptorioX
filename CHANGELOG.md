@@ -40,6 +40,13 @@ this file.
 
 ### Added
 
+- **Belt lane observation.** `POST /api/agent/observe/belts` (Python
+  `belt_lanes()`, CLI `belt-lanes`, MCP `observe_belt_lanes`) scans belt /
+  underground-belt / splitter tiles and reports both lanes per tile: items,
+  item count, content saturation, lane balance, `lane_mix` warnings and
+  rear/left/right feeders (side loads). Lane sides are derived from
+  `defines.transport_line` and are relative to the belt's travel direction.
+  Accepts a radius window or explicit `--target` tiles.
 - **Automatic same-session continuation.** When an agent exits cleanly before the
   objective is verified, the manager reloads the same session with a resume
   prompt, up to `AUTORIO_AUTO_CONTINUE_MAX` (default 3). Exhausting the budget
@@ -152,7 +159,7 @@ this file.
   `cleanup: true`; successfully removed entities earn +5 each and count as zero
   manual-mining penalty. Refactor debt reductions earn +10 per unit. Direct
   `act-build` is now gated like queued builds, and builds stay blocked until the
-  audit invalid count reaches the clean target (default 0), preventing rebuilds
+  audit invalid count reaches the clean target (default 20), preventing rebuilds
   before the cleanup is complete. Run UI shows cleanup units and refactor reward.
 - **Tool manifest usage fix.** The generated `deconstruct-area` usage line now
   advertises `--order`, `--start`, and `--max-distance`, matching the client help
@@ -384,6 +391,27 @@ this file.
   Collapsed-status and overlay states are covered too; screenshot artifacts use
   a no-audit fixture mode so transient focus/dialog state cannot mask layout.
   Windows CI requires the check.
+
+### Fixed
+
+- **Refactor gate no longer drives dismantle/rebuild loops.** Belt relayout
+  hints now target the sampled issue cluster (radius 8-24) instead of the whole
+  audit window, the fingerprint uses scoped kind+count only (coordinates made
+  the three-audit escalation unreachable), and the recorded audit window is the
+  player-centered scan center instead of the map origin. Only default-scope
+  audits with radius >= 120 update the run's debt record, so a narrow local
+  audit cannot clear `REFACTOR_REQUIRED` from a clean corner.
+- **Pipeline belt contents read both lanes.** `observe-area` now merges every
+  transport line of a belt tile instead of only line 1, so `observe-pipeline`
+  belt `items`/`item_count` are complete and `saturation_estimate` uses the
+  correct 8-item-per-tile (2 lanes × 4) content basis (previously 16 with one
+  lane read).
+- **Refactor debt threshold aligned with the docs.** The clean target defaults
+  to `AUTORIO_REFACTOR_CLEAN_TARGET=20` (was 0), so transient backpressure or an
+  empty buffer chest no longer locks construction indefinitely.
+  `REFACTOR_REQUIRED` nudges and the prompt now say repair/rotate/connect first
+  and reserve `relayout-belts` for a belt section that still fails after 3
+  audits; `big_reset_pending` no longer instructs an improvised base teardown.
 
 ## [0.27.2] - 2026-11-04
 

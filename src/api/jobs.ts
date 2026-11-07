@@ -59,7 +59,7 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
               reason: "refactor_debt",
               first_step: "factory-audit",
               message:
-                "Clean the listed invalid belt/inserter/machine problems with deconstruct-area/relayout-belts, re-audit, then resume building.",
+                "Fix the highest-priority factory-audit action (repair/rotate/connect the flagged tiles), re-audit, then resume building. Deconstruct only flagged or obsolete entities; use relayout-belts only when the same belt section still fails after 3 audits.",
             },
           });
         }

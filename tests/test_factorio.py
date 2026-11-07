@@ -501,6 +501,29 @@ class BeltFluidContentsTests(unittest.TestCase):
         self.assertIn("fluid-contents", factorio.COMMAND_USAGE)
 
 
+class BeltLaneObservationTests(unittest.TestCase):
+    def test_belt_lanes_payload_and_cli_usage(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True, "data": {"belts": []}}) as request:
+            client.belt_lanes(x=10, y=20, radius=30, limit=50)
+        request.assert_called_once_with("POST", "/api/agent/observe/belts", {
+            "window": {"radius": 30, "x": 10, "y": 20}, "limit": 50,
+        })
+        self.assertIn("belt-lanes", factorio.COMMAND_USAGE)
+        self.assertIn("belt-lanes", factorio.GLOBAL_USAGE)
+
+    def test_belt_lanes_targets_payload(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.belt_lanes(targets=[{"x": 5, "y": 6}])
+        args = request.call_args[0]
+        self.assertEqual(args[0], "POST")
+        self.assertEqual(args[1], "/api/agent/observe/belts")
+        self.assertEqual(args[2]["targets"], [{"x": 5, "y": 6}])
+        self.assertEqual(args[2]["window"], {"radius": 32})
+        self.assertEqual(args[2]["limit"], 100)
+
+
 class WaitPolicyTests(unittest.TestCase):
     def test_wait_until_is_capped_and_explains_switch_tasks(self):
         client = factorio.FactorioClient(poll_interval=0)

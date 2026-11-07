@@ -159,6 +159,7 @@ test("tools/list exposes the autorio gameplay tools with input schemas", async (
     "observe_factory",
     "observe_layout",
     "observe_connections",
+    "observe_belt_lanes",
     "observe_placement",
     "observe_resources",
     "observe_production",
@@ -308,12 +309,14 @@ test("observation tools compose the documented HTTP body shapes", async () => {
   fake.route("POST", "/api/agent/observe/player", () => ({ status: 200, body: { ok: true, data: {} } }));
   fake.route("POST", "/api/agent/observe/layout", () => ({ status: 200, body: { ok: true, data: {} } }));
   fake.route("POST", "/api/agent/observe/recipes", () => ({ status: 200, body: { ok: true, data: {} } }));
+  fake.route("POST", "/api/agent/observe/belts", () => ({ status: 200, body: { ok: true, data: {} } }));
   await mcp.request("tools/call", { name: "observe_player", arguments: { inventory_slots: 40 } });
   await mcp.request("tools/call", { name: "observe_layout", arguments: { radius: 20, step: 2 } });
   await mcp.request("tools/call", {
     name: "observe_recipes",
     arguments: { recipes: 10, unlocked_only: true },
   });
+  await mcp.request("tools/call", { name: "observe_belt_lanes", arguments: { radius: 40, limit: 5 } });
   const lastBody = (pathname) => fake.requests.filter((entry) => entry.path === pathname).at(-1).body;
   assert.deepEqual(lastBody("/api/agent/observe/player"), { limits: { inventory_slots: 40 } });
   assert.deepEqual(lastBody("/api/agent/observe/layout"), { window: { radius: 20, step: 2 } });
@@ -321,6 +324,7 @@ test("observation tools compose the documented HTTP body shapes", async () => {
     limits: { recipes: 10 },
     filters: { unlocked: true },
   });
+  assert.deepEqual(lastBody("/api/agent/observe/belts"), { window: { radius: 40 }, limit: 5 });
 });
 
 test("action tools map payloads and job action names", async () => {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as builders from "../dist/command-builders.js";
 
 const {
+  agentBeltLanesCommand,
   agentBuildDestinationCommand,
   agentChartedResourcesCommand,
   agentClearBuildFootprintCommand,
@@ -380,6 +381,24 @@ test("layout and map observations include neutral crash debris", () => {
   }
   assert.ok(layout.includes("['X']='spaceship debris'"));
   assert.ok(overview.includes('"S":"spaceship debris"'));
+});
+
+test("agentBeltLanesCommand reads both lanes via defines and supports explicit tiles", () => {
+  const lua = agentBeltLanesCommand({ radius: 32, limit: 100 });
+  assert.ok(lua.includes("defines.transport_line"));
+  assert.ok(lua.includes("local x=nil local y=nil local radius=32 local limit=100"));
+  // Lane indices come from defines.transport_line (belt/splitter/underground),
+  // with the generic 1/2 indices as a fallback.
+  assert.ok(lua.includes("left_split_line"));
+  assert.ok(lua.includes("right_split_line"));
+  assert.ok(lua.includes("left_underground_line"));
+  assert.ok(lua.includes("left_line"));
+  assert.ok(lua.includes("get_transport_line(index)"));
+  assert.ok(lua.includes("local targets=nil"));
+  assert.ok(lua.includes("type={'transport-belt','underground-belt','splitter'}"));
+  const targeted = agentBeltLanesCommand({ radius: 32, limit: 5, targets: [{ x: 1, y: 2 }] });
+  assert.ok(targeted.includes("local targets={}"));
+  assert.ok(targeted.includes("table.insert(targets,{x=1,y=2})"));
 });
 
 test("inserter source is on its facing/pickup side and target is opposite", () => {

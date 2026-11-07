@@ -7,13 +7,21 @@ import { visualObservation } from "../vision.js";
 import { mapOverviewPng, mapOverviewSvg } from "../map-overview.js";
 import { entityUsage, entityUsageCatalog } from "../entity-usage.js";
 import { summarizeConnectionsData } from "../connection-summary.js";
-import { buildRefactorAudit, type RefactorScope } from "../refactor-audit.js";
+import { summarizeBeltLanesData } from "../belt-lanes.js";
+import {
+  buildRefactorAudit,
+  coversDefaultRefactorScope,
+  observationCenter,
+  REFACTOR_DEBT_MIN_RADIUS,
+  type RefactorScope,
+} from "../refactor-audit.js";
 import { buildPipelineGraph } from "../pipeline-graph.js";
 import { encodeCapturedBlueprint } from "../blueprint-capture.js";
 import { evaluateBlueprint } from "../blueprint-evaluate.js";
 import { observeAreaCommand } from "../area-edit.js";
 import { knowledgeCatalog, knowledgeTopic } from "../agent-knowledge.js";
 import {
+  agentBeltLanesCommand,
   agentBuildDestinationCommand,
   agentChartedResourcesCommand,
   agentClearBuildFootprintCommand,
@@ -47,6 +55,10 @@ const AGENT_MAX_EQUIPMENT_SLOTS = 50;
 const AGENT_MAX_RECIPES = 300;
 const AGENT_MAX_RESEARCH = 200;
 const AGENT_MAX_ACTIONS = 50;
+const BELT_LANES_DEFAULT_RADIUS = 32;
+const BELT_LANES_MAX_RADIUS = 120;
+const BELT_LANES_DEFAULT_LIMIT = 100;
+const BELT_LANES_MAX_LIMIT = 300;
 
 /** Short cache for the expensive charted-map scan (UI opens can overlap). */
 const mapOverviewCache = new Map<string, { at: number; data: Record<string, unknown> }>();
@@ -664,7 +676,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
             reason: "refactor_debt",
             first_step: "factory-audit",
             message:
-              "Clean every flagged invalid factory/belt problem before rebuilding; use deconstruct-area/relayout-belts and re-audit.",
+              "Fix the highest-priority audit action (repair/rotate/connect the flagged tiles) and re-audit; deconstruct only flagged or obsolete entities and relayout a belt section only after 3 failed audits.",
           },
         });
       }
@@ -1276,6 +1288,37 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
 
   router.add({
     method: "POST",
+    path: "/api/agent/observe/belts",
+    name: "/api/agent/observe/belts",
+    handler: async (request) => {
+      const { req, res } = request;
+      const parsedBody = await readJsonBody(req);
+      if (!parsedBody.ok) return json(res, 400, { error: parsedBody.error });
+      const body = parsedBody.body;
+      if (!rconConfigured()) return json(res, 409, { error: "RCON not configured" });
+      if (!state.rcon.connected) return json(res, 409, { error: "RCON not connected" });
+      const window = recordOrEmpty(body.window);
+      const x = finiteNumberOrUndefined(window.x);
+      const y = finiteNumberOrUndefined(window.y);
+      const radius = clampInt(window.radius, BELT_LANES_DEFAULT_RADIUS, 1, BELT_LANES_MAX_RADIUS);
+      const limit = clampInt(body.limit, BELT_LANES_DEFAULT_LIMIT, 1, BELT_LANES_MAX_LIMIT);
+      const targets = parsePositionTargets(body.targets, AGENT_MAX_ACTIONS)
+        .map((target) => ({ x: Number(target.x), y: Number(target.y) }))
+        .filter((target) => Number.isFinite(target.x) && Number.isFinite(target.y));
+      try {
+        const response = await rconCommand(agentBeltLanesCommand({ x, y, radius, limit, targets }));
+        const data = summarizeBeltLanesData(
+          parseRconJson<unknown>(response, "RCON belt lane observation returned invalid JSON"),
+        );
+        return json(res, 200, { ok: true, data });
+      } catch (err) {
+        return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
     path: "/api/agent/blueprints/evaluate",
     name: "/api/agent/blueprints/evaluate",
     handler: async (request) => {
@@ -1478,19 +1521,29 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         const requestedScope = Array.isArray(body.scope)
           ? body.scope.filter((entry): entry is string => typeof entry === "string")
           : undefined;
+        // The Lua scan defaults omitted coordinates to the player position; use
+        // that echoed window for cleanup hints and debt bookkeeping instead of
+        // pinning the audit to the map origin.
+        const scanCenter = observationCenter(factory) ?? observationCenter(connections);
+        const center = { x: x ?? scanCenter?.x ?? 0, y: y ?? scanCenter?.y ?? 0 };
         const audit = buildRefactorAudit(factory, connections, {
-          center: { x: x ?? 0, y: y ?? 0 },
+          center,
           radius,
           scope: requestedScope as RefactorScope[] | undefined,
           includeRail: body.include_rail === true,
         });
-        runManager.recordRefactorAudit({
-          invalid_count: audit.summary.invalid_count,
-          factory_problems: audit.summary.factory_problems,
-          connection_issues: audit.summary.connection_issues,
-          fingerprint: audit.fingerprint,
-        });
-        return json(res, 200, { ok: true, data: audit });
+        // A narrow scope or a small local window must not clear the run's global
+        // debt by scanning a clean corner; those audits stay advisory only.
+        const debtRecorded = coversDefaultRefactorScope(requestedScope) && radius >= REFACTOR_DEBT_MIN_RADIUS;
+        if (debtRecorded) {
+          runManager.recordRefactorAudit({
+            invalid_count: audit.summary.invalid_count,
+            factory_problems: audit.summary.factory_problems,
+            connection_issues: audit.summary.connection_issues,
+            fingerprint: audit.fingerprint,
+          });
+        }
+        return json(res, 200, { ok: true, data: { ...audit, debt_recorded: debtRecorded } });
       } catch (err) {
         return json(res, 500, { error: errorMessage(err) || "RCON command failed" });
       }

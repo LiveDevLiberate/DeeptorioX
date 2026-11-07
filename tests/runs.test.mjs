@@ -278,6 +278,46 @@ test("refactor debt gates new construction and clears after cleanup", async () =
   }
 });
 
+test("default refactor clean target tolerates transient warning debt", async () => {
+  const previousTarget = process.env.AUTORIO_REFACTOR_CLEAN_TARGET;
+  const previousGrace = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+  delete process.env.AUTORIO_REFACTOR_CLEAN_TARGET;
+  process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = "0";
+  const { manager } = setup();
+  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  try {
+    await waitFor(() => manager.get(run.id).state === "running");
+    manager.recordRefactorAudit({
+      invalid_count: 12,
+      factory_problems: 8,
+      connection_issues: 4,
+      fingerprint: "transient",
+    });
+    assert.equal(manager.get(run.id).refactor?.invalid_count, 12);
+    assert.equal(manager.refactorGate()?.blocked, false, "12 is below the default clean target 20");
+    manager.recordRefactorAudit({
+      invalid_count: 21,
+      factory_problems: 15,
+      connection_issues: 6,
+      fingerprint: "debt",
+    });
+    assert.equal(manager.refactorGate()?.blocked, true, "21 is above the default clean target 20");
+    manager.recordRefactorAudit({
+      invalid_count: 0,
+      factory_problems: 0,
+      connection_issues: 0,
+      fingerprint: "clean",
+    });
+    assert.equal(manager.refactorGate()?.blocked, false);
+  } finally {
+    if (previousTarget === undefined) delete process.env.AUTORIO_REFACTOR_CLEAN_TARGET;
+    else process.env.AUTORIO_REFACTOR_CLEAN_TARGET = previousTarget;
+    if (previousGrace === undefined) delete process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
+    else process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = previousGrace;
+    await manager.stop();
+  }
+});
+
 test("suppresses manual mining/crafting penalties during the opening 30 minutes", async () => {
   const { manager } = setup();
   const run = manager.start({ agent: "manual", benchmark: "smoke" });

@@ -269,9 +269,13 @@ memory for anchors, grids, corridors and gaps.
 
 **Refactor debt/gate.** The manager periodically stores a `refactor` state
 (invalid count, fingerprint, debt age, audit count). A build job is rejected with
-`REFACTOR_REQUIRED` once debt persists past the gate grace; cleanup actions stay
-allowed. Three debt audits or 50 blackouts arm `big_reset_pending` and the run
-page shows a flashing attention banner.
+`REFACTOR_REQUIRED` once the scoped debt stays above the clean target
+(`AUTORIO_REFACTOR_CLEAN_TARGET`, default 20) past the gate grace; cleanup
+actions stay allowed. Only full-window audits (default scope, radius >= 120)
+update the debt record, and the recorded window is the player-centered scan
+window echoed by the observation rather than the map origin. Three debt audits
+or 50 blackouts arm `big_reset_pending` and the run page shows a flashing
+attention banner (stop expanding and clean; there is no automated reset).
 
 **Blueprint capture.** `encodeCapturedBlueprint` turns observed built entities
 (center positions + directions/recipes) into a normal wire string, and
@@ -293,7 +297,8 @@ opens; no teleport. It is a client-side recovery helper using existing actions.
 **Refactor audit.** `buildRefactorAudit` merges factory status problems and
 connection issues into prioritized repair actions (critical production first,
 then blocked machines, then belt/inserter links), with examples and a stable
-fingerprint for the three-strike escalation.
+kind+count fingerprint for the three-strike escalation. Belt relayout suggestions
+target the issue cluster (radius 8-24), not the whole audit window.
 
 **Connection audit summary.** `summarizeConnectionsData` groups issues, adds fix
 suggestions, classifies link counts and renders a compact arrow/issue map for
@@ -312,6 +317,16 @@ non-belt endpoints. Corners and crossings must be explicitly oriented.
 for up to two belt lanes and `LuaEntity.get_fluid_contents` for actual fluid
 amounts; `belt-contents`/`fluid-contents` are thin client helpers over
 `observe-entity`.
+
+**Belt lane report.** `POST /api/agent/observe/belts` scans belt,
+underground-belt and splitter tiles and reads both transport lines per tile
+using `defines.transport_line` (left/right plus the splitter/underground
+variants). It maps the lines to lanes relative to the belt's travel direction
+and reports per-lane items/saturation, lane balance, `lane_mix` warnings and
+rear/left/right feeders (side loads). `observe-area` now merges all transport
+lines for each tile, so pipeline belt contents include both lanes and
+`saturation_estimate` uses the wiki content density of 4 items per tile per
+lane (8 per tile across both lanes).
 
 **No-idle policy.** Explicit `wait` is rejected, `wait_for_*`/`wait_until`
   deadlines are capped by `AUTORIO_MAX_WAIT_SECONDS` (default 5s), and the

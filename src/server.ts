@@ -45,7 +45,7 @@ import {
   parseRconObservation,
   registerAgentRoutes,
 } from "./api/agent.js";
-import { buildRefactorAudit } from "./refactor-audit.js";
+import { buildRefactorAudit, observationCenter } from "./refactor-audit.js";
 import { agentConnectionsCommand, agentFactoryCommand } from "./command-builders.js";
 import { registerAlertRoutes } from "./api/alerts.js";
 import { registerAreaEditRoutes } from "./api/area-edit.js";
@@ -699,7 +699,10 @@ async function refreshRefactorAudit(force = false): Promise<void> {
       ];
       const factory = normalizeFactoryData(parseRconObservation(factoryResponse));
       const connections = normalizeConnectionsData(parseRconObservation(connectionsResponse));
-      const audit = buildRefactorAudit(factory, connections, { center: { x: 0, y: 0 }, radius: 120 });
+      // RCON resolves the omitted window to the player position; keep the debt
+      // record and its cleanup hints anchored to the area actually scanned.
+      const center = observationCenter(factory) ?? observationCenter(connections) ?? { x: 0, y: 0 };
+      const audit = buildRefactorAudit(factory, connections, { center, radius: 120 });
       runManager.recordRefactorAudit({
         invalid_count: audit.summary.invalid_count,
         factory_problems: audit.summary.factory_problems,

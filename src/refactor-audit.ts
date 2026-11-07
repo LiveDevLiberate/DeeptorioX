@@ -61,6 +61,34 @@ export type RefactorScope = "belts" | "power" | "pipes" | "machines" | "containe
 /** Default scope: belts, power, pipes, machines and empty containers. Rail is opt-in. */
 export const DEFAULT_REFACTOR_SCOPE: RefactorScope[] = ["belts", "power", "pipes", "machines", "containers"];
 
+/**
+ * Minimum scan radius for an audit to update the run's global refactor debt.
+ * Smaller local audits are still returned to the caller but must not clear a
+ * `REFACTOR_REQUIRED` gate by scanning a clean corner.
+ */
+export const REFACTOR_DEBT_MIN_RADIUS = 120;
+
+/** True when the audit scope covers every default refactor category (full audit). */
+export function coversDefaultRefactorScope(scope: readonly string[] | undefined): boolean {
+  if (!scope || scope.length === 0) return true;
+  return DEFAULT_REFACTOR_SCOPE.every((entry) => scope.includes(entry));
+}
+
+/**
+ * Center of the scan echoed by an observation (`window:{x,y,radius}`).
+ *
+ * The Lua builders resolve omitted coordinates to the player position, so this
+ * is the authoritative center for cleanup hints and debt bookkeeping. Recording
+ * the map origin instead makes the audit report and its cleanup window drift
+ * away from the area that was actually scanned.
+ */
+export function observationCenter(value: unknown): { x: number; y: number } | undefined {
+  const window = asRecord(asRecord(value)?.window);
+  const x = Number(window?.x);
+  const y = Number(window?.y);
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+}
+
 const FACTORY_SCOPE: Record<string, RefactorScope> = {
   no_power: "power",
   no_input_fluid: "pipes",
@@ -100,6 +128,26 @@ function examples(value: unknown, limit = 3): JsonRecord[] {
 }
 
 /**
+ * Tight relayout window around the sampled issue tiles. A broad repair hint
+ * (the whole audit window) made agents recycle every belt in a large base after
+ * a handful of bad links, so cleanup stays local unless the debt is widespread.
+ */
+function issueCluster(samples: JsonRecord[]): { x: number; y: number; radius: number } | undefined {
+  const points = samples
+    .map((sample) => ({ x: Number(sample.x), y: Number(sample.y) }))
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+  if (points.length === 0) return undefined;
+  const x = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+  const y = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+  const spread = Math.max(...points.map((point) => Math.hypot(point.x - x, point.y - y)));
+  return {
+    x: Math.round(x),
+    y: Math.round(y),
+    radius: Math.max(8, Math.min(24, Math.ceil(spread + 4))),
+  };
+}
+
+/**
  * Build a compact, prioritized refactor plan from factory + connection data.
  * Inputs may be the normalized observation `data` objects.
  */
@@ -134,6 +182,10 @@ export function buildRefactorAudit(
     if (actions.length >= 24) return;
     actions.push(entry);
   };
+  // Scoped debt by kind, used for the stable fingerprint. Coordinates and
+  // example tiles are deliberately excluded: they move with every repair, so
+  // including them made the "same audit three times" escalation unreachable.
+  const debtCounts = new Map<string, number>();
 
   let scopedFactoryProblems = 0;
   for (const [kind, meta] of Object.entries(FACTORY_PROBLEMS)) {
@@ -142,6 +194,7 @@ export function buildRefactorAudit(
     const count = number(totals[kind]) || (Array.isArray(problems[kind]) ? problems[kind].length : 0);
     if (count <= 0) continue;
     scopedFactoryProblems += count;
+    debtCounts.set(`factory:${kind}`, count);
     addAction({
       id: `factory:${kind}`,
       kind,
@@ -160,6 +213,7 @@ export function buildRefactorAudit(
   let scopedEmptyContainers = 0;
   if (scope.has("containers") && emptyChestCount > 0) {
     scopedEmptyContainers = emptyChestCount;
+    debtCounts.set("factory:empty_containers", emptyChestCount);
     addAction({
       id: "factory:empty_containers",
       kind: "empty_containers",
@@ -187,16 +241,19 @@ export function buildRefactorAudit(
     if (!scope.has(issueCategory)) continue;
     const count = issues.filter((raw) => asRecord(raw)?.kind === kind).length;
     scopedConnectionIssues += count;
+    debtCounts.set(`connection:${kind}`, count);
     const meta = BELT_ACTIONS[kind];
     const isBelt = kind.startsWith("belt_");
-    const action =
-      isBelt && count >= 3
-        ? `Run relayout-belts around ${Math.round(center.x)},${Math.round(center.y)} radius ${radius}, then rebuild a validated route.`
-        : isBelt
-          ? "Rotate/repair the listed belt tiles."
-          : kind.startsWith("inserter_")
-            ? "Fix the inserter source/target or remove it."
-            : "Inspect the listed coordinates and repair the connection.";
+    // Repair the sampled tiles first. A relayout is only suggested for a belt
+    // section that keeps failing, and it targets the issue cluster instead of
+    // the full audit window: recycling every belt in a large base after a few
+    // bad links is worse than the original problem.
+    const cleanup = isBelt && count >= 3 ? issueCluster(samples) : undefined;
+    const action = cleanup
+      ? `Repair the listed belt tiles in place; only if this section still fails after 3 audits, run relayout-belts around ${cleanup.x},${cleanup.y} radius ${cleanup.radius}.`
+      : kind.startsWith("inserter_")
+        ? "Fix the inserter source/target or remove it."
+        : (meta?.action ?? "Inspect the listed coordinates and repair the connection.");
     addAction({
       id: `connection:${kind}`,
       kind,
@@ -204,9 +261,9 @@ export function buildRefactorAudit(
       label: kind.replaceAll("_", " "),
       count,
       priority: (isBelt ? 200 : 150) + count,
-      action: isBelt && count >= 3 ? action : (meta?.action ?? action),
+      action,
       examples: samples,
-      ...(isBelt && count >= 3 ? { cleanup: { x: center.x, y: center.y, radius } } : {}),
+      ...(cleanup ? { cleanup } : {}),
     });
   }
 
@@ -215,6 +272,7 @@ export function buildRefactorAudit(
     const rail = Array.isArray(connectionData.rail_issues) ? connectionData.rail_issues : [];
     railIssues = rail.length;
     if (railIssues > 0) {
+      debtCounts.set("connection:rail_issues", railIssues);
       addAction({
         id: "connection:rail_issues",
         kind: "rail_issues",
@@ -245,10 +303,9 @@ export function buildRefactorAudit(
   }
 
   actions.sort((a, b) => number(b.priority) - number(a.priority));
-  const fingerprintSource = actions
-    .map(
-      (action) => `${String(action.kind)}:${number(action.count)}:${JSON.stringify(action.examples ?? [])}`,
-    )
+  const fingerprintSource = [...debtCounts.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([kind, count]) => `${kind}:${count}`)
     .join("|");
   const fingerprint = createHash("sha256").update(fingerprintSource).digest("hex").slice(0, 16);
   const buildings = Object.values(counts).reduce<number>((sum, raw) => sum + number(asRecord(raw)?.total), 0);

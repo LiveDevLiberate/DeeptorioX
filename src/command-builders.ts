@@ -1062,6 +1062,52 @@ export function agentConnectionsCommand(params: { x?: number; y?: number; radius
   ].join(" ");
 }
 
+/**
+ * Belt lane scan: read both transport lines of every belt tile (and detect
+ * inserters/belts that feed the tile from its rear/left/right side).
+ *
+ * `defines.transport_line` names the lane indices (left/right plus the
+ * splitter/underground variants); generic 1/2 indices are the fallback for
+ * older game versions. `targets` inspects explicit belt tiles instead of the
+ * radius window.
+ */
+export function agentBeltLanesCommand(params: {
+  x?: number;
+  y?: number;
+  radius: number;
+  limit: number;
+  targets?: Array<{ x: number; y: number }>;
+}): string {
+  const x = params.x === undefined ? "nil" : String(params.x);
+  const y = params.y === undefined ? "nil" : String(params.y);
+  const limit = Math.max(1, Math.floor(params.limit));
+  const targetLines = (params.targets ?? []).map(
+    (target) => `table.insert(targets,{x=${Math.floor(target.x)},y=${Math.floor(target.y)}})`,
+  );
+  return [
+    "/sc",
+    "local s=game.surfaces[1]",
+    "local player=game.players[1]",
+    `local x=${x} local y=${y} local radius=${params.radius} local limit=${limit}`,
+    "if x==nil then x=(player and player.position.x) or 0 end",
+    "if y==nil then y=(player and player.position.y) or 0 end",
+    "local tl=defines.transport_line or {}",
+    "local function dir_vec(d) if d==0 then return 0,-1 elseif d==4 then return 1,0 elseif d==8 then return 0,1 elseif d==12 then return -1,0 end return 0,0 end",
+    "local function entity_at(tx,ty) local list=s.find_entities_filtered{area={{tx,ty},{tx+1,ty+1}}} for _,e in pairs(list) do if e.valid and e.type~='character' and e.type~='item-entity' and e.type~='corpse' then return e end end return nil end",
+    "local belt_types={['transport-belt']=true,['underground-belt']=true,['splitter']=true}",
+    "local function lane_index(kind,side) local left=(side=='left') if kind=='splitter' then return left and tl.left_split_line or tl.right_split_line end if kind=='underground-belt' then return left and tl.left_underground_line or tl.right_underground_line end return left and tl.left_line or tl.right_line end",
+    "local function read_line(e,index) if index==nil then return nil end local ok,line=pcall(function() return e.get_transport_line(index) end) if not ok or not line then return nil end local items={} pcall(function() local c=line.get_contents() if c then for _,stack in ipairs(c) do table.insert(items,{name=stack.name,count=stack.count}) end end end) return {index=index,items=items} end",
+    "local function lane_contents(e,side) local wanted=lane_index(e.type,side) local generic=(side=='left') and tl.left_line or tl.right_line local fallback=(side=='left') and 1 or 2 return read_line(e,wanted) or read_line(e,generic) or read_line(e,fallback) or {index=wanted or fallback,items={}} end",
+    "local function outputs_to(n,bx,by) if not n or not belt_types[n.type] then return false end local ndx,ndy=dir_vec(n.direction) local bb=n.bounding_box if not bb then return math.floor(n.position.x)+ndx==bx and math.floor(n.position.y)+ndy==by end local left=math.floor(bb.left_top.x+0.001) local top=math.floor(bb.left_top.y+0.001) local right=math.floor(bb.right_bottom.x-0.001) local bottom=math.floor(bb.right_bottom.y-0.001) for ty=top,bottom do for tx=left,right do if tx+ndx==bx and ty+ndy==by then return true end end end return false end",
+    "local function feeder(n,bx,by) if not n then return nil end if n.type=='inserter' then local ndx,ndy=dir_vec(n.direction) if math.floor(n.position.x)-ndx==bx and math.floor(n.position.y)-ndy==by then return {name=n.name,type=n.type} end return nil end if outputs_to(n,bx,by) then return {name=n.name,type=n.type} end return nil end",
+    "local belts={} local found=0",
+    "local function add(e) if not e or not belt_types[e.type] then return end found=found+1 if #belts>=limit then return end local bx,by=math.floor(e.position.x),math.floor(e.position.y) local dx,dy=dir_vec(e.direction) local ldx,ldy=dy,-dx local entry={name=e.name,type=e.type,x=bx,y=by,direction=e.direction,left=lane_contents(e,'left'),right=lane_contents(e,'right'),inputs={}} local rear=feeder(entity_at(bx-dx,by-dy),bx,by) local left=feeder(entity_at(bx+ldx,by+ldy),bx,by) local right=feeder(entity_at(bx-ldx,by-ldy),bx,by) if rear then entry.inputs.rear=rear end if left then entry.inputs.left=left end if right then entry.inputs.right=right end table.insert(belts,entry) end",
+    ...(targetLines.length > 0 ? ["local targets={}", ...targetLines] : ["local targets=nil"]),
+    "if targets and #targets>0 then for _,t in ipairs(targets) do add(entity_at(math.floor(t.x),math.floor(t.y))) end else local area={{math.floor(x-radius),math.floor(y-radius)},{math.floor(x+radius),math.floor(y+radius)}} for _,e in pairs(s.find_entities_filtered{area=area,type={'transport-belt','underground-belt','splitter'}}) do add(e) end end",
+    "rcon.print(helpers.table_to_json{ok=true,window={x=x,y=y,radius=radius},mode=(targets and #targets>0) and 'targets' or 'window',counts={scanned=found},belts=belts,truncated=found>#belts})",
+  ].join(" ");
+}
+
 export function agentResourcesCommand(params: { x: number; y: number; radius: number }): string {
   const minX = params.x - params.radius;
   const maxX = params.x + params.radius;

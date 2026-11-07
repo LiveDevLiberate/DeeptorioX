@@ -93,6 +93,9 @@ test("observeAreaCommand scans a bounded area, excludes non-deconstructable type
       "health=health,player_created=player_created,belt_items=belt_items,fluid=fluid,network_id=network_id}",
     ),
   );
+  // Belt contents merge every transport line (both lanes), deduplicating lines.
+  assert.ok(lua.includes("get_max_transport_line_index"));
+  assert.ok(lua.includes("line_equals"));
   assert.ok(lua.includes("truncated=matched>#entities"));
   assert.ok(
     lua.includes(

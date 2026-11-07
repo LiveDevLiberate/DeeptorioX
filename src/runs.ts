@@ -998,7 +998,10 @@ export class RunManager {
     const now = Date.now();
     const previous = run.refactor;
     const invalid = Math.max(0, Math.round(audit.invalid_count));
-    const cleanTarget = Number(process.env.AUTORIO_REFACTOR_CLEAN_TARGET ?? 0);
+    // Default matches the documented threshold: a few transient warnings
+    // (backpressure, momentarily starved machines, empty buffer chests) must
+    // not lock construction; sustained, larger debt still does.
+    const cleanTarget = Number(process.env.AUTORIO_REFACTOR_CLEAN_TARGET ?? 20);
     const above = invalid > (Number.isFinite(cleanTarget) ? Math.max(0, cleanTarget) : 0);
     const sameDebt = Boolean(previous?.debt_since) && above;
     run.refactor = {

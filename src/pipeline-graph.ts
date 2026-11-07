@@ -4,6 +4,8 @@
  * bottleneck list instead of making them infer the factory from raw text.
  */
 
+import { BELT_TILE_CAPACITY_ITEMS } from "./belt-lanes.js";
+
 type JsonRecord = Record<string, unknown>;
 
 const MACHINE_TYPES = new Set([
@@ -247,9 +249,9 @@ export function buildPipelineGraph(
   for (const belt of belts) {
     const itemCount = belt.items.reduce((sum, item) => sum + item.count, 0);
     (belt as Record<string, unknown>).item_count = itemCount;
-    // Two lanes * 8 items per tile is the vanilla belt-tile capacity; this is a
-    // content saturation estimate, not measured throughput.
-    (belt as Record<string, unknown>).saturation_estimate = Math.min(1, itemCount / 16);
+    // Two lanes * 4 items per tile is the vanilla belt-tile content capacity
+    // (all belt tiers); this is an estimate, not measured throughput.
+    (belt as Record<string, unknown>).saturation_estimate = Math.min(1, itemCount / BELT_TILE_CAPACITY_ITEMS);
     (belt as Record<string, unknown>).capacity_basis =
       "static_tier_capacity; throughput needs production sampling";
   }

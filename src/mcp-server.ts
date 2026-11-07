@@ -539,6 +539,33 @@ const TOOLS: ToolDefinition[] = [
     }),
   },
   {
+    name: "observe_belt_lanes",
+    description:
+      "Read-only. Inspect belt lanes: per-tile left/right lane contents, content saturation, lane balance, lane-mix warnings and side-load feeders for transport belts, underground belts and splitters.",
+    inputSchema: windowSchema("Scan radius in tiles (default 32, max 120).", {
+      limit: {
+        type: "integer",
+        minimum: 1,
+        maximum: 300,
+        description: "Maximum belts to return (default 100).",
+      },
+      targets: targetArraySchema(
+        "Optional explicit belt tiles; when set they replace the window scan (max 50).",
+        pointSchema("Belt tile to inspect."),
+      ),
+    }),
+    request: (args) => {
+      const body: JsonObject = { window: windowArgs(args) };
+      copyOptionalInteger(args, "limit", body, 1, 300);
+      if (args.targets !== undefined) {
+        body.targets = requireObjectArray(args, "targets").map((point, index) =>
+          requirePoint(point, `targets[${index}]`),
+        );
+      }
+      return { method: "POST", path: "/api/agent/observe/belts", body };
+    },
+  },
+  {
     name: "observe_placement",
     description:
       "Dry-run placement analysis for one or more entities without building them: footprint, reach, terrain, blockers, and nearby valid anchors.",

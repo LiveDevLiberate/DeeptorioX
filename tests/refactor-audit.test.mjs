@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRefactorAudit } from "../dist/refactor-audit.js";
+import {
+  buildRefactorAudit,
+  coversDefaultRefactorScope,
+  DEFAULT_REFACTOR_SCOPE,
+  observationCenter,
+} from "../dist/refactor-audit.js";
 
 test("refactor audit prioritizes factory failures and suggests belt relayout", () => {
   const factory = {
@@ -75,6 +80,67 @@ test("refactor scope includes power and pipes by default, rail only on demand", 
   const withRail = buildRefactorAudit(factory, connections, { includeRail: true });
   assert.ok(withRail.actions.some((action) => action.kind === "rail_issues"));
   assert.equal(withRail.summary.invalid_count, 8);
+});
+
+test("fingerprint ignores coordinates so the same debt escalates after 3 audits", () => {
+  const factory = { counts: {}, totals: {}, problems: {} };
+  const connections = {
+    counts: { belts: 4, issues: 3, inserters: 0, machines: 0 },
+    belts: [],
+    issues: [
+      { kind: "belt_no_input", x: 1, y: 2 },
+      { kind: "belt_no_input", x: 2, y: 2 },
+      { kind: "belt_no_input", x: 3, y: 2 },
+    ],
+  };
+  const first = buildRefactorAudit(factory, connections);
+  const moved = buildRefactorAudit(factory, {
+    ...connections,
+    issues: connections.issues.map((issue) => ({ ...issue, x: issue.x + 100, y: issue.y - 40 })),
+  });
+  assert.equal(first.fingerprint, moved.fingerprint);
+  // A count change is still a different fingerprint.
+  const more = buildRefactorAudit(factory, {
+    ...connections,
+    issues: [...connections.issues, { kind: "belt_no_input", x: 4, y: 2 }],
+  });
+  assert.notEqual(first.fingerprint, more.fingerprint);
+});
+
+test("belt relayout cleanup targets the issue cluster instead of the full window", () => {
+  const connections = {
+    counts: { belts: 3, issues: 3, inserters: 0, machines: 0 },
+    belts: [],
+    issues: [
+      { kind: "belt_head_on", x: 30, y: 40 },
+      { kind: "belt_head_on", x: 31, y: 40 },
+      { kind: "belt_head_on", x: 32, y: 40 },
+    ],
+  };
+  const audit = buildRefactorAudit({ counts: {}, totals: {}, problems: {} }, connections, {
+    center: { x: 0, y: 0 },
+    radius: 120,
+  });
+  const action = audit.actions.find((entry) => entry.kind === "belt_head_on");
+  assert.ok(action, "belt issue action should be present");
+  assert.ok(action.cleanup, "a repeated belt issue should carry a cleanup window");
+  assert.ok(action.cleanup.radius >= 8 && action.cleanup.radius <= 24);
+  assert.equal(action.cleanup.x, 31);
+  assert.match(String(action.action), /relayout-belts around 31,40 radius 8/);
+  assert.doesNotMatch(String(action.action), /radius 120/);
+});
+
+test("observationCenter uses the Lua-resolved scan window", () => {
+  assert.deepEqual(observationCenter({ window: { x: 12, y: -3, radius: 120 } }), { x: 12, y: -3 });
+  assert.equal(observationCenter({ window: { radius: 120 } }), undefined);
+  assert.equal(observationCenter(undefined), undefined);
+});
+
+test("full refactor audits must cover the default scope", () => {
+  assert.equal(coversDefaultRefactorScope(undefined), true);
+  assert.equal(coversDefaultRefactorScope([...DEFAULT_REFACTOR_SCOPE]), true);
+  assert.equal(coversDefaultRefactorScope([...DEFAULT_REFACTOR_SCOPE, "rail"]), true);
+  assert.equal(coversDefaultRefactorScope(["power"]), false);
 });
 
 test("empty chests are default refactor debt but can be scoped out", () => {

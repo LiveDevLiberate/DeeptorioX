@@ -53,7 +53,12 @@ issue coordinates for exact repairs.
 
 ## 2.5 Belt and pipe contents
 
-- `belt-contents --target x,y` shows items on each belt lane (`belt.lines`).
+- `belt-contents --target x,y` shows the raw items on each transport line of one
+  belt tile (`belt.lines`).
+- `belt-lanes` (Python `client.belt_lanes(...)`) is the area-level check: per
+  belt tile it returns `lanes.left`/`lanes.right` items and saturation,
+  `lane_balance`, `lane_mix` warnings and `side_load` feeders. Left/right are
+  relative to belt direction; per-lane content capacity is 4 items per tile.
 - `fluid-contents --target x,y` shows actual fluid amounts inside a pipe/entity;
   `observe-fluids` shows whole networks.
 
@@ -76,10 +81,15 @@ issue coordinates for exact repairs.
 
 ## 2.99 Refactor gate
 
-- High invalid factory/belt debt blocks new build jobs with `REFACTOR_REQUIRED`.
-  Clean via factory-audit + deconstruct/relayout, then re-audit.
-- Three debt audits or 50 blackouts arm the red BIG RESET warning; prepare chests
-  and reset instead of adding more buildings.
+- Invalid factory/belt debt blocks new build jobs with `REFACTOR_REQUIRED` once
+  it stays above the clean target (default 20) past the gate grace. Only
+  default-scope audits with radius >= 120 update the debt record.
+- Clean by fixing the highest-priority factory-audit action (repair/rotate/
+  connect the flagged tiles), then re-audit. Deconstruct only flagged or
+  obsolete entities; keep relayout-belts for a belt section that still fails
+  after 3 audits.
+- Three debt audits (or 50 blackouts) arm the red BIG RESET warning: stop
+  expanding and clean the worst debt; never dismantle a working production block.
 
 ## 2.995 Blueprint gate
 
@@ -101,7 +111,7 @@ issue coordinates for exact repairs.
 
 - Deconstruction with `cleanup=true` is unscored as manual mining and earns
   positive cleanup/refactor points. Builds stay blocked (including direct
-  act-build) until invalid debt reaches the clean target.
+  act-build) until invalid debt falls to the clean target (default 20).
 
 ## 2.9995 Refactor scope
 

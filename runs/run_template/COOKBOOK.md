@@ -370,8 +370,18 @@ choose a reachable shore/waypoint and build the route in stages.
 
 ## 12.5 Inspecting belt and pipe contents
 
+- `belt-lanes --center-x X --center-y Y --radius R` (Python
+  `client.belt_lanes(...)`, `POST /api/agent/observe/belts`) is the area-level
+  lane check. Every belt tile reports `lanes.left` / `lanes.right`
+  (`items`, `item_count`, `saturation`), plus `lane_balance`, `lane_mix`
+  warnings and `side_load` feeder sides. Left/right are relative to the belt's
+  travel direction.
 - `belt-contents --target x,y` (or `observe-entity`) returns `belt.lines[]` with
-  the items currently on each belt lane, e.g. coal on lane 1 and ore on lane 2.
+  the raw items currently on each transport line of one tile, e.g. coal on line
+  1 and ore on line 2. Use `belt-lanes` when you need both lanes side by side,
+  saturation, or lane-mix detection.
+- A belt lane holds at most 4 items per tile (8 across both lanes); saturation
+  in `belt-lanes` is content density, not measured throughput.
 - `fluid-contents --target x,y` returns actual `fluid_contents` (name/amount)
   inside a pipe/fluid entity, plus fluid-box details.
 - `observe-fluids` summarizes whole fluid networks; use `fluid-contents` when
@@ -437,16 +447,20 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 ## 12.8 Refactor audit loop
 
 - Run `factory-audit --center-x X --center-y Y --radius R` after each build and
-  at least every ~10 minutes, or when research/production stalls.
+  at least every ~10 minutes, or when research/production stalls. Only
+  full-scope audits (default scope, radius >= 120) update the run's global
+  refactor debt; local/narrow audits are advisory.
 - It merges `observe-factory` problems and `observe-connections` issues into a
   prioritized `actions` list: top critical fuel/power/fluid, then blocked
   machines, then belt/inserter links, then parallel-belt warnings.
 - Fix only the highest-impact action, verify with `observe-*`/`observe-connections`,
-  then run the audit again. Do not start a new build while a critical action is
-  unresolved.
-- If the same issue/action fingerprint persists after 3 repair attempts, escalate:
-  `relayout-belts` for belt regions, or deconstruct/redesign the affected
-  machine block. Record the fingerprint/attempt count in STATE.md.
+  then run the audit again. Repair/rotate/connect the flagged tiles first and
+  deconstruct only flagged or obsolete entities. Do not start a new build while
+  a critical action is unresolved.
+- If the same issue/action fingerprint (kind + count; coordinates are excluded)
+  persists after 3 audits, escalate: `relayout-belts` for that belt section
+  only, or redesign the affected machine block. Never recycle a whole working
+  area to fix a few bad links. Record the fingerprint/attempt count in STATE.md.
 - A clean audit (`actions: []`) is the go-ahead to expand; otherwise optimize
   before expanding.
 
@@ -471,20 +485,26 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 
 ## 12.12 Refactor gate and big-reset warning
 
-- The manager periodically audits factory + belt/inserter problems. When
-  `invalid_count` stays >= `AUTORIO_REFACTOR_INVALID_THRESHOLD` (default 20) for
-  the gate grace, it returns `REFACTOR_REQUIRED` and blocks **new build jobs**
-  until the debt is cleaned. Mines/deconstruction/relayout remain allowed.
+- The manager periodically audits factory + belt/inserter problems and records
+  a scoped invalid count. Build jobs return `REFACTOR_REQUIRED` once the debt is
+  above the clean target (`AUTORIO_REFACTOR_CLEAN_TARGET`, default 20) and stays
+  there past the gate grace (`AUTORIO_REFACTOR_GATE_GRACE_SECONDS`, default
+  300 s). Mines/deconstruction/relayout remain allowed.
+- The clean target tolerates normal transient noise (momentary backpressure,
+  starved machines, empty buffer chests); sustained debt above it still blocks.
+- Only default-scope audits with radius >= 120 update the debt record; local
+  audits are advisory, so a narrow cleanup check does not clear the gate.
 - Run `factory-audit` and fix the highest-priority action:
   - critical fuel/power/fluid first;
-  - belts: `relayout-belts` for a section with many bad links;
-  - isolated buildings: deconstruct or connect them.
-- Re-audit after cleanup. Building is allowed again when invalid_count falls
-  below the threshold.
+  - repair/rotate the flagged belt tiles; use `relayout-belts` on that section
+    only after 3 failed audits (dry-run first);
+  - isolated/obsolete buildings: deconstruct or connect them.
+- Re-audit after cleanup. Building is allowed again when the audit invalid count
+  falls to the clean target.
 - If the debt persists for `AUTORIO_REFACTOR_RESET_AUDITS` (default 3) audits, or
   blackouts reach 50, `big_reset_pending` is set and the UI shows a red flashing
-  **ATTENTION / BIG RESET** banner. Stop expanding; prepare chests and begin the
-  big-reset procedure rather than patching further.
+  **ATTENTION / BIG RESET** banner. Stop expanding and clean the worst debt; do
+  not dismantle a working production block.
 - A failed `REFACTOR_REQUIRED` means "clean before building", not "retry build".
 
 ## 12.13 Blueprint-first expansion
@@ -537,10 +557,12 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   - `+5` per successfully removed invalid/obsolete player-owned entity;
   - `+10` per unit of invalid debt removed between audits.
 - The build gate now blocks direct `act-build` too, not only queued build jobs.
-  Rebuild only after the audit invalid count reaches the configured clean target
-  (default `0`). `REFACTOR_REQUIRED` means keep cleaning.
-- When `big_reset_pending` is set, stop expanding, prepare chests and start the
-  reset; do not start a new production block first.
+  Rebuild only after the audit invalid count falls to the clean target
+  (`AUTORIO_REFACTOR_CLEAN_TARGET`, default 20). `REFACTOR_REQUIRED` means keep
+  repairing/cleaning, not "retry build".
+- When `big_reset_pending` is set, stop expanding and clean the highest-priority
+  debt; do not start a new production block first, and do not dismantle a
+  working production block to chase the counter.
 
 ## 12.17 Refactor scope: power, pipes, rail
 
@@ -564,8 +586,8 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
   Wire/pipes/poles are included; do not leave broken power or fluid links as
   “unrelated” debt. Rail cleanup only when a train/rail refactor is explicitly in
   scope.
-- Build gate counts the scoped debt; it stays closed until the clean target is
-  reached.
+- Build gate counts the scoped debt; it stays closed until the clean target
+  (default 20) is reached.
 
 ## 12.18 Inserter direction
 

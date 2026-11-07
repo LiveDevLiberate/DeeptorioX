@@ -86,6 +86,7 @@ Commands:
   plan-route --from x,y --to x,y [--kind belt|pipe|wall|power] [--width n] [--spacing n] [--radius n]
   observe-container --target x,y
   belt-contents --target x,y
+  belt-lanes [--center-x n --center-y n --radius n] [--limit n] [--target x,y ...]
   fluid-contents --target x,y
   recover-debris [--center-x n --center-y n --radius n]
   observe-resources --window-x <n> --window-y <n> --radius <n>
@@ -241,6 +242,7 @@ COMMAND_USAGE = {
     "pipeline-audit": "pipeline-audit: Prioritized bottleneck list derived from the structured pipeline graph.\nUsage: factorio.py pipeline-audit [--center-x n --center-y n --radius n]\n",
     "factory-audit": "factory-audit: Prioritized refactor audit of factory problems, belt links and suggested repairs.\nUsage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,containers,rail] [--include-rail]\nDefault scope: belts,power,pipes,machines,containers; rail is opt-in with --include-rail or --scope rail. Run after builds and every few minutes; repair the highest-impact action, verify, then re-audit.\n",
     "belt-contents": "belt-contents: Show items currently on the belt/splitter/underground line at a tile.\nUsage: factorio.py belt-contents --target x,y\n",
+    "belt-lanes": "belt-lanes: Inspect belt lanes with left/right mapping, content saturation, lane balance and lane-mix warnings.\nUsage: factorio.py belt-lanes [--center-x n --center-y n --radius n] [--limit n] [--target x,y ...]\nDefaults: player position, radius 32, limit 100. --target inspects explicit belt tiles instead of the window.\nEach belt reports lanes.left/right (items, item_count, saturation), lane_balance, lane_mix and side-load feeders.\n",
     "fluid-contents": "fluid-contents: Show actual fluid amounts inside a pipe/fluid entity at a tile.\nUsage: factorio.py fluid-contents --target x,y\n",
     "observe-container": "observe-container: Show a chest/container inventory at a tile.\nUsage: factorio.py observe-container --target x,y\n",
     "container-transfer": "container-transfer: Move items between containers through the player inventory; omit --item to move all stacks.\nUsage: factorio.py container-transfer --from x,y --to x,y [--item name] [--count n|all]\n",
@@ -2658,6 +2660,26 @@ class FactorioClient:
             first = data["results"][0] if isinstance(data["results"][0], dict) else {}
         return {"ok": bool(first.get("ok")), "entity": first.get("name"), "belt": first.get("belt")}
 
+    def belt_lanes(self, *, x: float | None = None, y: float | None = None,
+                   radius: int = 32, targets: list[dict[str, Any]] | None = None,
+                   limit: int = 100) -> Any:
+        """Per-tile belt lane contents (left/right), saturation and lane-mix warnings.
+
+        The Lua scan reads both transport lines of every belt tile and maps them
+        to left/right relative to the belt's travel direction. Returns the
+        manager response envelope: window, mode, counts, belts[] and warnings[].
+        ``targets`` inspects explicit belt tiles instead of the radius window.
+        """
+        window: dict[str, Any] = {"radius": radius}
+        if x is not None:
+            window["x"] = x
+        if y is not None:
+            window["y"] = y
+        body: dict[str, Any] = {"window": window, "limit": limit}
+        if targets:
+            body["targets"] = targets
+        return self.request("POST", "/api/agent/observe/belts", body)
+
     def fluid_contents(self, x: float, y: float) -> dict[str, Any]:
         """Read the actual fluids currently inside a pipe/fluid entity."""
         observation = self.observe_entities([{"x": x, "y": y}])
@@ -4948,6 +4970,16 @@ def run(argv: list[str]) -> int:
                 include_rail=bool(flag("include-rail")),
             ))
             return output(result, ok=True)
+        elif cmd == "belt-lanes":
+            lane_targets = parse_targets(flags.get("target", []), False) if flags.get("target") else None
+            result = FactorioClient(parsed.base).belt_lanes(
+                x=parse_number(flag("center-x")),
+                y=parse_number(flag("center-y")),
+                radius=parse_number(flag("radius"), 32) or 32,
+                targets=lane_targets or None,
+                limit=parse_number(flag("limit"), 100) or 100,
+            )
+            return output(data_value(result), ok=True)
         elif cmd in ("belt-contents", "fluid-contents"):
             target = parse_targets([flag("target") or ""], False)[0] if flag("target") else None
             if not target:
