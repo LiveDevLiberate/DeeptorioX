@@ -68,7 +68,9 @@ export function codexLaunchSpec(input: CodexLaunchInput): LaunchSpec {
     args.push("-c", `model_reasoning_effort=${JSON.stringify(input.reasoningEffort)}`);
   args.push(...codexProviderArgs(input.env));
   if (input.resume && input.sessionId) args.push("resume", input.sessionId);
-  args.push(agentPrompt(input));
+  // Tests launch Codex through a .cmd shim, and cmd.exe rejects command lines over
+  // ~8 KiB. The production prompt is longer than that, so tests may shorten it.
+  args.push(process.env.AUTORIO_TEST_AGENT_PROMPT || agentPrompt(input));
   return {
     executable: input.executable,
     args,

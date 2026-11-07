@@ -86,6 +86,7 @@ const fakeDsh = toExecutable(fakeDshScript, "dsh");
 process.env.AUTORIO_DATA_DIR = temp;
 process.env.FACTORIO_BIN = fake;
 process.env.CODEX_BIN = fakeCodex;
+process.env.AUTORIO_TEST_AGENT_PROMPT = "test prompt";
 process.env.CODEX_HOME = path.join(temp, "codex-home");
 delete process.env.AUTORIO_TERMINAL;
 // Keep legacy tests deterministic; the auto-continuation test overrides this.
@@ -752,7 +753,7 @@ test("video stops before game shutdown and rendering completes after scoring", a
   await waitFor(() => env.manager.get(run.id).video?.state === "ready");
   const result = env.manager.get(run.id);
   assert.equal(result.state, "completed");
-  assert.equal(result.video.file, "video/timelapse.mp4");
+  assert.equal(result.video.file, path.join("video", "timelapse.mp4"));
   assert.equal(result.video.speed, 6);
 });
 
@@ -802,7 +803,7 @@ test("quota errors checkpoint immediately, survive manager restart, and resume t
     assert.equal(paused.session_id, "quota-session");
     assert.equal(paused.usage.input_tokens, 25);
     assert.equal(fs.readFileSync(path.join(folder, paused.checkpoint.file), "utf8"), "final save");
-    assert.equal(paused.checkpoint.file, "segments/001/checkpoint.zip");
+    assert.equal(paused.checkpoint.file, path.join("segments", "001", "checkpoint.zip"));
     const inventoryResets = commands.filter((c) => c.includes("p.clear_items_inside")).length;
     const baselineHash = paused.hashes.baseline_save;
     fs.writeFileSync(path.join(folder, "workspace", "agent-notes.txt"), "keep my factory plan");
@@ -857,15 +858,15 @@ test("quota errors checkpoint immediately, survive manager restart, and resume t
     assert.equal(env.stopped(), 2);
     assert.equal(result.segments[0].state, "paused");
     assert.equal(result.segments[1].state, "completed");
-    assert.equal(result.checkpoint.file, "segments/002/checkpoint.zip");
+    assert.equal(result.checkpoint.file, path.join("segments", "002", "checkpoint.zip"));
     assert.ok(result.milestones["first-gear"]);
     assert.ok(result.milestones["research:logistic-science-pack"]);
     assert.ok(result.milestones["first-gear"].wall_seconds >= paused.elapsed_seconds);
     assert.equal(result.usage.input_tokens, 35);
     assert.equal(result.usage.output_tokens, 5);
     assert.notEqual(captureDirs[0], captureDirs[1]);
-    assert.equal(result.video.file, "segments/002/video/timelapse.mp4");
-    assert.equal(result.segments[0].video.file, "video/timelapse.mp4");
+    assert.equal(result.video.file, path.join("segments", "002", "video", "timelapse.mp4"));
+    assert.equal(result.segments[0].video.file, path.join("video", "timelapse.mp4"));
     assert.equal(manager.videoFile(run.id, 1), path.join(folder, "video", "timelapse.mp4"));
     const points = fs
       .readFileSync(path.join(folder, "telemetry.jsonl"), "utf8")
