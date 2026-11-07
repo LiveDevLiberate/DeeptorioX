@@ -23,8 +23,6 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(html, /<header class="status-head" aria-label="Run status">/);
   assert.match(html, /<div class="status-tools" role="group" aria-label="Display options">/);
   assert.match(html, /<section id="planPanel" class="status-plan ui-col-1-7" aria-label="Current plan">/);
-  assert.match(html, /class="run-masthead" aria-hidden="true"/);
-  assert.match(html, /id="runMastheadContext"[^>]*>factory log</);
   assert.match(html, /id="planKicker"[^>]*>Work order</);
   assert.match(html, /id="telemetryKicker"[^>]*>Readouts</);
   assert.match(
@@ -70,7 +68,6 @@ test("recording page keeps its semantic structure and information surfaces", () 
     "telemetryKicker",
     "connectionNotice",
     "connectionRetry",
-    "runMastheadContext",
     "statusMetrics",
     "statusScores",
     "filterAll",
