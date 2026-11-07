@@ -1640,3 +1640,23 @@ body.recording .status-inner.ui-grid-12 > .status-production {
 #agentStatus.collapsed .status-production {
   display: none;
 }
+
+/* Collapsed thoughts are compact labels; only the most recent context needs full width. */
+body.recording #codexOutput .reasoning:not([open]) {
+  width: 70%;
+  max-width: 70%;
+}
+body.recording #codexOutput .reasoning:not([open]) .reasoning-summary {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 900px) {
+  body.recording #codexOutput .reasoning:not([open]) {
+    width: 100%;
+    max-width: 100%;
+  }
+  body.recording #codexOutput .reasoning:not([open]) .reasoning-summary {
+    white-space: normal;
+  }
+}

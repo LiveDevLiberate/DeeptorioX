@@ -34,7 +34,6 @@ let openCommandGroup = null;
 const loops = new LoopDetector({ threshold: 3, window: 12 });
 const thoughtLoops = new LoopDetector({ threshold: 2, window: 6 });
 const seenThoughts = new Map();
-const openReasoning = [];
 let streamStart = 0;
 let firstBatch = true;
 let unread = 0;
@@ -1541,12 +1540,7 @@ function renderReasoning(item) {
   const entry = { node, badge, count: 1 };
   entries.set(item.id, entry);
   if (key) seenThoughts.set(key, entry);
-  openReasoning.push(node);
-  while (openReasoning.length > 2) {
-    const old = openReasoning.shift();
-    if (old) setDetailsOpen(old, false);
-  }
-  setDetailsOpen(node, true);
+  setDetailsOpen(node, false);
   if (repeat.repeated) {
     badge.hidden = false;
     badge.textContent = `↻ ${strings().repeated} ×${repeat.count}`;

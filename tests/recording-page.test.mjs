@@ -277,7 +277,7 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     const reasoning = output.children.find((node) => node.className.includes("reasoning"));
     assert.ok(reasoning, "missing reasoning block");
     assert.match(reasoning.children[0].textContent, /Next step: mine coal/);
-    assert.equal(reasoning.open, true);
+    assert.equal(reasoning.open, false);
     const commands = output.children.find((node) => node.className.includes("commands"));
     assert.ok(commands, "missing command group");
     assert.match(commands.children[0].textContent, /3 mine/);
