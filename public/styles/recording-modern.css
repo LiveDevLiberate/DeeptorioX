@@ -1700,3 +1700,18 @@ body.recording #codexOutput .reasoning-segment + .reasoning-segment {
 body.recording #codexOutput .reasoning-summary .msg-time {
   margin-left: auto;
 }
+
+/* Keep activity immediately after the work-order title even when the legacy
+   responsive rule gives .status-activity order: 2. */
+body.recording .plan-heading-row > .section-kicker {
+  order: 0;
+}
+body.recording .plan-heading-row > .status-activity {
+  order: 1;
+}
+body.recording .plan-heading-row > .plan-heading-spacer {
+  order: 2;
+}
+body.recording .plan-heading-row > .status-model {
+  order: 3;
+}
