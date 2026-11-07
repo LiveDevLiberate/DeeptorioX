@@ -302,17 +302,13 @@ test("recording page renders summaries, loops, turns and unread updates", async 
       false,
     );
 
-    // Status metrics are a compact table: production/rate/trend, research, power.
+    // Status metrics are a compact table: research, power, automation, penalty.
     const nodeText = (node) =>
       [node.textContent, ...(node.children || []).map(nodeText)].filter(Boolean).join(" ");
     const metricsTable = nodes.statusMetrics.children[0];
     assert.equal(metricsTable.tagName, "table");
     const metricRows = metricsTable.children[0].children;
     const metrics = metricRows.map(nodeText);
-    assert.ok(
-      metrics.some((text) => /iron-plate 12\/min/.test(text)),
-      `metrics: ${metrics.join(" | ")}`,
-    );
     assert.ok(
       metrics.some((text) => /research automation 42%/i.test(text)),
       `metrics: ${metrics.join(" | ")}`,
@@ -332,8 +328,6 @@ test("recording page renders summaries, loops, turns and unread updates", async 
       };
       return walk(metricsTable);
     };
-    assert.ok(metricClass("metric-spark"), "missing sparkline in production row");
-    assert.ok(metricClass("metric-delta"), "missing trend label in production row");
     assert.ok(metricClass("metric-progress"), "missing research progress");
     assert.ok(
       output.children.some((node) => String(node.className).includes("event-marker")),
@@ -458,4 +452,8 @@ test("recording page exposes map and blueprint previews", () => {
   assert.match(js, /blueprint-viewer\/viewer\.html/);
   assert.match(js, /toolkit-viewer\/index\.html/);
   assert.match(js, /loadRecordingSeedInline/);
+  assert.match(html, /id="statusProduction"/);
+  assert.match(html, /id="statusProductionList"/);
+  assert.match(js, /function renderProduction/);
+  assert.match(js, /limit: 999/);
 });

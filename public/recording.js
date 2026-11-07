@@ -11,14 +11,11 @@ import {
   formatRelativeMs,
   LoopDetector,
   isDecisionText,
-  miniBars,
   parseTelemetryLines,
   telemetryRates,
-  telemetrySeries,
   telemetryResearchDetail,
   telemetryPowerSatisfaction,
   telemetryMarkers,
-  sparkTrend,
   SCORE_AXES,
   radarGeometry,
   formatDurationText,
@@ -64,6 +61,9 @@ const statusCurrent = document.getElementById("statusCurrent");
 const statusDone = document.getElementById("statusDone");
 const statusScores = document.getElementById("statusScores");
 const statusMetrics = document.getElementById("statusMetrics");
+const statusProduction = document.getElementById("statusProduction");
+const statusProductionList = document.getElementById("statusProductionList");
+const productionKicker = document.getElementById("productionKicker");
 const transcriptSearch = document.getElementById("transcriptSearch");
 const FILTER_BUTTONS = {
   all: document.getElementById("filterAll"),
@@ -121,6 +121,7 @@ const I18N = {
     repeated: "repeated",
     raw: "raw",
     rateSuffix: "/min",
+    productionColumn: "Item output",
     noTelemetry: "no telemetry",
     researchLabel: "research",
     trimmed: "earlier entries trimmed",
@@ -289,6 +290,7 @@ const I18N = {
     repeated: "重复",
     raw: "原始",
     rateSuffix: "/分",
+    productionColumn: "物品产量",
     noTelemetry: "无遥测数据",
     researchLabel: "研究",
     trimmed: "更早记录已裁剪",
@@ -1650,40 +1652,33 @@ function metricValue(iconName, value) {
   cell.append(icon(iconName), element("span", value, "metric-text"));
   return cell;
 }
+function renderProduction() {
+  if (!statusProduction || !statusProductionList) return;
+  const text = strings();
+  const rates = telemetryRates(telemetrySamples, { limit: 999 });
+  if (productionKicker) productionKicker.textContent = text.productionColumn;
+  if (!rates.length) {
+    statusProduction.hidden = true;
+    statusProductionList.replaceChildren();
+    return;
+  }
+  const rows = rates.map((entry) => {
+    const row = element("div", "", "production-row");
+    row.append(
+      element("span", entry.name, "production-name"),
+      element("span", `${Math.round(entry.rate)}${text.rateSuffix}`, "production-rate"),
+    );
+    return row;
+  });
+  statusProductionList.replaceChildren(...rows);
+  statusProduction.hidden = false;
+}
 function renderMetrics() {
+  renderProduction();
   if (!statusMetrics) return;
   const text = strings();
   const rows = [];
   if (telemetrySamples.length) {
-    const rates = telemetryRates(telemetrySamples, { limit: 2 });
-    const top = rates[0];
-    if (top) {
-      const row = element("tr", "", "metric metric-production");
-      row.append(
-        element("th", text.metrics.production, "metric-label"),
-        metricValue("factory", `${top.name} ${Math.round(top.rate)}${text.rateSuffix}`),
-      );
-      const series = telemetrySeries(telemetrySamples, top.name, 8);
-      const trend = sparkTrend(series);
-      const trendCell = element("td", "", "metric-trend");
-      const spark = element("span", "", "metric-spark");
-      spark.title = text.sparkHint;
-      for (const width of miniBars(series)) {
-        const bar = element("span", "", "metric-bar");
-        bar.style.width = `${Math.max(6, width)}%`;
-        spark.append(bar);
-      }
-      const delta =
-        trend.direction === "flat"
-          ? text.sparkStable
-          : (trend.direction === "up" ? text.sparkUp : text.sparkDown).replace(
-              "{percent}",
-              String(trend.percent),
-            );
-      trendCell.append(spark, element("span", delta, `metric-delta ${trend.direction}`));
-      row.append(trendCell);
-      rows.push(row);
-    }
     const research = telemetryResearchDetail(telemetrySamples);
     if (research) {
       const row = element("tr", "", "metric metric-research");

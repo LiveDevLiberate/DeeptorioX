@@ -1176,11 +1176,55 @@ html[data-theme="light"] body.recording .metrics-table tr + tr > * {
 }
 body.recording .status-telemetry .status-data {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 220px) auto;
   align-items: stretch;
   justify-content: space-between;
-  gap: 24px;
+  gap: 20px;
   min-width: 0;
+}
+.status-production {
+  min-width: 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--rule);
+}
+.status-production[hidden] {
+  display: none;
+}
+.production-kicker {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.production-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 118px;
+  overflow: auto;
+  padding-right: 4px;
+}
+.production-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+.production-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.production-rate {
+  flex: 0 0 auto;
+  color: var(--ok);
 }
 body.recording .status-scores {
   display: flex;
@@ -1203,6 +1247,15 @@ body.recording .status-scores .score-radar {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
     gap: 10px;
+  }
+  .status-production {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+    padding-top: 6px;
+  }
+  .production-list {
+    max-height: 88px;
   }
   body.recording .status-scores {
     justify-content: flex-start;
