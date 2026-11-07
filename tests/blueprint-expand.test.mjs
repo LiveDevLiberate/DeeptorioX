@@ -95,16 +95,24 @@ test("manager blueprint rotation and mirror transform anchors and directions", (
     { name: "transport-belt", anchor: { x: 0, y: 0 }, direction: 4 },
     { name: "transport-belt", anchor: { x: 1, y: 0 }, direction: 4 },
   ];
-  const rotated = transformBlueprintEntities(entities, { "transport-belt": { width: 1, height: 1 } }, {
-    rotation: 2,
-  });
+  const rotated = transformBlueprintEntities(
+    entities,
+    { "transport-belt": { width: 1, height: 1 } },
+    {
+      rotation: 2,
+    },
+  );
   assert.deepEqual(rotated, [
     { name: "transport-belt", anchor: { x: 0, y: 0 }, direction: 8 },
     { name: "transport-belt", anchor: { x: 0, y: 1 }, direction: 8 },
   ]);
-  const mirrored = transformBlueprintEntities(entities, { "transport-belt": { width: 1, height: 1 } }, {
-    mirror: true,
-  });
+  const mirrored = transformBlueprintEntities(
+    entities,
+    { "transport-belt": { width: 1, height: 1 } },
+    {
+      mirror: true,
+    },
+  );
   assert.deepEqual(mirrored, [
     { name: "transport-belt", anchor: { x: 1, y: 0 }, direction: 12 },
     { name: "transport-belt", anchor: { x: 0, y: 0 }, direction: 12 },

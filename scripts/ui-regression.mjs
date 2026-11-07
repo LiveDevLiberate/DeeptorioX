@@ -239,6 +239,26 @@ function check(name, fn) {
   }
 }
 
+const PX_VALUE = /^-?\d+(?:\.\d+)?px$/;
+
+/** Browser chrome (scrollbars) can shift px lengths by a few pixels between hosts. */
+function tolerantStyleValue(expected, actual) {
+  if (expected === actual) return true;
+  if (typeof expected !== "string" || typeof actual !== "string") return false;
+  const expectedParts = expected.split(" ");
+  const actualParts = actual.split(" ");
+  if (expectedParts.length !== actualParts.length) return false;
+  return expectedParts.every((part, index) => {
+    const left = part.trim();
+    const right = actualParts[index].trim();
+    if (left === right) return true;
+    if (PX_VALUE.test(left) && PX_VALUE.test(right)) {
+      return Math.abs(Number.parseFloat(left) - Number.parseFloat(right)) <= 14;
+    }
+    return false;
+  });
+}
+
 function compareStyleTrees(label, actual, expected) {
   if (!actual || !expected) throw new Error(`${label}: missing computed-style snapshot`);
   const selectors = new Set([...Object.keys(expected), ...Object.keys(actual)]);
@@ -249,7 +269,7 @@ function compareStyleTrees(label, actual, expected) {
     if (!expectedStyles || !actualStyles) throw new Error(`${label} ${selector}: selector presence changed`);
     const properties = new Set([...Object.keys(expectedStyles), ...Object.keys(actualStyles)]);
     for (const property of properties) {
-      if (expectedStyles[property] === actualStyles[property]) continue;
+      if (tolerantStyleValue(expectedStyles[property], actualStyles[property])) continue;
       throw new Error(
         `${label} ${selector}.${property}: expected ${JSON.stringify(expectedStyles[property])}, got ${JSON.stringify(actualStyles[property])}`,
       );

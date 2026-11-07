@@ -101,7 +101,10 @@ test("route planners skip matching existing belt/pipe assets", async () => {
   });
   assert.deepEqual(
     belts.map((entry) => entry.anchor),
-    [{ x: 0, y: 0 }, { x: 2, y: 0 }],
+    [
+      { x: 0, y: 0 },
+      { x: 2, y: 0 },
+    ],
   );
   const wrongDirection = planBeltPath({
     path,
@@ -114,6 +117,9 @@ test("route planners skip matching existing belt/pipe assets", async () => {
   });
   assert.deepEqual(
     pipes.map((entry) => entry.anchor),
-    [{ x: 0, y: 0 }, { x: 2, y: 0 }],
+    [
+      { x: 0, y: 0 },
+      { x: 2, y: 0 },
+    ],
   );
 });

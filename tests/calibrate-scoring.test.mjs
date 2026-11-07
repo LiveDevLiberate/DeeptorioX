@@ -163,10 +163,7 @@ test("calibration groups runs by construction variant and writes variant par ove
     const summary = summarizeCompletionTimes(loadRunRecords(runs));
     assert.equal(summary.get("smoke:free:agent").parse, 100);
     assert.equal(summary.get("smoke:planned:agent").parse, 200);
-    assert.deepEqual(applyPar(benchmarks, summary), [
-      "smoke:free:agent",
-      "smoke:planned:agent",
-    ]);
+    assert.deepEqual(applyPar(benchmarks, summary), ["smoke:free:agent", "smoke:planned:agent"]);
     const updated = JSON.parse(fs.readFileSync(path.join(benchmarks, "smoke.json"), "utf8"));
     assert.equal(updated.scoring.par_seconds, 1);
     assert.equal(updated.scoring.variants["smoke:free:agent"].par_seconds, 100);

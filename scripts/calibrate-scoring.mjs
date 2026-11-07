@@ -46,8 +46,7 @@ export function loadRunRecords(runsDir) {
       const variant =
         (typeof run?.scoring?.benchmark_variant === "string" && run.scoring.benchmark_variant) ||
         (typeof run?.construction?.variant === "string" && run.construction.variant) ||
-        (typeof run?.evaluation?.capability?.variant === "string" &&
-          run.evaluation.capability.variant) ||
+        (typeof run?.evaluation?.capability?.variant === "string" && run.evaluation.capability.variant) ||
         undefined;
       records.push({
         id: entry.name,
@@ -142,9 +141,7 @@ export function applyPar(benchmarksDir, summary) {
     const parSource = `median_completed:${date} (n=${stats.completed}${stats.provisional ? ", provisional" : ""})`;
     if (variant) {
       config.scoring.variants =
-        config.scoring.variants && typeof config.scoring.variants === "object"
-          ? config.scoring.variants
-          : {};
+        config.scoring.variants && typeof config.scoring.variants === "object" ? config.scoring.variants : {};
       config.scoring.variants[key] = { par_seconds: stats.parse, par_source: parSource };
     } else {
       config.scoring.par_seconds = stats.parse;
