@@ -1936,3 +1936,31 @@ body.recording .production-name {
 body.recording .production-name.changed {
   color: #6da8ff;
 }
+
+/* Collapsible transcript rows have no disclosure triangle; icon + text start
+   flush left and remain the only visual affordance. */
+body.recording #codexOutput .reasoning-summary::before,
+body.recording #codexOutput .commands-summary::before,
+body.recording #codexOutput .tool-details summary::before,
+body.recording #codexOutput .action-raw summary::before {
+  display: none;
+  content: none;
+}
+body.recording #codexOutput .reasoning-summary,
+body.recording #codexOutput .commands-summary,
+body.recording #codexOutput .tool-details summary,
+body.recording #codexOutput .action-raw summary {
+  justify-content: flex-start;
+  list-style: none;
+}
+body.recording #codexOutput summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Keep reasoning details stretched after removing the disclosure marker. */
+body.recording #codexOutput details.reasoning,
+body.recording #codexOutput details.reasoning:not([open]) {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+}
