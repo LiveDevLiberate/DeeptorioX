@@ -65,6 +65,7 @@ export default tseslint.config(
       "native/**",
       "public/*.html",
       "public/blueprint-viewer/**",
+      "public/toolkit-viewer/**",
       "benchmarks/**",
       "runs/**",
     ],

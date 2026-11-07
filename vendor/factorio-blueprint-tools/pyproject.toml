@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fbp"
+version = "0.2.0"
+description = "Factorio 2.0 blueprint tools: lane-level item flow, supply checks, and patching of blueprint strings"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Chris Mendoza"}]
+keywords = ["factorio", "blueprint", "belt", "factory", "gamedev"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment",
+    "Topic :: Utilities",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/chrisjmendoza/factorio-blueprint-tools"
+Source = "https://github.com/chrisjmendoza/factorio-blueprint-tools"
+Issues = "https://github.com/chrisjmendoza/factorio-blueprint-tools/issues"
+Changelog = "https://github.com/chrisjmendoza/factorio-blueprint-tools/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+png = ["Pillow"]
+dev = ["pytest", "Pillow"]
+
+[project.scripts]
+fbp = "fbp.cli:main"
+
+[tool.setuptools]
+packages = ["fbp"]
+
+[tool.setuptools.package-data]
+fbp = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

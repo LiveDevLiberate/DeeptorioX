@@ -1,0 +1,11 @@
+# Required only for the full vendored FactorioPreviewToolkit CLI
+# (clipboard/window polling, config, sound, multi-planet preview, uploaders).
+# autorio's own map-preview API does not require these packages.
+pillow==11.2.1
+psutil==7.0.0
+pydantic==2.11.3
+pydantic_core==2.33.1
+pygame==2.6.1
+pyperclip==1.9.0
+pywin32==310; sys_platform == "win32"
+pyobjc==10.2; sys_platform == "darwin"

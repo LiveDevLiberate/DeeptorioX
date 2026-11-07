@@ -1,0 +1,35 @@
+{
+  "name": "fbp-viewer",
+  "displayName": "Factorio Blueprint Viewer (fbp)",
+  "description": "Pan/zoom map of a Factorio 2.0 blueprint string with hover details, plus fbp check/trace from the editor.",
+  "version": "0.1.0",
+  "publisher": "chrisjmendoza",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Visualization"],
+  "activationEvents": ["onLanguage:plaintext", "onCommand:fbp.open", "onCommand:fbp.check", "onCommand:fbp.trace"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "fbp.open", "title": "fbp: Open blueprint viewer" },
+      { "command": "fbp.check", "title": "fbp: Run supply check on this file" },
+      { "command": "fbp.trace", "title": "fbp: Trace machines by recipe" }
+    ],
+    "menus": {
+      "editor/title": [
+        { "command": "fbp.open", "when": "resourceExtname == .txt || resourceExtname == .fbp || resourceExtname == .json", "group": "navigation" }
+      ],
+      "explorer/context": [
+        { "command": "fbp.open", "when": "resourceExtname == .txt || resourceExtname == .fbp", "group": "fbp" },
+        { "command": "fbp.check", "when": "resourceExtname == .txt || resourceExtname == .fbp", "group": "fbp" }
+      ]
+    },
+    "configuration": {
+      "title": "fbp",
+      "properties": {
+        "fbp.python": { "type": "string", "default": "python", "description": "Python interpreter used to run the fbp package." },
+        "fbp.toolsPath": { "type": "string", "default": "", "description": "Folder containing the fbp package (defaults to the folder this extension lives in, one level up)." }
+      }
+    }
+  }
+}

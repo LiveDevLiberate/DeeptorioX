@@ -1,0 +1,64 @@
+[project]
+name = "factorio-preview-generator"
+version = "0.1.74"
+description = "Tool to generate map previews for Factorio speedruns."
+authors = [
+    { name = "Sebastian Berghoff (AntiElitz)" },
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pillow==11.2.1",
+    "psutil==7.0.0",
+    "pydantic==2.11.3",
+    "pydantic_core==2.33.1",
+    "pygame==2.6.1",
+    "pyperclip==1.9.0",
+    "pywin32==310; sys_platform == \"win32\"",
+    "pyobjc==10.2; sys_platform == \"darwin\"",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "mypy",
+    "types-psutil",
+    "types-pyperclip",
+    "types-Pillow",
+    "pyinstaller",
+    "pre-commit",
+    "pydantic[mypy]",
+    "tomli",
+    "tomli-w",
+]
+
+[project.scripts]
+factorio-preview = "your_main_module.__main__:main"
+
+[tool.black]
+line-length = 100
+target-version = [
+    "py310",
+]
+skip-string-normalization = false
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+exclude = "^(tests/|build/)"
+show_error_codes = true
+plugins = [
+    "pydantic.mypy",
+]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[build-system]
+requires = [
+    "setuptools>=61.0",
+]
+build-backend = "setuptools.build_meta"

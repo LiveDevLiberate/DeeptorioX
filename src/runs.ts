@@ -1403,6 +1403,12 @@ export class RunManager {
     if (fs.existsSync(analysisDir)) {
       fs.cpSync(analysisDir, path.join(workspace, "blueprint_analysis"), { recursive: true });
     }
+    for (const vendored of ["vendor", "tools"]) {
+      const sourceDir = path.join(ROOT, vendored);
+      if (fs.existsSync(sourceDir)) {
+        fs.cpSync(sourceDir, path.join(workspace, vendored), { recursive: true });
+      }
+    }
     fs.writeFileSync(
       path.join(workspace, "TASK.md"),
       `# Task\n\n${run.benchmark.task}\n\nTime limit: ${run.max_seconds} wall-clock seconds.\n`,
