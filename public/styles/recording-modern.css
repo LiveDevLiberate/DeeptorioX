@@ -1665,3 +1665,38 @@ body.recording #codexOutput .reasoning:not([open]) .reasoning-summary {
 body.recording .score-radar .radar-label {
   font-size: 10.2px;
 }
+
+/* Compact, high-density reasoning and command rows. */
+body.recording .status-inner {
+  padding-top: 14px;
+}
+body.recording #codexOutput .reasoning,
+body.recording #codexOutput .commands,
+body.recording #codexOutput .message,
+body.recording #codexOutput .tool-details {
+  padding: 5px 8px;
+}
+body.recording #codexOutput .reasoning-summary,
+body.recording #codexOutput .commands-summary {
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+body.recording #codexOutput .reasoning-body {
+  padding: 2px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+body.recording #codexOutput .reasoning-segment {
+  padding: 2px 0 2px 7px;
+  border-left: 1px solid var(--rule);
+}
+body.recording #codexOutput .reasoning-segment-text {
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+body.recording #codexOutput .reasoning-segment + .reasoning-segment {
+  margin-top: 3px;
+}
+body.recording #codexOutput .reasoning-summary .msg-time {
+  margin-left: auto;
+}

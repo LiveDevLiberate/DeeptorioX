@@ -1443,6 +1443,15 @@ function refreshCommandGroup(group) {
   group.details.classList.toggle("failed", stats.failed > 0);
   group.details.classList.toggle("loop", group.loop > 0);
 }
+function cleanCommandSummary(value) {
+  let text = String(value || "").trim();
+  text = text
+    .replace(/<path>.*?<\/path>/gi, "")
+    .replace(/[A-Za-z]:\\[^\s]+/g, "")
+    .trim();
+  if (/\.(?:py|ps1|cmd|bat|sh|mjs|js)\b/i.test(text)) return "";
+  return text;
+}
 function renderCommand(item) {
   const group = ensureCommandGroup();
   const summary = summarizeCommand(item);
@@ -1462,7 +1471,8 @@ function renderCommand(item) {
   prependIcon(badge, badgeIcon(summary.category));
   const main = element("span", "", "action-main");
   if (summary.target) main.append(element("span", summary.target, "action-target"));
-  if (summary.outcome) main.append(element("span", summary.outcome, "action-outcome"));
+  const outcome = cleanCommandSummary(summary.outcome);
+  if (outcome) main.append(element("span", outcome, "action-outcome"));
   if (summary.durationMs != null)
     main.append(element("span", formatDurationText(summary.durationMs), "action-duration"));
   if (summary.running) main.append(element("span", strings().activity.acting, "action-flag"));
@@ -1585,7 +1595,7 @@ function renderTool(item) {
     entries.set(item.id, entry);
   }
   const info = summarizeTool(item);
-  const title = `${info.label}${info.detail ? ` · ${info.detail}` : ""}`;
+  const title = info.label;
   if (entry.title !== title) {
     entry.title = title;
     entry.summary.textContent = title;
