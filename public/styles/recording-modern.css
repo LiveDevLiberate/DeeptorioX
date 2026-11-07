@@ -2351,3 +2351,13 @@ body.recording #codexOutput .message.decision .decision-icon {
 body.recording #codexOutput .reasoning.decision .reasoning-summary .icon {
   color: #e0b072;
 }
+
+/* Narrow header children must stay inside the padded status-inner box; using
+   100vw here adds the 12px gutters back and makes the page horizontally wide. */
+@media (max-width: 560px) {
+  body.recording .status-plan.ui-col-1-7,
+  body.recording .plan-heading-row {
+    width: 100%;
+    max-width: 100%;
+  }
+}
