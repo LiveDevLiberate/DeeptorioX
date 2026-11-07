@@ -175,6 +175,14 @@ class BlueprintAnalysisTests(unittest.TestCase):
         self.assertIn("lint", result)
         self.assertIn("lane_mix", result)
 
+    def test_bundled_blueprint_gamedata_is_current(self):
+        import json
+        from pathlib import Path
+        data = json.loads(Path("blueprint_analysis/data/gamedata.json").read_text(encoding="utf-8"))
+        self.assertGreater(len(data.get("recipes", {})), 100)
+        self.assertGreater(len(data.get("footprints", {})), 100)
+        self.assertIn("2.1.24", data.get("source", ""))
+
     def test_generate_gamedata_from_dump(self):
         import json
         import tempfile
@@ -191,7 +199,7 @@ class BlueprintAnalysisTests(unittest.TestCase):
                 "assembling-machine": {"test-machine": {"collision_box": [[-1.5, -1.5], [1.5, 1.5]]}},
             }), encoding="utf-8")
             result = factorio.FactorioClient(poll_interval=0).generate_blueprint_gamedata(
-                str(source))
+                str(source), str(Path(directory) / "gamedata.json"))
         self.assertTrue(result["ok"])
         self.assertEqual(result["recipes"], 1)
         self.assertGreaterEqual(result["footprints"], 1)

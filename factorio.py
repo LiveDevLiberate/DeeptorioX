@@ -2240,7 +2240,8 @@ class FactorioClient:
         from blueprint_analysis import diff_blueprint_payloads
         return diff_blueprint_payloads(before_payload, after_payload)
 
-    def generate_blueprint_gamedata(self, dump_file: str | None = None) -> dict[str, Any]:
+    def generate_blueprint_gamedata(self, dump_file: str | None = None,
+                                    output_file: str | None = None) -> dict[str, Any]:
         """Regenerate blueprint recipe/footprint data from Factorio --dump-data."""
         import json
         from blueprint_analysis.gamedata import SLIM_PATH, slim_from_dump
@@ -2258,7 +2259,7 @@ class FactorioClient:
         dump = json.loads(source.read_text(encoding="utf-8"))
         slim = slim_from_dump(dump)
         slim["source"] = f"{source} (regenerated locally)"
-        target = Path(SLIM_PATH)
+        target = Path(output_file) if output_file else Path(SLIM_PATH)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(slim, sort_keys=True, indent=0) + "\n", encoding="utf-8")
         return {

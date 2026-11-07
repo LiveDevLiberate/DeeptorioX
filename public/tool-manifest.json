@@ -1710,9 +1710,16 @@
           "kind": "positional_or_keyword",
           "name": "dump_file",
           "required": false
+        },
+        {
+          "annotation": "str | None",
+          "default": "None",
+          "kind": "positional_or_keyword",
+          "name": "output_file",
+          "required": false
         }
       ],
-      "signature": "generate_blueprint_gamedata(self, dump_file: 'str | None' = None) -> 'dict[str, Any]'"
+      "signature": "generate_blueprint_gamedata(self, dump_file: 'str | None' = None, output_file: 'str | None' = None) -> 'dict[str, Any]'"
     },
     {
       "description": "Check planned footprints, rotations, overlaps and native placement.",
@@ -3275,7 +3282,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "3ffa16767bde3080df3500a7333315224fa78b7476f0faa6973ad8054669f8a5",
+  "client_sha256": "9a7252f64ad743ed9def16fa5cedd06d87b07af8aa70b63def31b2702b69d666",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3470,7 +3477,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "3ffa16767bde3080df3500a7333315224fa78b7476f0faa6973ad8054669f8a5",
+    "factorio.py": "9a7252f64ad743ed9def16fa5cedd06d87b07af8aa70b63def31b2702b69d666",
     "src/api/agent.ts": "f34752ae629f3f324a0f485072d52c79caa253bd4af44f4a54b5382916114e21",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
