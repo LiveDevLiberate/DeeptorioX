@@ -394,7 +394,7 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     assert.ok(
       output.children
         .filter((node) => node._kind === "message" && node._decision)
-        .every((node) => node.hidden === false),
+        .every((node) => node.hidden === true),
     );
     assert.equal(storage.get("autorio.filter"), "thinking");
     nodes.filterAll.fire("click");

@@ -2346,3 +2346,8 @@ body.recording .status-head {
 body.recording #codexOutput .message.decision .decision-icon {
   margin-right: 0;
 }
+
+/* Thinking-filter rows use one amber icon hue; decisions are messages now. */
+body.recording #codexOutput .reasoning.decision .reasoning-summary .icon {
+  color: #e0b072;
+}
