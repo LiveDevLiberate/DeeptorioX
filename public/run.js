@@ -601,5 +601,18 @@ $("seedPreviewGenerate").onclick = async () => {
 };
 if (id) {
   await refresh();
+  const previewParams = new URLSearchParams(location.search);
+  if (previewParams.get("preview") === "seed") {
+    $("seedPreviewGenerate").click();
+  } else if (previewParams.get("preview") === "blueprint") {
+    const blueprintId = previewParams.get("blueprint");
+    if (blueprintId) {
+      openPreview(
+        `/blueprint-viewer/viewer.html?run=${encodeURIComponent(id)}&id=${encodeURIComponent(blueprintId)}`,
+        "Blueprint preview",
+        "iframe",
+      );
+    }
+  }
   setInterval(refresh, 1000);
 } else $("error").textContent = "Choose a run from the run history.";
