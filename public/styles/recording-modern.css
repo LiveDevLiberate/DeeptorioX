@@ -1257,11 +1257,10 @@ body.recording .status-scores .score-radar {
 @media (max-width: 900px) {
   body.recording .status-telemetry .status-data {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "metrics"
-      "scores"
-      "production";
+      "metrics scores"
+      "production production";
     align-items: start;
     gap: 10px;
   }
