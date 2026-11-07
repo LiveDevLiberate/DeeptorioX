@@ -1563,3 +1563,9 @@ body.recording .production-list {
     grid-template-columns: repeat(3, 116px);
   }
 }
+
+/* Remove the legacy 80px transcript footer gap: the last card border should sit
+   close to the bottom edge of the recording window. */
+body.recording #codexOutput {
+  padding-bottom: 6px;
+}
