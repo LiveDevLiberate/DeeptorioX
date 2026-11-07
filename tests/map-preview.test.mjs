@@ -20,4 +20,10 @@ test("new-run and run pages expose the map preview controls", () => {
   assert.match(run, /id="seedPreviewViewer"/);
   assert.match(viewer, /createMapViewer/);
   assert.match(viewer, /FactorioPreviewToolkit/);
+  const runsJs = fs.readFileSync("public/runs.js", "utf8");
+  const runJs = fs.readFileSync("public/run.js", "utf8");
+  assert.match(runsJs, /toolkit-viewer\/index\.html/);
+  assert.match(runsJs, /toolkit-preview-frame/);
+  assert.match(runJs, /toolkit-viewer\/index\.html/);
+  assert.match(runJs, /toolkit-preview-frame/);
 });

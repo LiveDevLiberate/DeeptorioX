@@ -576,10 +576,26 @@ $("resume").onclick = async () => {
     $("resume").disabled = false;
   }
 };
-let seedMapViewer = null;
+let seedPreviewFrame = null;
 let seedPreviewUrl = null;
+function toolkitViewerUrl(image, planet = "nauvis") {
+  return `/toolkit-viewer/index.html?image=${encodeURIComponent(image)}&planet=${encodeURIComponent(planet)}`;
+}
+function showSeedMapPreview(image, planet = "nauvis") {
+  $("seedPreviewViewer").hidden = false;
+  const src = toolkitViewerUrl(image, planet);
+  if (seedPreviewFrame) {
+    seedPreviewFrame.src = src;
+    return;
+  }
+  seedPreviewFrame = document.createElement("iframe");
+  seedPreviewFrame.className = "toolkit-preview-frame";
+  seedPreviewFrame.title = "FactorioPreviewToolkit map preview";
+  seedPreviewFrame.src = src;
+  $("seedPreviewViewer").replaceChildren(seedPreviewFrame);
+}
 $("seedPreviewExpand").onclick = () => {
-  if (seedPreviewUrl) openPreview(seedPreviewUrl, "Seed map preview", "image");
+  if (seedPreviewUrl) openPreview(toolkitViewerUrl(seedPreviewUrl), "Seed map preview", "iframe");
 };
 function seedPreviewId() {
   return seedPreviewUrl
@@ -631,10 +647,8 @@ $("seedPreviewGenerate").onclick = async () => {
   $("seedPreviewStatus").textContent = "Generating 2048×2048 preview…";
   try {
     const result = await api(`/api/runs/${encodeURIComponent(id)}/map-preview`, { size: 2048 });
-    $("seedPreviewViewer").hidden = false;
     seedPreviewUrl = result.url;
-    if (!seedMapViewer) seedMapViewer = globalThis.createMapViewer($("seedPreviewViewer"), result.url);
-    else seedMapViewer.setSource(result.url);
+    showSeedMapPreview(result.url, "nauvis");
     $("seedPreviewExpand").hidden = false;
     $("seedToolkitViewer").hidden = false;
     $("seedUploadLocal").hidden = false;

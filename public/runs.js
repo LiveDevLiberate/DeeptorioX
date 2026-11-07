@@ -207,17 +207,28 @@ for (const id of ["mapSeed", "mapStartingArea", "mapPeaceful"]) {
   $(id).addEventListener("input", updateMapConfigSummary);
   $(id).addEventListener("change", updateMapConfigSummary);
 }
-let launchMapViewer = null;
+let launchPreviewFrame = null;
+function showLaunchMapPreview(url, planet = "nauvis") {
+  $("launchMapPreview").hidden = false;
+  const src = `/toolkit-viewer/index.html?image=${encodeURIComponent(url)}&planet=${encodeURIComponent(planet)}`;
+  if (launchPreviewFrame) {
+    launchPreviewFrame.src = src;
+    return;
+  }
+  launchPreviewFrame = document.createElement("iframe");
+  launchPreviewFrame.className = "toolkit-preview-frame";
+  launchPreviewFrame.title = "FactorioPreviewToolkit map preview";
+  launchPreviewFrame.src = src;
+  $("launchMapPreview").replaceChildren(launchPreviewFrame);
+}
 $("previewMap").onclick = async () => {
   const button = $("previewMap");
   button.disabled = true;
   $("launchMapPreviewStatus").textContent = "Generating 2048×2048 preview…";
   try {
     const result = await api("/api/map-preview", { map_gen: buildMapGen(), size: 2048 });
-    $("launchMapPreview").hidden = false;
-    if (!launchMapViewer) launchMapViewer = globalThis.createMapViewer($("launchMapPreview"), result.url);
-    else launchMapViewer.setSource(result.url);
-    $("launchMapPreviewStatus").textContent = `seed ${result.seed} · ${result.size}px`;
+    showLaunchMapPreview(result.url, "nauvis");
+    $("launchMapPreviewStatus").textContent = `toolkit viewer · seed ${result.seed} · ${result.size}px`;
   } catch (error) {
     $("launchMapPreviewStatus").textContent = error.message;
   } finally {
@@ -228,9 +239,7 @@ let exchangePreviews = [];
 function showExchangePlanet(index) {
   const preview = exchangePreviews[index];
   if (!preview) return;
-  $("launchMapPreview").hidden = false;
-  if (!launchMapViewer) launchMapViewer = globalThis.createMapViewer($("launchMapPreview"), preview.url);
-  else launchMapViewer.setSource(preview.url);
+  showLaunchMapPreview(preview.url, preview.planet);
   $("launchMapPreviewStatus").textContent = `${preview.planet} · seed ${preview.seed} · ${preview.size}px`;
   for (const [i, button] of [...$("launchPreviewTabs").children].entries()) {
     button.classList.toggle("active", i === index);
@@ -356,6 +365,9 @@ try {
   $("benchmark").value = "smoke";
   $("benchmark").onchange();
   await refresh();
+  if (new URLSearchParams(location.search).get("preview") === "map") {
+    $("previewMap").click();
+  }
   setInterval(refresh, 1000);
 } catch (error) {
   $("error").textContent = error.message;
