@@ -1835,7 +1835,9 @@ class PlanBuildAndBuilderTests(unittest.TestCase):
         client = factorio.FactorioClient(poll_interval=0)
         with patch.object(client, "preview_path", return_value={
             "results": [{"path": [{"x": 0.5, "y": 0.5}, {"x": 0.5, "y": 2.5}]}]
-        }), patch.object(client, "_submit_planned", return_value={"ok": True}) as submit:
+        }), patch.object(client, "plan_route", return_value=None), patch.object(
+            client, "_submit_planned", return_value={"ok": True}
+        ) as submit:
             result = client.build_line("belt", (0, 0), (0, 2))
         self.assertTrue(result["ok"])
         entities = submit.call_args.args[0]

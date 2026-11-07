@@ -10,8 +10,7 @@ test("recording page renders a milestone bar with the next target", async () => 
   documentElement.lang = "en";
   const timers = [];
   const realSetTimeout = globalThis.setTimeout;
-  const hadNavigator = Object.prototype.hasOwnProperty.call(globalThis, "navigator");
-  const realNavigator = globalThis.navigator;
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
   const runFixture = {
     id: "run1",
     name: "milestone run",
@@ -49,12 +48,12 @@ test("recording page renders a milestone bar with the next target", async () => 
     getItem: (key) => storage.get(key) ?? null,
     setItem: (key, value) => storage.set(key, String(value)),
   };
-  if (hadNavigator) globalThis.navigator = { language: "en-US" };
-  else
-    Object.defineProperty(globalThis, "navigator", {
-      value: { language: "en-US" },
-      configurable: true,
-    });
+  // Node 21+ exposes a getter-only navigator global; define it explicitly.
+  Object.defineProperty(globalThis, "navigator", {
+    value: { language: "en-US" },
+    configurable: true,
+    writable: true,
+  });
   globalThis.setTimeout = (callback) => {
     timers.push(callback);
     return timers.length;
@@ -100,7 +99,7 @@ test("recording page renders a milestone bar with the next target", async () => 
     assert.match(nodeText(trendCell), /3\/7/);
   } finally {
     globalThis.setTimeout = realSetTimeout;
-    if (hadNavigator) globalThis.navigator = realNavigator;
+    if (navigatorDescriptor) Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
     else delete globalThis.navigator;
     delete globalThis.document;
     delete globalThis.location;
