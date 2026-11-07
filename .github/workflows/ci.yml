@@ -51,6 +51,9 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: node scripts/coverage-gate.mjs
 
+      - name: Regenerate tool manifest
+        run: npm run tools:manifest
+
       - name: Python client tests
         run: npm run test:python
 
