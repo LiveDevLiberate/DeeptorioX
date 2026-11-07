@@ -848,3 +848,30 @@ counts rejected unplanned calls for the `plan_bypass` discipline flag.
   a bound entity hash, because a blueprint is a user-supplied design.
 - Should preloaded blueprint catalogs be global or benchmark-scoped? Either is
   acceptable, but the catalog id and hash must be part of the variant identity.
+
+---
+
+## 12. Implementation status (current branch)
+
+Implemented in this branch:
+
+- benchmark/run construction mode snapshot and scoring variant metadata;
+- `GET /api/agent/construction`, `POST /api/agent/plan`,
+  `GET /api/agent/plan/:id`, `POST /api/agent/plan/:id/cancel`;
+- single-use plan tokens with kind, target hash, bbox, audit revision and expiry;
+- planned-mode gates on build, blueprint, mutation and cleanup actions;
+- free mode as the legacy path, with refactor build/mine gates disabled;
+- Python client auto-planning for build, mine-cleanup, rotate, set-recipe,
+  copy-settings and blueprints;
+- construction metrics in discipline and capability variant fields;
+- tests for modes, token consume/mismatch/expiry-by-audit, blueprint/cleanup
+  plans and API route behavior.
+
+Deferred to the next implementation phase:
+
+- manager-side blueprint decoding/expansion (v1 binds client-expanded entities
+  to a blueprint hash; the manager does not yet expand the blueprint string);
+- service-generated power/pipe/belt layouts;
+- post-plan verifier and `effective`/`ineffective` classification;
+- leaderboard UI grouping and cross-variant comparison controls;
+- working-block protection beyond the existing cleanup cluster guard.

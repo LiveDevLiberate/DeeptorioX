@@ -1280,11 +1280,11 @@ export class RunManager {
    */
   createConstructionPlan(input: unknown) {
     const run = this.active;
-    if (!run?.construction) {
+    if (!run) {
       throw new ConstructionPlanError("PLAN_BAD_REQUEST", "No active run for construction plans");
     }
     const state = run.construction;
-    if (state.mode === "free") {
+    if (!state || state.mode === "free") {
       throw new ConstructionPlanError(
         "CONSTRUCTION_MODE_FREE",
         "This run uses free construction; no plan token is required.",

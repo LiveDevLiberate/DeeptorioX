@@ -1263,9 +1263,7 @@ test("blueprint and cleanup plans bind their kind, hash and cleanup targets", as
     });
     assert.equal(consumed?.kind, "blueprint");
 
-    const cleanupTargets = [
-      { x: 8, y: 9, cleanup: true, allow_buildings: true },
-    ];
+    const cleanupTargets = [{ x: 8, y: 9, cleanup: true, allow_buildings: true }];
     const cleanup = manager.createConstructionPlan({ kind: "cleanup", targets: cleanupTargets });
     assert.equal(cleanup.kind, "cleanup");
     assert.equal(
