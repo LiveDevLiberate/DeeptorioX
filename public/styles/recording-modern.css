@@ -2235,3 +2235,20 @@ body.recording #codexOutput .event-marker .msg-time {
     padding-right: 12px;
   }
 }
+
+/* The goal message itself toggles its remaining lines; no details button. */
+body.recording #codexOutput .message.decision.expandable {
+  cursor: pointer;
+}
+body.recording #codexOutput .goal-extra {
+  flex: 0 0 100%;
+  order: 99;
+  width: 100%;
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

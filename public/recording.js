@@ -1585,7 +1585,7 @@ function renderMessage(item) {
     const label = timeLabel(item);
     if (label) node.append(element("span", label, "msg-time"));
     output.append(node);
-    entry = { node, body, decisionIcon, goalDetails: null, goalExtra: null };
+    entry = { node, body, decisionIcon, goalExtra: null, goalExpanded: false };
     entries.set(item.id, entry);
   }
   const source = String(item.text || "");
@@ -1601,21 +1601,35 @@ function renderMessage(item) {
   entry.body.classList.toggle("goal-first-line", goal);
   entry.body.textContent = goal ? firstLine.trim() : source;
   entry.decisionIcon.hidden = !goal;
-  if (goal && extra) {
-    if (!entry.goalDetails) {
-      const details = element("details", "", "goal-details");
-      const summary = element("summary", "", "goal-details-summary");
-      summary.textContent = strings().raw || "详情";
-      const extraBody = element("pre", "", "goal-details-body");
-      details.append(summary, extraBody);
-      entry.node.append(details);
-      entry.goalDetails = details;
-      entry.goalExtra = extraBody;
-    }
-    entry.goalDetails.hidden = false;
+  const expandable = goal && Boolean(extra);
+  entry.node.classList.toggle("expandable", expandable);
+  if (expandable && !entry.goalExtra) {
+    const extraBody = element("div", "", "goal-extra");
+    extraBody.hidden = true;
+    entry.node.append(extraBody);
+    entry.goalExtra = extraBody;
+    const toggle = () => {
+      entry.goalExpanded = !entry.goalExpanded;
+      entry.goalExtra.hidden = !entry.goalExpanded;
+      entry.node.classList.toggle("goal-open", entry.goalExpanded);
+      entry.node.setAttribute("aria-expanded", String(entry.goalExpanded));
+    };
+    entry.node.setAttribute("role", "button");
+    entry.node.setAttribute("tabindex", "0");
+    entry.node.setAttribute("aria-expanded", "false");
+    entry.node.addEventListener("click", (event) => {
+      if (event?.target?.closest?.("a,button,input,textarea,select,summary")) return;
+      toggle();
+    });
+    entry.node.addEventListener("keydown", (event) => {
+      if (event?.key !== "Enter" && event?.key !== " ") return;
+      event.preventDefault?.();
+      toggle();
+    });
+  }
+  if (entry.goalExtra) {
     entry.goalExtra.textContent = extra;
-  } else if (entry.goalDetails) {
-    entry.goalDetails.hidden = true;
+    entry.goalExtra.hidden = !entry.goalExpanded;
   }
 }
 function renderTool(item) {
