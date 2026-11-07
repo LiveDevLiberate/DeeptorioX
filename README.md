@@ -7,6 +7,10 @@ game as a local multiplayer host, exposes a cooperative JSON gameplay API (and a
 client), runs LLM agents through benchmark seeds, and records comparable runs with milestone-based
 capability scoring — while keeping the evaluation itself out of the agent's context.
 
+![DeeptorioX recording window alongside the Factorio game](docs/images/recording-window.jpg)
+
+*Recording window beside the live game: work order, game-state readouts (milestones, research, power, discipline), item production and the live transcript.*
+
 ## Highlights
 
 - **Real game, real constraints** — the full graphical client hosts a private local multiplayer
