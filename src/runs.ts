@@ -51,6 +51,20 @@ import {
   type CapabilityScore,
   type DisciplineMetrics,
 } from "./evaluation-score.js";
+import {
+  ConstructionPlanError,
+  constructionPlanHash,
+  constructionPlanPublic,
+  constructionVariant,
+  normalizeConstructionEntity,
+  normalizeConstructionTarget,
+  planBBox,
+  type ConstructionEntity,
+  type ConstructionMode,
+  type ConstructionPlan,
+  type ConstructionPlanKind,
+  type ConstructionTarget,
+} from "./construction.js";
 import { pointInRefactorCluster, type RefactorCluster } from "./refactor-audit.js";
 import { normalizeMapGen } from "./map-config.js";
 import {
@@ -188,6 +202,34 @@ export type RefactorBuildCheck = {
   actions: RefactorState["actions"];
 };
 
+type ConstructionMetrics = {
+  planned_actions: number;
+  free_actions: number;
+  unplanned_actions: number;
+  plan_requests: number;
+  plan_rejections: number;
+  plan_ineffective: number;
+  plan_regressions: number;
+  cleanup_units: number;
+  blueprints_used: number;
+  blueprint_entities_planned: number;
+  blueprint_entities_placed: number;
+  blueprint_entities_failed: number;
+};
+
+type ConstructionRunState = {
+  mode: ConstructionMode;
+  variant: string;
+  plan_required: boolean;
+  blueprints: {
+    enabled: boolean;
+    source: "none" | "agent" | "preloaded";
+    catalog: string;
+    catalog_hash?: string;
+  };
+  metrics: ConstructionMetrics;
+};
+
 type Run = {
   id: string;
   name?: string;
@@ -277,6 +319,12 @@ type Run = {
   state_nudge_restarted?: boolean;
   /** Refactor debt/gate state updated by factory audits. */
   refactor?: RefactorState;
+  /** Construction mode/policy snapshot and discipline counters. */
+  construction?: ConstructionRunState;
+  /** Audit revision used to invalidate construction plans after a new audit. */
+  audit_revision?: number;
+  /** Single-use construction plans issued for this run. */
+  construction_plans?: ConstructionPlan[];
 };
 /** Metadata reported by timelapse rendering; persisted into run.json verbatim. */
 export type VideoRenderResult = {
@@ -416,6 +464,13 @@ export class RunManager {
       const file = path.join(this.root, id, "run.json");
       if (!fs.existsSync(file)) continue;
       const run = JSON.parse(fs.readFileSync(file, "utf8")) as Run;
+      run.audit_revision ??= 0;
+      // Plan tokens are intentionally memory-of-the-process capabilities. A
+      // manager restart invalidates issued-but-unconsumed plans; the agent must
+      // re-plan against the current audit.
+      for (const plan of run.construction_plans ?? []) {
+        if (plan.status === "issued") plan.status = "invalidated";
+      }
       if (!terminal.has(run.state)) {
         run.state = "interrupted";
         run.ended_at = new Date().toISOString();
@@ -544,6 +599,9 @@ export class RunManager {
         const mines = job.action === "mine" ? Math.max(0, manualMineUnits(job.results) - cleanup) : 0;
         const crafts = job.action === "craft" ? manualCraftUnits(job.payload, job.results) : 0;
         if (cleanup > 0) {
+          if (run.construction) {
+            run.construction.metrics.cleanup_units += cleanup;
+          }
           const reward = cleanup * CLEANUP_REWARD_POINTS;
           run.automation.cleanup_units = (run.automation.cleanup_units ?? 0) + cleanup;
           run.automation.refactor_reward = (run.automation.refactor_reward ?? 0) + reward;
@@ -1076,6 +1134,7 @@ export class RunManager {
     const run = this.active;
     if (!run) return undefined;
     const now = Date.now();
+    run.audit_revision = (run.audit_revision ?? 0) + 1;
     const previous = run.refactor;
     const invalid = Math.max(0, Math.round(audit.invalid_count));
     // A few transient warnings (backpressure, momentarily starved machines,
@@ -1159,6 +1218,9 @@ export class RunManager {
     const run = this.active;
     if (!run?.refactor || run.state !== "running") return undefined;
     const state = run.refactor;
+    if ((run.construction?.mode ?? "free") === "free") {
+      return { blocked: false, state, message: "" };
+    }
     const blocked = this.refactorArmed(state);
     return {
       blocked,
@@ -1177,12 +1239,391 @@ export class RunManager {
    * loops pass `internal: true` and skip the credit check because the credits
    * were already spent when the external build job was accepted.
    */
+  /** Construction mode/policy summary exposed to the agent at /api/agent/construction. */
+  constructionStatus() {
+    const run = this.active;
+    const state = run?.construction;
+    return {
+      mode: state?.mode ?? "free",
+      variant: state?.variant ?? null,
+      plan_required: state?.plan_required ?? false,
+      audit_revision: run?.audit_revision ?? 0,
+      blueprints: state?.blueprints ?? { enabled: false, source: "none", catalog: "run" },
+      metrics: state?.metrics,
+      plans: run?.construction_plans?.length ?? 0,
+    };
+  }
+
+  /** Cancel an issued plan; consumed/expired plans are left unchanged. */
+  cancelConstructionPlan(planId: string) {
+    const run = this.active;
+    const plan = run?.construction_plans?.find((entry) => entry.plan_id === planId);
+    if (!run || !plan) throw new ConstructionPlanError("PLAN_BAD_REQUEST", "Plan not found", {}, 404);
+    if (plan.status === "issued") {
+      plan.status = "invalidated";
+      this.persist(run);
+    }
+    return constructionPlanPublic(plan);
+  }
+
+  /** Public view of one issued construction plan. */
+  constructionPlan(planId: string) {
+    const run = this.active;
+    const plan = run?.construction_plans?.find((entry) => entry.plan_id === planId);
+    return plan ? constructionPlanPublic(plan) : undefined;
+  }
+
+  /**
+   * Issue a single-use plan token for a construction intent. Planned mode only;
+   * free mode returns CONSTRUCTION_MODE_FREE so the client can fall back to the
+   * legacy action path.
+   */
+  createConstructionPlan(input: unknown) {
+    const run = this.active;
+    if (!run?.construction) {
+      throw new ConstructionPlanError("PLAN_BAD_REQUEST", "No active run for construction plans");
+    }
+    const state = run.construction;
+    if (state.mode === "free") {
+      throw new ConstructionPlanError(
+        "CONSTRUCTION_MODE_FREE",
+        "This run uses free construction; no plan token is required.",
+        { mode: "free" },
+      );
+    }
+    const record =
+      input && typeof input === "object" && !Array.isArray(input) ? (input as Record<string, unknown>) : {};
+    const rawKind = typeof record.kind === "string" ? record.kind : "";
+    const kinds: ConstructionPlanKind[] = ["build", "mutation", "cleanup", "blueprint", "expansion"];
+    if (!kinds.includes(rawKind as ConstructionPlanKind)) {
+      throw new ConstructionPlanError(
+        "PLAN_BAD_REQUEST",
+        `kind must be one of ${kinds.join(", ")}`,
+        { allowed_kinds: kinds },
+        400,
+      );
+    }
+    const kind = rawKind as ConstructionPlanKind;
+    const rawEntities = Array.isArray(record.entities) ? record.entities : [];
+    const rawTargets = Array.isArray(record.targets) ? record.targets : [];
+    const entities = rawEntities
+      .map((entry) => normalizeConstructionEntity(entry))
+      .filter((entry): entry is ConstructionEntity => Boolean(entry));
+    const targets = rawTargets
+      .map((entry) => normalizeConstructionTarget(entry))
+      .filter((entry): entry is ConstructionTarget => Boolean(entry));
+    if (rawEntities.length && entities.length !== rawEntities.length) {
+      throw new ConstructionPlanError(
+        "PLAN_BAD_REQUEST",
+        "every entity needs a name and a finite anchor {x,y}",
+        {},
+        400,
+      );
+    }
+    if (rawTargets.length && targets.length !== rawTargets.length) {
+      throw new ConstructionPlanError(
+        "PLAN_BAD_REQUEST",
+        "every target needs finite x/y coordinates",
+        {},
+        400,
+      );
+    }
+    if ((kind === "build" || kind === "blueprint" || kind === "expansion") && entities.length === 0) {
+      throw new ConstructionPlanError("PLAN_BAD_REQUEST", `${kind} plan needs entities`, {}, 400);
+    }
+    if ((kind === "mutation" || kind === "cleanup") && targets.length === 0) {
+      throw new ConstructionPlanError("PLAN_BAD_REQUEST", `${kind} plan needs targets`, {}, 400);
+    }
+    if (kind === "blueprint") {
+      if (!state.blueprints.enabled) {
+        throw new ConstructionPlanError("BLUEPRINT_INVALID", "Blueprints are disabled for this run");
+      }
+      if (
+        record.blueprint_id !== undefined &&
+        (typeof record.blueprint_id !== "string" || !record.blueprint_id.trim())
+      ) {
+        throw new ConstructionPlanError("BLUEPRINT_INVALID", "blueprint_id must be a non-empty string");
+      }
+      if (
+        record.blueprint_hash !== undefined &&
+        (typeof record.blueprint_hash !== "string" || !record.blueprint_hash.trim())
+      ) {
+        throw new ConstructionPlanError("BLUEPRINT_INVALID", "blueprint_hash must be a non-empty string");
+      }
+    }
+    if (kind === "cleanup") {
+      const bad = targets.filter((target) => target.cleanup !== true || target.allow_buildings !== true);
+      if (bad.length) {
+        throw new ConstructionPlanError(
+          "PLAN_BAD_REQUEST",
+          "cleanup targets must carry cleanup=true and allow_buildings=true",
+          { invalid_targets: bad.length },
+          400,
+        );
+      }
+    }
+    const scopeTargets =
+      kind === "build" || kind === "blueprint" || kind === "expansion"
+        ? entities.map((entity) => ({ x: entity.anchor.x, y: entity.anchor.y }))
+        : targets;
+    if (kind === "cleanup") {
+      const mineCheck = this.refactorMineCheck(targets);
+      if (mineCheck?.blocked) {
+        throw new ConstructionPlanError("PLAN_SCOPE_VIOLATION", mineCheck.message, {
+          out_of_cluster: mineCheck.out_of_cluster ?? 0,
+        });
+      }
+    } else {
+      const buildCheck = this.refactorBuildCheck(scopeTargets);
+      if (buildCheck?.blocked) {
+        throw new ConstructionPlanError("PLAN_SCOPE_VIOLATION", buildCheck.message, {
+          tier: buildCheck.tier,
+          allowed_clusters: buildCheck.allowed_clusters,
+          out_of_cluster: buildCheck.out_of_cluster,
+          actions: buildCheck.actions ?? [],
+        });
+      }
+    }
+    const auditRevision = run.audit_revision ?? 0;
+    const requestedRevision = Number(record.audit_revision);
+    if (Number.isFinite(requestedRevision) && requestedRevision !== auditRevision) {
+      throw new ConstructionPlanError(
+        "PLAN_REVISION_CHANGED",
+        "The audit changed after this plan request; call factory-audit and re-plan.",
+        { audit_revision: auditRevision },
+      );
+    }
+    const anchorRecord =
+      record.anchor && typeof record.anchor === "object"
+        ? (record.anchor as Record<string, unknown>)
+        : undefined;
+    const anchorX = Number(anchorRecord?.x);
+    const anchorY = Number(anchorRecord?.y);
+    const anchor =
+      Number.isFinite(anchorX) && Number.isFinite(anchorY) ? { x: anchorX, y: anchorY } : undefined;
+    const rotation = Number(record.rotation);
+    const normalizedRotation = [0, 2, 4, 6].includes(rotation) ? rotation : undefined;
+    const mirror = record.mirror === true;
+    const blueprintId =
+      typeof record.blueprint_id === "string" && record.blueprint_id.trim()
+        ? record.blueprint_id.trim()
+        : undefined;
+    const blueprintHash =
+      typeof record.blueprint_hash === "string" && record.blueprint_hash.trim()
+        ? record.blueprint_hash.trim()
+        : undefined;
+    if (blueprintId && !blueprintHash) {
+      // The token must bind the design, not just its label.
+      throw new ConstructionPlanError(
+        "BLUEPRINT_INVALID",
+        "blueprint_hash is required when blueprint_id is supplied",
+      );
+    }
+    const ttlRaw = Number(process.env.AUTORIO_CONSTRUCTION_PLAN_TTL_SECONDS ?? 300);
+    const ttl = Number.isFinite(ttlRaw) && ttlRaw > 0 ? Math.min(3600, Math.round(ttlRaw)) : 300;
+    const now = Date.now();
+    const plan: ConstructionPlan = {
+      plan_id: `pln_${randomUUID()}`,
+      run_id: run.id,
+      mode: "planned",
+      kind,
+      scope:
+        kind === "cleanup"
+          ? "cleanup"
+          : kind === "expansion"
+            ? "expansion"
+            : kind === "mutation"
+              ? "local_repair"
+              : "in_cluster",
+      created_at: now,
+      expires_at: now + ttl * 1000,
+      audit_revision: auditRevision,
+      refactor_revision: auditRevision,
+      targets_hash: constructionPlanHash({
+        kind,
+        entities,
+        targets,
+        ...(blueprintId ? { blueprint_id: blueprintId } : {}),
+        ...(blueprintHash ? { blueprint_hash: blueprintHash } : {}),
+        ...(anchor ? { anchor } : {}),
+        ...(normalizedRotation !== undefined ? { rotation: normalizedRotation } : {}),
+        ...(mirror ? { mirror } : {}),
+      }),
+      bbox: planBBox(entities, targets),
+      entities,
+      targets,
+      allowed_entity_names: [...new Set(entities.map((entity) => entity.name))].sort(),
+      max_entities: Math.max(entities.length, targets.length),
+      ...(blueprintId ? { blueprint_id: blueprintId } : {}),
+      ...(blueprintHash ? { blueprint_hash: blueprintHash } : {}),
+      ...(anchor ? { anchor } : {}),
+      ...(normalizedRotation !== undefined ? { rotation: normalizedRotation } : {}),
+      ...(mirror ? { mirror } : {}),
+      single_use: true,
+      status: "issued",
+    };
+    run.construction_plans ||= [];
+    run.construction_plans.push(plan);
+    state.metrics.plan_requests += 1;
+    this.persist(run);
+    this.event(
+      run,
+      `Construction plan ${plan.plan_id} issued (${kind}, ${plan.max_entities} target(s), audit ${auditRevision})`,
+    );
+    return constructionPlanPublic(plan);
+  }
+
+  /** Count and throw a rejected unplanned action. */
+  private rejectConstructionPlan(run: Run, error: ConstructionPlanError): never {
+    if (run.construction) {
+      run.construction.metrics.plan_rejections += 1;
+      run.construction.metrics.unplanned_actions += 1;
+    }
+    this.persist(run);
+    throw error;
+  }
+
+  /**
+   * Validate and consume a plan token at the action boundary. Internal job
+   * loopback dispatches have already been authorized by the external job route
+   * and must not consume a second token.
+   */
+  requireConstructionPlan(input: {
+    plan_id?: unknown;
+    allowed_kinds: ConstructionPlanKind[];
+    entities?: unknown;
+    targets?: unknown;
+    blueprint_id?: unknown;
+    blueprint_hash?: unknown;
+    internal?: boolean;
+  }): ConstructionPlan | undefined {
+    const run = this.active;
+    if (!run?.construction) return undefined;
+    const state = run.construction;
+    if (state.mode === "free") {
+      if (!input.internal) {
+        state.metrics.free_actions += 1;
+        this.persist(run);
+      }
+      return undefined;
+    }
+    if (input.internal) return undefined;
+    const planId = typeof input.plan_id === "string" ? input.plan_id.trim() : "";
+    if (!planId) {
+      this.rejectConstructionPlan(
+        run,
+        new ConstructionPlanError(
+          "PLAN_REQUIRED",
+          "Call POST /api/agent/plan with the planned entities/targets first; planned buildings cannot use raw actions.",
+          { mode: state.mode, audit_revision: run.audit_revision ?? 0 },
+        ),
+      );
+    }
+    const plan = run.construction_plans?.find((entry) => entry.plan_id === planId);
+    if (!plan)
+      this.rejectConstructionPlan(
+        run,
+        new ConstructionPlanError("PLAN_REQUIRED", `Unknown construction plan ${planId}`),
+      );
+    if (!input.allowed_kinds.includes(plan.kind)) {
+      this.rejectConstructionPlan(
+        run,
+        new ConstructionPlanError(
+          "PLAN_KIND_MISMATCH",
+          `Plan ${plan.plan_id} is ${plan.kind}, not ${input.allowed_kinds.join("/")}`,
+          { kind: plan.kind },
+        ),
+      );
+    }
+    if (plan.status === "consumed") {
+      this.rejectConstructionPlan(
+        run,
+        new ConstructionPlanError("PLAN_ALREADY_CONSUMED", `Plan ${plan.plan_id} was already used`),
+      );
+    }
+    if (plan.status !== "issued") {
+      this.rejectConstructionPlan(
+        run,
+        new ConstructionPlanError("PLAN_EXPIRED", `Plan ${plan.plan_id} is ${plan.status}`),
+      );
+    }
+    if (plan.expires_at <= Date.now()) {
+      plan.status = "expired";
+      this.rejectConstructionPlan(
+        run,
+        new ConstructionPlanError("PLAN_EXPIRED", `Plan ${plan.plan_id} expired`),
+      );
+    }
+    if ((run.audit_revision ?? 0) !== plan.audit_revision) {
+      this.rejectConstructionPlan(
+        run,
+        new ConstructionPlanError(
+          "PLAN_REVISION_CHANGED",
+          "The audit changed after this plan was issued; call factory-audit and re-plan.",
+          { audit_revision: run.audit_revision ?? 0 },
+        ),
+      );
+    }
+    const actionEntities = (Array.isArray(input.entities) ? input.entities : [])
+      .map((entry) => normalizeConstructionEntity(entry))
+      .filter((entry): entry is ConstructionEntity => Boolean(entry));
+    const actionTargets = (Array.isArray(input.targets) ? input.targets : [])
+      .map((entry) => normalizeConstructionTarget(entry))
+      .filter((entry): entry is ConstructionTarget => Boolean(entry));
+    const actionHash = constructionPlanHash({
+      kind: plan.kind,
+      entities: actionEntities,
+      targets: actionTargets,
+      ...(plan.blueprint_id ? { blueprint_id: plan.blueprint_id } : {}),
+      ...(plan.blueprint_hash ? { blueprint_hash: plan.blueprint_hash } : {}),
+      ...(plan.anchor ? { anchor: plan.anchor } : {}),
+      ...(plan.rotation !== undefined ? { rotation: plan.rotation } : {}),
+      ...(plan.mirror ? { mirror: plan.mirror } : {}),
+    });
+    if (actionHash !== plan.targets_hash) {
+      this.rejectConstructionPlan(
+        run,
+        new ConstructionPlanError(
+          "PLAN_TARGET_MISMATCH",
+          "The action payload does not match the planned entities/targets.",
+          { plan_id: plan.plan_id },
+        ),
+      );
+    }
+    const points = [...actionEntities.map((entity) => entity.anchor), ...actionTargets];
+    const outside = points.filter(
+      (point) =>
+        point.x < plan.bbox.left ||
+        point.x > plan.bbox.right ||
+        point.y < plan.bbox.top ||
+        point.y > plan.bbox.bottom,
+    );
+    if (outside.length) {
+      this.rejectConstructionPlan(
+        run,
+        new ConstructionPlanError(
+          "PLAN_SCOPE_VIOLATION",
+          "Action targets fall outside the issued plan bbox.",
+          { outside: outside.length },
+        ),
+      );
+    }
+    plan.status = "consumed";
+    state.metrics.planned_actions += 1;
+    this.persist(run);
+    this.event(run, `Construction plan ${plan.plan_id} consumed (${plan.kind})`);
+    return plan;
+  }
+
   refactorBuildCheck(
     targets: RefactorBuildTarget[],
     _options: { internal?: boolean } = {},
   ): RefactorBuildCheck | undefined {
     const run = this.active;
     if (!run?.refactor || run.state !== "running") return undefined;
+    // Free construction is an evaluation mode: audit is read-only and never
+    // blocks legacy direct actions.
+    if ((run.construction?.mode ?? "free") === "free") return undefined;
     const state = run.refactor;
     const tier = state.escalation_tier ?? "normal";
     const allowed = (state.clusters ?? [])
@@ -1233,6 +1674,7 @@ export class RunManager {
     targets: Array<{ x?: unknown; y?: unknown; cleanup?: unknown; allow_buildings?: unknown }>,
   ): { blocked: boolean; message: string; out_of_cluster?: number } | undefined {
     const run = this.active;
+    if ((run?.construction?.mode ?? "free") === "free") return undefined;
     const state = run?.refactor;
     if (!run || !state || !this.refactorArmed(state)) return undefined;
     const buildingTargets = (Array.isArray(targets) ? targets : []).filter(
@@ -1395,6 +1837,7 @@ export class RunManager {
     terminal?: boolean;
     recording?: boolean;
     capture_video?: boolean;
+    construction_mode?: string;
   }) {
     if (this.active || this.hooks.running())
       throw new Error("Stop the active game/run before starting another run.");
@@ -1403,6 +1846,24 @@ export class RunManager {
     if (options.map_gen !== undefined) {
       benchmark = { ...benchmark, map_gen: normalizeMapGen(options.map_gen, benchmark.map_gen) };
     }
+    if (options.map_gen !== undefined) {
+      benchmark = { ...benchmark, map_gen: normalizeMapGen(options.map_gen, benchmark.map_gen) };
+    }
+    const requestedMode = options.construction_mode ?? benchmark.construction.default_mode;
+    if (requestedMode !== "free" && requestedMode !== "planned") {
+      throw new Error("construction_mode must be free or planned");
+    }
+    if (!benchmark.construction.modes.includes(requestedMode)) {
+      throw new Error(
+        `benchmark ${benchmark.id} does not allow construction_mode=${requestedMode}; allowed: ${benchmark.construction.modes.join(", ")}`,
+      );
+    }
+    const constructionMode = requestedMode as ConstructionMode;
+    const constructionVariantName = constructionVariant(
+      benchmark.id,
+      benchmark.construction,
+      constructionMode,
+    );
     const agent = options.agent || "opencode";
     if (!["manual", "codex", "opencode", "dsh"].includes(agent))
       throw new Error("agent must be opencode, codex, dsh or manual");
@@ -1470,7 +1931,36 @@ export class RunManager {
         refactor_reward: 0,
         breakdown: { production: 0, science: 0, power: 0, research: 0, rockets: 0, refactor: 0 },
       },
-      scoring: { ...benchmark.scoring, progress_weights: { ...benchmark.scoring.progress_weights } },
+      scoring: {
+        ...benchmark.scoring,
+        progress_weights: { ...benchmark.scoring.progress_weights },
+        construction_mode: constructionMode,
+        benchmark_variant: constructionVariantName,
+        blueprint_policy: benchmark.construction.blueprints.enabled
+          ? benchmark.construction.blueprints.source
+          : "none",
+      },
+      construction: {
+        mode: constructionMode,
+        variant: constructionVariantName,
+        plan_required: constructionMode === "planned",
+        blueprints: { ...benchmark.construction.blueprints },
+        metrics: {
+          planned_actions: 0,
+          free_actions: 0,
+          unplanned_actions: 0,
+          plan_requests: 0,
+          plan_rejections: 0,
+          plan_ineffective: 0,
+          plan_regressions: 0,
+          cleanup_units: 0,
+          blueprints_used: 0,
+          blueprint_entities_planned: 0,
+          blueprint_entities_placed: 0,
+          blueprint_entities_failed: 0,
+        },
+      },
+      audit_revision: 0,
       state_metrics: { due_seconds: 0, blocked_seconds: 0 },
     };
     run.capture_video = run.agent !== "manual" && (options.capture_video ?? obsEnabled());
@@ -1929,7 +2419,11 @@ export class RunManager {
     const transport = opencodeTransport();
     const spec = openCodeLaunchSpec({
       workspace,
-      env: { ...process.env, AUTORIO_RUN_ID: run.id },
+      env: {
+        ...process.env,
+        AUTORIO_RUN_ID: run.id,
+        AUTORIO_CONSTRUCTION_MODE: run.construction?.mode ?? "free",
+      },
       apiBase: `http://127.0.0.1:${PORT}`,
       windows: IS_WINDOWS,
       resume: resuming,
@@ -2231,7 +2725,11 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
     const windowsPython = windows ? Boolean(resolveExecutable("python") || resolveExecutable("py")) : false;
     const spec = dshLaunchSpec({
       workspace,
-      env: { ...process.env, AUTORIO_RUN_ID: run.id },
+      env: {
+        ...process.env,
+        AUTORIO_RUN_ID: run.id,
+        AUTORIO_CONSTRUCTION_MODE: run.construction?.mode ?? "free",
+      },
       apiBase,
       windows,
       resume: resuming,
@@ -2468,7 +2966,11 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
     this.persist(run);
     const spec = codexLaunchSpec({
       workspace,
-      env: { ...process.env, AUTORIO_RUN_ID: run.id },
+      env: {
+        ...process.env,
+        AUTORIO_RUN_ID: run.id,
+        AUTORIO_CONSTRUCTION_MODE: run.construction?.mode ?? "free",
+      },
       apiBase: `http://127.0.0.1:${PORT}`,
       windows: IS_WINDOWS,
       resume: resuming,
@@ -2728,6 +3230,17 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
         latest: snapshot,
         baseline: run.baseline ?? null,
         activeSeconds: run.elapsed_seconds,
+        ...(run.construction
+          ? {
+              construction: {
+                mode: run.construction.mode,
+                variant: run.construction.variant,
+                blueprint_policy: run.construction.blueprints.enabled
+                  ? run.construction.blueprints.source
+                  : "none",
+              },
+            }
+          : {}),
       }),
       discipline: computeDiscipline({
         manualMines: run.automation?.manual_mines,
@@ -2736,6 +3249,15 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
         alertPenalty: run.automation?.alert_penalty,
         stateMetrics: run.state_metrics,
         refactor: run.refactor,
+        ...(run.construction
+          ? {
+              construction: {
+                mode: run.construction.mode,
+                variant: run.construction.variant,
+                ...run.construction.metrics,
+              },
+            }
+          : {}),
       }),
       computed_at: now,
     };

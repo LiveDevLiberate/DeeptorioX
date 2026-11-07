@@ -2649,5 +2649,85 @@ class BlueprintRegistryClientTests(unittest.TestCase):
         save.assert_not_called()
 
 
+class ConstructionPlanClientTests(unittest.TestCase):
+    def test_build_auto_requests_plan_in_planned_mode(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        client._construction_mode = "planned"
+        entities = [{"name": "stone-furnace", "anchor": {"x": 1, "y": 2}}]
+        with patch.object(client, "plan_construction", return_value={"plan_id": "pln_1"}) as plan, \
+                patch.object(client, "submit_action", return_value={"job_id": "build"}) as submit:
+            client.build(entities)
+        plan.assert_called_once_with("build", entities=entities, targets=None, blueprint_hash=None)
+        submit.assert_called_once_with(
+            "build",
+            {"entities": entities, "clear_obstacles": True, "plan_id": "pln_1"},
+        )
+
+    def test_build_skips_plan_in_free_mode(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        client._construction_mode = "free"
+        entities = [{"name": "stone-furnace", "anchor": {"x": 1, "y": 2}}]
+        with patch.object(client, "plan_construction") as plan, \
+                patch.object(client, "submit_action", return_value={"job_id": "build"}) as submit:
+            client.build(entities)
+        plan.assert_not_called()
+        submit.assert_called_once_with(
+            "build",
+            {"entities": entities, "clear_obstacles": True},
+        )
+
+    def test_mine_building_targets_requests_cleanup_plan(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        client._construction_mode = "planned"
+        targets = [{"x": 4, "y": 5, "cleanup": True, "allow_buildings": True}]
+        with patch.object(client, "plan_construction", return_value={"plan_id": "pln_clean"}) as plan, \
+                patch.object(client, "submit_action", return_value={"job_id": "mine"}) as submit:
+            client.mine(targets)
+        plan.assert_called_once_with("cleanup", entities=None, targets=targets, blueprint_hash=None)
+        submit.assert_called_once_with("mine", {"targets": targets, "plan_id": "pln_clean"})
+
+    def test_rotate_and_set_recipe_request_mutation_plans(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        client._construction_mode = "planned"
+        with patch.object(client, "plan_construction", return_value={"plan_id": "pln_mut"}) as plan, \
+                patch.object(client, "submit_action", return_value={"job_id": "job"}) as submit:
+            client.rotate([{"x": 1, "y": 2}], direction=4)
+            client.set_recipe([{"x": 3, "y": 4, "recipe": "iron-gear-wheel"}])
+        self.assertEqual(plan.call_count, 2)
+        self.assertEqual(submit.call_args_list[0].args[1]["plan_id"], "pln_mut")
+        self.assertEqual(submit.call_args_list[1].args[1]["plan_id"], "pln_mut")
+
+    def test_copy_settings_requests_mutation_plan(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        client._construction_mode = "planned"
+        targets = [{"source": {"x": 1, "y": 2}, "target": {"x": 3, "y": 4}}]
+        with patch.object(client, "plan_construction", return_value={"plan_id": "pln_copy"}) as plan, \
+                patch.object(client, "request", return_value={"ok": True}) as request:
+            client.copy_settings(targets)
+        plan.assert_called_once_with(
+            "mutation", entities=None, targets=[{"x": 3, "y": 4}], blueprint_hash=None
+        )
+        request.assert_called_once_with(
+            "POST",
+            "/api/agent/act/copy-settings",
+            {"targets": targets, "plan_id": "pln_copy"},
+        )
+
+    def test_blueprint_build_uses_blueprint_plan_kind(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        client._construction_mode = "planned"
+        with patch.object(client, "plan_construction", return_value={"plan_id": "pln_bp"}) as plan, \
+                patch.object(client, "submit_action", return_value={"job_id": "build"}) as submit, \
+                patch.object(client, "save_blueprint"):
+            client.build_blueprint(
+                belt_blueprint(1),
+                prototype_sizes=BELT_SIZES,
+                clear=False,
+            )
+        self.assertEqual(plan.call_args.args[0], "blueprint")
+        self.assertIn("blueprint_hash", plan.call_args.kwargs)
+        self.assertEqual(submit.call_args.args[1]["plan_id"], "pln_bp")
+
+
 if __name__ == "__main__":
     unittest.main()

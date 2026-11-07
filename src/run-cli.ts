@@ -126,7 +126,7 @@ async function main() {
     const osName =
       process.platform === "win32" ? "Windows" : process.platform === "darwin" ? "macOS" : "Linux";
     console.log(
-      `Autorio runs (${osName})\n\n  ${cli} start [smoke|automation|rocket] [--model NAME] [--agent opencode|codex|dsh] [--language NAME] [--thinking LEVEL] [--seconds N] [--manual] [--detach] [--terminal] [--watch] [--video|--no-video]\n  ${cli} benchmarks\n  ${cli} list\n  ${cli} show RUN_ID\n  ${cli} watch RUN_ID\n  ${cli} stop RUN_ID\n  ${cli} pause RUN_ID\n  ${cli} resume RUN_ID\n  ${cli} compare RUN_ID RUN_ID [...]\n  ${cli} obs-status\n  ${cli} shutdown\n\nStart opens graphical Factorio and runs an agent (OpenCode by default; --agent codex opts into Codex, --agent dsh runs the local DeepSeek Harness headless profile). Steam must be running and signed in.\nA standalone recording window opens for the run and closes two seconds after it ends.\nUse --terminal for the optional terminal viewer; --watch follows operator logs here. Ctrl-C while watching stops and saves the run.\n--thinking selects reasoning effort (default low; supported levels depend on model).\n--manual starts the game and telemetry without Codex for integration/debugging.\nshutdown stops any run and closes the manager. Equivalent npm entry: npm run run -- COMMAND`,
+      `Autorio runs (${osName})\n\n  ${cli} start [smoke|automation|rocket] [--model NAME] [--agent opencode|codex|dsh] [--language NAME] [--thinking LEVEL] [--seconds N] [--construction-mode free|planned] [--manual] [--detach] [--terminal] [--watch] [--video|--no-video]\n  ${cli} benchmarks\n  ${cli} list\n  ${cli} show RUN_ID\n  ${cli} watch RUN_ID\n  ${cli} stop RUN_ID\n  ${cli} pause RUN_ID\n  ${cli} resume RUN_ID\n  ${cli} compare RUN_ID RUN_ID [...]\n  ${cli} obs-status\n  ${cli} shutdown\n\nStart opens graphical Factorio and runs an agent (OpenCode by default; --agent codex opts into Codex, --agent dsh runs the local DeepSeek Harness headless profile). Steam must be running and signed in.\nA standalone recording window opens for the run and closes two seconds after it ends.\nUse --terminal for the optional terminal viewer; --watch follows operator logs here. Ctrl-C while watching stops and saves the run.\n--thinking selects reasoning effort (default low; supported levels depend on model).\n--manual starts the game and telemetry without Codex for integration/debugging.\nshutdown stops any run and closes the manager. Equivalent npm entry: npm run run -- COMMAND`,
     );
     return;
   }
@@ -151,6 +151,7 @@ async function main() {
       recording: !args.includes("--detach"),
       terminal: args.includes("--terminal") ? true : args.includes("--no-terminal") ? false : undefined,
       max_seconds: option("--seconds") === undefined ? undefined : Number(option("--seconds")),
+      construction_mode: option("--construction-mode"),
     });
     console.log(
       `Run: ${run.name || run.id}\nID: ${run.id}\nAgent: ${run.model_label}\nRun details: ${base}/run.html?run=${encodeURIComponent(run.id)}`,

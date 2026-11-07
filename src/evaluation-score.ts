@@ -29,6 +29,9 @@ export type CapabilityScore = {
   par_seconds: number;
   par_source: string;
   scoring_version: number;
+  variant?: string;
+  construction_mode?: "free" | "planned";
+  blueprint_policy?: string;
   breakdown: CapabilityBreakdown[];
 };
 
@@ -46,6 +49,21 @@ export type DisciplineMetrics = {
     tier: string;
     audits_with_debt: number;
   };
+  construction?: {
+    mode: "free" | "planned";
+    variant: string;
+    planned_actions: number;
+    free_actions: number;
+    unplanned_actions: number;
+    plan_requests: number;
+    plan_rejections: number;
+    plan_ineffective: number;
+    plan_regressions: number;
+    blueprints_used: number;
+    blueprint_entities_planned: number;
+    blueprint_entities_placed: number;
+    blueprint_entities_failed: number;
+  };
   flags: string[];
 };
 
@@ -56,6 +74,11 @@ export type CapabilityInput = {
   latest: Snapshot | null | undefined;
   baseline: Snapshot | null | undefined;
   activeSeconds: number;
+  construction?: {
+    mode: "free" | "planned";
+    variant: string;
+    blueprint_policy: string;
+  };
 };
 
 export type DisciplineInput = {
@@ -70,6 +93,21 @@ export type DisciplineInput = {
     cleanup_units?: number;
     escalation_tier?: string;
     audits_with_debt?: number;
+  };
+  construction?: {
+    mode?: "free" | "planned";
+    variant?: string;
+    planned_actions?: number;
+    free_actions?: number;
+    unplanned_actions?: number;
+    plan_requests?: number;
+    plan_rejections?: number;
+    plan_ineffective?: number;
+    plan_regressions?: number;
+    blueprints_used?: number;
+    blueprint_entities_planned?: number;
+    blueprint_entities_placed?: number;
+    blueprint_entities_failed?: number;
   };
 };
 
@@ -160,6 +198,13 @@ export function computeCapabilityScore(input: CapabilityInput): CapabilityScore 
     par_seconds: par,
     par_source: scoring.par_source,
     scoring_version: scoring.version,
+    ...(input.construction
+      ? {
+          variant: input.construction.variant,
+          construction_mode: input.construction.mode,
+          blueprint_policy: input.construction.blueprint_policy,
+        }
+      : {}),
     breakdown,
   };
 }
@@ -186,6 +231,37 @@ export function computeDiscipline(input: DisciplineInput): DisciplineMetrics {
   if (blockedSeconds >= 60) flags.push("state_blocked");
   if (dueSeconds >= 60) flags.push("state_stale");
   if (refactor.debt_peak > 0) flags.push("refactor_debt");
+  const construction = input.construction
+    ? {
+        mode: input.construction.mode === "planned" ? ("planned" as const) : ("free" as const),
+        variant: String(input.construction.variant || ""),
+        planned_actions: Math.max(0, Math.round(finite(input.construction.planned_actions))),
+        free_actions: Math.max(0, Math.round(finite(input.construction.free_actions))),
+        unplanned_actions: Math.max(0, Math.round(finite(input.construction.unplanned_actions))),
+        plan_requests: Math.max(0, Math.round(finite(input.construction.plan_requests))),
+        plan_rejections: Math.max(0, Math.round(finite(input.construction.plan_rejections))),
+        plan_ineffective: Math.max(0, Math.round(finite(input.construction.plan_ineffective))),
+        plan_regressions: Math.max(0, Math.round(finite(input.construction.plan_regressions))),
+        blueprints_used: Math.max(0, Math.round(finite(input.construction.blueprints_used))),
+        blueprint_entities_planned: Math.max(
+          0,
+          Math.round(finite(input.construction.blueprint_entities_planned)),
+        ),
+        blueprint_entities_placed: Math.max(
+          0,
+          Math.round(finite(input.construction.blueprint_entities_placed)),
+        ),
+        blueprint_entities_failed: Math.max(
+          0,
+          Math.round(finite(input.construction.blueprint_entities_failed)),
+        ),
+      }
+    : undefined;
+  if (construction?.mode === "planned" && construction.unplanned_actions > 0) {
+    flags.push("plan_bypass");
+  }
+  if (construction?.mode === "free") flags.push("free_build");
+  if ((construction?.plan_ineffective ?? 0) > 0) flags.push("plan_ineffective");
   return {
     manual_mines: manualMines,
     manual_crafts: manualCrafts,
@@ -194,6 +270,7 @@ export function computeDiscipline(input: DisciplineInput): DisciplineMetrics {
     state_due_seconds: Math.round(dueSeconds),
     state_blocked_seconds: Math.round(blockedSeconds),
     refactor,
+    ...(construction ? { construction } : {}),
     flags,
   };
 }

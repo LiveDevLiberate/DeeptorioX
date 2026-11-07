@@ -1,6 +1,6 @@
 {
   "id": "rocket",
-  "title": "Launch a rocket — base game",
+  "title": "Launch a rocket \u2014 base game",
   "task": "Build a factory and launch a rocket in base Factorio. Use only the provided Python interface. Keep working until the rocket has actually launched. Verify production and research as you progress.",
   "map_gen": {
     "seed": 424242,
@@ -76,6 +76,18 @@
       "chemical-science": 0.2,
       "rocket-silo": 0.2,
       "rocket-launched": 0.2
+    }
+  },
+  "construction": {
+    "default_mode": "free",
+    "modes": [
+      "free",
+      "planned"
+    ],
+    "blueprints": {
+      "enabled": true,
+      "source": "agent",
+      "catalog": "run"
     }
   }
 }

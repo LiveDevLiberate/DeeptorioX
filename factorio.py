@@ -2795,8 +2795,22 @@ class FactorioClient:
         within reach of every source and target first, then read the per-target
         results for unreachable/incompatible pairs.
         """
-        path = "/api/agent/observe/copy-settings" if dry_run else "/api/agent/act/copy-settings"
-        return self.request("POST", path, {"targets": targets})
+        if dry_run:
+            return self.request("POST", "/api/agent/observe/copy-settings", {"targets": targets})
+        payload: dict[str, Any] = {"targets": targets}
+        plan_targets: list[dict[str, Any]] = []
+        for target in targets:
+            if not isinstance(target, dict):
+                continue
+            destination = target.get("target")
+            if isinstance(destination, dict):
+                x, y = destination.get("x"), destination.get("y")
+                if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+                    plan_targets.append({"x": x, "y": y})
+        plan_id = self._construction_plan_id("mutation", targets=plan_targets)
+        if plan_id:
+            payload["plan_id"] = plan_id
+        return self.request("POST", "/api/agent/act/copy-settings", payload)
 
     def copy_settings_check(self, targets: list[dict[str, Any]]) -> Any:
         """Dry-run alias of :meth:`copy_settings` (no settings are changed)."""
@@ -3083,11 +3097,107 @@ class FactorioClient:
         encoded_id = quote(str(job_id), safe="-_.!~*'()")
         return self.request("POST", f"/api/agent/jobs/{encoded_id}/cancel")
 
+    def construction_status(self) -> dict[str, Any]:
+        """Return the active run's construction mode and plan policy."""
+        response = self.request("GET", "/api/agent/construction")
+        data = data_value(response)
+        if not isinstance(data, dict):
+            raise RuntimeError("manager returned an invalid construction status")
+        return data
+
+    def plan_construction(
+        self,
+        kind: str,
+        *,
+        entities: list[dict[str, Any]] | None = None,
+        targets: list[dict[str, Any]] | None = None,
+        blueprint_id: str | None = None,
+        blueprint_hash: str | None = None,
+        anchor: Any = None,
+        rotation: int | None = None,
+        mirror: bool | None = None,
+    ) -> dict[str, Any] | None:
+        """Request a single-use construction plan.
+
+        Returns ``None`` in free mode (legacy direct actions). In planned mode
+        the returned ``plan_id`` must accompany the matching action payload.
+        """
+        mode = getattr(self, "_construction_mode", None)
+        if mode is None:
+            mode = os.environ.get("AUTORIO_CONSTRUCTION_MODE")
+            if mode not in ("free", "planned"):
+                # Only discover the live mode inside a manager-owned run. Plain
+                # client tests/library use must not add a status round trip.
+                if os.environ.get("AUTORIO_RUN_ID"):
+                    try:
+                        status = self.construction_status()
+                        mode = str(status.get("mode") or "free")
+                    except Exception:
+                        mode = "free"
+                else:
+                    mode = "free"
+            self._construction_mode = mode
+        if mode != "planned":
+            return None
+        body: dict[str, Any] = {"kind": kind}
+        if entities is not None:
+            body["entities"] = entities
+        if targets is not None:
+            body["targets"] = targets
+        if blueprint_id:
+            body["blueprint_id"] = blueprint_id
+        if blueprint_hash:
+            body["blueprint_hash"] = blueprint_hash
+        if anchor is not None:
+            body["anchor"] = anchor
+        if rotation is not None:
+            body["rotation"] = rotation
+        if mirror is not None:
+            body["mirror"] = bool(mirror)
+        try:
+            response = self.request("POST", "/api/agent/plan", body)
+        except RuntimeError as error:
+            if str(error) == "CONSTRUCTION_MODE_FREE":
+                self._construction_mode = "free"
+                return None
+            raise
+        data = data_value(response)
+        if not isinstance(data, dict) or not data.get("plan_id"):
+            raise RuntimeError("manager returned an invalid construction plan")
+        return data
+
+    def _construction_plan_id(
+        self,
+        kind: str,
+        *,
+        entities: list[dict[str, Any]] | None = None,
+        targets: list[dict[str, Any]] | None = None,
+        blueprint_hash: str | None = None,
+    ) -> str | None:
+        if getattr(self, "_construction_mode", None) == "free":
+            return None
+        plan = self.plan_construction(
+            kind, entities=entities, targets=targets, blueprint_hash=blueprint_hash
+        )
+        return str(plan["plan_id"]) if plan else None
+
     def build(self, entities: list[dict[str, Any]], *, clear: bool = True,
+              plan_kind: str | None = None,
+              plan_meta: dict[str, Any] | None = None,
               **options: Any) -> Any:
         """Build entities after mining trees/rocks from their footprints."""
-        return self.submit_action(
-            "build", {"entities": entities, "clear_obstacles": clear}, **options)
+        payload: dict[str, Any] = {"entities": entities, "clear_obstacles": clear}
+        kind = plan_kind or getattr(self, "_active_plan_kind", "build")
+        meta = dict(plan_meta if plan_meta is not None
+                    else getattr(self, "_active_plan_meta", None) or {})
+        plan_id = self._construction_plan_id(
+            kind,
+            entities=entities,
+            blueprint_hash=meta.get("blueprint_hash"),
+        )
+        if plan_id:
+            payload["plan_id"] = plan_id
+        return self.submit_action("build", payload, **options)
 
     def _blueprint_prototype_sizes(
         self, names: list[str]
@@ -3218,14 +3328,19 @@ class FactorioClient:
                 "required_items": required,
                 "warnings": warnings,
             }
+        wire = blueprint if isinstance(blueprint, str) else encode_blueprint_string(payload)
+        blueprint_hash = hashlib.sha256(wire.encode("utf-8")).hexdigest()
         summary = self._submit_planned(
             entities,
             clear=clear,
             max_per_job=limit,
             warnings=warnings,
             include_entities=False,
+            plan_kind="blueprint",
+            plan_meta={"blueprint_hash": blueprint_hash},
         )
         summary["blueprint_entities"] = len(entities)
+        summary["blueprint_hash"] = blueprint_hash
         return summary
 
     def _run_chunks(
@@ -3306,6 +3421,8 @@ class FactorioClient:
         max_per_job: int = BLUEPRINT_MAX_ENTITIES_PER_JOB,
         warnings: list[str] | None = None,
         include_entities: bool = True,
+        plan_kind: str = "build",
+        plan_meta: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Submit a planned entity list in <=50-entity jobs and aggregate results.
 
@@ -3314,11 +3431,19 @@ class FactorioClient:
         ``failed_chunk``/``error``, and an empty-plan no-op success.
         """
         plan_entities = [dict(entity) for entity in plan_entities]
-        summary = self._run_chunks(
-            plan_entities,
-            lambda chunk: self.build(chunk, clear=clear),
-            max_per_job=max_per_job,
-        )
+        previous_kind = getattr(self, "_active_plan_kind", None)
+        previous_meta = getattr(self, "_active_plan_meta", None)
+        self._active_plan_kind = plan_kind
+        self._active_plan_meta = plan_meta
+        try:
+            summary = self._run_chunks(
+                plan_entities,
+                lambda chunk: self.build(chunk, clear=clear),
+                max_per_job=max_per_job,
+            )
+        finally:
+            self._active_plan_kind = previous_kind
+            self._active_plan_meta = previous_meta
         cleared = 0
         skipped: list[Any] = []
         pending_remaining = 0
@@ -4015,7 +4140,12 @@ class FactorioClient:
 
 
     def mine(self, targets: list[dict[str, Any]], **options: Any) -> Any:
-        return self.submit_action("mine", {"targets": targets}, **options)
+        payload: dict[str, Any] = {"targets": targets}
+        if any(isinstance(target, dict) and target.get("allow_buildings") is True for target in targets):
+            plan_id = self._construction_plan_id("cleanup", targets=targets)
+            if plan_id:
+                payload["plan_id"] = plan_id
+        return self.submit_action("mine", payload, **options)
 
     def mine_continuous(self, target: dict[str, Any], *, count: Any = 1,
                         resource: str | None = None, max_cycles: int = 1000,
@@ -4087,7 +4217,11 @@ class FactorioClient:
             if direction not in (0, 4, 8, 12):
                 raise ValueError("direction must be one of 0, 4, 8, 12")
             targets = [dict(target, direction=direction) for target in targets]
-        return self.submit_action("rotate", {"targets": targets}, **options)
+        payload: dict[str, Any] = {"targets": targets}
+        plan_id = self._construction_plan_id("mutation", targets=targets)
+        if plan_id:
+            payload["plan_id"] = plan_id
+        return self.submit_action("rotate", payload, **options)
 
     def move(self, targets: list[dict[str, Any]], *, max_step: float | None = None,
              **options: Any) -> Any:
@@ -4116,7 +4250,11 @@ class FactorioClient:
         return self.submit_action("launch-rocket", {"targets": targets}, **options)
 
     def set_recipe(self, targets: list[dict[str, Any]], **options: Any) -> Any:
-        return self.submit_action("set-recipe", {"targets": targets}, **options)
+        payload: dict[str, Any] = {"targets": targets}
+        plan_id = self._construction_plan_id("mutation", targets=targets)
+        if plan_id:
+            payload["plan_id"] = plan_id
+        return self.submit_action("set-recipe", payload, **options)
 
     def research(self, technology: str, **options: Any) -> Any:
         return self.submit_action("research", {"technology": technology}, **options)

@@ -690,3 +690,16 @@ Read the map for shape and use `issues`/`junctions` coordinates for exact fixes.
 - Batch: up to 50 entities/targets per action; chain jobs instead of one call per entity.
 - Never idle; keep a 3-task backlog. `wait` is disabled and `wait_for_*` is capped at 5s; switch tasks on timeout.
 - Keep `STATE.md` updated with the current subtask, score, `done_when`, and next action.
+
+## Construction plans
+
+- `GET /api/agent/construction` reports `mode` (`free` or `planned`),
+  `plan_required`, `audit_revision` and blueprint policy.
+- In planned mode, request `POST /api/agent/plan` with the exact
+  `kind` + `entities`/`targets` before the action. The returned `plan_id` is
+  single-use, expires, and is invalidated by a new audit revision.
+- Python wrappers (`build`, planners, `deconstruct_area`, `rotate`,
+  `set_recipe`, `copy_settings`, `build_blueprint`) acquire the plan
+  automatically when `AUTORIO_CONSTRUCTION_MODE=planned`.
+- Free mode is a benchmark variant: audit remains read-only and does not block
+  legacy direct actions.

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { normalizeConstruction, type ConstructionConfig, type ConstructionMode } from "./construction.js";
 
 export type Milestone = {
   id: string;
@@ -46,6 +47,12 @@ export type ScoringConfig = {
    * Keys must be tracked milestone ids; the completion milestone must be scored.
    */
   progress_weights: Record<string, number>;
+  /** Frozen construction-mode identity (set on run start, optional for old configs). */
+  construction_mode?: ConstructionMode;
+  /** Frozen benchmark variant including construction mode/blueprint policy. */
+  benchmark_variant?: string;
+  /** Frozen blueprint policy source. */
+  blueprint_policy?: string;
 };
 
 export type Benchmark = {
@@ -60,6 +67,7 @@ export type Benchmark = {
   milestones: Milestone[];
   completion: string;
   scoring: ScoringConfig;
+  construction: ConstructionConfig;
 };
 
 /**
@@ -163,6 +171,10 @@ export function loadBenchmarks(root: string): Benchmark[] {
           throw new Error(`Invalid starting inventory in ${file}`);
       }
       b.scoring = normalizeScoring(b.scoring, b);
+      b.construction = normalizeConstruction(
+        (b as Benchmark & { construction?: unknown }).construction,
+        b.id,
+      );
       return b;
     });
 }

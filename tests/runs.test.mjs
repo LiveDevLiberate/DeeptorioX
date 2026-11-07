@@ -250,7 +250,11 @@ test("blueprint gate requires one captured design before expanding", async () =>
 
 test("refactor debt gates new construction and clears after cleanup", async () => {
   const { manager } = setup();
-  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  const run = manager.start({
+    agent: "manual",
+    benchmark: "smoke",
+    construction_mode: "planned",
+  });
   try {
     await waitFor(() => manager.get(run.id).state === "running");
     const previous = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
@@ -284,7 +288,11 @@ test("default refactor clean target tolerates transient warning debt", async () 
   delete process.env.AUTORIO_REFACTOR_CLEAN_TARGET;
   process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = "0";
   const { manager } = setup();
-  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  const run = manager.start({
+    agent: "manual",
+    benchmark: "smoke",
+    construction_mode: "planned",
+  });
   try {
     await waitFor(() => manager.get(run.id).state === "running");
     manager.recordRefactorAudit({
@@ -914,7 +922,11 @@ test("refactor ladder blocks expansion but allows in-cluster rebuilds with credi
   const previousGrace = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
   process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = "0";
   const { manager } = setup();
-  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  const run = manager.start({
+    agent: "manual",
+    benchmark: "smoke",
+    construction_mode: "planned",
+  });
   try {
     await waitFor(() => manager.get(run.id).state === "running");
     manager.recordRefactorAudit({
@@ -993,7 +1005,11 @@ test("refactor tier 2 revokes unused base credits after three debt audits", asyn
   const previousGrace = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
   process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = "0";
   const { manager } = setup();
-  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  const run = manager.start({
+    agent: "manual",
+    benchmark: "smoke",
+    construction_mode: "planned",
+  });
   try {
     await waitFor(() => manager.get(run.id).state === "running");
     const audit = {
@@ -1022,7 +1038,11 @@ test("big reset warning arms after six debt audits without locking builds furthe
   const previousGrace = process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS;
   process.env.AUTORIO_REFACTOR_GATE_GRACE_SECONDS = "0";
   const { manager } = setup();
-  const run = manager.start({ agent: "manual", benchmark: "smoke" });
+  const run = manager.start({
+    agent: "manual",
+    benchmark: "smoke",
+    construction_mode: "planned",
+  });
   try {
     await waitFor(() => manager.get(run.id).state === "running");
     const audit = {
@@ -1082,6 +1102,9 @@ test("evaluation v2 records capability from milestone first-seen time", async ()
     assert.ok(evaluation, "run carries a v2 evaluation block");
     assert.equal(evaluation.capability.completed, true);
     assert.equal(evaluation.capability.scoring_version, 2);
+    assert.equal(evaluation.capability.construction_mode, "free");
+    assert.match(evaluation.capability.variant, /smoke:free:/);
+    assert.equal(evaluation.discipline.construction.mode, "free");
     assert.equal(evaluation.capability.par_seconds, 15);
     assert.ok(evaluation.capability.score >= 500 && evaluation.capability.score <= 1000);
     assert.equal(typeof evaluation.capability.completion_seconds, "number");
@@ -1091,5 +1114,177 @@ test("evaluation v2 records capability from milestone first-seen time", async ()
     assert.ok(view.legacy_automation !== undefined || view.automation !== undefined);
   } finally {
     await manager.shutdown();
+  }
+});
+
+test("construction mode metadata is snapshotted for free and planned runs", async () => {
+  const { manager } = setup();
+  try {
+    const benchmark = manager.benchmarks.find((entry) => entry.id === "smoke");
+    assert.ok(benchmark?.construction);
+    assert.equal(benchmark.construction.default_mode, "free");
+    assert.deepEqual(benchmark.construction.modes, ["free", "planned"]);
+
+    const run = manager.start({ agent: "manual", benchmark: "smoke", construction_mode: "planned" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    const view = manager.get(run.id);
+    assert.equal(view.construction.mode, "planned");
+    assert.equal(view.construction.plan_required, true);
+    assert.match(view.construction.variant, /smoke:planned:/);
+    assert.equal(view.scoring.construction_mode, "planned");
+    assert.equal(view.scoring.benchmark_variant, view.construction.variant);
+    assert.equal(manager.constructionStatus().plan_required, true);
+  } finally {
+    await manager.stop();
+  }
+});
+
+test("planned construction requires a matching single-use plan token", async () => {
+  const { manager } = setup();
+  try {
+    const run = manager.start({ agent: "manual", benchmark: "smoke", construction_mode: "planned" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    const entities = [{ name: "stone-furnace", anchor: { x: 3, y: 4 } }];
+
+    assert.throws(
+      () => manager.requireConstructionPlan({ allowed_kinds: ["build"], entities }),
+      (error) => error.code === "PLAN_REQUIRED",
+    );
+    const plan = manager.createConstructionPlan({ kind: "build", entities });
+    assert.equal(plan.status, "issued");
+    assert.equal(plan.kind, "build");
+    assert.equal(plan.allowed_entity_names[0], "stone-furnace");
+    assert.equal(manager.constructionStatus().plans, 1);
+
+    const consumed = manager.requireConstructionPlan({
+      plan_id: plan.plan_id,
+      allowed_kinds: ["build", "blueprint"],
+      entities,
+    });
+    assert.equal(consumed?.status, "consumed");
+    assert.equal(manager.get(run.id).construction.metrics.planned_actions, 1);
+    assert.throws(
+      () =>
+        manager.requireConstructionPlan({
+          plan_id: plan.plan_id,
+          allowed_kinds: ["build"],
+          entities,
+        }),
+      (error) => error.code === "PLAN_ALREADY_CONSUMED",
+    );
+
+    const second = manager.createConstructionPlan({ kind: "build", entities });
+    assert.throws(
+      () =>
+        manager.requireConstructionPlan({
+          plan_id: second.plan_id,
+          allowed_kinds: ["build"],
+          entities: [{ name: "stone-furnace", anchor: { x: 9, y: 9 } }],
+        }),
+      (error) => error.code === "PLAN_TARGET_MISMATCH",
+    );
+
+    const third = manager.createConstructionPlan({ kind: "mutation", targets: [{ x: 5, y: 6 }] });
+    assert.throws(
+      () =>
+        manager.requireConstructionPlan({
+          plan_id: third.plan_id,
+          allowed_kinds: ["build"],
+          targets: [{ x: 5, y: 6 }],
+        }),
+      (error) => error.code === "PLAN_KIND_MISMATCH",
+    );
+  } finally {
+    await manager.stop();
+  }
+});
+
+test("a new audit revision invalidates an issued construction plan", async () => {
+  const { manager } = setup();
+  try {
+    const run = manager.start({ agent: "manual", benchmark: "smoke", construction_mode: "planned" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    const entities = [{ name: "transport-belt", anchor: { x: 1, y: 1 } }];
+    const plan = manager.createConstructionPlan({ kind: "build", entities });
+    manager.recordRefactorAudit({
+      invalid_count: 0,
+      factory_problems: 0,
+      connection_issues: 0,
+      fingerprint: "construction-audit",
+    });
+    assert.throws(
+      () =>
+        manager.requireConstructionPlan({
+          plan_id: plan.plan_id,
+          allowed_kinds: ["build"],
+          entities,
+        }),
+      (error) => error.code === "PLAN_REVISION_CHANGED",
+    );
+  } finally {
+    await manager.stop();
+  }
+});
+
+test("free construction mode keeps direct actions and reports free metrics", async () => {
+  const { manager } = setup();
+  try {
+    const run = manager.start({ agent: "manual", benchmark: "smoke", construction_mode: "free" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    const entities = [{ name: "stone-furnace", anchor: { x: 7, y: 8 } }];
+    assert.equal(manager.constructionStatus().plan_required, false);
+    assert.equal(manager.requireConstructionPlan({ allowed_kinds: ["build"], entities }), undefined);
+    assert.equal(manager.get(run.id).construction.metrics.free_actions, 1);
+    assert.throws(
+      () => manager.createConstructionPlan({ kind: "build", entities }),
+      (error) => error.code === "CONSTRUCTION_MODE_FREE",
+    );
+  } finally {
+    await manager.stop();
+  }
+});
+
+test("blueprint and cleanup plans bind their kind, hash and cleanup targets", async () => {
+  const { manager } = setup();
+  try {
+    const run = manager.start({ agent: "manual", benchmark: "smoke", construction_mode: "planned" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    const entities = [{ name: "transport-belt", anchor: { x: 2, y: 2 } }];
+    const blueprint = manager.createConstructionPlan({
+      kind: "blueprint",
+      entities,
+      blueprint_hash: "design-hash",
+    });
+    assert.equal(blueprint.blueprint_hash, "design-hash");
+    const consumed = manager.requireConstructionPlan({
+      plan_id: blueprint.plan_id,
+      allowed_kinds: ["build", "blueprint"],
+      entities,
+    });
+    assert.equal(consumed?.kind, "blueprint");
+
+    const cleanupTargets = [
+      { x: 8, y: 9, cleanup: true, allow_buildings: true },
+    ];
+    const cleanup = manager.createConstructionPlan({ kind: "cleanup", targets: cleanupTargets });
+    assert.equal(cleanup.kind, "cleanup");
+    assert.equal(
+      manager.requireConstructionPlan({
+        plan_id: cleanup.plan_id,
+        allowed_kinds: ["cleanup"],
+        targets: cleanupTargets,
+      })?.kind,
+      "cleanup",
+    );
+    assert.throws(
+      () =>
+        manager.createConstructionPlan({
+          kind: "cleanup",
+          targets: [{ x: 1, y: 1, allow_buildings: true }],
+        }),
+      (error) => error.code === "PLAN_BAD_REQUEST",
+    );
+  } finally {
+    await manager.stop();
   }
 });

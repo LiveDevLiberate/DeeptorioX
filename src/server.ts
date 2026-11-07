@@ -49,6 +49,7 @@ import { buildRefactorAudit, observationCenter } from "./refactor-audit.js";
 import { agentConnectionsCommand, agentFactoryCommand } from "./command-builders.js";
 import { registerAlertRoutes } from "./api/alerts.js";
 import { registerAreaEditRoutes } from "./api/area-edit.js";
+import { registerConstructionRoutes } from "./api/construction.js";
 import { registerJobsRoutes } from "./api/jobs.js";
 import { registerStateRoutes } from "./api/state.js";
 import { registerToolsRoutes } from "./api/tools.js";
@@ -638,6 +639,7 @@ registerRunsRoutes(apiRouter, apiContext);
 // Register the quick area-edit group before the /act/ job guard so the synchronous
 // copy-settings action is reachable from clients (see src/api/area-edit.ts).
 registerAreaEditRoutes(apiRouter, apiContext);
+registerConstructionRoutes(apiRouter, apiContext);
 registerJobsRoutes(apiRouter, apiContext);
 registerStateRoutes(apiRouter, apiContext);
 registerToolsRoutes(apiRouter);

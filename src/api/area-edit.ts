@@ -2,6 +2,7 @@ import { Router } from "../http/router.js";
 import { json, readJsonBody, clampInt, parseRconJson } from "../http/plumbing.js";
 import { arrayOf, asBoolean, asRecord, asString, errorMessage } from "../validation.js";
 import { rconConfigured } from "./shared.js";
+import { ConstructionPlanError } from "../construction.js";
 import {
   AREA_EDIT_DEFAULT_LIMIT,
   AREA_EDIT_DEFAULT_RADIUS,
@@ -39,7 +40,7 @@ function withTruncated(data: unknown, truncated: boolean): unknown {
  * `registerJobsRoutes` so the quick action runs ahead of the `/act/` job guard.
  */
 export function registerAreaEditRoutes(router: Router, ctx: ApiContext): void {
-  const { state, rconCommand } = ctx;
+  const { state, rconCommand, runManager } = ctx;
 
   router.add({
     method: "POST",
@@ -112,6 +113,23 @@ export function registerAreaEditRoutes(router: Router, ctx: ApiContext): void {
       const requested = body.targets;
       if (!Array.isArray(requested)) return json(res, 400, { error: "Missing targets" });
       const targets = normalizeCopyTargets(requested);
+      let planTargets: Array<{ x: number; y: number }> = [];
+      for (const target of targets) {
+        const entry = target as { target?: { x?: unknown; y?: unknown } };
+        const x = Number(entry.target?.x);
+        const y = Number(entry.target?.y);
+        if (Number.isFinite(x) && Number.isFinite(y)) planTargets.push({ x, y });
+      }
+      try {
+        runManager?.requireConstructionPlan({
+          plan_id: body.plan_id,
+          allowed_kinds: ["mutation"],
+          targets: planTargets,
+        });
+      } catch (error) {
+        if (error instanceof ConstructionPlanError) return json(res, error.status, error.toJSON());
+        throw error;
+      }
       // `dry_run:true` is accepted here as an alias for the observe dry-run so a
       // client can preview and execute through the same action shape.
       const dryRun = asBoolean(body.dry_run) === true;

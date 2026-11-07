@@ -16,6 +16,7 @@ import {
   type RefactorScope,
 } from "../refactor-audit.js";
 import { buildPipelineGraph } from "../pipeline-graph.js";
+import { ConstructionPlanError } from "../construction.js";
 import { encodeCapturedBlueprint } from "../blueprint-capture.js";
 import { evaluateBlueprint } from "../blueprint-evaluate.js";
 import { observeAreaCommand } from "../area-edit.js";
@@ -703,6 +704,18 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           },
         });
       }
+      if (!internal) {
+        try {
+          runManager.requireConstructionPlan({
+            plan_id: body.plan_id,
+            allowed_kinds: ["build", "blueprint"],
+            entities: trimmed,
+          });
+        } catch (error) {
+          if (error instanceof ConstructionPlanError) return json(res, error.status, error.toJSON());
+          throw error;
+        }
+      }
       if (entities.length > 0 && trimmed.length === 0) {
         return json(res, 400, {
           error: "No valid build entities; each entity needs a name and anchor {x,y} (or x/y shorthand)",
@@ -865,6 +878,20 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
       const trimmed = parsePositionTargets(targets, max);
+      const internal = req.headers["x-autorio-internal"] === internalKey;
+      const buildingTargets = trimmed.filter((target) => asRecord(target)?.allow_buildings === true);
+      if (!internal && buildingTargets.length) {
+        try {
+          runManager.requireConstructionPlan({
+            plan_id: body.plan_id,
+            allowed_kinds: ["cleanup"],
+            targets: buildingTargets,
+          });
+        } catch (error) {
+          if (error instanceof ConstructionPlanError) return json(res, error.status, error.toJSON());
+          throw error;
+        }
+      }
       const cleanupCheck = runManager.refactorMineCheck(trimmed);
       if (cleanupCheck?.blocked) {
         return json(res, 409, {
@@ -1001,6 +1028,19 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
           ...([0, 4, 8, 12].includes(direction) ? { direction } : {}),
         };
       });
+      const internal = req.headers["x-autorio-internal"] === internalKey;
+      if (!internal) {
+        try {
+          runManager.requireConstructionPlan({
+            plan_id: body.plan_id,
+            allowed_kinds: ["mutation"],
+            targets: trimmed,
+          });
+        } catch (error) {
+          if (error instanceof ConstructionPlanError) return json(res, error.status, error.toJSON());
+          throw error;
+        }
+      }
       try {
         const results: Record<string, unknown>[] = [];
         for (const target of trimmed) {
@@ -1096,6 +1136,19 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
       const limits = recordOrEmpty(body.limits);
       const max = clampInt(limits.max, AGENT_MAX_ACTIONS, 1, AGENT_MAX_ACTIONS);
       const trimmed = parseRecipeTargets(targets, max);
+      const internal = req.headers["x-autorio-internal"] === internalKey;
+      if (!internal) {
+        try {
+          runManager.requireConstructionPlan({
+            plan_id: body.plan_id,
+            allowed_kinds: ["mutation"],
+            targets: trimmed,
+          });
+        } catch (error) {
+          if (error instanceof ConstructionPlanError) return json(res, error.status, error.toJSON());
+          throw error;
+        }
+      }
       try {
         const results: Record<string, unknown>[] = [];
         for (const target of trimmed) {

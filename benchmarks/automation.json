@@ -45,5 +45,17 @@
       "first-plate": 0.3,
       "twenty-plates": 0.7
     }
+  },
+  "construction": {
+    "default_mode": "free",
+    "modes": [
+      "free",
+      "planned"
+    ],
+    "blueprints": {
+      "enabled": true,
+      "source": "agent",
+      "catalog": "run"
+    }
   }
 }

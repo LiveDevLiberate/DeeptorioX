@@ -2,6 +2,7 @@ import { Router } from "../http/router.js";
 import { json, readJsonBody } from "../http/plumbing.js";
 import { actionPaths, splitJobPayload, type JobAction } from "../action-jobs.js";
 import { asRecord, asString } from "../validation.js";
+import { ConstructionPlanError } from "../construction.js";
 import { rconConfigured } from "./shared.js";
 import type { ApiContext } from "./context.js";
 
@@ -33,6 +34,31 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
     }
     return targets;
   };
+
+  /** Flatten per-item build entities into the original request shape. */
+  const buildEntities = (items: unknown[]): unknown[] => {
+    const entities: unknown[] = [];
+    for (const item of items) {
+      const record = asRecord(item);
+      const entries = record?.entities;
+      if (Array.isArray(entries)) entities.push(...entries);
+    }
+    return entities;
+  };
+
+  /** Flatten per-item target arrays (mine/rotate/set-recipe). */
+  const itemTargets = (items: unknown[]): unknown[] => {
+    const targets: unknown[] = [];
+    for (const item of items) {
+      const record = asRecord(item);
+      const entries = record?.targets;
+      if (Array.isArray(entries)) targets.push(...entries);
+    }
+    return targets;
+  };
+
+  const hasBuildingTarget = (targets: unknown[]): boolean =>
+    targets.some((target) => asRecord(target)?.allow_buildings === true);
 
   router.add({
     method: "POST",
@@ -101,6 +127,33 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
                 "Capture the validated current cell with blueprint-capture --label ..., then retry the build.",
             },
           });
+        }
+      }
+      if (!internal) {
+        const payloadRecord = asRecord(body.payload) ?? {};
+        const planId = asString(payloadRecord.plan_id);
+        const actionTargets = itemTargets(items);
+        const allowedKinds =
+          action === "build"
+            ? (["build", "blueprint"] as const)
+            : action === "rotate" || action === "set-recipe"
+              ? (["mutation"] as const)
+              : action === "mine" && hasBuildingTarget(actionTargets)
+                ? (["cleanup"] as const)
+                : undefined;
+        if (allowedKinds) {
+          try {
+            runManager.requireConstructionPlan({
+              plan_id: planId,
+              allowed_kinds: [...allowedKinds],
+              ...(action === "build" ? { entities: buildEntities(items) } : { targets: actionTargets }),
+            });
+          } catch (error) {
+            if (error instanceof ConstructionPlanError) {
+              return json(res, error.status, error.toJSON());
+            }
+            throw error;
+          }
         }
       }
       const keyHeader = req.headers["idempotency-key"];

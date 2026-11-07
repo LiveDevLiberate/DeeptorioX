@@ -154,6 +154,11 @@ Next candidate: research (50) or armed exploration (25) when idle
   Chinese 5–6 characters or English 5–6 words, prefixed `目标:` or `Goal:`
   (`目标：修复铜矿供电`). The UI uses that line as the collapsed thought label.
 - Use `factorio.py` to observe and act in the game.
+- Check `GET /api/agent/construction` (Python: `construction_status()`). In
+  planned mode every build, blueprint, cleanup, rotation, recipe and
+  copy-settings action needs a single-use plan from `POST /api/agent/plan`
+  (CLI/library planners obtain it automatically). Never bypass the plan gate or
+  reuse a `plan_id`; free mode keeps the legacy direct actions.
 - It is both a command-line program and an importable Python module.
 - The default manager address is `http://localhost:3000`.
 - If provided, `FACTORIO_API_BASE` overrides the manager address.
