@@ -1209,7 +1209,7 @@ body.recording .status-scores {
 }
 .production-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 2px 18px;
   max-height: 96px;
   overflow-y: auto;
@@ -1271,6 +1271,7 @@ body.recording .status-scores .score-radar {
     padding-top: 6px;
   }
   .production-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     max-height: 88px;
   }
   body.recording .status-scores {
