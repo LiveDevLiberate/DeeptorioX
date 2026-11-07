@@ -1219,8 +1219,9 @@ body.recording .status-scores {
   margin-top: 0;
 }
 body.recording #agentStatus .status-current .icon {
-  width: 1em;
-  height: 1em;
+  width: 2em;
+  height: 2em;
+  flex: 0 0 auto;
   margin: 0;
 }
 html:not([data-theme="light"]) body.recording #agentStatus .status-current .icon {
