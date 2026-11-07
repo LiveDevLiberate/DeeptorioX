@@ -61,7 +61,7 @@ test("recording page keeps its semantic structure and information surfaces", () 
   );
   assert.match(css, /body\.recording \.metric-milestones \.ms-bar \{[\s\S]*?flex: 1 1 auto;/);
   // The work-order icon stays on the title line and the done condition hugs it.
-  assert.match(css, /body\.recording #agentStatus \.status-current \.icon \{[\s\S]*?width: 1\.1em;/);
+  assert.match(css, /body\.recording #agentStatus \.status-current \.icon \{[\s\S]*?width: 1em;/);
   assert.match(css, /body\.recording \.status-done \{[\s\S]*?margin-top: 2px;/);
   // Readout columns stay fixed; discipline badges wrap instead of widening them.
   assert.match(css, /body\.recording \.metrics-table \{[\s\S]*?table-layout: fixed;/);
