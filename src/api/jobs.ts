@@ -132,12 +132,13 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
       }
       const preflightPlanId = asString(asRecord(body.payload)?.plan_id);
       if (!internal && action === "build" && typeof preflightPlanId === "string") {
-        const plan = runManager.constructionPlan(preflightPlanId) as
-          (ReturnType<typeof runManager.constructionPlan> & { executed_entity_count?: number }) | undefined;
+        const plan = runManager.constructionPlan(preflightPlanId);
+        const executedEntityCount =
+          plan && "executed_entity_count" in plan ? Number(plan.executed_entity_count ?? 0) : 0;
         if (
           plan?.kind === "blueprint" &&
           plan.required_items &&
-          (plan.executed_entity_count ?? 0) === 0 &&
+          executedEntityCount === 0 &&
           runManager.constructionStatus().mode === "planned"
         ) {
           try {
@@ -258,8 +259,8 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
             );
             const parsed = JSON.parse(response) as { results?: Array<Record<string, unknown>> };
             const working = (parsed.results ?? []).filter((result) => {
-              const type = String(result.type ?? "");
-              const status = String(result.status ?? "none");
+              const type = typeof result.type === "string" ? result.type : "";
+              const status = typeof result.status === "string" ? result.status : "none";
               if (!protectedTypes.has(type)) return false;
               if (!inactive.has(status)) return true;
               const inventories = Array.isArray(result.inventories) ? result.inventories : [];

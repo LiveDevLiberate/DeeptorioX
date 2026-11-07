@@ -2215,7 +2215,7 @@ export class RunManager {
         `benchmark ${benchmark.id} does not allow construction_mode=${requestedMode}; allowed: ${benchmark.construction.modes.join(", ")}`,
       );
     }
-    const constructionMode = requestedMode as ConstructionMode;
+    const constructionMode = requestedMode;
     const constructionVariantName = constructionVariant(
       benchmark.id,
       benchmark.construction,

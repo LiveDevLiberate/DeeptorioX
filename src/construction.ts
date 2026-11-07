@@ -128,7 +128,7 @@ function finiteNumber(value: unknown): number | undefined {
   return Number.isFinite(number) ? number : undefined;
 }
 
-export function normalizeConstruction(raw: unknown, benchmarkId: string): ConstructionConfig {
+export function normalizeConstruction(raw: unknown, _benchmarkId: string): ConstructionConfig {
   const record = objectRecord(raw) ?? {};
   const rawModes = Array.isArray(record.modes) ? record.modes : ["free"];
   const modes = rawModes.filter(

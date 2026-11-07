@@ -113,7 +113,7 @@ export function registerAreaEditRoutes(router: Router, ctx: ApiContext): void {
       const requested = body.targets;
       if (!Array.isArray(requested)) return json(res, 400, { error: "Missing targets" });
       const targets = normalizeCopyTargets(requested);
-      let planTargets: Array<{ x: number; y: number }> = [];
+      const planTargets: Array<{ x: number; y: number }> = [];
       for (const target of targets) {
         const entry = target as { target?: { x?: unknown; y?: unknown } };
         const x = Number(entry.target?.x);

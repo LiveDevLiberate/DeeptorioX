@@ -150,9 +150,7 @@ export function registerConstructionRoutes(router: Router, ctx: ApiContext): voi
       const parsed = await readJsonBody(req);
       if (!parsed.ok) return json(res, 400, { error: "PLAN_BAD_REQUEST", message: parsed.error });
       try {
-        const plan = await planRoute(
-          parsed.body && typeof parsed.body === "object" ? (parsed.body as Record<string, unknown>) : {},
-        );
+        const plan = await planRoute(parsed.body && typeof parsed.body === "object" ? parsed.body : {});
         return json(res, 201, { ok: true, data: plan });
       } catch (error) {
         if (error instanceof ConstructionPlanError) return json(res, error.status, error.toJSON());

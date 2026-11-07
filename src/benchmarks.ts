@@ -171,10 +171,7 @@ export function loadBenchmarks(root: string): Benchmark[] {
           throw new Error(`Invalid starting inventory in ${file}`);
       }
       b.scoring = normalizeScoring(b.scoring, b);
-      b.construction = normalizeConstruction(
-        (b as Benchmark & { construction?: unknown }).construction,
-        b.id,
-      );
+      b.construction = normalizeConstruction(b.construction, b.id);
       return b;
     });
 }
