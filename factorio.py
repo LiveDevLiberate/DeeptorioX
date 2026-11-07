@@ -97,6 +97,7 @@ Commands:
   blueprint-analyze (--blueprint-file <path>|--blueprint <string>|--id <id>)
   blueprint-diff (--before-file <path>|--before <string>|--before-id <id>) (--after-file <path>|--after <string>|--after-id <id>)
   blueprint-gamedata [--dump-file <path>]
+  map-preview-exchange (--string-file <path>|--string <exchange string>) [--size n] [--planets nauvis,vulcanus]
   state-show
   state-write --current <text> [--done-when <text>] [--next <text>] [--scores k=v,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]
   observe-factory --center-x <n> --center-y <n> --radius <n>
@@ -184,6 +185,7 @@ COMMAND_USAGE = {
     "blueprint-analyze": "blueprint-analyze: Static geometry, lane flow, supply check, lint and lane-mix analysis.\nUsage: factorio.py blueprint-analyze (--blueprint-file path|--blueprint string|--id id)\nPorted from factorio-blueprint-tools (MIT): no throughput/fluid analysis.\n",
     "blueprint-diff": "blueprint-diff: Compare entity/recipe geometry, check, lint and lane-mix between two blueprints.\nUsage: factorio.py blueprint-diff (--before-file path|--before string|--before-id id) (--after-file path|--after string|--after-id id)\n",
     "blueprint-gamedata": "blueprint-gamedata: Regenerate blueprint recipe/footprint data from a local data-raw-dump.json.\nUsage: factorio.py blueprint-gamedata [--dump-file path]\nRun `factorio --dump-data` first; writes blueprint_analysis/data/gamedata.json.\n",
+    "map-preview-exchange": "map-preview-exchange: Decode a >>>eN...<<< map exchange string and render planet previews.\nUsage: factorio.py map-preview-exchange (--string-file path|--string s) [--size n] [--planets nauvis,vulcanus]\nUses the vendored FactorioPreviewToolkit dummy-save/Lua pipeline; previews all planets by default.\n",
     "blueprint-evaluate": "blueprint-evaluate: Report structural and optional dynamic efficiency for a blueprint.\nUsage: factorio.py blueprint-evaluate (--blueprint-file path|--blueprint string|--id id) [--output item=rate] [--power-kw n] [--build-seconds n]\nStatic: footprint/entity/machine/belt/inserter density. Dynamic requires built-cell output rates, power and build time.\n",
     "blueprint-list": "blueprint-list: List blueprints recorded for a run (active run by default).\nUsage: factorio.py blueprint-list [--run-id <id>]\n",
     "blueprint-save": "blueprint-save: Persist a designed blueprint string for the active run without building it.\nUsage: factorio.py blueprint-save --blueprint-file <path> [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]\n   or: factorio.py blueprint-save --blueprint <string> [--label <text>]\n",
@@ -2239,6 +2241,14 @@ class FactorioClient:
         after_payload = self._blueprint_payload(blueprint=after, blueprint_id=after_id)
         from blueprint_analysis import diff_blueprint_payloads
         return diff_blueprint_payloads(before_payload, after_payload)
+
+    def map_preview_exchange(self, map_string: str, *, size: int = 1024,
+                             planets: list[str] | None = None) -> dict[str, Any]:
+        """Decode a map exchange string and render all requested planets."""
+        payload: dict[str, Any] = {"map_string": map_string, "size": size}
+        if planets:
+            payload["planets"] = planets
+        return data_value(self.request("POST", "/api/map-preview/exchange", payload))
 
     def generate_blueprint_gamedata(self, dump_file: str | None = None,
                                     output_file: str | None = None) -> dict[str, Any]:
@@ -4353,6 +4363,23 @@ def run(argv: list[str]) -> int:
                 description=flag("description"),
             ))
             return output(result, ok=True)
+        if cmd == "map-preview-exchange":
+            string_file = flag("string-file")
+            map_string = flag("string")
+            if string_file:
+                try:
+                    with open(string_file, "r", encoding="utf-8") as handle:
+                        map_string = handle.read()
+                except OSError as error:
+                    raise ValueError(f"Cannot read {string_file!r}: {error}") from error
+            if not map_string:
+                raise ValueError("Missing --string-file or --string")
+            size_value = int(flag("size") or "1024")
+            planets_value = flag("planets")
+            planets = [entry.strip() for entry in planets_value.split(",") if entry.strip()] if planets_value else None
+            result = FactorioClient(parsed.base).map_preview_exchange(
+                map_string.strip(), size=size_value, planets=planets)
+            return output(result, ok=bool(result.get("ok")))
         if cmd == "blueprint-gamedata":
             result = FactorioClient(parsed.base).generate_blueprint_gamedata(flag("dump-file"))
             return output(result, ok=True)

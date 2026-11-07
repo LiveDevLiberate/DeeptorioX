@@ -479,3 +479,14 @@ html:not([data-theme="light"]) body.overlay #agentStatus {
   color: inherit;
   text-decoration: none;
 }
+
+.preview-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 0;
+  flex-wrap: wrap;
+}
+.preview-tabs button.active {
+  border-color: #6f9e4b;
+  color: #d8f0c5;
+}

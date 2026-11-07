@@ -224,6 +224,47 @@ $("previewMap").onclick = async () => {
     button.disabled = false;
   }
 };
+let exchangePreviews = [];
+function showExchangePlanet(index) {
+  const preview = exchangePreviews[index];
+  if (!preview) return;
+  $("launchMapPreview").hidden = false;
+  if (!launchMapViewer) launchMapViewer = globalThis.createMapViewer($("launchMapPreview"), preview.url);
+  else launchMapViewer.setSource(preview.url);
+  $("launchMapPreviewStatus").textContent = `${preview.planet} · seed ${preview.seed} · ${preview.size}px`;
+  for (const [i, button] of [...$("launchPreviewTabs").children].entries()) {
+    button.classList.toggle("active", i === index);
+  }
+}
+$("previewExchange").onclick = async () => {
+  const mapString = $("exchangeString").value.trim();
+  if (!mapString) {
+    $("exchangeStatus").textContent = "Paste a map exchange string first.";
+    return;
+  }
+  const button = $("previewExchange");
+  button.disabled = true;
+  $("exchangeStatus").textContent = "Decoding map string and rendering planets…";
+  try {
+    const result = await api("/api/map-preview/exchange", { map_string: mapString, size: 2048 });
+    exchangePreviews = result.planets || [];
+    $("launchPreviewTabs").replaceChildren();
+    for (const [index, preview] of exchangePreviews.entries()) {
+      const tab = text("button", preview.planet);
+      tab.type = "button";
+      tab.addEventListener("click", () => showExchangePlanet(index));
+      $("launchPreviewTabs").append(tab);
+    }
+    $("launchPreviewTabs").hidden = exchangePreviews.length === 0;
+    if (exchangePreviews.length) showExchangePlanet(0);
+    $("exchangeStatus").textContent = `decoded seed ${result.seed} · ${exchangePreviews.length} planet(s)`;
+  } catch (error) {
+    $("exchangeStatus").textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+};
+
 $("launchForm").onsubmit = async (event) => {
   event.preventDefault();
   $("launch").disabled = true;
@@ -313,3 +354,9 @@ void api("/api/obs/status")
   .catch(() => {
     $("obsStatus").textContent = "OBS status unavailable.";
   });
+
+const exchangeParam = new URLSearchParams(location.search).get("exchange");
+if (exchangeParam) {
+  $("exchangeString").value = exchangeParam;
+  $("previewExchange").click();
+}

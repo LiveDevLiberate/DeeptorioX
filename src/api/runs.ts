@@ -1,10 +1,11 @@
 import fsSync from "node:fs";
 import { Router } from "../http/router.js";
 import { json, readJson } from "../http/plumbing.js";
-import { asRecord, errorMessage } from "../validation.js";
+import { asRecord, asString, errorMessage } from "../validation.js";
 import { BLUEPRINT_MAX_TEXT_BYTES } from "../blueprints.js";
 import { mapConfigMeta } from "../map-config.js";
 import { generateMapPreview, mapPreviewFile, type MapPreviewSettings } from "../map-preview.js";
+import { parseMapExchange } from "../preview-exchange.js";
 import { obsStatus } from "../obs.js";
 import type { ApiContext } from "./context.js";
 
@@ -143,6 +144,48 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
           source: payload.source,
         });
         return json(res, 201, { schema_version: 2, run_id: runId, blueprint });
+      } catch (error) {
+        return json(res, 400, { error: errorMessage(error) });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/map-preview/exchange",
+    name: "/api/map-preview/exchange",
+    handler: async (request) => {
+      const { req, res } = request;
+      try {
+        const payload = asRecord(await readJson(req));
+        const mapString = asString(payload?.map_string);
+        if (!mapString) throw new Error("map_string is required");
+        const parsed = await parseMapExchange(mapString);
+        const requested = Array.isArray(payload?.planets)
+          ? payload.planets.filter((entry): entry is string => typeof entry === "string")
+          : [];
+        const planets = (requested.length ? requested : parsed.planets).slice(0, 8);
+        const previews = [];
+        for (const planet of planets) {
+          const preview = await generateMapPreview(parsed.mapGen, {
+            size: payload?.size,
+            planet,
+            spaceAge: parsed.planets.length > 1,
+          });
+          previews.push({
+            planet,
+            seed: preview.seed,
+            size: preview.size,
+            url: preview.url,
+            generated_at: preview.generated_at,
+          });
+        }
+        return json(res, 200, {
+          ok: true,
+          seed: parsed.mapGen.seed,
+          planets: previews,
+          map_gen: parsed.mapGen,
+        });
       } catch (error) {
         return json(res, 400, { error: errorMessage(error) });
       }

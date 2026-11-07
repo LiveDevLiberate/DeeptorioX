@@ -93,6 +93,10 @@ this file.
 - **Geometry direction validation.** `geometry-check` rejects cardinal directions
   outside 0/4/8/12 in addition to footprint/rotation/overlap and native placement
   blockers.
+- **Map exchange strings + multi-planet previews.** Ports the
+  FactorioPreviewToolkit dummy-save/control.lua decode pipeline, adds
+  `/api/map-preview/exchange`, Space Age preview profiles, five-planet PNG
+  generation, launch-page import/planet tabs, deep links and a Python CLI.
 - **Ported blueprint viewer.** Full MIT factorio-blueprint-tools viewer
   (`viewer.html/css/js`, `flow.js`) is hosted under `/blueprint-viewer/` with
   pan/zoom, belt tiers, underground pairing, inserter pickup/drop, splitter and

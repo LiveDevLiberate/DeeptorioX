@@ -158,6 +158,22 @@ class BlueprintAnalysisTests(unittest.TestCase):
             "item": "blueprint", "version": 0, "entities": entities,
         }})
 
+    def test_map_preview_exchange_posts_string_and_planets(self):
+        calls = []
+
+        class Client(factorio.FactorioClient):
+            def request(self, method, path, body=None, **kwargs):
+                calls.append((method, path, body))
+                return {"ok": True, "seed": 1, "planets": []}
+
+        client = Client(poll_interval=0)
+        result = client.map_preview_exchange(">>>eNabc<<<", size=512, planets=["nauvis"])
+        self.assertTrue(result["ok"])
+        self.assertEqual(calls[0][0], "POST")
+        self.assertEqual(calls[0][1], "/api/map-preview/exchange")
+        self.assertEqual(calls[0][2]["size"], 512)
+        self.assertIn("map-preview-exchange", factorio.COMMAND_USAGE)
+
     def test_analyze_blueprint_reports_flow_check_lint(self):
         wire = self._wire([
             {"entity_number": 1, "name": "assembling-machine-2",

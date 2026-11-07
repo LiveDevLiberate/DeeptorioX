@@ -29,3 +29,24 @@ python3 tools/fbp_cli.py patch <in.txt> patch.json -o out.txt
 
 `blueprint_analysis/` is autorio's integrated subset used by `factorio.py`;
 `public/blueprint-viewer/` hosts the full viewer.
+
+## Map exchange strings
+
+`tools/preview_toolkit_exchange.py` runs the vendored dummy-save + control.lua
+pipeline to extract map-gen settings and planets. The manager exposes:
+
+```http
+POST /api/map-preview/exchange
+{"map_string": ">>>eN...<<<", "size": 2048}
+```
+
+It returns one PNG per planet (`nauvis`, `vulcanus`, `gleba`, `fulgora`,
+`aquilo`) using a separate Space Age preview profile. The launch page has an
+**Import map exchange string** section and planet tabs; it can be opened
+directly with `?exchange=<urlencoded string>`.
+
+Python:
+
+```bash
+factorio.py map-preview-exchange --string-file map.txt --size 2048
+```

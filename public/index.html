@@ -36,9 +36,21 @@
             </div>
           </div>
         </details>
+        <details id="exchangeConfig" class="map-config">
+          <summary><span>Import map exchange string</span></summary>
+          <div class="map-config-body">
+            <textarea id="exchangeString" rows="3" spellcheck="false" placeholder=">>>eN...<<<"></textarea>
+            <div class="map-config-head">
+              <p class="muted">Decodes with the vendored FactorioPreviewToolkit and previews every planet. Preview only; it does not change the launch settings.</p>
+              <button id="previewExchange" type="button">Preview exchange</button>
+            </div>
+            <p id="exchangeStatus" class="map-viewer-hint"></p>
+          </div>
+        </details>
         <button id="launch" type="submit">Start run</button>
         <button id="previewMap" type="button">Preview map</button>
       </form>
+      <div id="launchPreviewTabs" class="preview-tabs" hidden></div>
       <div id="launchMapPreview" class="map-viewer" hidden></div>
       <p id="launchMapPreviewStatus" class="map-viewer-hint">Preview uses the selected benchmark and current map settings.</p>
       <p id="obsStatus" class="muted"></p>

@@ -253,6 +253,12 @@
       "usage": "Usage: factorio.py knowledge [--topic inserters|pipes|trains|power|chemistry|defense|production|blueprints]"
     },
     {
+      "command": "map-preview-exchange",
+      "description": "Decode a >>>eN...<<< map exchange string and render planet previews.",
+      "help": "Usage: factorio.py map-preview-exchange (--string-file path|--string s) [--size n] [--planets nauvis,vulcanus] Uses the vendored FactorioPreviewToolkit dummy-save/Lua pipeline; previews all planets by default.",
+      "usage": "Usage: factorio.py map-preview-exchange (--string-file path|--string s) [--size n] [--planets nauvis,vulcanus]"
+    },
+    {
       "command": "observe-area",
       "description": "List entities for deconstruction planning in an area (name/type/position/status).",
       "help": "Usage: factorio.py observe-area --center-x <n> --center-y <n> --radius <n> [--limit <n>] [--types a,b] [--filters a,b] [--player-only] [--order name|near]",
@@ -1861,6 +1867,34 @@
       "signature": "list_blueprints(self, run_id: 'str | None' = None) -> 'Any'"
     },
     {
+      "description": "Decode a map exchange string and render all requested planets.",
+      "name": "map_preview_exchange",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "map_string",
+          "required": true
+        },
+        {
+          "annotation": "int",
+          "default": "1024",
+          "kind": "keyword_only",
+          "name": "size",
+          "required": false
+        },
+        {
+          "annotation": "list[str] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "planets",
+          "required": false
+        }
+      ],
+      "signature": "map_preview_exchange(self, map_string: 'str', *, size: 'int' = 1024, planets: 'list[str] | None' = None) -> 'dict[str, Any]'"
+    },
+    {
       "description": "",
       "name": "mine",
       "parameters": [
@@ -3282,7 +3316,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "9a7252f64ad743ed9def16fa5cedd06d87b07af8aa70b63def31b2702b69d666",
+  "client_sha256": "885d687d383b97d46dd52234e5c6d7e00db09f8a87ab498d73be39e12ef0b0ad",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3477,14 +3511,14 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "9a7252f64ad743ed9def16fa5cedd06d87b07af8aa70b63def31b2702b69d666",
+    "factorio.py": "885d687d383b97d46dd52234e5c6d7e00db09f8a87ab498d73be39e12ef0b0ad",
     "src/api/agent.ts": "f34752ae629f3f324a0f485072d52c79caa253bd4af44f4a54b5382916114e21",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",
     "src/api/jobs.ts": "cb3983528cebb7d91d67f17bb4fdd2160a2fe89ea99f06f0abe2dccfab74bd47",
     "src/api/manager.ts": "e6bcd846551415382491c67ce7c85ed2f47757fd7c2080b6e56c9a46a59b1642",
-    "src/api/runs.ts": "2575bbffa4d80ed381ac8d44030c07963cbdba14e7240a805b787dd68d4d62dc",
+    "src/api/runs.ts": "ff7ac92bf74d3bd70ae988e7dd2f49aa04ea0d724470e91d7d3d9b1032f992e3",
     "src/api/saves.ts": "8b958dc012a81bbae03e0374769b566b0c5b6ab5c11a75084fb52b1401b4024c",
     "src/api/server.ts": "31cb22a15706fc375920c27fe7739a25d4b46723a27b3814c3ee92efb825d62a",
     "src/api/shared.ts": "18ab5d4edec83b31841cbb32b243351f7b7f54876eff1e79e167052c761d70ed",

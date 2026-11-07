@@ -51,7 +51,7 @@ export function controlModHash() {
     .update(fs.readFileSync(path.join(dir, "control.lua")))
     .digest("hex");
 }
-export async function prepareProfile(dir: string, locale = "en") {
+export async function prepareProfile(dir: string, locale = "en", options: { spaceAge?: boolean } = {}) {
   // Inherit only interface scaling; keep personal paths and credentials isolated.
   const gameLocale = /^[a-z]{2}(?:-[A-Z]{2})?$/.test(locale) ? locale : "en";
   const personalConfig = personalFactorioConfig();
@@ -85,7 +85,10 @@ export async function prepareProfile(dir: string, locale = "en") {
         mods: [
           { name: "base", enabled: true },
           { name: "autorio-control", enabled: true },
-          ...["space-age", "quality", "elevated-rails"].map((name) => ({ name, enabled: false })),
+          ...["space-age", "quality", "elevated-rails"].map((name) => ({
+            name,
+            enabled: options.spaceAge === true,
+          })),
         ],
       },
       null,

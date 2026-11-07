@@ -6,6 +6,7 @@ import { spawnExecutable } from "./platform.js";
 
 const PREVIEW_DIR = path.join(DATA_DIR, "map-previews");
 const PROFILE_DIR = path.join(DATA_DIR, "map-preview-profile");
+const PROFILE_DIR_SPACE_AGE = path.join(DATA_DIR, "map-preview-profile-space-age");
 const pending = new Map<string, Promise<MapPreviewResult>>();
 
 export type MapPreviewSettings = Record<string, unknown> & { seed: number };
@@ -14,14 +15,27 @@ export type MapPreviewResult = {
   url: string;
   seed: number;
   size: number;
+  planet: string;
   generated_at: string;
 };
 
-function fileId(settings: MapPreviewSettings, size: number): string {
+function fileId(settings: MapPreviewSettings, size: number, planet: string): string {
   return createHash("sha256")
-    .update(`${JSON.stringify(settings)}:${size}`)
+    .update(`${JSON.stringify(settings)}:${size}:${planet}`)
     .digest("hex")
     .slice(0, 16);
+}
+
+function settingsForPlanet(settings: MapPreviewSettings): MapPreviewSettings {
+  const controls = settings.autoplace_controls;
+  if (!controls || typeof controls !== "object" || Array.isArray(controls)) return settings;
+  const otherPlanet =
+    /^(?:vulcanus_|gleba_|fulgora_|aquilo_|calcite$|tungsten_ore$|lithium_brine$|scrap$|sulfuric_acid_geyser$|fluorine_vent$)/;
+  const filtered: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(controls as Record<string, unknown>)) {
+    if (!otherPlanet.test(name)) filtered[name] = value;
+  }
+  return { ...settings, autoplace_controls: filtered };
 }
 
 function clampSize(value: unknown): number {
@@ -33,13 +47,16 @@ function clampSize(value: unknown): number {
 /** Generate a terrain preview PNG with an isolated Factorio profile. */
 export async function generateMapPreview(
   settings: MapPreviewSettings,
-  options: { size?: unknown } = {},
+  options: { size?: unknown; planet?: unknown; spaceAge?: unknown } = {},
 ): Promise<MapPreviewResult> {
   const seed = Number(settings.seed);
   if (!Number.isInteger(seed) || seed < 0) throw new Error("map preview requires an integer seed");
   const normalized = { ...settings, seed };
   const size = clampSize(options.size);
-  const id = fileId(normalized, size);
+  const planet = typeof options.planet === "string" && options.planet ? options.planet : "nauvis";
+  const spaceAge = options.spaceAge === true;
+  const planetSettings = spaceAge ? normalized : settingsForPlanet(normalized);
+  const id = fileId(planetSettings, size, `${planet}:${spaceAge ? "sa" : "base"}`);
   const existing = path.join(PREVIEW_DIR, `${id}.png`);
   if (fs.existsSync(existing) && fs.statSync(existing).size > 0) {
     return {
@@ -47,6 +64,7 @@ export async function generateMapPreview(
       url: `/api/map-previews/${id}.png`,
       seed,
       size,
+      planet,
       generated_at: new Date().toISOString(),
     };
   }
@@ -54,17 +72,18 @@ export async function generateMapPreview(
   if (running) return running;
   const job = (async () => {
     fs.mkdirSync(PREVIEW_DIR, { recursive: true });
-    fs.mkdirSync(path.join(PROFILE_DIR, "data"), { recursive: true });
-    await prepareProfile(PROFILE_DIR);
+    const profileDir = spaceAge ? PROFILE_DIR_SPACE_AGE : PROFILE_DIR;
+    fs.mkdirSync(path.join(profileDir, "data"), { recursive: true });
+    await prepareProfile(profileDir, "en", { spaceAge });
     const settingsPath = path.join(PREVIEW_DIR, `${id}-map-gen-settings.json`);
-    fs.writeFileSync(settingsPath, JSON.stringify(normalized, null, 2));
+    fs.writeFileSync(settingsPath, JSON.stringify(planetSettings, null, 2));
     const output = path.join(PREVIEW_DIR, `${id}.png`);
     const args = [
-      ...profileArgs(PROFILE_DIR),
+      ...profileArgs(spaceAge ? PROFILE_DIR_SPACE_AGE : PROFILE_DIR),
       `--generate-map-preview=${output}`,
       `--map-gen-settings=${settingsPath}`,
       `--map-preview-size=${size}`,
-      "--map-preview-planet=nauvis",
+      `--map-preview-planet=${planet}`,
     ];
     const logPath = path.join(PREVIEW_DIR, `${id}.log`);
     await new Promise<void>((resolve, reject) => {
@@ -95,6 +114,7 @@ export async function generateMapPreview(
       url: `/api/map-previews/${id}.png`,
       seed,
       size,
+      planet,
       generated_at: new Date().toISOString(),
     };
   })().finally(() => pending.delete(id));
