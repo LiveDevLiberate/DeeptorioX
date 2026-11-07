@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { blueprintRequiredItems, expandBlueprintPayload } from "../dist/blueprints.js";
+import {
+  blueprintRequiredItems,
+  expandBlueprintPayload,
+  transformBlueprintEntities,
+} from "../dist/blueprints.js";
 
 test("manager-side blueprint expansion converts centers to anchors and shifts to a target anchor", () => {
   const payload = {
@@ -84,4 +88,25 @@ test("manager blueprint item bill includes stored inventory contents and modules
     "copper-plate": 4,
     "speed-module": 2,
   });
+});
+
+test("manager blueprint rotation and mirror transform anchors and directions", () => {
+  const entities = [
+    { name: "transport-belt", anchor: { x: 0, y: 0 }, direction: 4 },
+    { name: "transport-belt", anchor: { x: 1, y: 0 }, direction: 4 },
+  ];
+  const rotated = transformBlueprintEntities(entities, { "transport-belt": { width: 1, height: 1 } }, {
+    rotation: 2,
+  });
+  assert.deepEqual(rotated, [
+    { name: "transport-belt", anchor: { x: 0, y: 0 }, direction: 8 },
+    { name: "transport-belt", anchor: { x: 0, y: 1 }, direction: 8 },
+  ]);
+  const mirrored = transformBlueprintEntities(entities, { "transport-belt": { width: 1, height: 1 } }, {
+    mirror: true,
+  });
+  assert.deepEqual(mirrored, [
+    { name: "transport-belt", anchor: { x: 1, y: 0 }, direction: 12 },
+    { name: "transport-belt", anchor: { x: 0, y: 0 }, direction: 12 },
+  ]);
 });

@@ -67,7 +67,12 @@ import {
   type ConstructionTarget,
 } from "./construction.js";
 import { pointInRefactorCluster, type RefactorCluster } from "./refactor-audit.js";
-import { blueprintRequiredItems, decodeBlueprintString, expandBlueprintPayload } from "./blueprints.js";
+import {
+  blueprintRequiredItems,
+  decodeBlueprintString,
+  expandBlueprintPayload,
+  transformBlueprintEntities,
+} from "./blueprints.js";
 import {
   planBeltLine,
   planBeltPath,
@@ -1418,9 +1423,19 @@ export class RunManager {
           error instanceof Error ? error.message : "blueprint expansion failed",
         );
       }
-      const canonical = expanded
+      let canonical = expanded
         .map((entry) => normalizeConstructionEntity(entry))
         .filter((entry): entry is ConstructionEntity => Boolean(entry));
+      const blueprintRotation = Number(record.rotation);
+      const blueprintMirror = record.mirror === true;
+      if ([0, 2, 4, 6].includes(blueprintRotation) || blueprintMirror) {
+        canonical = transformBlueprintEntities(canonical, prototypeSizes, {
+          rotation: [0, 2, 4, 6].includes(blueprintRotation) ? blueprintRotation : 0,
+          mirror: blueprintMirror,
+        })
+          .map((entry) => normalizeConstructionEntity(entry))
+          .filter((entry): entry is ConstructionEntity => Boolean(entry));
+      }
       if (entities.length) {
         const expected = entities.map((entry) => ({
           name: entry.name,

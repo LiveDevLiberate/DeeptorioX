@@ -364,3 +364,71 @@ export function decodeBlueprintString(value: unknown): DecodedBlueprint {
   const sha256 = createHash("sha256").update(cleaned).digest("hex");
   return { payload, summary, sha256 };
 }
+
+/**
+ * Rotate/mirror manager-expanded blueprint entities around the blueprint
+ * bounding box. `rotation` is quarter-turn*2: 2=90, 4=180, 6=270 degrees.
+ */
+export function transformBlueprintEntities(
+  entities: ExpandedBlueprintEntity[],
+  prototypeSizes: Record<string, BlueprintPrototypeSize>,
+  options: { rotation?: number; mirror?: boolean } = {},
+): ExpandedBlueprintEntity[] {
+  const rotation = [0, 2, 4, 6].includes(Number(options.rotation)) ? Number(options.rotation) : 0;
+  if (!rotation && !options.mirror)
+    return entities.map((entity) => ({ ...entity, anchor: { ...entity.anchor } }));
+  const withSize = entities.map((entity) => {
+    const size = prototypeSizes[entity.name] ?? { width: 1, height: 1 };
+    const rotated = entity.direction === 4 || entity.direction === 12;
+    return {
+      entity,
+      width: rotated ? size.height : size.width,
+      height: rotated ? size.width : size.height,
+    };
+  });
+  const minX = Math.min(...withSize.map((entry) => entry.entity.anchor.x));
+  const minY = Math.min(...withSize.map((entry) => entry.entity.anchor.y));
+  const maxX = Math.max(...withSize.map((entry) => entry.entity.anchor.x + entry.width));
+  const maxY = Math.max(...withSize.map((entry) => entry.entity.anchor.y + entry.height));
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const transformed = withSize.map(({ entity, width, height }) => {
+    let centerX = entity.anchor.x + width / 2;
+    let centerY = entity.anchor.y + height / 2;
+    let outWidth = width;
+    let outHeight = height;
+    let direction = entity.direction;
+    if (options.mirror) {
+      centerX = 2 * cx - centerX;
+      if (direction === 4) direction = 12;
+      else if (direction === 12) direction = 4;
+    }
+    for (let turn = 0; turn < rotation / 2; turn += 1) {
+      const dx = centerX - cx;
+      const dy = centerY - cy;
+      centerX = cx - dy;
+      centerY = cy + dx;
+      [outWidth, outHeight] = [outHeight, outWidth];
+      direction = direction === undefined ? undefined : (direction + 4) % 16;
+    }
+    const next: ExpandedBlueprintEntity = {
+      name: entity.name,
+      anchor: {
+        x: Math.round(centerX - outWidth / 2),
+        y: Math.round(centerY - outHeight / 2),
+      },
+    };
+    if (direction !== undefined) next.direction = direction;
+    if (entity.underground_type) next.underground_type = entity.underground_type;
+    return next;
+  });
+  const newMinX = Math.min(...transformed.map((entity) => entity.anchor.x));
+  const newMinY = Math.min(...transformed.map((entity) => entity.anchor.y));
+  const shiftX = minX - newMinX;
+  const shiftY = minY - newMinY;
+  for (const entity of transformed) {
+    entity.anchor.x += shiftX;
+    entity.anchor.y += shiftY;
+  }
+  return transformed;
+}

@@ -896,12 +896,13 @@ Final polish implemented:
 - leaderboard filters by benchmark/variant/model;
 - run-page construction plan history and recording construction badge;
 - turn-penalized manager route (straight corridors preferred);
-- generic plan material preflight (blueprint and layout plans).
+- generic plan material preflight (blueprint and layout plans);
+- manager-side blueprint rotation/mirror transforms (quarter-turn*2 convention:
+  2=90°, 4=180°, 6=270°) for anchor/prototype-size expanded entities.
 
 Remaining follow-ups:
 
-- exact blueprint rotation/mirror expansion (currently anchor/prototype-size
-  expansion without rotation transforms);
 - route optimization that reuses existing power/belt assets instead of only
   penalizing turns;
-- production-chain classification beyond the local feeder neighborhood.
+- production-chain classification beyond the local feeder neighborhood;
+- rotation/mirror validation against every multi-tile prototype footprint.
