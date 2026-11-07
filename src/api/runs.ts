@@ -16,6 +16,7 @@ import {
 } from "../map-preview.js";
 import { parseMapExchange } from "../preview-exchange.js";
 import { uploadMapPreview } from "../map-preview-upload.js";
+import { ensureBlueprintIcons, iconFile } from "../blueprint-icons.js";
 import { obsStatus } from "../obs.js";
 import type { ApiContext } from "./context.js";
 
@@ -271,6 +272,55 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
       } catch (error) {
         return json(res, 400, { error: errorMessage(error) });
       }
+    },
+  });
+
+  router.add({
+    method: "GET",
+    path: "/api/blueprint-icons.js",
+    name: "/api/blueprint-icons.js",
+    handler: async (request) => {
+      const { req, res } = request;
+      try {
+        await ensureBlueprintIcons();
+        const file = iconFile("js");
+        const body = fsSync.readFileSync(file);
+        res.writeHead(200, {
+          "Content-Type": "application/javascript; charset=utf-8",
+          "Content-Length": body.length,
+          "Cache-Control": "no-cache",
+        });
+        if (req.method === "HEAD") return res.end();
+        res.end(body);
+      } catch (error) {
+        res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end(`blueprint icons unavailable: ${errorMessage(error)}`);
+      }
+      return undefined;
+    },
+  });
+
+  router.add({
+    method: "GET",
+    path: "/api/blueprint-icons.png",
+    name: "/api/blueprint-icons.png",
+    handler: async (request) => {
+      const { req, res } = request;
+      try {
+        await ensureBlueprintIcons();
+        const file = iconFile("png");
+        const stat = fsSync.statSync(file);
+        res.writeHead(200, {
+          "Content-Type": "image/png",
+          "Content-Length": stat.size,
+          "Cache-Control": "public, max-age=86400",
+        });
+        if (req.method === "HEAD") return res.end();
+        fsSync.createReadStream(file).pipe(res);
+      } catch (error) {
+        return json(res, 404, { error: errorMessage(error) });
+      }
+      return undefined;
     },
   });
 

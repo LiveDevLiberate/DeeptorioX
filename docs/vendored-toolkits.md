@@ -87,3 +87,18 @@ uploaders for generated preview ids:
 
 `skip` is a no-op. `rclone` uses `RCLONE_BIN`/`AUTORIO_RCLONE_BIN` or `rclone`
 on PATH. The full upstream uploader source remains vendored for the Python CLI.
+
+## Blueprint icons
+
+`tools/blueprint_icons.py` runs the vendored fbp `icons` builder against the
+local Factorio installation and `data-raw-dump.json`, writing a git-ignored
+atlas under `.autorio/blueprint-icons/`. The manager serves it at:
+
+```http
+GET /api/blueprint-icons.js
+GET /api/blueprint-icons.png
+```
+
+`public/blueprint-viewer/viewer.html` loads `/api/blueprint-icons.js` by
+default, so blueprint previews use local game icons automatically without a
+manual `icons…` picker.

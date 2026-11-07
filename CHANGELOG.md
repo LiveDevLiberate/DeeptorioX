@@ -1192,3 +1192,10 @@ grouped by theme.
 [0.3.0]: https://github.com/ryanmadden/autorio/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/ryanmadden/autorio/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ryanmadden/autorio/compare/9e4e677...v0.2.0
+
+### Blueprint viewer icons
+
+- Build the fbp icon atlas from the local Factorio installation on first
+  `/api/blueprint-icons.js` request and load it by default in the ported
+  blueprint viewer. Artwork stays in git-ignored `.autorio/`; no game art is
+  committed.

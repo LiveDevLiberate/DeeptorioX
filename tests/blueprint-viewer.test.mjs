@@ -17,6 +17,7 @@ test("ported blueprint viewer assets and registry loader are wired", () => {
   const html = fs.readFileSync("public/blueprint-viewer/viewer.html", "utf8");
   assert.match(html, /viewer\.js/);
   assert.match(html, /autorio-load\.js/);
+  assert.match(html, /\/api\/blueprint-icons\.js/);
   const loader = fs.readFileSync("public/blueprint-viewer/autorio-load.js", "utf8");
   assert.match(loader, /\/api\/runs\/.*blueprints/);
   assert.match(loader, /FBPViewerLoad/);
