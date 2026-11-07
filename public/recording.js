@@ -1676,12 +1676,11 @@ function nodeMatchesFilter(node) {
     return false;
   if (filterMode === "all") return true;
   const kind = node._kind;
-  if (filterMode === "thinking") return kind === "reasoning" && !node._decision;
+  if (filterMode === "thinking") return kind === "reasoning";
   if (filterMode === "actions") return kind === "commands";
   if (filterMode === "errors")
     return Boolean(node._error) || (kind === "commands" && node.classList.contains("failed"));
-  if (filterMode === "decisions")
-    return (kind === "reasoning" || kind === "message") && Boolean(node._decision);
+  if (filterMode === "decisions") return kind === "message" && Boolean(node._decision);
   return true;
 }
 function applyFilters() {

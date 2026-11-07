@@ -381,9 +381,8 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     nodes.filterThinking.fire("click");
     assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, true);
     const thinkingNodes = output.children.filter((node) => node._kind === "reasoning");
-    assert.ok(thinkingNodes.filter((node) => !node._decision).every((node) => !node.hidden));
-    assert.ok(thinkingNodes.filter((node) => node._decision).every((node) => node.hidden));
-    assert.ok(thinkingNodes.some((node) => !node._decision && !node.hidden));
+    assert.ok(thinkingNodes.length >= 1);
+    assert.ok(thinkingNodes.every((node) => node.hidden === false));
     assert.ok(
       output.children
         .filter((node) => node._kind === "message" && node._decision)
@@ -397,11 +396,10 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     assert.equal(commandsAfterFilter.hidden, false, "action filter must keep command groups visible");
     assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, true);
     // Messages filter has been removed; decisions is the remaining goal view.
-    // Decisions filter keeps decision reasoning and goal messages.
+    // Decisions filter keeps only goal messages, never reasoning content.
     nodes.filterDecisions.fire("click");
     const reasoningNodes = output.children.filter((node) => node._kind === "reasoning");
-    assert.ok(reasoningNodes.some((node) => node._decision && !node.hidden));
-    assert.ok(reasoningNodes.filter((node) => !node._decision).every((node) => node.hidden));
+    assert.ok(reasoningNodes.every((node) => node.hidden === true));
     const decisionMessages = output.children.filter((node) => node._kind === "message" && node._decision);
     assert.ok(decisionMessages.length >= 1, "goal message should count as a decision");
     assert.ok(decisionMessages.every((node) => node.hidden === false));
