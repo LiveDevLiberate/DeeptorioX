@@ -41,13 +41,14 @@ viewers steering gameplay.
    or set `BILIBILI_ROOM_ID` in `.env` to auto-connect at manager start. A
    `BILIBILI_COOKIE` with `buvid3`/`SESSDATA` improves reliability when Bilibili
    risk-control rejects anonymous requests.
-3. **Write the persona** (required for a good stream): copy
+3. **Write the AI-streamer persona** (required for a good stream): copy
    [`live-persona.example.md`](live-persona.example.md) to
-   `.autorio/live/persona.md` and edit it. The manager falls back to a generic
-   "AI co-host" persona when the file is missing. The persona is a hard cap:
-   the host is the streamer's co-host, never the streamer, and the prompt
-   forbids claiming the streamer's identity, history, opinions, promises or
-   private data.
+   `.autorio/live/persona.md` and adjust it. The manager falls back to a generic
+   AI-streamer persona when the file is missing. The host speaks *as* the AI
+   game streamer defined by this file, so the persona is a hard cap: it cannot
+   claim a human identity, invent history/opinions/promises/private data, or
+   exceed an AI game streamer. The example ships the DeepSeek 小鲸鱼 Factorio
+   AI-streamer persona.
 4. **Start the interaction host**:
    ```bash
    python3 factorio.py live-host --action start
@@ -81,9 +82,10 @@ a reply is in flight. `AUTORIO_LIVE_MIN_INTERVAL_SECONDS` (default 15 s) and
 
 ## Safety
 
-- **Identity**: the host is an AI co-host, not the streamer. The prompt places
-  identity/injection rules *before* the persona and rejects replies that claim
-  the streamer identity; a safe fallback line is spoken instead.
+- **Identity**: the host speaks as the AI game streamer defined by the persona
+  file — an AI character, never a human. The prompt places identity/injection
+  rules *before* the persona; replies that fake a human identity or leak the
+  hidden instructions are replaced by a safe fallback line.
 - **Prompt injection**: danmaku is untrusted text. The host ignores requests to
   change identity/rules, execute game actions or reveal prompts. It never calls
   gameplay tools and never posts to Bilibili.

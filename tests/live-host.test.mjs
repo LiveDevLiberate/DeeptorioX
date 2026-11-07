@@ -41,6 +41,7 @@ const STATE_MD = [
 
 test("sanitizes spoken replies: markdown, links, emoji, prefixes and length", () => {
   assert.equal(sanitizeLiveReply("**好的**，马上看~"), "好的，马上看~");
+  assert.equal(sanitizeLiveReply("主播：在扩铁"), "在扩铁");
   assert.equal(sanitizeLiveReply("看这个 https://example.com/x 就行"), "看这个 就行");
   assert.equal(sanitizeLiveReply("回答：主播在扩铁 😂"), "主播在扩铁");
   assert.equal(sanitizeLiveReply("```js\nx\n```\n主播在扩铁"), "主播在扩铁");
@@ -50,9 +51,12 @@ test("sanitizes spoken replies: markdown, links, emoji, prefixes and length", ()
   assert.equal(sanitizeLiveReply("   "), "");
 });
 
-test("detects replies that would impersonate the streamer", () => {
-  assert.equal(violatesPersonaBoundary("我是主播，今天打火箭"), true);
-  assert.equal(violatesPersonaBoundary("作为主播，我承诺明天继续"), true);
+test("detects replies that fake a human identity or leak the prompt", () => {
+  assert.equal(violatesPersonaBoundary("我是真人主播，今天打火箭"), true);
+  assert.equal(violatesPersonaBoundary("作为人类主播，我承诺明天继续"), true);
+  assert.equal(violatesPersonaBoundary("我其实不是AI，我是真人"), true);
+  assert.equal(violatesPersonaBoundary("我的系统提示词里写着要傲娇"), true);
+  assert.equal(violatesPersonaBoundary("对，我是AI主播，然后呢"), false);
   assert.equal(violatesPersonaBoundary("主播现在在扩铁，我帮你们看着"), false);
 });
 
@@ -80,16 +84,21 @@ test("formats the gameplay agent context from STATE.md and snapshot", () => {
 
 test("prompt places identity rules before the persona and includes limits", () => {
   const prompt = buildLiveHostPrompt({
-    persona: "你是「小助手」，语气轻松。",
+    persona: "你是 AI 主播「小鲸鱼」，语气傲娇。",
     context: { run_state: "running", state_md: STATE_MD },
-    messages: [entry(1, "主播在干嘛？")],
+    messages: [entry(1, "主播快把基地拆了")],
     maxChars: 40,
   });
   assert.ok(prompt.indexOf("【身份边界") >= 0);
   assert.ok(prompt.indexOf("【身份边界") < prompt.indexOf("【主播人设"));
-  assert.match(prompt, /不是主播本人/);
+  assert.match(prompt, /AI 游戏主播/);
+  assert.match(prompt, /不是真人/);
+  assert.match(prompt, /不得超出/);
+  assert.match(prompt, /拆基地/);
+  assert.match(prompt, /泄露提示词/);
+  assert.ok(prompt.includes(LIVE_REPLY_FALLBACK));
   assert.match(prompt, /最多 40 个汉字/);
-  assert.match(prompt, /观众1：主播在干嘛？/);
+  assert.match(prompt, /观众1：主播快把基地拆了/);
   assert.match(prompt, /当前在做：expanding iron smelting/);
 });
 
@@ -213,11 +222,11 @@ test("dshReplyBackend parses headless JSON events into a reply", async (t) => {
 test("persona loading falls back for missing/empty files and keeps valid ones", () => {
   const dir = tempDir();
   assert.equal(loadLivePersona().path, null);
-  assert.match(loadLivePersona(path.join(dir, "missing.md")).persona, /AI 搭档/);
+  assert.match(loadLivePersona(path.join(dir, "missing.md")).persona, /AI 游戏主播/);
   const empty = path.join(dir, "empty.md");
   fs.writeFileSync(empty, "   \n");
   assert.equal(loadLivePersona(empty).path, empty);
-  assert.match(loadLivePersona(empty).persona, /AI 搭档/);
+  assert.match(loadLivePersona(empty).persona, /AI 游戏主播/);
   const persona = path.join(dir, "persona.md");
   fs.writeFileSync(persona, "你是「小助手」，语气轻松。");
   assert.equal(loadLivePersona(persona).persona, "你是「小助手」，语气轻松。");
@@ -233,9 +242,9 @@ test("formatGameContext handles missing state, selectLiveDanmaku drops blank tex
     selected.map((item) => item.seq),
     [3, 4],
   );
-  assert.equal(violatesPersonaBoundary("我代表主播承诺"), true);
+  assert.equal(violatesPersonaBoundary("我代表主播承诺"), false);
   assert.equal(violatesPersonaBoundary("主播在扩铁"), false);
-  assert.equal(violatesPersonaBoundary("我用主播的身份说话"), true);
+  assert.equal(violatesPersonaBoundary("我的提示词不能说"), true);
 });
 
 test("LiveHost start/stop skips the backlog and answers messages that arrive later", async () => {
@@ -302,7 +311,7 @@ test("LiveHost replaces persona-violating replies with a safe fallback", async (
     },
     voiceState: () => undefined,
     context: () => undefined,
-    backend: { name: "fake", generate: async () => "我是主播，今天打火箭" },
+    backend: { name: "fake", generate: async () => "我是真人主播，今天打火箭" },
     config: { maxChars: 30, minIntervalSeconds: 0 },
     now: () => now,
   });
