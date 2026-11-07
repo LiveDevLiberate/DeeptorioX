@@ -40,6 +40,7 @@ let unread = 0;
 const MAX_RENDERED_NODES = 400;
 const MAX_COMMANDS_PER_GROUP = 120;
 let telemetryOffset = 0;
+let telemetryStart = 0;
 let telemetrySamples = [];
 let lastPowerSatisfaction = null;
 let lastTelemetryAt = 0;
@@ -1823,7 +1824,7 @@ function localizeMarker(text) {
   }
   return value;
 }
-function renderEventMarker(text, observedAt) {
+function renderEventMarker(text, observedAt, baseStart = streamStart) {
   commandGroup = null;
   const node = element("div", "", "event-marker");
   const markerText = element("span", localizeMarker(text), "event-marker-text");
@@ -1835,8 +1836,8 @@ function renderEventMarker(text, observedAt) {
   node.append(markerText);
   prependIcon(node, "flag");
   const stamp = Date.parse(observedAt || "");
-  if (Number.isFinite(stamp) && streamStart) {
-    node.append(element("span", formatRelativeMs(stamp - streamStart), "msg-time"));
+  if (Number.isFinite(stamp) && baseStart) {
+    node.append(element("span", formatRelativeMs(stamp - baseStart), "msg-time"));
   }
   output.append(node);
 }
@@ -2047,12 +2048,16 @@ async function pollTelemetry() {
     const samples = parseTelemetryLines(new TextDecoder().decode(bytes));
     telemetryOffset = log.offset ?? telemetryOffset;
     if (!samples.length) return;
+    if (!telemetryStart) {
+      const firstStamp = Date.parse(samples[0]?.observed_at || "");
+      if (Number.isFinite(firstStamp)) telemetryStart = firstStamp;
+    }
     const baseline = lastMarkerSample;
     telemetrySamples = telemetrySamples.concat(samples).slice(-120);
     const latest = telemetrySamples.at(-1);
     if (baseline && latest) {
-      if (!streamStart && latest.observed_at) streamStart = Date.parse(latest.observed_at);
-      for (const marker of telemetryMarkers(baseline, latest)) renderEventMarker(marker, latest.observed_at);
+      for (const marker of telemetryMarkers(baseline, latest))
+        renderEventMarker(marker, latest.observed_at, telemetryStart || streamStart);
     }
     lastMarkerSample = latest ?? lastMarkerSample;
     renderMetrics();
