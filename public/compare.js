@@ -1,4 +1,4 @@
-import { $, api, text, duration, detailsUrl } from "./run-view.js";
+import { $, api, text, duration, detailsUrl, displayModel } from "./run-view.js";
 const ids = [...new Set((new URLSearchParams(location.search).get("runs") || "").split(",").filter(Boolean))];
 try {
   if (ids.length < 2) throw new Error("Select at least two runs from the history to compare.");
@@ -19,7 +19,7 @@ try {
     header.append(cell);
   }
   const rows = [
-    ["Agent", (r) => r.model_label || r.model || r.agent],
+    ["Agent", (r) => displayModel(r.model_label || r.model || r.agent)],
     ["Result", (r) => r.state],
     ["Failure kind", (r) => r.failure_kind || "—"],
     [

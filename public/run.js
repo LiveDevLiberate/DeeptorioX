@@ -1,5 +1,5 @@
 import { ProductionChart } from "./production-chart.js";
-import { $, api, apiRequest, text, renderProgress, recordingUrl } from "./run-view.js";
+import { $, api, apiRequest, text, renderProgress, recordingUrl, displayModel } from "./run-view.js";
 const id = new URLSearchParams(location.search).get("run"),
   chart = new ProductionChart();
 let offset = 0,
@@ -475,7 +475,7 @@ async function refresh() {
     const info = {
       Benchmark: run.benchmark.title,
       Seed: run.benchmark.map_gen.seed,
-      Model: run.model_label || run.agent,
+      Model: displayModel(run.model_label || run.model || run.agent),
       ...(run.failure_kind ? { "Failure kind": run.failure_kind } : {}),
       ...(run.auto_continues ? { "Auto-continues": String(run.auto_continues) } : {}),
       ...(run.automation?.score == null ? {} : { "Automation score": String(run.automation.score) }),

@@ -1,4 +1,13 @@
-import { $, api, text, duration, activeStates, renderProgress, detailsUrl } from "./run-view.js";
+import {
+  $,
+  api,
+  text,
+  duration,
+  activeStates,
+  renderProgress,
+  detailsUrl,
+  displayModel,
+} from "./run-view.js";
 let runs = [],
   benchmarks = [],
   mapConfig = null,
@@ -153,7 +162,7 @@ function renderHistory() {
       row.append(name);
       for (const value of [
         run.benchmark.id,
-        run.model_label || run.model || run.agent,
+        displayModel(run.model_label || run.model || run.agent),
         `${run.state}${run.failure_kind ? ` (${run.failure_kind})` : ""}`,
         duration(run.elapsed_seconds),
       ])

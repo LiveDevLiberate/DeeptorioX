@@ -1,3 +1,9 @@
+export function displayModel(value) {
+  const text = String(value || "").trim();
+  if (!text.includes("/")) return text;
+  return text.split("/").filter(Boolean).pop() || text;
+}
+
 export const $ = (id) => document.getElementById(id);
 export const activeStates = ["preparing", "launching", "running", "saving"];
 export async function apiRequest(method, path, body) {
@@ -34,7 +40,7 @@ export function renderProgress(run) {
   $("state").textContent = run.state;
   $("elapsed").textContent = duration(run.elapsed_seconds);
   $("gameTime").textContent = run.latest ? duration((run.latest.tick - run.baseline_tick) / 60) : "—";
-  $("agent").textContent = run.model_label || run.model || run.agent;
+  $("agent").textContent = displayModel(run.model_label || run.model || run.agent);
   $("reason").textContent = [run.reason, ...(run.warnings || [])].filter(Boolean).join(" · ");
   $("stop").disabled = !activeStates.includes(run.state) || run.state === "saving";
   $("milestones").replaceChildren(

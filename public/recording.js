@@ -1,4 +1,5 @@
 import { CodexOutput } from "./codex-output.js";
+import { displayModel } from "./run-view.js";
 import { CodexTranscript } from "./codex-transcript.js";
 import {
   summarizeCommand,
@@ -1252,7 +1253,7 @@ function renderStatus(run) {
     ? ""
     : `${strings.activity[activeKey] || activeKey}${waitSeconds ? ` ${waitSeconds}s` : ""}`;
   updateStateTimer(run);
-  const model = run.model_label || run.model || run.agent || "";
+  const model = displayModel(run.model_label || run.model || run.agent || "");
   if (statusModel) {
     statusModel.hidden = !model;
     statusModel.title = model;
