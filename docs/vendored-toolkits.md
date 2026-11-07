@@ -74,3 +74,16 @@ factorio.py blueprint-tools flow FILE --json out.json
 factorio.py blueprint-tools render FILE --png out.png
 factorio.py blueprint-tools patch FILE patch.json -o out.txt
 ```
+
+## Uploader bridge
+
+`POST /api/map-previews/upload` ports the toolkit's skip/local_sync/rclone
+uploaders for generated preview ids:
+
+```json
+{"id": "c0a4208fac92fedd", "method": "local_sync", "target": "/mnt/c/previews"}
+{"id": "c0a4208fac92fedd", "method": "rclone", "remote": "dropbox:FactorioPreviews/"}
+```
+
+`skip` is a no-op. `rclone` uses `RCLONE_BIN`/`AUTORIO_RCLONE_BIN` or `rclone`
+on PATH. The full upstream uploader source remains vendored for the Python CLI.

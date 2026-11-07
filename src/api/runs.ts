@@ -2,10 +2,15 @@ import fsSync from "node:fs";
 import { Router } from "../http/router.js";
 import { json, readJson } from "../http/plumbing.js";
 import { asRecord, asString, errorMessage } from "../validation.js";
+
+function isUploadMethod(value: string): value is "skip" | "local_sync" | "rclone" {
+  return value === "skip" || value === "local_sync" || value === "rclone";
+}
 import { BLUEPRINT_MAX_TEXT_BYTES } from "../blueprints.js";
 import { mapConfigMeta } from "../map-config.js";
 import { generateMapPreview, mapPreviewFile, type MapPreviewSettings } from "../map-preview.js";
 import { parseMapExchange } from "../preview-exchange.js";
+import { uploadMapPreview } from "../map-preview-upload.js";
 import { obsStatus } from "../obs.js";
 import type { ApiContext } from "./context.js";
 
@@ -144,6 +149,34 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
           source: payload.source,
         });
         return json(res, 201, { schema_version: 2, run_id: runId, blueprint });
+      } catch (error) {
+        return json(res, 400, { error: errorMessage(error) });
+      }
+    },
+  });
+
+  router.add({
+    method: "POST",
+    path: "/api/map-previews/upload",
+    name: "/api/map-previews/upload",
+    handler: async (request) => {
+      const { req, res } = request;
+      try {
+        const payload = asRecord(await readJson(req));
+        const id = asString(payload?.id);
+        const method = asString(payload?.method);
+        if (!id) throw new Error("id is required");
+        if (!method || !isUploadMethod(method)) {
+          throw new Error("method must be skip, local_sync or rclone");
+        }
+        const result = await uploadMapPreview({
+          id,
+          method,
+          target: asString(payload?.target) ?? undefined,
+          remote: asString(payload?.remote) ?? undefined,
+          rcloneExecutable: asString(payload?.rclone_executable) ?? undefined,
+        });
+        return json(res, 200, result);
       } catch (error) {
         return json(res, 400, { error: errorMessage(error) });
       }
