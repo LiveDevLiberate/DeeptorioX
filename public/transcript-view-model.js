@@ -666,6 +666,60 @@ export function telemetryMarkers(previous, next) {
 }
 
 /**
+ * Adapt the scoring-v2 milestone capability (`run.evaluation.capability`) into
+ * a compact progress view for the recording header.
+ *
+ * Small milestone sets (total <= 6) stay as one dot per milestone because each
+ * entry is individually readable; larger sets become a bar plus the next
+ * target label. Returns null when the run predates scoring v2 or lists no
+ * milestones, so the caller can hide the whole row.
+ */
+export function milestoneProgressView(capability) {
+  if (!capability || typeof capability !== "object") return null;
+  const milestones =
+    capability.milestones && typeof capability.milestones === "object" ? capability.milestones : {};
+  const total = Math.max(0, Math.floor(Number(milestones.total) || 0));
+  if (total <= 0) return null;
+  const done = Math.max(0, Math.min(total, Math.floor(Number(milestones.completed) || 0)));
+  const completed = capability.completed === true;
+  const progress = capability.progress == null ? Number.NaN : Number(capability.progress);
+  // `progress` is the authoritative 0..1 fraction; older/partial payloads fall
+  // back to the completed/total ratio so the bar still moves.
+  const ratio = Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : done / total;
+  const percent = Math.round(ratio * 100);
+  const view =
+    total <= 6
+      ? {
+          mode: "dots",
+          percent,
+          completed,
+          total,
+          dots: Array.from({ length: total }, (_, index) => ({ done: index < done })),
+        }
+      : {
+          mode: "bar",
+          percent,
+          completed,
+          total,
+          next: milestoneNextLabel(capability),
+        };
+  if (completed) {
+    const seconds = Number(capability.completion_seconds);
+    view.completion_seconds = Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
+  }
+  return view;
+}
+
+/** Next milestone label, preferring the localized label over the raw id. */
+function milestoneNextLabel(capability) {
+  const label =
+    typeof capability.next_milestone_label === "string" ? capability.next_milestone_label.trim() : "";
+  if (label) return label;
+  const id = typeof capability.next_milestone === "string" ? capability.next_milestone.trim() : "";
+  return id || null;
+}
+
+/**
  * Normalize a run's benchmark map generation into view-ready seed/resource rows.
  * Returns null when the run has no benchmark map_gen (old runs / manual runs).
  */

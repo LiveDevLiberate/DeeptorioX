@@ -3570,11 +3570,11 @@
   "schema_version": 1,
   "sources": {
     "factorio.py": "e44f2bda854a46d688d3e705ce8dac7cc9085affa0e6e02a212c4b6591836495",
-    "src/api/agent.ts": "dbda53546caf52ef72021dda9aa9feff2de1a1626dd38717eccaff31afc76748",
+    "src/api/agent.ts": "e26066a5dbb9d643dcbeab256e88838ff027e8868c241c100ccc9598cda8c1f8",
     "src/api/alerts.ts": "d491a17165f4d93f4153e8d465b4e345a72ef313225b57fd8942e6beb9b77e78",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",
-    "src/api/jobs.ts": "3b9e04b51c617537b69ab274ea2d48b610694dd9de35457bb1acd48b7118bd8d",
+    "src/api/jobs.ts": "ddddfa98eb514fb99dd2afb45345deca6885159e1536a00ae103e876465aad1d",
     "src/api/manager.ts": "e6bcd846551415382491c67ce7c85ed2f47757fd7c2080b6e56c9a46a59b1642",
     "src/api/runs.ts": "2f1e827c7921cb1fb20fce9f42f90e264284b852580255a6428d0d49401b7f28",
     "src/api/saves.ts": "8b958dc012a81bbae03e0374769b566b0c5b6ab5c11a75084fb52b1401b4024c",

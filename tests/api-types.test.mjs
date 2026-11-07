@@ -157,3 +157,19 @@ test("registerAgentRoutes preserves the full agent route inventory", () => {
     assert.ok(paths.includes(expected), `missing ${expected}`);
   }
 });
+
+test("agent API responses never attach the internal automation score", async () => {
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const source = fs.readFileSync(path.join(process.cwd(), "src/api/agent.ts"), "utf8");
+  assert.equal(
+    source.includes("plan()?.automation"),
+    false,
+    "agent handlers must not read plan().automation",
+  );
+  assert.equal(
+    /data:\s*\{[^}]*\bautomation\b/s.test(source),
+    false,
+    "agent responses must not attach an automation block",
+  );
+});

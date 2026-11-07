@@ -67,10 +67,11 @@ Score every subtask 0-100 before choosing and after finishing:
 
 `score = impact + urgency + payoff - effort`
 
-Emergency override: zero power/fuel, damage/attack, or a stuck agent is handled
-immediately, regardless of score. Use `observe-factory` alerts/totals,
-`observe-layout`, `observe-research`, and `inventory_counts()` as evidence.
-Record scores and reasons in `STATE.md`.
+These scores are the agent's own task-priority plan (see `STATE.md` below); they
+never enter the manager's evaluation. Emergency override: zero power/fuel,
+damage/attack, or a stuck agent is handled immediately, regardless of score. Use
+`observe-factory` alerts/totals, `observe-layout`, `observe-research`, and
+`inventory_counts()` as evidence. Record scores and reasons in `STATE.md`.
 
 ### The loop
 
@@ -91,24 +92,6 @@ Record scores and reasons in `STATE.md`.
 Do not switch subtasks mid-task without an emergency or an expired timebox.
 Update `STATE.md` after every subtask so a resumed session can continue.
 
-### Automation score
-
-The manager computes an operator-visible automation score from game telemetry and
-your action jobs. Read it after every subtask from
-`observe_factory()["plan"]["automation"]` (fields: `score`, `positive`,
-`penalty`, `manual_mines`, `manual_crafts`, `breakdown`); `act-mine` and
-`act-craft` responses include the current block too.
-
-- Positive: weighted cumulative automated output since the baseline, science-pack
-  output, satisfied power demand, current-research progress, and rocket launches.
-- Penalty: every hand-mined natural resource unit (1 point) and every
-  hand-crafted item (2 points). Removing/deconstructing placed buildings is not a
-  penalty; mining trees/rocks/ores by hand is.
-
-Automate extraction and crafting with drills, furnaces, assemblers and inserters;
-hand work lowers the score and wastes active play time. The score is feedback,
-not a hard failure condition.
-
 ### STATE.md update deadline
 
 `STATE.md` is the operator plan and is enforced by the manager:
@@ -123,6 +106,10 @@ not a hard failure condition.
   through the API and continue. The same rules apply after a resume.
 - `act-mine` / `act-craft` responses and `observe_factory()` include the current
   `state` block, so check it before long work.
+- `Scores` are your own plan-only task-priority scores (0-100) used to choose
+  the next subtask; they never enter the manager's evaluation. The tool's
+  internal automation score is not exposed to the agent, so report evidence and
+  measurements rather than claims about the evaluation.
 
 
 ### STATE.md template

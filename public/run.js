@@ -215,14 +215,18 @@ function renderRefactorAlert(run) {
   alert.hidden = !attention;
   if (!attention) return;
   const count = Number(refactor.invalid_count || 0);
+  const credits = Math.max(0, Number(refactor.build_credits || 0));
+  const clusters = Array.isArray(refactor.clusters) ? refactor.clusters.length : 0;
+  const tier = String(refactor.escalation_tier || "normal");
   if (refactor.big_reset_pending) {
     alert.classList.add("is-reset");
     $("refactorAlertText").textContent =
-      `BIG RESET CONDITION MET · ${count} invalid factory/belt problems · audits ${refactor.audits_with_debt || 0}`;
+      `BIG RESET WARNING · ${count} invalid factory/belt problems · audits ${refactor.audits_with_debt || 0} · operator confirmation required`;
   } else {
     alert.classList.remove("is-reset");
+    const headline = tier === "relayout_only" ? "RELAYOUT REQUIRED" : "EXPANSION BLOCKED";
     $("refactorAlertText").textContent =
-      `REFACTOR REQUIRED · ${count} invalid factory/belt problems · construction blocked until cleaned`;
+      `${headline} · ${count} invalid problems · repair/rebuild inside ${clusters} flagged cluster${clusters === 1 ? "" : "s"} · ${credits} rebuild credits`;
   }
 }
 
@@ -247,7 +251,7 @@ function renderStatePanel(run) {
     ["Status", statusText],
     ["State penalty", String(run.automation?.state_penalty || 0)],
     ["Alert penalty", String(run.automation?.alert_penalty || 0)],
-    ["Scores", status.scores_source === "agent_self_reported" ? "agent self-reported" : "missing"],
+    ["Plan scores", status.scores_source === "agent_self_reported" ? "agent self-reported" : "missing"],
   ];
   $("stateStats").replaceChildren(
     ...stats.flatMap(([key, value]) => [text("dt", key), text("dd", String(value))]),
@@ -255,6 +259,38 @@ function renderStatePanel(run) {
   $("statePlan").textContent = [plan && `Current: ${plan}`, doneWhen && `Done when: ${doneWhen}`]
     .filter(Boolean)
     .join(" · ");
+}
+function renderDiscipline(run) {
+  const panel = $("disciplinePanel");
+  if (!panel) return;
+  const discipline = run.evaluation?.discipline;
+  if (!discipline) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  const capability = run.evaluation?.capability;
+  $("disciplineSummary").textContent = capability
+    ? `capability ${capability.score}/${capability.max} · scoring v${capability.scoring_version} · par ${capability.par_seconds}s`
+    : "";
+  const refactor = discipline.refactor || {};
+  const stats = [
+    ["Manual mines", String(discipline.manual_mines ?? 0)],
+    ["Manual crafts", String(discipline.manual_crafts ?? 0)],
+    ["Blackouts", String(discipline.blackouts ?? 0)],
+    ["Alert penalty", String(discipline.alert_penalty ?? 0)],
+    ["STATE due", `${Math.round(Number(discipline.state_due_seconds) || 0)}s`],
+    ["STATE blocked", `${Math.round(Number(discipline.state_blocked_seconds) || 0)}s`],
+    ["Refactor debt peak", String(refactor.debt_peak ?? 0)],
+    ["Refactor invalid now", String(refactor.invalid_count ?? 0)],
+    ["Cleanup units", String(refactor.cleanup_units ?? 0)],
+    ["Refactor tier", String(refactor.tier || "normal")],
+    ["Debt audits", String(refactor.audits_with_debt ?? 0)],
+    ["Flags", discipline.flags?.length ? discipline.flags.join(", ") : "none"],
+  ];
+  $("disciplineStats").replaceChildren(
+    ...stats.flatMap(([key, value]) => [text("dt", key), text("dd", String(value))]),
+  );
 }
 function renderStateHistory() {
   const container = $("stateHistory");
@@ -395,6 +431,7 @@ async function refresh() {
     renderProgress(run);
     renderRefactorAlert(run);
     renderStatePanel(run);
+    renderDiscipline(run);
     $("resume").hidden = !run.resumable;
     $("resume").disabled = !run.resumable || run.video?.state === "rendering";
     $("resume").textContent =
@@ -478,7 +515,22 @@ async function refresh() {
       Model: displayModel(run.model_label || run.model || run.agent),
       ...(run.failure_kind ? { "Failure kind": run.failure_kind } : {}),
       ...(run.auto_continues ? { "Auto-continues": String(run.auto_continues) } : {}),
-      ...(run.automation?.score == null ? {} : { "Automation score": String(run.automation.score) }),
+      ...(run.evaluation?.capability
+        ? {
+            Capability: `${run.evaluation.capability.score} / ${run.evaluation.capability.max}`,
+            "Capability detail": run.evaluation.capability.completed
+              ? `completed in ${Math.round(Number(run.evaluation.capability.completion_seconds) || 0)}s`
+              : `progress ${Math.round(Number(run.evaluation.capability.progress || 0) * 100)}%`,
+            "Milestones (scored)": `${run.evaluation.capability.milestones.completed}/${run.evaluation.capability.milestones.total}`,
+            Scoring: `v${run.evaluation.capability.scoring_version} · par ${run.evaluation.capability.par_seconds}s · ${run.evaluation.capability.par_source}`,
+            ...(run.evaluation.discipline?.flags?.length
+              ? { "Discipline flags": run.evaluation.discipline.flags.join(", ") }
+              : {}),
+          }
+        : {}),
+      ...(run.automation?.score == null
+        ? {}
+        : { "Automation score (legacy v1)": String(run.automation.score) }),
       ...(run.automation?.cleanup_units == null
         ? {}
         : { "Cleanup units": String(run.automation.cleanup_units) }),

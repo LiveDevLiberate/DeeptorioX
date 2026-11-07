@@ -212,9 +212,9 @@ live activity.
 
 ## Narrating agent thoughts (edge-tts)
 
-`scripts/narrate-edge.py` is the edge-tts narrator. It speaks one decision-like
-digest line every 5 minutes and every new `STATE.md updated:` activity line.
-Default voices are young female Edge voices:
+`scripts/narrate-edge.py` is the edge-tts narrator. It speaks every goal/decision
+message (`目标:` / `Goal:`) and every changed `STATE.md updated:` plan line as
+soon as they appear. Default voices are young female Edge voices:
 
 - Chinese: `zh-CN-XiaoxiaoNeural`
 - English: `en-US-AvaNeural`
@@ -290,6 +290,18 @@ the benchmark's polling interval. Human input can affect a run: leave the game
 alone while comparing agents. Pauses and performance changes remain visible in
 the wall-clock/game-tick measurements.
 
+Ranking uses a per-benchmark capability score (0-1000): a completed run scores
+`500 + 500 * r / (1 + r)` with `r = par_seconds / completion active seconds`
+(finishing at par scores 750), while an unfinished run scores
+`499 * weighted milestone progress`. Discipline metrics — manual mines/crafts,
+STATE.md due/blocked time, blackouts, ignored alerts and refactor debt — are
+reported separately and never affect the ranking. Each benchmark's `scoring`
+block sets the par time, ranked flag and explicit milestone weights;
+`node scripts/calibrate-scoring.mjs` suggests par values from completed runs
+(`--apply` to write). Capability and discipline results are operator-only: the
+manager computes and persists them and the run page and recording view display
+them, but agents never receive them through `/api/agent/*` or their prompt.
+
 Everything generated is ignored by Git under `.autorio/`:
 
 ```text
@@ -352,6 +364,12 @@ Optional `.env` settings (process environment takes precedence):
 | `AUTORIO_AUTO_RESUME` | `0`; set to `1` to resume the newest interrupted run with a current checkpoint when the manager starts |
 | `AUTORIO_AUTO_CONTINUE_MAX` | `3`; automatic same-session continuations after a clean early agent exit (0 disables). When exhausted the run becomes paused/resumable instead of failed |
 | `AUTORIO_STATE_SOFT_SECONDS` / `AUTORIO_STATE_HARD_SECONDS` | `300` / `600`; STATE.md reminder and action-block deadlines |
+| `AUTORIO_REFACTOR_CLEAN_TARGET` | `20`; scoped audit debt tolerated before the refactor gate locks expansion |
+| `AUTORIO_REFACTOR_GATE_GRACE_SECONDS` | `300`; the debt must persist this long before T1 `expansion_blocked` locks expansion (0 = arm immediately) |
+| `AUTORIO_REFACTOR_BASE_BUILD_CREDITS` | `12`; one-time in-cluster build credits when T1 starts, capped at the debt count (0 = demolition-only credits) |
+| `AUTORIO_REFACTOR_RELAYOUT_AUDITS` | `3`; same-debt audits before T2 `relayout_only` revokes unused base credits (0 = upgrade immediately) |
+| `AUTORIO_REFACTOR_RESET_AUDITS` | `6`; consecutive debt audits before the T3 `big_reset_pending` operator warning |
+| `AUTORIO_BIG_RESET_BLACKOUTS` | `50`; power blackouts that also arm the T3 `big_reset_pending` warning |
 | `AUTORIO_MAX_MOVE_TILES` | `64`; the Python client rejects longer single moves so callers use waypoints and observe the route |
 | `AUTORIO_TERMINAL` | Set to `1` to use the optional terminal viewer instead of web recording view |
 | `AUTORIO_AGENT_LANGUAGE` | Optional language for agent messages/reasoning summaries and the game locale, e.g. `Chinese` → game `zh-CN`; code and commands stay unchanged |

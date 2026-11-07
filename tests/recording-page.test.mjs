@@ -68,28 +68,30 @@ function jsonl(items) {
   return items.map((item) => JSON.stringify(item)).join("\n") + "\n";
 }
 
+const PAGE_ELEMENT_IDS = [
+  "agentStatus",
+  "statusState",
+  "statusActivity",
+  "statusMeta",
+  "statusCurrent",
+  "statusDone",
+  "statusMilestones",
+  "statusScores",
+  "statusMetrics",
+  "statusToggle",
+  "stateTimer",
+  "transcriptSearch",
+  "filterAll",
+  "filterThinking",
+  "filterActions",
+  "filterTech",
+  "filterErrors",
+  "filterDecisions",
+  "codexOutput",
+];
+
 test("recording page renders summaries, loops, turns and unread updates", async () => {
-  const ids = [
-    "agentStatus",
-    "statusState",
-    "statusActivity",
-    "statusMeta",
-    "statusCurrent",
-    "statusDone",
-    "statusScores",
-    "statusMetrics",
-    "statusToggle",
-    "stateTimer",
-    "transcriptSearch",
-    "filterAll",
-    "filterThinking",
-    "filterActions",
-    "filterTech",
-    "filterErrors",
-    "filterDecisions",
-    "codexOutput",
-  ];
-  const nodes = Object.fromEntries(ids.map((id) => [id, new FakeNode()]));
+  const nodes = Object.fromEntries(PAGE_ELEMENT_IDS.map((id) => [id, new FakeNode()]));
   const body = new FakeNode("body");
   const documentElement = new FakeNode("html");
   documentElement.lang = "en";
@@ -127,6 +129,17 @@ test("recording page renders summaries, loops, turns and unread updates", async 
       manual_mines: 6,
       manual_crafts: 7,
       breakdown: { production: 90, science: 10, power: 30, research: 5, rockets: 5 },
+    },
+    evaluation: {
+      capability: {
+        score: 750,
+        max: 1000,
+        completed: false,
+        progress: 0.5,
+        milestones: { completed: 3, total: 6 },
+        par_seconds: 640,
+        par_source: "median_completed:2026-11-08",
+      },
     },
   };
   const firstBatch = [
@@ -385,6 +398,15 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     assert.ok(durationNode, "missing action duration");
     assert.equal(durationNode.textContent, "1.4s");
 
+    // Scoring-v2 milestone row: one dot per milestone (<= 6) plus the done count.
+    assert.equal(nodes.statusMilestones.hidden, false);
+    const milestoneDots = findClass(nodes.statusMilestones, "ms-dots");
+    assert.ok(milestoneDots, "missing milestone dots");
+    assert.equal(milestoneDots.children.length, 6);
+    assert.equal(milestoneDots.children.filter((node) => node.classList.contains("done")).length, 3);
+    assert.match(nodeText(nodes.statusMilestones), /3\/6/);
+    assert.equal(findClass(nodes.statusMilestones, "ms-bar"), null);
+
     // Filter chips hide non-matching transcript entries and persist the choice.
     nodes.filterThinking.fire("click");
     assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, true);
@@ -499,6 +521,104 @@ test("recording page renders summaries, loops, turns and unread updates", async 
   }
 });
 
+test("recording page renders a milestone bar with the next target", async () => {
+  const nodes = Object.fromEntries(PAGE_ELEMENT_IDS.map((id) => [id, new FakeNode()]));
+  const body = new FakeNode("body");
+  const documentElement = new FakeNode("html");
+  documentElement.lang = "en";
+  const timers = [];
+  const realSetTimeout = globalThis.setTimeout;
+  const hadNavigator = Object.prototype.hasOwnProperty.call(globalThis, "navigator");
+  const realNavigator = globalThis.navigator;
+  const runFixture = {
+    id: "run1",
+    name: "milestone run",
+    state: "running",
+    language: "English",
+    output_format: "events",
+    elapsed_seconds: 641,
+    max_seconds: 1800,
+    state_md: "",
+    evaluation: {
+      capability: {
+        score: 750,
+        max: 1000,
+        completed: false,
+        progress: 0.42,
+        milestones: { completed: 3, total: 7 },
+        next_milestone: "logistic-science",
+        next_milestone_label: "Logistic science",
+        par_seconds: 640,
+        par_source: "median_completed:2026-11-08",
+      },
+    },
+  };
+  globalThis.document = {
+    getElementById: (id) => nodes[id] || null,
+    createElement: (tag) => new FakeNode(tag),
+    body,
+    documentElement,
+    title: "",
+  };
+  globalThis.location = { search: "?run=run1" };
+  globalThis.history = { replaceState() {} };
+  const storage = new Map();
+  globalThis.localStorage = {
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, String(value)),
+  };
+  if (hadNavigator) globalThis.navigator = { language: "en-US" };
+  else
+    Object.defineProperty(globalThis, "navigator", {
+      value: { language: "en-US" },
+      configurable: true,
+    });
+  globalThis.setTimeout = (callback) => {
+    timers.push(callback);
+    return timers.length;
+  };
+  globalThis.fetch = async (url) => {
+    if (url === "/api/runs/run1") return { ok: true, json: async () => runFixture };
+    if (url.includes("source=telemetry")) return { ok: true, json: async () => ({ data: "", offset: 0 }) };
+    if (url.includes("/log?")) return { ok: true, json: async () => ({ data: "", offset: 0 }) };
+    if (url.includes("/blueprints")) return { ok: true, json: async () => ({ blueprints: [] }) };
+    if (url === "/api/factorio-locale") return { ok: false, json: async () => ({}) };
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const flush = async () => {
+    for (let index = 0; index < 40; index += 1) await new Promise((resolve) => setImmediate(resolve));
+  };
+  try {
+    await import("../public/recording.js?smoke=bar");
+    await flush();
+    const nodeText = (node) =>
+      [node.textContent, ...(node.children || []).map(nodeText)].filter(Boolean).join(" ");
+    const findClass = (root, name) => {
+      if (String(root.className || "").includes(name)) return root;
+      for (const child of root.children || []) {
+        const hit = findClass(child, name);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    assert.equal(nodes.statusMilestones.hidden, false);
+    assert.equal(findClass(nodes.statusMilestones, "ms-dots"), null);
+    const fill = findClass(nodes.statusMilestones, "ms-fill");
+    assert.ok(fill, "missing milestone bar fill");
+    assert.equal(fill.style.width, "42%");
+    assert.match(nodeText(nodes.statusMilestones), /42% · 3\/7/);
+    assert.match(nodeText(nodes.statusMilestones), /next: Logistic science/);
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    if (hadNavigator) globalThis.navigator = realNavigator;
+    else delete globalThis.navigator;
+    delete globalThis.document;
+    delete globalThis.location;
+    delete globalThis.history;
+    delete globalThis.fetch;
+  }
+});
+
 test("recording page exposes map and blueprint previews", () => {
   const html = fs.readFileSync("public/recording.html", "utf8");
   const js = fs.readFileSync("public/recording.js", "utf8");
@@ -526,4 +646,8 @@ test("recording page exposes map and blueprint previews", () => {
   assert.match(js, /api\/factorio-locale/);
   assert.match(js, /gameName\("technology"/);
   assert.match(js, /gameName\("item"/);
+  assert.match(html, /id="statusMilestones"/);
+  assert.match(html, /class="status-milestones"/);
+  assert.match(js, /function renderMilestones/);
+  assert.match(js, /milestoneProgressView/);
 });

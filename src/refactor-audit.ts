@@ -58,6 +58,21 @@ const FACTORY_PROBLEMS: Record<string, { severity: "critical" | "warning"; label
 
 export type RefactorScope = "belts" | "power" | "pipes" | "machines" | "containers" | "rail";
 
+/** A spatial group of flagged invalid tiles the agent may rebuild inside. */
+export type RefactorCluster = {
+  x: number;
+  y: number;
+  radius: number;
+  /** Sampled invalid entries in the cluster (used for ordering, not exact debt). */
+  count: number;
+  kinds: string[];
+};
+
+/** Clusters are advisory windows, so an entity near the edge still counts. */
+export const REFACTOR_CLUSTER_TOLERANCE = 2;
+/** Bound the cluster list so the run record and 409 payload stay compact. */
+export const MAX_REFACTOR_CLUSTERS = 8;
+
 /** Default scope: belts, power, pipes, machines and empty containers. Rail is opt-in. */
 export const DEFAULT_REFACTOR_SCOPE: RefactorScope[] = ["belts", "power", "pipes", "machines", "containers"];
 
@@ -125,6 +140,93 @@ function examples(value: unknown, limit = 3): JsonRecord[] {
   return Array.isArray(value)
     ? value.filter((entry): entry is JsonRecord => Boolean(asRecord(entry))).slice(0, limit)
     : [];
+}
+
+/** Whether a world tile lies inside a flagged cluster (plus a small tolerance). */
+export function pointInRefactorCluster(
+  cluster: { x?: unknown; y?: unknown; radius?: unknown } | undefined,
+  x: number,
+  y: number,
+  tolerance = REFACTOR_CLUSTER_TOLERANCE,
+): boolean {
+  if (!cluster) return false;
+  const cx = Number(cluster.x);
+  const cy = Number(cluster.y);
+  const radius = Number(cluster.radius);
+  if (![cx, cy, radius, x, y].every(Number.isFinite)) return false;
+  const slack = Number.isFinite(tolerance) ? Math.max(0, tolerance) : 0;
+  return Math.hypot(x - cx, y - cy) <= radius + slack;
+}
+
+const CLUSTER_GRID = 24;
+
+/**
+ * Group the sampled invalid tiles into a few rebuild windows.
+ *
+ * Audit actions already carry example coordinates (and belts carry a tight
+ * `cleanup` window). Bucketing them keeps the gate cheap: while expansion is
+ * blocked, the agent may still rebuild inside these windows.
+ */
+function buildRefactorClusters(actions: Array<Record<string, unknown>>): RefactorCluster[] {
+  type Entry = { x: number; y: number; kind: string; count: number; radius?: number };
+  const entries: Entry[] = [];
+  for (const action of actions) {
+    const kind = typeof action.kind === "string" ? action.kind : "unknown";
+    const count = Math.max(1, Math.round(number(action.count)));
+    const cleanup = asRecord(action.cleanup);
+    const windowX = Number(cleanup?.x);
+    const windowY = Number(cleanup?.y);
+    const windowRadius = Number(cleanup?.radius);
+    if (cleanup && [windowX, windowY, windowRadius].every(Number.isFinite)) {
+      entries.push({
+        x: windowX,
+        y: windowY,
+        kind,
+        count,
+        radius: Math.max(4, Math.min(32, Math.round(windowRadius))),
+      });
+      continue;
+    }
+    for (const sample of examples(action.examples)) {
+      const x = Number(sample.x);
+      const y = Number(sample.y);
+      if (Number.isFinite(x) && Number.isFinite(y)) entries.push({ x, y, kind, count });
+    }
+  }
+  if (entries.length === 0) return [];
+
+  const clusters: RefactorCluster[] = [];
+  const buckets = new Map<string, Entry[]>();
+  for (const entry of entries) {
+    if (entry.radius) {
+      clusters.push({
+        x: Math.round(entry.x),
+        y: Math.round(entry.y),
+        radius: entry.radius,
+        count: entry.count,
+        kinds: [entry.kind],
+      });
+      continue;
+    }
+    const key = `${Math.floor(entry.x / CLUSTER_GRID)}:${Math.floor(entry.y / CLUSTER_GRID)}`;
+    const bucket = buckets.get(key) ?? [];
+    bucket.push(entry);
+    buckets.set(key, bucket);
+  }
+  for (const points of buckets.values()) {
+    const x = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+    const y = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+    const spread = Math.max(...points.map((point) => Math.hypot(point.x - x, point.y - y)));
+    clusters.push({
+      x: Math.round(x),
+      y: Math.round(y),
+      radius: Math.max(8, Math.min(40, Math.ceil(spread + 6))),
+      count: points.length,
+      kinds: [...new Set(points.map((point) => point.kind))].slice(0, 4),
+    });
+  }
+  clusters.sort((left, right) => right.count - left.count || left.x - right.x || left.y - right.y);
+  return clusters.slice(0, MAX_REFACTOR_CLUSTERS);
 }
 
 /**
@@ -343,11 +445,12 @@ export function buildRefactorAudit(
       return result;
     })(),
     actions: actions.slice(0, 12),
+    clusters: buildRefactorClusters(actions),
     action_summary: actions.slice(0, 12).map((action) => ({
-      kind: action.kind,
-      severity: action.severity,
-      count: action.count,
-      action: action.action,
+      kind: typeof action.kind === "string" ? action.kind : "unknown",
+      severity: action.severity === "critical" ? ("critical" as const) : ("warning" as const),
+      count: number(action.count),
+      action: typeof action.action === "string" ? action.action : "",
     })),
   };
 }

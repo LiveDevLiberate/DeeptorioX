@@ -28,7 +28,6 @@ export type AlertEnvelope = {
   items: AgentAlert[];
   acked_revision: number | null;
   requires_ack: boolean;
-  penalty: number;
   generated_at: string;
 };
 
@@ -281,7 +280,6 @@ export class AlertStore {
       items,
       acked_revision: this.ackedRevision,
       requires_ack: items.length > 0 && this.ackedRevision !== this.revision,
-      penalty: this.penalty(),
       generated_at: new Date(now).toISOString(),
     };
   }

@@ -162,7 +162,8 @@ secret-looking keys, and records HTTP requests (method, path, status, duration; 
 
 **Evaluation scoring v2.** Ranking uses a per-benchmark capability score from
 `src/evaluation-score.ts`; discipline metrics are reported beside it and never
-change the ranking. A completed run scores `500 + 500 * r / (1 + r)` with
+change the ranking. The full specification (formulas, config schema, calibration
+and UI contract) lives in `docs/evaluation-scoring-spec.md`. A completed run scores `500 + 500 * r / (1 + r)` with
 `r = par_seconds / completion active seconds` (finishing at par = 750, and
 completion always scores at least 500), using the completion milestone's
 first-seen wall time. An unfinished run scores `499 * weighted progress`, where

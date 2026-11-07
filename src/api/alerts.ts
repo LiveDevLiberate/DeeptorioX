@@ -24,7 +24,7 @@ export function registerAlertRoutes(router: Router, ctx: ApiContext): void {
     handler: (request) => {
       const { res } = request;
       const envelope = alertStore.ack();
-      runManager.setAlertPenalty(envelope.penalty);
+      runManager.setAlertPenalty(alertStore.penalty());
       return json(res, 200, { ok: true, data: envelope });
     },
   });

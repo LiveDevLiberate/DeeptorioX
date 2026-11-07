@@ -11,6 +11,21 @@ this file.
 
 ### Changed
 
+- **Planning self-scores restored in STATE.md.** The six 0-100 subtask scores
+  written by the agent are a planning aid for choosing its next task, not an
+  evaluation signal: the state API accepts `scores`, the state status reports
+  `scores_source: "agent_self_reported"`, and the run page/recording view show
+  them as self-reported plan scores (six-axis radar). The manager's evaluation
+  automation score remains internal and operator-only — never exposed to the
+  agent through prompts or `/api/agent/*`.
+- **Automation score is operator-only.** The evaluation score is still computed
+  and persisted, and the run page, recording view and comparison view keep
+  showing it, but it is removed from the agent surface: agent prompts no longer
+  mention it, `observe-factory` no longer attaches a `plan.automation` block, and
+  `act-mine`/`act-craft` responses no longer carry the score,
+  `manual_mines`/`manual_crafts` counters or breakdown. `/api/agent/*` exposes
+  no evaluation score; manual-work, state, blackout and alert penalties remain
+  internal accounting.
 - **Stylesheet split without visual change.** `public/runs.css` is now an
   ordered entry point for `styles/tokens.css`, `styles/base.css`,
   `styles/recording.css`, `styles/dashboard.css` and
@@ -40,6 +55,40 @@ this file.
 
 ### Added
 
+- **Evaluation scoring v2.** Runs now record a capability score (0-1000) plus
+  separate discipline metrics instead of one mixed automation score. Completed
+  runs score `500 + 500 * r / (1 + r)` with `r = par_seconds / completion active
+  seconds`; unfinished runs score `499 * weighted milestone progress` from
+  first-seen milestone times. Each `benchmarks/*.json` `scoring` block configures
+  `version`, `ranked`, `completion_basis`, `par_seconds`, `par_source` and
+  explicit `progress_weights` (unlisted milestones never contribute), and
+  `scripts/calibrate-scoring.mjs` suggests par from completed runs (median;
+  advisory unless `--apply`). Discipline (manual mines/crafts, STATE.md
+  due/blocked seconds, blackouts, ignored-alert penalty, refactor debt) is
+  reported separately and never ranked; the legacy automation score remains for
+  history but is no longer ranked, and evaluation stays hidden from agents. The
+  recording header gains an adaptive milestone progress row (dots for ≤6
+  milestones, otherwise `42% · 3/7 · next`, `✓ <time> · N/N` when complete).
+  The run page adds capability/completion rows and a full discipline table, and
+  the comparison page ranks columns by capability, shows completion time and
+  discipline flags, and warns when selected runs use different scoring
+  configurations.
+- **Refactor escalation ladder.** The refactor gate no longer rejects every
+  build job. Sustained scoped audit debt above `AUTORIO_REFACTOR_CLEAN_TARGET`
+  (default 20) past `AUTORIO_REFACTOR_GATE_GRACE_SECONDS` (default 300 s) now
+  escalates `escalation_tier` from T1 `expansion_blocked` to T2
+  `relayout_only`. T1 locks out-of-cluster expansion only, and in-cluster
+  repairs spend one-time `AUTORIO_REFACTOR_BASE_BUILD_CREDITS` (default 12,
+  capped at the debt count) plus +1 per cleanup entity; T2 (after
+  `AUTORIO_REFACTOR_RELAYOUT_AUDITS` default 3 same-debt audits) revokes unused
+  base credits so only demolition-earned credits remain and points at a local
+  `relayout-belts` rebuild. A separate T3 `big_reset_pending` warning is armed
+  after `AUTORIO_REFACTOR_RESET_AUDITS` default 6 consecutive debt audits or
+  `AUTORIO_BIG_RESET_BLACKOUTS` default 50 blackouts: it is a red operator
+  warning with no extra build lock and no automatic base reset. Non-build
+  actions stay allowed at every tier, and 409 `REFACTOR_REQUIRED` now carries
+  `tier`, `build_credits`, `allowed_clusters`, `out_of_cluster` and an `actions`
+  summary.
 - **Belt lane observation.** `POST /api/agent/observe/belts` (Python
   `belt_lanes()`, CLI `belt-lanes`, MCP `observe_belt_lanes`) scans belt /
   underground-belt / splitter tiles and reports both lanes per tile: items,

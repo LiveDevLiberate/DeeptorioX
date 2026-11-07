@@ -2420,3 +2420,77 @@ body.recording #codexOutput .event-marker-text {
     border-left: 1px solid var(--rule);
   }
 }
+
+/* Milestone progress row (scoring v2) ------------------------------------- */
+/* Small milestone sets stay as dots; larger sets use a bar plus the next
+   target. Overlay/streaming mode drops the next label so progress still fits. */
+body.recording .status-milestones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  max-width: 92ch;
+  margin-top: 4px;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+body.recording .status-milestones .ms-dots {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+}
+body.recording .status-milestones .ms-dot {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: transparent;
+}
+body.recording .status-milestones .ms-dot.done {
+  border-color: var(--safety);
+  background: var(--safety);
+}
+body.recording .status-milestones .ms-bar {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 96px;
+  height: 6px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  overflow: hidden;
+}
+body.recording .status-milestones .ms-fill {
+  display: block;
+  height: 100%;
+  background: var(--safety);
+}
+body.recording .status-milestones .ms-text {
+  min-width: 0;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.recording .status-milestones .ms-next {
+  min-width: 0;
+  color: var(--steel);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.overlay .status-milestones .ms-next {
+  display: none;
+}
+@media (max-width: 560px) {
+  body.recording .status-milestones {
+    max-width: 100%;
+  }
+  body.recording .status-milestones .ms-next {
+    max-width: 100%;
+  }
+}

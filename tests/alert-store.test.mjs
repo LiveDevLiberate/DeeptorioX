@@ -66,4 +66,9 @@ test("attach adds a compact envelope to agent payloads", () => {
   assert.equal(attached.ok, true);
   assert.equal(attached.alerts.counts.critical, 1);
   assert.equal(attached.alerts.items[0].message, "entities have no power");
+  assert.equal(
+    "penalty" in attached.alerts,
+    false,
+    "the agent envelope must not leak the internal score component",
+  );
 });

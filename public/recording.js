@@ -20,6 +20,7 @@ import {
   radarGeometry,
   formatDurationText,
   mapSettingsView,
+  milestoneProgressView,
 } from "./transcript-view-model.js";
 const output = document.getElementById("codexOutput");
 const params = new URLSearchParams(location.search);
@@ -59,6 +60,7 @@ const statusModel = document.getElementById("statusModel");
 const statusMeta = document.getElementById("statusMeta");
 const statusCurrent = document.getElementById("statusCurrent");
 const statusDone = document.getElementById("statusDone");
+const statusMilestones = document.getElementById("statusMilestones");
 const statusScores = document.getElementById("statusScores");
 const statusMetrics = document.getElementById("statusMetrics");
 const statusProduction = document.getElementById("statusProduction");
@@ -114,6 +116,7 @@ const I18N = {
       exploration: "Expl",
     },
     done: "Done",
+    next: "next",
     tokens: "tok",
     plan: "plan",
     turn: "turn",
@@ -289,6 +292,7 @@ const I18N = {
       exploration: "探索",
     },
     done: "完成条件",
+    next: "下一目标",
     tokens: "令牌",
     plan: "计划",
     turn: "回合",
@@ -1130,6 +1134,17 @@ function formatElapsed(seconds) {
   if (minutes > 0) return `${minutes}分${secs > 0 ? `${secs}秒` : ""}`;
   return `${secs}秒`;
 }
+/** Milestone completion time as `MM:SS`, or `H:MM:SS` past an hour. */
+function formatMilestoneClock(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value < 0) return "";
+  const total = Math.round(value);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  const clock = `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  return hours > 0 ? `${hours}:${clock}` : clock;
+}
 function formatStateRemaining(seconds) {
   const total = Math.max(0, Math.round(Number(seconds) || 0));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
@@ -1234,6 +1249,42 @@ function statusStat(iconName, label, value, progress, title) {
   if (title) cell.title = title;
   return cell;
 }
+/** Scoring-v2 milestone row: dots for <= 6 targets, a bar plus next target above that. */
+function renderMilestones(run, text) {
+  if (!statusMilestones) return;
+  const capability = run?.evaluation?.capability;
+  const view = milestoneProgressView(capability);
+  if (!view) {
+    statusMilestones.replaceChildren();
+    statusMilestones.hidden = true;
+    return;
+  }
+  const done = Math.max(0, Math.min(view.total, Math.floor(Number(capability.milestones?.completed) || 0)));
+  const children = [];
+  if (view.mode === "dots") {
+    const dots = element("span", "", "ms-dots");
+    for (const dot of view.dots) dots.append(element("span", "", dot.done ? "ms-dot done" : "ms-dot"));
+    children.push(dots);
+  } else {
+    const bar = element("span", "", "ms-bar");
+    const fill = element("span", "", "ms-fill");
+    fill.style.width = `${Math.max(0, Math.min(100, view.percent))}%`;
+    bar.append(fill);
+    children.push(bar);
+  }
+  if (view.completed) {
+    const clock = formatMilestoneClock(view.completion_seconds);
+    const count = `${done}/${view.total}`;
+    children.push(element("span", clock ? `✓ ${clock} · ${count}` : `✓ ${count}`, "ms-text"));
+  } else if (view.mode === "dots") {
+    children.push(element("span", `${done}/${view.total}`, "ms-text"));
+  } else {
+    children.push(element("span", `${view.percent}% · ${done}/${view.total}`, "ms-text"));
+    if (view.next) children.push(element("span", `${text.next}: ${view.next}`, "ms-next"));
+  }
+  statusMilestones.replaceChildren(...children);
+  statusMilestones.hidden = false;
+}
 function renderStatus(run) {
   if (!statusState || !statusScores) return;
   currentRun = run;
@@ -1332,6 +1383,7 @@ function renderStatus(run) {
     statusDone.hidden = !done;
     statusHeader?.classList.remove("stale-plan");
   }
+  renderMilestones(run, strings);
   if (!mapAutoOpened && params.get("map") === "1") {
     mapAutoOpened = true;
     openMapInfo();

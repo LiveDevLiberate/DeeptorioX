@@ -4,7 +4,9 @@ import {
   buildRefactorAudit,
   coversDefaultRefactorScope,
   DEFAULT_REFACTOR_SCOPE,
+  MAX_REFACTOR_CLUSTERS,
   observationCenter,
+  pointInRefactorCluster,
 } from "../dist/refactor-audit.js";
 
 test("refactor audit prioritizes factory failures and suggests belt relayout", () => {
@@ -162,4 +164,53 @@ test("empty chests are default refactor debt but can be scoped out", () => {
   const withoutContainers = buildRefactorAudit(factory, connections, { scope: ["belts", "power"] });
   assert.equal(withoutContainers.summary.invalid_count, 0);
   assert.ok(!withoutContainers.actions.some((action) => action.kind === "empty_containers"));
+});
+
+test("audit reports bounded rebuild clusters for flagged tiles", () => {
+  const factory = {
+    counts: { "stone-furnace": { total: 4, statuses: { no_fuel: 4 } } },
+    totals: { no_fuel: 4, waiting_for_space_in_destination: 2 },
+    problems: {
+      no_fuel: [
+        { name: "stone-furnace", x: 10, y: 20 },
+        { name: "stone-furnace", x: 11, y: 20 },
+      ],
+      waiting_for_space_in_destination: [{ name: "inserter", x: 12, y: 22 }],
+    },
+  };
+  const connections = {
+    counts: { belts: 3, issues: 3, inserters: 0, machines: 0 },
+    belts: [],
+    issues: [
+      { kind: "belt_head_on", x: 30, y: 40 },
+      { kind: "belt_head_on", x: 31, y: 40 },
+      { kind: "belt_head_on", x: 32, y: 40 },
+    ],
+  };
+  const audit = buildRefactorAudit(factory, connections);
+  assert.ok(Array.isArray(audit.clusters));
+  assert.ok(audit.clusters.length >= 2, "separate problem areas become separate clusters");
+  assert.ok(audit.clusters.length <= MAX_REFACTOR_CLUSTERS);
+  const beltCluster = audit.clusters.find((cluster) => cluster.kinds.includes("belt_head_on"));
+  assert.ok(beltCluster, "belt issues should get a rebuild cluster");
+  assert.equal(beltCluster.x, 31);
+  assert.equal(beltCluster.radius, 8);
+  assert.ok(beltCluster.count >= 3);
+  for (const cluster of audit.clusters) {
+    assert.ok(Number.isFinite(cluster.x) && Number.isFinite(cluster.y));
+    assert.ok(cluster.radius >= 4 && cluster.radius <= 40);
+    assert.ok(Array.isArray(cluster.kinds) && cluster.kinds.length > 0);
+  }
+  assert.equal(pointInRefactorCluster(beltCluster, 31, 40), true);
+  assert.equal(pointInRefactorCluster(beltCluster, 100, 100), false);
+  assert.equal(pointInRefactorCluster(beltCluster, 31, 50), true, "cluster tolerance applies");
+  assert.equal(pointInRefactorCluster(undefined, 0, 0), false);
+});
+
+test("clean factories report no rebuild clusters", () => {
+  const audit = buildRefactorAudit(
+    { counts: {}, totals: {}, problems: {} },
+    { counts: {}, belts: [], issues: [] },
+  );
+  assert.deepEqual(audit.clusters, []);
 });

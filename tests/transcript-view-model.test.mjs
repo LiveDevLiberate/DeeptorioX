@@ -15,6 +15,7 @@ import {
   parseEnvelope,
   LoopDetector,
   mapSettingsView,
+  milestoneProgressView,
 } from "../public/transcript-view-model.js";
 
 test("splitReasoning yields summary + body segments and merges tiny paragraphs", () => {
@@ -426,4 +427,75 @@ test("mapSettingsView normalizes benchmark seed, peaceful mode and autoplace res
   assert.deepEqual(view.extras, [{ key: "starting_area", value: "4" }]);
   assert.equal(mapSettingsView({ benchmark: {} }), null);
   assert.equal(mapSettingsView(null), null);
+});
+
+test("milestoneProgressView renders dots for small milestone sets", () => {
+  const view = milestoneProgressView({
+    score: 750,
+    max: 1000,
+    completed: false,
+    progress: 0.5,
+    milestones: { completed: 3, total: 6 },
+    par_seconds: 640,
+    par_source: "median_completed:2026-11-08",
+  });
+  assert.equal(view.mode, "dots");
+  assert.equal(view.percent, 50);
+  assert.equal(view.completed, false);
+  assert.equal(view.total, 6);
+  assert.equal(view.dots.length, 6);
+  assert.deepEqual(
+    view.dots.map((dot) => dot.done),
+    [true, true, true, false, false, false],
+  );
+  assert.equal("completion_seconds" in view, false);
+});
+
+test("milestoneProgressView renders a bar with the next target for large sets", () => {
+  const capability = {
+    score: 750,
+    max: 1000,
+    completed: false,
+    progress: 0.42,
+    milestones: { completed: 3, total: 7 },
+    next_milestone: "logistic-science",
+    next_milestone_label: "Logistic science",
+    par_seconds: 640,
+    par_source: "median_completed:2026-11-08",
+  };
+  const view = milestoneProgressView(capability);
+  assert.equal(view.mode, "bar");
+  assert.equal(view.percent, 42);
+  assert.equal(view.completed, false);
+  assert.equal(view.total, 7);
+  assert.equal(view.next, "Logistic science");
+  assert.equal(view.dots, undefined);
+  assert.equal(
+    milestoneProgressView({ ...capability, next_milestone_label: undefined }).next,
+    "logistic-science",
+  );
+});
+
+test("milestoneProgressView flags completed capabilities with completion seconds", () => {
+  const view = milestoneProgressView({
+    completed: true,
+    progress: 1,
+    milestones: { completed: 7, total: 7 },
+    completion_seconds: 641,
+    par_seconds: 640,
+  });
+  assert.equal(view.completed, true);
+  assert.equal(view.mode, "bar");
+  assert.equal(view.percent, 100);
+  assert.equal(view.total, 7);
+  assert.equal(view.completion_seconds, 641);
+  assert.equal(view.next, null);
+});
+
+test("milestoneProgressView returns null without a usable capability", () => {
+  assert.equal(milestoneProgressView(null), null);
+  assert.equal(milestoneProgressView(undefined), null);
+  assert.equal(milestoneProgressView({}), null);
+  assert.equal(milestoneProgressView({ milestones: { total: 0 } }), null);
+  assert.equal(milestoneProgressView({ milestones: null }), null);
 });

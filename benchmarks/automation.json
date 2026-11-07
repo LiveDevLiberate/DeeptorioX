@@ -5,15 +5,45 @@
   "map_gen": {
     "seed": 424242,
     "peaceful_mode": true,
-    "autoplace_controls": { "enemy-base": { "frequency": 0, "size": 0 } }
+    "autoplace_controls": {
+      "enemy-base": {
+        "frequency": 0,
+        "size": 0
+      }
+    }
   },
   "always_day": true,
-  "starting_items": { "iron-plate": 8, "burner-mining-drill": 1, "stone-furnace": 1 },
+  "starting_items": {
+    "iron-plate": 8,
+    "burner-mining-drill": 1,
+    "stone-furnace": 1
+  },
   "max_seconds": 3600,
   "sample_seconds": 5,
   "milestones": [
-    { "id": "first-plate", "kind": "production", "name": "iron-plate", "count": 1 },
-    { "id": "twenty-plates", "kind": "production", "name": "iron-plate", "count": 20 }
+    {
+      "id": "first-plate",
+      "kind": "production",
+      "name": "iron-plate",
+      "count": 1
+    },
+    {
+      "id": "twenty-plates",
+      "kind": "production",
+      "name": "iron-plate",
+      "count": 20
+    }
   ],
-  "completion": "twenty-plates"
+  "completion": "twenty-plates",
+  "scoring": {
+    "version": 2,
+    "ranked": true,
+    "completion_basis": "milestone_first_seen",
+    "par_seconds": 641,
+    "par_source": "median_completed:2026-11-08 (n=1, provisional)",
+    "progress_weights": {
+      "first-plate": 0.3,
+      "twenty-plates": 0.7
+    }
+  }
 }

@@ -708,6 +708,8 @@ async function refreshRefactorAudit(force = false): Promise<void> {
         factory_problems: audit.summary.factory_problems,
         connection_issues: audit.summary.connection_issues,
         fingerprint: audit.fingerprint,
+        clusters: audit.clusters,
+        actions: audit.action_summary,
       });
     } catch {
       /* Keep the previous audit; the gate will use its timestamp. */

@@ -5,12 +5,38 @@
   "map_gen": {
     "seed": 424242,
     "peaceful_mode": true,
-    "autoplace_controls": { "enemy-base": { "frequency": 0, "size": 0 } }
+    "autoplace_controls": {
+      "enemy-base": {
+        "frequency": 0,
+        "size": 0
+      }
+    }
   },
   "always_day": true,
-  "starting_items": { "iron-plate": 8, "burner-mining-drill": 1, "stone-furnace": 1 },
+  "starting_items": {
+    "iron-plate": 8,
+    "burner-mining-drill": 1,
+    "stone-furnace": 1
+  },
   "max_seconds": 300,
   "sample_seconds": 2,
-  "milestones": [{ "id": "first-gear", "kind": "production", "name": "iron-gear-wheel", "count": 1 }],
-  "completion": "first-gear"
+  "milestones": [
+    {
+      "id": "first-gear",
+      "kind": "production",
+      "name": "iron-gear-wheel",
+      "count": 1
+    }
+  ],
+  "completion": "first-gear",
+  "scoring": {
+    "version": 2,
+    "ranked": false,
+    "completion_basis": "milestone_first_seen",
+    "par_seconds": 15,
+    "par_source": "median_completed:2026-11-08 (n=8)",
+    "progress_weights": {
+      "first-gear": 1
+    }
+  }
 }
