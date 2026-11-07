@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { DATA_DIR, FACTORIO_BIN, factorioEnv, prepareProfile, profileArgs } from "./runtime.js";
-import { spawnExecutable } from "./platform.js";
+import { DATA_DIR, FACTORIO_BIN, ROOT, factorioEnv, prepareProfile } from "./runtime.js";
+import { execExecutable } from "./platform.js";
 
 const PREVIEW_DIR = path.join(DATA_DIR, "map-previews");
 const PROFILE_DIR = path.join(DATA_DIR, "map-preview-profile");
@@ -21,7 +21,7 @@ export type MapPreviewResult = {
 
 function fileId(settings: MapPreviewSettings, size: number, planet: string): string {
   return createHash("sha256")
-    .update(`${JSON.stringify(settings)}:${size}:${planet}`)
+    .update(`${JSON.stringify(settings)}:${size}:${planet}:toolkit-v1`)
     .digest("hex")
     .slice(0, 16);
 }
@@ -78,37 +78,29 @@ export async function generateMapPreview(
     const settingsPath = path.join(PREVIEW_DIR, `${id}-map-gen-settings.json`);
     fs.writeFileSync(settingsPath, JSON.stringify(planetSettings, null, 2));
     const output = path.join(PREVIEW_DIR, `${id}.png`);
-    const args = [
-      ...profileArgs(spaceAge ? PROFILE_DIR_SPACE_AGE : PROFILE_DIR),
-      `--generate-map-preview=${output}`,
-      `--map-gen-settings=${settingsPath}`,
-      `--map-preview-size=${size}`,
-      `--map-preview-planet=${planet}`,
-    ];
+    const helper = path.join(ROOT, "tools", "preview_toolkit_render.py");
+    const python =
+      process.env.AUTORIO_PYTHON ||
+      process.env.PYTHON ||
+      (process.platform === "win32" ? "python" : "python3");
     const logPath = path.join(PREVIEW_DIR, `${id}.log`);
-    await new Promise<void>((resolve, reject) => {
-      let log = "";
-      const child = spawnExecutable(FACTORIO_BIN, args, { env: factorioEnv });
-      const capture = (chunk: Buffer) => {
-        log = (log + chunk.toString()).slice(-6000);
-      };
-      child.stdout?.on("data", capture);
-      child.stderr?.on("data", capture);
-      const timer = setTimeout(() => {
-        child.kill("SIGKILL");
-        reject(new Error("map preview generation timed out"));
-      }, 180_000);
-      child.once("error", (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-      child.once("close", (code, signal) => {
-        clearTimeout(timer);
-        fs.writeFileSync(logPath, log);
-        if (code === 0 && fs.existsSync(output) && fs.statSync(output).size > 0) resolve();
-        else reject(new Error(`map preview failed (${signal || code}): ${log.slice(-1000)}`));
-      });
-    });
+    let stdout = "";
+    let stderr = "";
+    try {
+      const result = await execExecutable(
+        python,
+        [helper, FACTORIO_BIN, settingsPath, output, profileDir, planet, String(size)],
+        { cwd: ROOT, env: factorioEnv, timeout: 180_000 },
+      );
+      stdout = result.stdout;
+      stderr = result.stderr;
+    } catch (error) {
+      stderr = error instanceof Error ? error.message : String(error);
+    }
+    fs.writeFileSync(logPath, `${stdout}\n${stderr}`.slice(-6000));
+    if (!fs.existsSync(output) || fs.statSync(output).size === 0) {
+      throw new Error(`toolkit preview failed: ${(stderr || stdout).slice(-1000)}`);
+    }
     return {
       file: output,
       url: `/api/map-previews/${id}.png`,
