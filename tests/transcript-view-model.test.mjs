@@ -347,6 +347,15 @@ test("decision detection, mini bars and telemetry helpers", async () => {
   );
   assert.equal(model.telemetryPower(withPower), "power 98%");
   assert.equal(model.telemetryPowerSatisfaction(withPower), 0.98);
+  assert.equal(
+    model.telemetryPowerSatisfaction([
+      { power: { satisfaction: 0.81 } },
+      { power: { networks: 2 } },
+      { power: { satisfaction: null } },
+    ]),
+    0.81,
+    "keeps the latest finite satisfaction instead of disappearing",
+  );
 });
 
 test("radarGeometry builds six clamped axes for the score radar", async () => {

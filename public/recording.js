@@ -42,6 +42,7 @@ const MAX_RENDERED_NODES = 400;
 const MAX_COMMANDS_PER_GROUP = 120;
 let telemetryOffset = 0;
 let telemetrySamples = [];
+let lastPowerSatisfaction = null;
 let lastTelemetryAt = 0;
 let lastErrorText = "";
 let filterMode = "all";
@@ -1858,11 +1859,12 @@ function renderMetrics() {
       rows.push(row);
     }
     const power = telemetryPowerSatisfaction(telemetrySamples);
-    if (power !== null) {
+    if (power !== null) lastPowerSatisfaction = power;
+    if (lastPowerSatisfaction !== null) {
       const row = element("tr", "", "metric metric-power");
       row.append(
         element("th", text.metrics.power, "metric-label"),
-        metricValue("bolt", `${Math.round(power * 100)}%`),
+        metricValue("bolt", `${Math.round(lastPowerSatisfaction * 100)}%`),
         element("td", "", "metric-trend"),
       );
       rows.push(row);

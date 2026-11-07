@@ -613,12 +613,15 @@ export function telemetryResearch(samples) {
 
 /** Latest power satisfaction in the 0..1 range, or null. */
 export function telemetryPowerSatisfaction(samples) {
-  const withPower = (Array.isArray(samples) ? samples : [])
-    .filter((sample) => sample?.power && typeof sample.power === "object")
-    .at(-1);
-  const satisfaction = withPower?.power?.satisfaction;
-  if (typeof satisfaction !== "number" || !Number.isFinite(satisfaction)) return null;
-  return Math.max(0, Math.min(1, satisfaction));
+  const list = Array.isArray(samples) ? samples : [];
+  for (let index = list.length - 1; index >= 0; index -= 1) {
+    const power = list[index]?.power;
+    const satisfaction = power && typeof power === "object" ? power.satisfaction : null;
+    if (typeof satisfaction === "number" && Number.isFinite(satisfaction)) {
+      return Math.max(0, Math.min(1, satisfaction));
+    }
+  }
+  return null;
 }
 
 /** Power satisfaction label from the latest telemetry sample: "power 98%". */
