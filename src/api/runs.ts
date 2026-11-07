@@ -8,7 +8,12 @@ function isUploadMethod(value: string): value is "skip" | "local_sync" | "rclone
 }
 import { BLUEPRINT_MAX_TEXT_BYTES } from "../blueprints.js";
 import { mapConfigMeta } from "../map-config.js";
-import { generateMapPreview, mapPreviewFile, type MapPreviewSettings } from "../map-preview.js";
+import {
+  generateMapPreview,
+  mapPreviewFile,
+  MAP_PREVIEW_PLANETS,
+  type MapPreviewSettings,
+} from "../map-preview.js";
 import { parseMapExchange } from "../preview-exchange.js";
 import { uploadMapPreview } from "../map-preview-upload.js";
 import { obsStatus } from "../obs.js";
@@ -235,6 +240,23 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
         const payload = asRecord(await readJson(req));
         const mapGen = asRecord(payload?.map_gen);
         if (!mapGen) throw new Error("map_gen must be an object");
+        if (payload?.all_planets === true) {
+          const planets = [];
+          for (const planet of MAP_PREVIEW_PLANETS) {
+            const preview = await generateMapPreview(mapGen as MapPreviewSettings, {
+              size: payload?.size,
+              planet,
+              spaceAge: true,
+            });
+            planets.push({ planet, url: preview.url, size: preview.size });
+          }
+          return json(res, 200, {
+            ok: true,
+            seed: mapGen.seed,
+            planets,
+            url: planets[0]?.url,
+          });
+        }
         const preview = await generateMapPreview(mapGen as MapPreviewSettings, {
           size: payload?.size,
         });
@@ -242,6 +264,7 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
           ok: true,
           seed: preview.seed,
           size: preview.size,
+          planet: preview.planet,
           url: preview.url,
           generated_at: preview.generated_at,
         });
@@ -284,6 +307,23 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
       if (!run) return json(res, 404, { error: "Run not found" });
       try {
         const payload = asRecord(await readJson(req));
+        if (payload?.all_planets === true) {
+          const planets = [];
+          for (const planet of MAP_PREVIEW_PLANETS) {
+            const preview = await generateMapPreview(run.benchmark.map_gen, {
+              size: payload?.size,
+              planet,
+              spaceAge: true,
+            });
+            planets.push({ planet, url: preview.url, size: preview.size });
+          }
+          return json(res, 200, {
+            ok: true,
+            seed: run.benchmark.map_gen.seed,
+            planets,
+            url: planets[0]?.url,
+          });
+        }
         const preview = await generateMapPreview(run.benchmark.map_gen, {
           size: payload?.size,
         });
@@ -291,6 +331,7 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
           ok: true,
           seed: preview.seed,
           size: preview.size,
+          planet: preview.planet,
           url: preview.url,
           generated_at: preview.generated_at,
         });

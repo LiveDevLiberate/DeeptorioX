@@ -578,12 +578,16 @@ $("resume").onclick = async () => {
 };
 let seedPreviewFrame = null;
 let seedPreviewUrl = null;
-function toolkitViewerUrl(image, planet = "nauvis") {
-  return `/toolkit-viewer/index.html?image=${encodeURIComponent(image)}&planet=${encodeURIComponent(planet)}`;
+let seedPreviewSources = null;
+function toolkitViewerUrl(urlOrSources, planet = "nauvis") {
+  if (typeof urlOrSources === "string") {
+    return `/toolkit-viewer/index.html?image=${encodeURIComponent(urlOrSources)}&planet=${encodeURIComponent(planet)}`;
+  }
+  return `/toolkit-viewer/index.html?images=${encodeURIComponent(JSON.stringify(urlOrSources))}`;
 }
-function showSeedMapPreview(image, planet = "nauvis") {
+function showSeedMapPreview(urlOrSources, planet = "nauvis") {
   $("seedPreviewViewer").hidden = false;
-  const src = toolkitViewerUrl(image, planet);
+  const src = toolkitViewerUrl(urlOrSources, planet);
   if (seedPreviewFrame) {
     seedPreviewFrame.src = src;
     return;
@@ -595,7 +599,7 @@ function showSeedMapPreview(image, planet = "nauvis") {
   $("seedPreviewViewer").replaceChildren(seedPreviewFrame);
 }
 $("seedPreviewExpand").onclick = () => {
-  if (seedPreviewUrl) openPreview(toolkitViewerUrl(seedPreviewUrl), "Seed map preview", "iframe");
+  if (seedPreviewSources) openPreview(toolkitViewerUrl(seedPreviewSources), "Seed map preview", "iframe");
 };
 function seedPreviewId() {
   return seedPreviewUrl
@@ -606,12 +610,8 @@ function seedPreviewId() {
     : "";
 }
 $("seedToolkitViewer").onclick = () => {
-  if (!seedPreviewUrl) return;
-  openPreview(
-    `/toolkit-viewer/index.html?image=${encodeURIComponent(seedPreviewUrl)}&planet=nauvis`,
-    "FactorioPreviewToolkit viewer",
-    "iframe",
-  );
+  if (!seedPreviewSources) return;
+  openPreview(toolkitViewerUrl(seedPreviewSources), "FactorioPreviewToolkit viewer", "iframe");
 };
 $("seedUploadLocal").onclick = async () => {
   const target = globalThis.prompt?.("Local sync folder", "");
@@ -646,14 +646,18 @@ $("seedPreviewGenerate").onclick = async () => {
   button.disabled = true;
   $("seedPreviewStatus").textContent = "Generating 2048×2048 preview…";
   try {
-    const result = await api(`/api/runs/${encodeURIComponent(id)}/map-preview`, { size: 2048 });
-    seedPreviewUrl = result.url;
-    showSeedMapPreview(result.url, "nauvis");
+    const result = await api(`/api/runs/${encodeURIComponent(id)}/map-preview`, {
+      size: 2048,
+      all_planets: true,
+    });
+    seedPreviewSources = Object.fromEntries((result.planets || []).map((p) => [p.planet, p.url]));
+    seedPreviewUrl = seedPreviewSources.nauvis || result.url;
+    showSeedMapPreview(seedPreviewSources);
     $("seedPreviewExpand").hidden = false;
     $("seedToolkitViewer").hidden = false;
     $("seedUploadLocal").hidden = false;
     $("seedUploadRclone").hidden = false;
-    $("seedPreviewStatus").textContent = `seed ${result.seed} · ${result.size}px`;
+    $("seedPreviewStatus").textContent = `seed ${result.seed} · ${result.planets?.length || 0} planets`;
   } catch (error) {
     $("seedPreviewStatus").textContent = error.message;
   } finally {

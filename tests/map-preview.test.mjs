@@ -26,4 +26,12 @@ test("new-run and run pages expose the map preview controls", () => {
   assert.match(runsJs, /toolkit-preview-frame/);
   assert.match(runJs, /toolkit-viewer\/index\.html/);
   assert.match(runJs, /toolkit-preview-frame/);
+  assert.match(runsJs, /all_planets/);
+  assert.match(runJs, /all_planets/);
+});
+
+test("toolkit viewer config supports multi-planet image maps", () => {
+  const config = fs.readFileSync("public/toolkit-viewer/viewer_config.js", "utf8");
+  assert.match(config, /_imagesRaw/);
+  assert.match(config, /JSON\.parse/);
 });

@@ -208,9 +208,10 @@ for (const id of ["mapSeed", "mapStartingArea", "mapPeaceful"]) {
   $(id).addEventListener("change", updateMapConfigSummary);
 }
 let launchPreviewFrame = null;
-function showLaunchMapPreview(url, planet = "nauvis") {
+function showLaunchMapPreview(urlOrSources, planet = "nauvis") {
   $("launchMapPreview").hidden = false;
-  const src = `/toolkit-viewer/index.html?image=${encodeURIComponent(url)}&planet=${encodeURIComponent(planet)}`;
+  const sources = typeof urlOrSources === "string" ? { [planet]: urlOrSources } : urlOrSources;
+  const src = `/toolkit-viewer/index.html?images=${encodeURIComponent(JSON.stringify(sources))}`;
   if (launchPreviewFrame) {
     launchPreviewFrame.src = src;
     return;
@@ -226,9 +227,15 @@ $("previewMap").onclick = async () => {
   button.disabled = true;
   $("launchMapPreviewStatus").textContent = "Generating 2048×2048 preview…";
   try {
-    const result = await api("/api/map-preview", { map_gen: buildMapGen(), size: 2048 });
-    showLaunchMapPreview(result.url, "nauvis");
-    $("launchMapPreviewStatus").textContent = `toolkit viewer · seed ${result.seed} · ${result.size}px`;
+    const result = await api("/api/map-preview", {
+      map_gen: buildMapGen(),
+      size: 2048,
+      all_planets: true,
+    });
+    const sources = Object.fromEntries((result.planets || []).map((p) => [p.planet, p.url]));
+    showLaunchMapPreview(sources);
+    $("launchMapPreviewStatus").textContent =
+      `toolkit viewer · seed ${result.seed} · ${result.planets?.length || 0} planets`;
   } catch (error) {
     $("launchMapPreviewStatus").textContent = error.message;
   } finally {

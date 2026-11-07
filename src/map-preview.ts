@@ -9,6 +9,8 @@ const PROFILE_DIR = path.join(DATA_DIR, "map-preview-profile");
 const PROFILE_DIR_SPACE_AGE = path.join(DATA_DIR, "map-preview-profile-space-age");
 const pending = new Map<string, Promise<MapPreviewResult>>();
 
+export const MAP_PREVIEW_PLANETS = ["nauvis", "vulcanus", "gleba", "fulgora", "aquilo"] as const;
+
 export type MapPreviewSettings = Record<string, unknown> & { seed: number };
 export type MapPreviewResult = {
   file: string;
