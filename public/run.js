@@ -340,6 +340,64 @@ $("stateToggle").onclick = () => {
   $("stateToggle").setAttribute("aria-expanded", String(!panel.hidden));
   if (!panel.hidden) void loadStateHistory();
 };
+function renderConstruction(run) {
+  const panel = $("constructionPanel");
+  if (!panel) return;
+  const construction = run.construction;
+  const plans = Array.isArray(run.construction_plans) ? run.construction_plans : [];
+  if (!construction && !plans.length) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  const metrics = construction?.metrics || {};
+  const verified = plans.filter((plan) => plan.verification);
+  const ineffective = verified.filter((plan) => plan.verification?.result === "ineffective").length;
+  const regressed = verified.filter((plan) => plan.verification?.result === "regressed").length;
+  $("constructionSummary").textContent = [
+    construction?.mode ? `${construction.mode} build` : "free build",
+    construction?.variant ? construction.variant : "",
+    `${plans.length} plan${plans.length === 1 ? "" : "s"}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  $("constructionStats").replaceChildren(
+    ...[
+      ["Mode", construction?.mode || "free"],
+      ["Variant", construction?.variant || "—"],
+      ["Blueprints", construction?.blueprints?.enabled ? construction.blueprints.source : "disabled"],
+      ["Planned actions", String(metrics.planned_actions ?? 0)],
+      ["Free actions", String(metrics.free_actions ?? 0)],
+      ["Unplanned attempts", String(metrics.unplanned_actions ?? 0)],
+      ["Plan requests", String(metrics.plan_requests ?? 0)],
+      ["Plans verified", `${verified.length}/${plans.length}`],
+      ["Ineffective", String(ineffective)],
+      ["Regressed", String(regressed)],
+    ].flatMap(([key, value]) => [text("dt", key), text("dd", String(value))]),
+  );
+  const recent = plans.slice(-20).reverse();
+  $("constructionPlanList").replaceChildren(
+    ...recent.map((plan) => {
+      const row = document.createElement("div");
+      row.className = "tool-call-row";
+      const verification = plan.verification
+        ? ` · ${plan.verification.result} (${plan.verification.audit_before}→${plan.verification.audit_after})`
+        : "";
+      row.append(
+        text(
+          "span",
+          `${plan.kind} · ${plan.status} · ${plan.max_entities ?? 0} targets${verification}`,
+          "muted",
+        ),
+      );
+      const detail = text("span", plan.plan_id || "");
+      detail.className = "tool-call-detail";
+      row.append(detail);
+      return row;
+    }),
+  );
+}
+
 function renderToolCalls() {
   const list = $("toolCallList");
   const summary = $("toolCallsSummary");
@@ -434,6 +492,7 @@ async function refresh() {
     renderRefactorAlert(run);
     renderStatePanel(run);
     renderDiscipline(run);
+    renderConstruction(run);
     $("resume").hidden = !run.resumable;
     $("resume").disabled = !run.resumable || run.video?.state === "rendering";
     $("resume").textContent =

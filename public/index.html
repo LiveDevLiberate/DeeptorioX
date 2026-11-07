@@ -14,6 +14,7 @@
       <form id="launchForm">
         <label>Benchmark<select id="benchmark" required></select></label>
         <label>Model<select id="model" required><option value="opencode-go/deepseek-v4.1-flash" data-model="opencode-go/deepseek-v4.1-flash" selected>DeepSeek V4.1 Flash · OpenCode</option><option value="opencode-go/deepseek-v4-pro" data-model="opencode-go/deepseek-v4-pro">DeepSeek V4 Pro · OpenCode</option><option value="deepseek-flash" data-model="deepseek-flash" data-agent="dsh">DeepSeek Flash · DSH headless</option><option value="deepseek-flash#low" data-model="deepseek-flash#low" data-agent="dsh">DeepSeek Flash · DSH low effort</option></select></label>
+        <label>Construction<select id="constructionMode"><option value="">Benchmark default</option><option value="free">Free build</option><option value="planned">Planned build</option></select></label>
         <label>Time limit (seconds)<input id="seconds" type="number" min="1" max="86400" required></label>
         <label class="check"><input id="captureVideo" type="checkbox"> Record 6× timelapse with OBS</label>
         <details id="mapConfig" class="map-config">

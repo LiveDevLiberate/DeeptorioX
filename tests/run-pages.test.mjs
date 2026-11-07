@@ -82,6 +82,8 @@ test("run page exposes the agent blueprint catalogue and its toggle", () => {
   assert.match(html, /id="toolCallList"/);
   assert.match(html, /id="stateToggle"[^>]*aria-controls="statePanel"/);
   assert.match(html, /id="disciplinePanel"/);
+  assert.match(html, /id="constructionPanel"/);
+  assert.match(html, /id="constructionPlanList"/);
   assert.match(html, /id="disciplineStats"/);
   assert.match(html, /id="disciplineSummary"/);
   assert.match(js, /renderDiscipline\(run\)/);

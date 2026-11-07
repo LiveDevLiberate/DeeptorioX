@@ -324,6 +324,7 @@ $("launchForm").onsubmit = async (event) => {
       model: preset.dataset.model,
       reasoning_effort: preset.dataset.thinking,
       max_seconds: Number($("seconds").value),
+      construction_mode: $("constructionMode").value || undefined,
       agent: preset.dataset.agent || "opencode",
       terminal: false,
       capture_video: $("captureVideo").checked,
