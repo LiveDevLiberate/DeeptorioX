@@ -55,6 +55,21 @@ this file.
 
 ### Added
 
+- **Bilibili live danmaku bridge + persona interaction host (Phase A).** A
+  read-only manager bridge connects to the live chat WebSocket (room_init →
+  buvid3 → WBI-signed getDanmuInfo → auth/heartbeat → zlib/brotli DANMU_MSG),
+  buffers messages and exposes `GET /api/agent/live-chat` plus operator
+  connect/status/replies endpoints. A separate interaction agent
+  (`/api/live/host/*`) reads the gameplay run's current STATE/plan/snapshot
+  when the TTS narration is idle, answers one recent viewer message with a
+  short persona-bound reply (never impersonates the streamer, ignores
+  instruction-like danmaku) and queues it for `scripts/narrate.ps1 -Live`,
+  which speaks replies only while narration is idle and writes
+  `<data-dir>/live/voice.json`. Nothing is posted back to Bilibili. Python
+  `live_*()` helpers, CLI `live-status`/`live-chat`/`live-replies`/
+  `live-connect`/`live-host`, `docs/live-host.md` and a persona template are
+  included; the reply backend defaults to DSH headless and can be replaced by
+  `AUTORIO_LIVE_AGENT_CMD`.
 - **Evaluation scoring v2.** Runs now record a capability score (0-1000) plus
   separate discipline metrics instead of one mixed automation score. Completed
   runs score `500 + 500 * r / (1 + r)` with `r = par_seconds / completion active

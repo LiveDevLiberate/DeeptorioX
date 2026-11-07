@@ -265,6 +265,36 @@
       "usage": "Usage: factorio.py knowledge [--topic inserters|pipes|trains|power|chemistry|defense|production|blueprints]"
     },
     {
+      "command": "live-chat",
+      "description": "Read newly buffered Bilibili danmaku and super chats (read-only; nothing is sent back).",
+      "help": "Usage: factorio.py live-chat [--after-seq n] [--limit n] [--kinds danmaku,super_chat] Returns messages with seq/ts/uid/uname/text/kind; pass the previous next_seq as --after-seq.",
+      "usage": "Usage: factorio.py live-chat [--after-seq n] [--limit n] [--kinds danmaku,super_chat]"
+    },
+    {
+      "command": "live-connect",
+      "description": "Start the manager's read-only Bilibili live chat bridge for a room (short id is fine).",
+      "help": "Usage: factorio.py live-connect --room <id> Needs Node 22+ (or NODE_OPTIONS=--experimental-websocket on Node 20).",
+      "usage": "Usage: factorio.py live-connect --room <id>"
+    },
+    {
+      "command": "live-host",
+      "description": "Start/stop the separate persona interaction host that answers danmaku when the voice is idle.",
+      "help": "Usage: factorio.py live-host --action start|stop",
+      "usage": "Usage: factorio.py live-host --action start|stop"
+    },
+    {
+      "command": "live-replies",
+      "description": "Read the persona interaction host's queued spoken replies.",
+      "help": "Usage: factorio.py live-replies [--after-seq n] [--limit n]",
+      "usage": "Usage: factorio.py live-replies [--after-seq n] [--limit n]"
+    },
+    {
+      "command": "live-status",
+      "description": "Show the Bilibili live danmaku bridge status (room, live state, buffers, interaction host).",
+      "help": "Usage: factorio.py live-status",
+      "usage": "Usage: factorio.py live-status"
+    },
+    {
       "command": "map-preview-exchange",
       "description": "Decode a >>>eN...<<< map exchange string and render planet previews.",
       "help": "Usage: factorio.py map-preview-exchange (--string-file path|--string s) [--size n] [--planets nauvis,vulcanus] Uses the vendored FactorioPreviewToolkit dummy-save/Lua pipeline; previews all planets by default.",
@@ -1948,6 +1978,95 @@
       "signature": "list_blueprints(self, run_id: 'str | None' = None) -> 'Any'"
     },
     {
+      "description": "Read newly buffered Bilibili danmaku / super chats (never sent back).",
+      "name": "live_chat",
+      "parameters": [
+        {
+          "annotation": "int",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "after_seq",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "20",
+          "kind": "keyword_only",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "annotation": "list[str] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "kinds",
+          "required": false
+        }
+      ],
+      "signature": "live_chat(self, *, after_seq: 'int' = 0, limit: 'int' = 20, kinds: 'list[str] | None' = None) -> 'Any'"
+    },
+    {
+      "description": "Start the manager's read-only Bilibili live chat bridge for a room.",
+      "name": "live_connect",
+      "parameters": [
+        {
+          "annotation": "int | str",
+          "default": null,
+          "kind": "positional_or_keyword",
+          "name": "room_id",
+          "required": true
+        }
+      ],
+      "signature": "live_connect(self, room_id: 'int | str') -> 'Any'"
+    },
+    {
+      "description": "Stop the live chat bridge (and the interaction host).",
+      "name": "live_disconnect",
+      "parameters": [],
+      "signature": "live_disconnect(self) -> 'Any'"
+    },
+    {
+      "description": "Start/stop the separate persona interaction host.",
+      "name": "live_host",
+      "parameters": [
+        {
+          "annotation": "str",
+          "default": "'start'",
+          "kind": "positional_or_keyword",
+          "name": "action",
+          "required": false
+        }
+      ],
+      "signature": "live_host(self, action: 'str' = 'start') -> 'Any'"
+    },
+    {
+      "description": "Read the persona interaction host's queued spoken replies.",
+      "name": "live_replies",
+      "parameters": [
+        {
+          "annotation": "int",
+          "default": "0",
+          "kind": "keyword_only",
+          "name": "after_seq",
+          "required": false
+        },
+        {
+          "annotation": "int",
+          "default": "20",
+          "kind": "keyword_only",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "signature": "live_replies(self, *, after_seq: 'int' = 0, limit: 'int' = 20) -> 'Any'"
+    },
+    {
+      "description": "Show the Bilibili live danmaku bridge status (read-only).",
+      "name": "live_status",
+      "parameters": [],
+      "signature": "live_status(self) -> 'Any'"
+    },
+    {
       "description": "Decode a map exchange string and render all requested planets.",
       "name": "map_preview_exchange",
       "parameters": [
@@ -3516,7 +3635,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "93cbf4a8fdd25a77969cb192f46779e45877262f2a927e9d7094ec81750ef3d8",
+  "client_sha256": "18c0ae927407ec3f561862bfd44edf7ad6ff1696e2d9b272c85672bcee0feca1",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3593,6 +3712,14 @@
     {
       "method": "GET",
       "path": "/api/agent/knowledge"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/live-chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/live-reply"
     },
     {
       "method": "POST",
@@ -3703,6 +3830,10 @@
       "path": "/api/agent/plan"
     },
     {
+      "method": "POST",
+      "path": "/api/agent/plan/route"
+    },
+    {
       "method": "GET",
       "path": "/api/agent/state"
     },
@@ -3723,13 +3854,14 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "93cbf4a8fdd25a77969cb192f46779e45877262f2a927e9d7094ec81750ef3d8",
+    "factorio.py": "18c0ae927407ec3f561862bfd44edf7ad6ff1696e2d9b272c85672bcee0feca1",
     "src/api/agent.ts": "538cc87a01ef7029f6d05510cf3b24cc2ce83d5654e99aa76b9e77044cc395ef",
     "src/api/alerts.ts": "d491a17165f4d93f4153e8d465b4e345a72ef313225b57fd8942e6beb9b77e78",
-    "src/api/area-edit.ts": "ac0571688c4e2649e1bdbcecf8f7a1f40adba663c7e3632ed8ec29f252b2ee3f",
-    "src/api/construction.ts": "fffd140e8bc604844eef989d2a37c1d61c62c812659a3d2f03aa560fbb8fa952",
+    "src/api/area-edit.ts": "5b868956879d478e2467d22ba503c86e899f19dead41e1c1585f38b3117ccfac",
+    "src/api/construction.ts": "ae7c8d0be8ed85a8a622314018104bfcf4a3d6ec48cb0c3ed454e0c611999eae",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",
-    "src/api/jobs.ts": "62880f7f46d929f714a3f50233c55733eeb8899a09b7d251af45f5c9edb8ee51",
+    "src/api/jobs.ts": "9d63859ca31301ec88d410f22bfcdb2d00d56c748898f13121ec1fb57e500cb4",
+    "src/api/live.ts": "945223cf08aa2c9e377a1daf2a7cb894df9ebf2c25f57cd55a465dbea988d625",
     "src/api/manager.ts": "e6bcd846551415382491c67ce7c85ed2f47757fd7c2080b6e56c9a46a59b1642",
     "src/api/runs.ts": "e1b449f618c14e2943055f848f656650983389f6a0b2e431d82b1304a22c5c3e",
     "src/api/saves.ts": "8b958dc012a81bbae03e0374769b566b0c5b6ab5c11a75084fb52b1401b4024c",

@@ -7,6 +7,12 @@
 #   .\scripts\narrate.ps1 -Digest -MinChars 8        # short CJK digest lines
 #   .\scripts\narrate.ps1 -Digest -Dedupe:$false     # speak repeated digest lines too
 #
+# -Live also speaks the live interaction host's queued replies (persona host
+# answering Bilibili danmaku) only when the game narration is idle. It writes
+# <LiveDataDir>\voice.json so the host knows when the voice is free, and tails
+# <LiveDataDir>\replies.jsonl (appended by the manager). The manager data dir
+# defaults to <root>\.autorio; pass -LiveDataDir when AUTORIO_DATA_DIR is set.
+#
 # By default it follows the newest run's thoughts.log and starts at the current
 # end, so only new reasoning is spoken. Ctrl-C stops narration; the game keeps
 # running. Use -DryRun to print without speaking.
@@ -31,7 +37,11 @@ param(
   [switch]$FromStart,
   [switch]$ListVoices,
   [switch]$DryRun,
-  [switch]$Once
+  [switch]$Once,
+  [switch]$Live,
+  [string]$LiveDataDir,
+  [int]$IdleMs = 1200,
+  [switch]$LiveFromStart
 )
 
 Add-Type -AssemblyName System.Speech
@@ -78,6 +88,37 @@ if ($Digest -and -not $IncludeMessages) {
   Write-Host "Digest mode: condensed one-line thoughts (use -MinChars 8 for short CJK lines)."
 }
 if ($DryRun) { Write-Host "Dry run: text is printed, not spoken." }
+
+if (-not $LiveDataDir) { $LiveDataDir = Join-Path $Root ".autorio\live" }
+
+# voice.json is read by the manager's interaction host: speaking=true pauses new
+# replies, a recent idle heartbeat means the voice is free.
+function Write-VoiceState([bool]$Speaking, [string]$Text) {
+  if (-not $Live) { return }
+  try {
+    New-Item -ItemType Directory -Force -Path $LiveDataDir | Out-Null
+    $payload = [pscustomobject]@{
+      speaking   = $Speaking
+      updated_at = (Get-Date).ToUniversalTime().ToString("o")
+      text       = $Text
+    }
+    Set-Content -LiteralPath (Join-Path $LiveDataDir "voice.json") `
+      -Value ($payload | ConvertTo-Json -Compress) -Encoding UTF8
+  } catch { }
+}
+
+$lastSpeechAt = [DateTime]::UtcNow
+$lastVoiceHeartbeat = [DateTime]::MinValue
+$repliesPath = Join-Path $LiveDataDir "replies.jsonl"
+$replyOffset = 0
+$replyRemainder = ""
+if ($Live) {
+  Write-Host "Live interaction replies: $repliesPath (idle window ${IdleMs}ms)"
+  Write-VoiceState $false ""
+  if (-not $LiveFromStart -and (Test-Path -LiteralPath $repliesPath)) {
+    $replyOffset = (Get-Item -LiteralPath $repliesPath).Length
+  }
+}
 
 function Clean-Text([string]$text) {
   $text = $text -replace '(?s)```.*?```', ' '
@@ -137,8 +178,65 @@ while ($true) {
         if ($Dedupe -and -not $NoDedupe -and $text -eq $lastSpoken) { continue }
         $lastSpoken = $text
         if ($DryRun) { Write-Host "[$((Get-Date).ToString('HH:mm:ss'))] $text" }
-        else { $synth.Speak($text) }
+        else {
+          Write-VoiceState $true $text
+          $synth.Speak($text)
+          Write-VoiceState $false $text
+        }
+        $lastSpeechAt = [DateTime]::UtcNow
         try { Set-Content -LiteralPath (Join-Path $RunDir "narration.txt") -Value $text -Encoding UTF8 } catch { }
+      }
+    }
+  }
+
+  if ($Live) {
+    $now = [DateTime]::UtcNow
+    if ($now - $lastVoiceHeartbeat -gt [TimeSpan]::FromSeconds(1)) {
+      Write-VoiceState $false ""
+      $lastVoiceHeartbeat = $now
+    }
+    if (($now - $lastSpeechAt).TotalMilliseconds -ge $IdleMs) {
+      $replyLength = if (Test-Path -LiteralPath $repliesPath) { (Get-Item -LiteralPath $repliesPath).Length } else { 0 }
+      if ($replyLength -lt $replyOffset) { $replyOffset = 0; $replyRemainder = "" }
+      if ($replyLength -gt $replyOffset) {
+        $stream = [IO.File]::Open($repliesPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+        try {
+          [void]$stream.Seek($replyOffset, [IO.SeekOrigin]::Begin)
+          $count = [int]($stream.Length - $replyOffset)
+          $buffer = New-Object byte[] $count
+          $read = $stream.Read($buffer, 0, $count)
+        } finally { $stream.Dispose() }
+        $replyOffset += $read
+        $chunk = $replyRemainder + [Text.Encoding]::UTF8.GetString($buffer, 0, $read)
+        $replyLines = $chunk -split "`n"
+        if ($chunk.EndsWith("`n")) { $replyRemainder = "" }
+        else {
+          $replyRemainder = $replyLines[-1]
+          if ($replyLines.Count -gt 1) { $replyLines = $replyLines[0..($replyLines.Count - 2)] } else { $replyLines = @() }
+        }
+        foreach ($line in $replyLines) {
+          $json = $line.Trim()
+          if (-not $json) { continue }
+          try { $reply = $json | ConvertFrom-Json } catch { continue }
+          $text = Clean-Text ([string]$reply.text)
+          if (-not $text) { continue }
+          if ($text.Length -gt $MaxChars) {
+            $text = $text.Substring(0, $MaxChars)
+            $cut = $text.LastIndexOf(" ")
+            if ($cut -gt 0) { $text = $text.Substring(0, $cut) }
+          }
+          if ($Dedupe -and -not $NoDedupe -and $text -eq $lastSpoken) { continue }
+          $lastSpoken = $text
+          if ($DryRun) { Write-Host "[live] $text" }
+          else {
+            Write-VoiceState $true $text
+            $synth.Speak($text)
+            Write-VoiceState $false $text
+            try { Set-Content -LiteralPath (Join-Path $RunDir "live-reply.txt") -Value $text -Encoding UTF8 } catch { }
+          }
+          $lastSpeechAt = [DateTime]::UtcNow
+          break
+        }
       }
     }
   }

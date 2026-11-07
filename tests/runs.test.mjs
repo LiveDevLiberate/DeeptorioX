@@ -1320,10 +1320,7 @@ test("construction verifier classifies effective and failed plans and blocks rep
     });
     const verified = manager.verifyConstructionPlan(plan.plan_id, { status: "completed" });
     assert.equal(verified?.result, "effective");
-    assert.deepEqual(
-      [verified?.audit_before, verified?.audit_after],
-      [12, 4],
-    );
+    assert.deepEqual([verified?.audit_before, verified?.audit_after], [12, 4]);
 
     const failed = manager.createConstructionPlan({
       kind: "build",
@@ -1370,10 +1367,13 @@ test("manager expands a blueprint plan and accepts chunked execution", async () 
     assert.equal(plan.kind, "blueprint");
     assert.ok(plan.blueprint_hash);
     assert.equal(plan.blueprint_entities.length, 2);
-    assert.deepEqual(plan.blueprint_entities.map((entry) => entry.anchor), [
-      { x: 5, y: 6 },
-      { x: 6, y: 6 },
-    ]);
+    assert.deepEqual(
+      plan.blueprint_entities.map((entry) => entry.anchor),
+      [
+        { x: 5, y: 6 },
+        { x: 6, y: 6 },
+      ],
+    );
     const first = manager.requireConstructionPlan({
       plan_id: plan.plan_id,
       allowed_kinds: ["build", "blueprint"],
@@ -1428,12 +1428,15 @@ test("manager layout plans generate power, pipe and belt entities without agent 
       from: { x: 5, y: 5 },
       to: { x: 8, y: 5 },
     });
-    assert.deepEqual(pipe.planned_entities.map((entry) => entry.anchor), [
-      { x: 5, y: 5 },
-      { x: 6, y: 5 },
-      { x: 7, y: 5 },
-      { x: 8, y: 5 },
-    ]);
+    assert.deepEqual(
+      pipe.planned_entities.map((entry) => entry.anchor),
+      [
+        { x: 5, y: 5 },
+        { x: 6, y: 5 },
+        { x: 7, y: 5 },
+        { x: 8, y: 5 },
+      ],
+    );
     const belt = manager.createConstructionPlan({
       kind: "belt",
       from: { x: 2, y: 2 },
@@ -1450,7 +1453,10 @@ test("manager layout plans generate power, pipe and belt entities without agent 
       ],
     });
     assert.equal(pathBelt.planned_entities.length, 5);
-    assert.deepEqual(pathBelt.planned_entities.map((entry) => entry.direction), [4, 4, 8, 8, 8]);
+    assert.deepEqual(
+      pathBelt.planned_entities.map((entry) => entry.direction),
+      [4, 4, 8, 8, 8],
+    );
   } finally {
     await manager.stop();
   }

@@ -37,8 +37,12 @@ import { json } from "./http/plumbing.js";
 import { handleStatic } from "./http/static.js";
 import { isAgentMutationRequest, stateGateNudge } from "./state-gate.js";
 import { rconConfigured } from "./api/shared.js";
-import { asRecord, errorMessage } from "./validation.js";
+import { asRecord, asString, errorMessage } from "./validation.js";
 import type { ApiContext } from "./api/context.js";
+import { registerLiveRoutes } from "./api/live.js";
+import { LiveChatService } from "./live-chat.js";
+import type { LiveGameContext } from "./live-host.js";
+import type { LiveLogger } from "./bilibili-live.js";
 import {
   normalizeConnectionsData,
   normalizeFactoryData,
@@ -644,6 +648,63 @@ const apiContext: ApiContext = {
   shutdown,
 };
 
+/** Live-host logger adapter (the live modules use a level/message callback). */
+const liveLogger: LiveLogger = (level, message, context) => {
+  const fields = context ?? {};
+  if (level === "error") logger.error(message, fields);
+  else if (level === "warn") logger.warn(message, fields);
+  else logger.info(message, fields);
+};
+
+/** What the gameplay agent is currently doing, for the live interaction host. */
+function liveGameContext(): LiveGameContext | undefined {
+  const id = runManager.activeRunId() ?? runManager.list()[0]?.id;
+  if (!id) return undefined;
+  const run = runManager.get(id);
+  if (!run) return undefined;
+  const latest = run.latest;
+  const topProduction = latest
+    ? Object.entries(latest.production)
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 6)
+        .reduce<Record<string, number>>((result, [name, count]) => {
+          result[name] = count;
+          return result;
+        }, {})
+    : undefined;
+  return {
+    run_id: run.id,
+    run_state: run.state,
+    benchmark: run.benchmark ? (asString(run.benchmark.title) ?? asString(run.benchmark.id)) : undefined,
+    agent: run.agent,
+    model: run.model_label ?? run.model,
+    elapsed_seconds: run.elapsed_seconds,
+    state_md: run.state_md,
+    latest: latest
+      ? {
+          tick: latest.tick,
+          current_research: latest.current_research ?? null,
+          research_progress: latest.research_progress ?? null,
+          rockets: latest.rockets,
+          power: latest.power
+            ? { networks: latest.power.networks, satisfaction: latest.power.satisfaction ?? null }
+            : null,
+          production_top: topProduction ?? {},
+        }
+      : undefined,
+    milestones: run.milestones,
+  };
+}
+
+const liveChatService = new LiveChatService({
+  dataDir: DATA_DIR,
+  context: liveGameContext,
+  logger: liveLogger,
+  cookie: process.env.BILIBILI_COOKIE?.trim() || undefined,
+  env: process.env,
+  autoHost: process.env.AUTORIO_LIVE_HOST === "1" || process.env.AUTORIO_LIVE_HOST === "true",
+});
+
 const telemetrySampler = createTelemetrySampler({
   command: (lua) => rconCommand(lua),
   logger,
@@ -657,6 +718,7 @@ registerRunsRoutes(apiRouter, apiContext);
 // copy-settings action is reachable from clients (see src/api/area-edit.ts).
 registerAreaEditRoutes(apiRouter, apiContext);
 registerConstructionRoutes(apiRouter, apiContext);
+registerLiveRoutes(apiRouter, liveChatService);
 registerJobsRoutes(apiRouter, apiContext);
 registerStateRoutes(apiRouter, apiContext);
 registerToolsRoutes(apiRouter);
@@ -820,6 +882,19 @@ server.listen(PORT, "127.0.0.1", () => {
   logger.info("Server listening", { url: `http://localhost:${PORT}`, port: PORT, data_dir: DATA_DIR });
   const resumed = runManager.autoResumeInterrupted();
   if (resumed) logger.info("Auto-resumed interrupted run", { run_id: resumed });
+  const liveRoom = process.env.BILIBILI_ROOM_ID?.trim();
+  if (liveRoom) {
+    void liveChatService.start(liveRoom).then(
+      (status) =>
+        logger.info("Live chat connected", {
+          room_id: status.room_id,
+          title: status.title,
+          live_status: status.live_status,
+          host: status.host?.running ?? false,
+        }),
+      (error) => logger.warn("Live chat connect failed", { room_id: liveRoom, error: errorMessage(error) }),
+    );
+  }
 });
 setInterval(
   () => {
@@ -834,6 +909,7 @@ async function shutdown(signal: NodeJS.Signals) {
   if (shuttingDown) return;
   shuttingDown = true;
   telemetrySampler.stop();
+  liveChatService.stop();
   logger.info("Shutting down", { signal });
   try {
     await runManager.shutdown();
