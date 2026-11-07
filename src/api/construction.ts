@@ -26,6 +26,13 @@ export function registerConstructionRoutes(router: Router, ctx: ApiContext): voi
     if (!["power", "pipe", "belt"].includes(kind)) {
       throw new ConstructionPlanError("PLAN_BAD_REQUEST", "route kind must be power, pipe or belt", {}, 400);
     }
+    if (runManager.constructionStatus().mode !== "planned") {
+      throw new ConstructionPlanError(
+        "CONSTRUCTION_MODE_FREE",
+        "This run uses free construction; no plan token is required.",
+        { mode: "free" },
+      );
+    }
     if (![fromX, fromY, toX, toY].every(Number.isFinite)) {
       throw new ConstructionPlanError("PLAN_BAD_REQUEST", "route needs finite from/to points", {}, 400);
     }
