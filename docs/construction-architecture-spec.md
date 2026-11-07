@@ -1,0 +1,664 @@
+# Construction Architecture Spec (v1)
+
+Status: proposal. Scope: construction modes, plan authorization, audit boundaries,
+and benchmark/scoring integration.
+
+This spec separates two concerns that were previously mixed:
+
+1. **What an agent is allowed to construct** (construction mode / plan gate).
+2. **How an agent's run is scored** (benchmark variant + capability/discipline scoring).
+
+The legacy free-build path remains available as an **evaluation mode**. It is not the
+production path and it is not ranked together with plan-gated runs.
+
+---
+
+## 1. Goals and non-goals
+
+### Goals
+
+- Make the manager, not the prompt, the authority for construction changes.
+- Cover every entity placement, mutation and cleanup action, not only power/pipe.
+- Keep the agent free to choose *what* to build while forcing it through a validated
+  planning step for *how* the change is executed.
+- Keep `factory-audit` / `pipeline-audit` as read-only diagnosis and verification.
+- Preserve the legacy free-build experience as a benchmark mode that measures raw
+  agent capability.
+- Record the construction mode in the run, benchmark and scoring identity so free and
+  planned runs are never compared as if they were the same task.
+- Make every plan explainable: targets, scope, audit revision, result and delta.
+
+### Non-goals
+
+- Full hostile-agent isolation. The API remains cooperative by default.
+- Making plan-gated mode mandatory for every historical benchmark.
+- Adding a construction bonus/penalty to the capability score. Mode is a **variant**,
+  not a score multiplier.
+- Automatic base reset or automatic working-block demolition.
+- Replacing game mechanics or the existing STATE/ALERT gates.
+
+---
+
+## 2. Construction modes
+
+A run has exactly one immutable mode, snapshotted at run start:
+
+```ts
+type ConstructionMode = "free" | "planned";
+```
+
+### 2.1 `free` — legacy / free-build evaluation mode
+
+Purpose: measure what an agent can do when construction is unconstrained.
+
+Characteristics:
+
+- Direct `/api/agent/act/build` and the other legacy action endpoints are allowed.
+- No plan token, no plan-scope validation, no refactor build gate.
+- Audit runs are metrics-only: they record debt, topology and problems but do not
+  block construction and do not award build credits.
+- Existing STATE / ALERT gates and normal game/API limits still apply.
+- The run records `construction.mode = "free"` and free-mode metrics.
+- Free mode is a benchmark **variant**, not a fallback for planned mode.
+
+Free mode is the compatibility mode for older benchmarks and for capability
+evaluation where the question is "can the agent build a factory at all?".
+
+### 2.2 `planned` — plan-gated construction mode
+
+Purpose: evaluate controlled construction quality and make construction auditable.
+
+Characteristics:
+
+- Every entity placement requires a valid plan token.
+- Every mutation (`rotate`, `set-recipe`, `copy-settings`) requires a token bound to
+  the affected tiles.
+- Every cleanup/removal of a player-owned entity requires a cleanup token.
+- The manager authorizes scope from the current audit snapshot and refactor revision.
+- The audit is read-only: it supplies `audit_revision`, `actions`, `clusters`, and
+  post-plan verification data. It does not award credits or force demolition.
+- Raw action endpoints reject requests without a token.
+
+### 2.3 Invariants
+
+```text
+construction.mode is selected at run creation and never changes mid-run
+run.construction.mode must be allowed by benchmark.construction.modes
+run.scoring.construction_mode === construction.mode
+run.evaluation.capability.variant includes the construction variant
+```
+
+A mode switch requires a new run (and normally a new benchmark variant).
+
+---
+
+## 3. Benchmark and scoring integration
+
+The existing evaluation scoring v2 remains the ranking formula. Construction mode is
+part of the **score identity**, not an additive score component.
+
+### 3.1 Benchmark configuration
+
+Each `benchmarks/<id>.json` may add:
+
+```json
+"construction": {
+  "default_mode": "free",
+  "modes": ["free", "planned"],
+  "variant": "free-build-v1"
+}
+```
+
+Fields:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `default_mode` | `"free" \| "planned"` | mode used when the launcher does not specify one |
+| `modes` | array | modes this benchmark may run in; first entry is the canonical variant |
+| `variant` | string | stable benchmark variant name used for leaderboard grouping |
+
+Defaults for old configs:
+
+```json
+"construction": {
+  "default_mode": "free",
+  "modes": ["free"],
+  "variant": "legacy-free"
+}
+```
+
+This keeps historical benchmarks runnable and clearly identifies them as free-build.
+
+If a benchmark wants both modes, it must define both variants explicitly, for example:
+
+- `rocket-free-build` (mode `free`)
+- `rocket-planned-build` (mode `planned`)
+
+The run's mode is selected at launch, not by the agent.
+
+### 3.2 Run snapshot
+
+At run start:
+
+```json
+{
+  "construction": {
+    "mode": "free",
+    "variant": "free-build-v1",
+    "plan_required": false
+  },
+  "scoring": {
+    "version": 2,
+    "construction_mode": "free",
+    "benchmark_variant": "free-build-v1"
+  }
+}
+```
+
+At scoring time:
+
+```json
+"evaluation": {
+  "capability": {
+    "score": 812,
+    "variant": "free-build-v1",
+    "construction_mode": "free",
+    "...": "existing v2 fields"
+  },
+  "discipline": {
+    "construction": {
+      "mode": "free",
+      "free_actions": 143,
+      "planned_actions": 0,
+      "unplanned_actions": 143,
+      "plan_requests": 0,
+      "plan_rejections": 0,
+      "plan_ineffective": 0,
+      "plan_regressions": 0,
+      "cleanup_units": 12
+    },
+    "...": "existing discipline fields"
+  }
+}
+```
+
+### 3.3 Scoring rule
+
+**Do not add a free/planned bonus to `capability.score`.**
+
+- The v2 capability formula stays unchanged: milestone progression and time-normalized
+  completion.
+- Construction mode is encoded in the score variant and run snapshot.
+- Leaderboards and comparisons group by:
+
+```text
+benchmark.id + ":" + benchmark.construction.variant
+```
+
+- A cross-variant comparison must be labelled as a comparison, never presented as the
+  same ranking.
+- The operator UI shows a `Free build` / `Planned build` badge next to the score.
+
+This directly satisfies the requirement that **whether a run used the free-build mode
+is part of its benchmark score record**, without changing the meaning of the score.
+
+### 3.4 Discipline metrics
+
+Construction signals stay in `discipline`, never in `capability`:
+
+```text
+construction mode
+planned_actions
+free_actions
+unplanned_actions
+plan_requests
+plan_rejections
+plan_ineffective
+plan_regressions
+cleanup_units
+```
+
+`unplanned_actions > 0` in planned mode is a discipline flag (`plan_bypass`). In free
+mode it is expected and is not a violation.
+
+Suggested flags:
+
+```text
+free_build
+plan_bypass
+plan_scope_violation
+plan_ineffective
+planned_cleanup
+```
+
+### 3.5 Free-build as evaluation mode
+
+Free mode is useful for measuring:
+
+- raw layout ability,
+- planning ability without manager scaffolding,
+- tool discovery and recovery from failure,
+- whether an agent can build from observation alone.
+
+It is **not** a substitute for plan-gated evaluation and must not share a leaderboard
+with it. Both modes use the same capability milestones and par calibration method, but
+their variants remain separate.
+
+---
+
+## 4. Planned-mode architecture
+
+### 4.1 Component layout
+
+```text
+Agent / Python / CLI / MCP / Gym
+        │
+        ▼
+Construction tools
+build-line / build-power-network / blueprint / plan-build
+        │
+        ▼
+Manager Plan Service
+├── audit snapshot provider
+├── planner / validator
+├── scope policy
+├── token store
+└── revision guard
+        │
+        ▼
+Action Executor
+build / rotate / set-recipe / copy-settings / cleanup
+        │
+        ▼
+Factorio RCON
+        │
+        ▼
+Verifier
+factory-audit / pipeline-audit / before-after delta
+```
+
+### 4.2 Audit layer
+
+Responsibilities:
+
+- Read-only factory diagnosis: `factory-audit`, `pipeline-audit`.
+- Produce `audit_revision`, `actions`, `clusters`, topology summaries.
+- Provide the baseline and post-plan snapshots for verification.
+- Detect ineffective or regressing plans.
+
+Not responsible for:
+
+- awarding build credits,
+- blocking ordinary local repairs,
+- forcing demolition,
+- serving as an agent-facing punishment score.
+
+The existing `refactor` state may remain as operator telemetry and scope input, but its
+credit and punitive-tier behavior is deprecated in planned mode.
+
+### 4.3 Plan service
+
+All construction actions begin with a plan request:
+
+```http
+POST /api/agent/plan
+Content-Type: application/json
+
+{
+  "kind": "build",
+  "intent": {
+    "summary": "connect coal to boiler",
+    "targets": [{"x": -24, "y": -40}]
+  },
+  "entities": [
+    {"name": "pipe", "anchor": {"x": -24, "y": -39}}
+  ],
+  "window": {"x": -24, "y": -39, "radius": 20},
+  "audit_revision": 42
+}
+```
+
+The service:
+
+1. Loads the current audit snapshot (or rejects if the requested revision is stale).
+2. Validates the plan kind and target coverage.
+3. Runs planner/geometry validation:
+   - collision, reach, clearance for ordinary builds;
+   - pole coverage/alignment for power plans;
+   - pipe connectivity/underground policy for fluid plans;
+   - cluster/working-block protection for cleanup plans.
+4. Applies the scope policy.
+5. Stores the plan and returns a single-use token.
+
+### 4.4 Plan token
+
+```ts
+type ConstructionPlan = {
+  plan_id: string;
+  run_id: string;
+  mode: "planned";
+
+  kind: "build" | "mutation" | "cleanup" | "expansion" | "blueprint";
+  scope: "local_repair" | "in_cluster" | "cleanup" | "expansion";
+
+  created_at: number;
+  expires_at: number;
+
+  audit_revision: number;
+  refactor_revision: number;
+
+  targets_hash: string;
+  bbox: { left: number; top: number; right: number; bottom: number };
+  entities: Array<{ name: string; anchor: { x: number; y: number }; direction?: number }>;
+
+  allowed_entity_names: string[];
+  max_entities: number;
+
+  single_use: true;
+  status: "issued" | "consumed" | "expired" | "invalidated";
+};
+```
+
+Persistence:
+
+- Tokens live in the run directory (`construction-plans.jsonl` or `run.json`), not only
+  in memory.
+- Expired/consumed tokens are retained for audit.
+- A manager restart invalidates issued-but-unconsumed tokens; the agent must re-plan.
+
+### 4.5 Plan kinds and permissions
+
+| Kind | Allowed operations | Scope rule |
+| --- | --- | --- |
+| `build` | place any entity | inside allowed cluster for repair; outside only as `expansion` |
+| `blueprint` | place expanded blueprint entities | same as build; preserves plan hash |
+| `mutation` | rotate / set-recipe / copy-settings | affected tiles must be in scope |
+| `cleanup` | mine/deconstruct player-owned entities | only flagged/obsolete entities; never a working production block |
+| `expansion` | place outside clusters | only when audit debt is below the clean target |
+
+All entity prototypes are covered. There is no power/pipe-only allowlist.
+
+### 4.6 Scope policy
+
+```text
+local repair / in-cluster rebuild:
+  allowed, no credits, audit revision required
+
+expansion:
+  allowed only when audit.invalid_count <= clean_target
+  and the plan is classified as expansion
+
+cleanup:
+  cleanup=true targets only
+  targets must be inside allowed_clusters
+  working production entities are protected
+
+working block:
+  never a cleanup target
+  any plan that would remove it requires operator confirmation
+```
+
+### 4.7 Executor
+
+Action endpoints require a `plan_id` in the payload when mode is `planned`:
+
+```json
+{
+  "plan_id": "pln_...",
+  "entities": [ ... ]
+}
+```
+
+Validation order:
+
+1. run mode is `planned`;
+2. token exists in the active run;
+3. token kind matches the action;
+4. token is unexpired and unconsumed;
+5. payload targets hash equals `targets_hash`;
+6. all targets are inside the token bbox;
+7. `audit_revision` and `refactor_revision` are unchanged;
+8. no protected entity is touched.
+
+The token is consumed when the action job is accepted, not once per internal loopback.
+Internal job dispatch carries the original token context and must not re-check it.
+
+### 4.8 Verifier
+
+After a plan's job finishes:
+
+```text
+before = audit snapshot captured at plan time
+after  = fresh factory-audit / pipeline-audit
+```
+
+Classify:
+
+```text
+effective   : target issue removed, no new critical issue
+neutral     : no measurable change
+ineffective : target issue remains
+regressed   : new critical issue or working-block damage
+```
+
+Store the result and emit a `construction.plan.verified` event. Repeated
+`ineffective` plans for the same fingerprint must be rejected until a new plan is
+submitted (anti-loop rule).
+
+---
+
+## 5. API changes
+
+### 5.1 New endpoints
+
+```text
+POST /api/agent/plan
+GET  /api/agent/plan/:id
+POST /api/agent/plan/:id/cancel
+```
+
+`POST /api/agent/plan` is available only in `planned` mode. In `free` mode it returns
+`CONSTRUCTION_MODE_FREE`.
+
+### 5.2 Changed action endpoints
+
+In `planned` mode, these require `plan_id`:
+
+```text
+/api/agent/act/build
+/api/agent/act/build-blueprint
+/api/agent/act/rotate
+/api/agent/act/set-recipe
+/api/agent/act/copy-settings
+/api/agent/act/mine     (only when removing player-owned buildings)
+```
+
+`mine` of raw resources remains a normal action, but any `allow_buildings` target must
+still carry `cleanup=true` and a cleanup plan.
+
+### 5.3 Error codes
+
+| Code | Meaning |
+| --- | --- |
+| `PLAN_REQUIRED` | action attempted without a plan token in planned mode |
+| `PLAN_EXPIRED` | token expired |
+| `PLAN_TARGET_MISMATCH` | payload differs from the planned entity/target hash |
+| `PLAN_SCOPE_VIOLATION` | targets outside the plan scope/cluster |
+| `PLAN_REVISION_CHANGED` | audit/refactor changed after planning |
+| `PLAN_KIND_MISMATCH` | e.g. cleanup token used for build |
+| `PLAN_ALREADY_CONSUMED` | token reused |
+| `CONSTRUCTION_MODE_FREE` | plan endpoint called in free mode |
+
+Every error includes:
+
+```json
+{
+  "error": "PLAN_REQUIRED",
+  "message": "Call POST /api/agent/plan with kind=build first.",
+  "mode": "planned",
+  "audit_revision": 42
+}
+```
+
+---
+
+## 6. Free mode behavior
+
+Free mode is deliberately simple and legacy-compatible.
+
+Enabled:
+
+- direct build / blueprints / mutations / cleanup,
+- legacy planners that call raw action endpoints,
+- existing STATE and ALERT gates,
+- audit metrics collection.
+
+Disabled:
+
+- plan token requirement,
+- plan-scope enforcement,
+- refactor build gate and build credits,
+- cleanup cluster restriction (unless benchmark config explicitly re-enables it).
+
+Free mode records:
+
+- `construction.free_actions`
+- `construction.unplanned_actions`
+- audit snapshots and discipline metrics,
+- no plan tokens.
+
+Free mode does **not** emit `PLAN_REQUIRED`; it is not a bypass, it is the selected
+evaluation mode.
+
+---
+
+## 7. Events and telemetry
+
+New events:
+
+```text
+construction.plan.requested
+construction.plan.issued
+construction.plan.rejected
+construction.plan.consumed
+construction.plan.verified
+construction.plan.ineffective
+construction.bypass_attempt
+```
+
+Append to `agent.events.jsonl` / `activity.log` with:
+
+```json
+{
+  "type": "construction.plan.verified",
+  "plan_id": "pln_...",
+  "kind": "build",
+  "mode": "planned",
+  "result": "effective",
+  "audit_before": 42,
+  "audit_after": 18
+}
+```
+
+`/api/tool-calls` continues to count raw endpoint calls. Planned mode additionally
+counts rejected unplanned calls for the `plan_bypass` discipline flag.
+
+---
+
+## 8. Tooling and compatibility
+
+### Python client / CLI
+
+- `FactorioClient.plan(...)` creates a plan.
+- Planning wrappers (`build_power_network`, `build_power_line`, `build_line`,
+  `build_blueprint`, `plan_build`) automatically request a token and pass `plan_id`.
+- Raw `c.build(...)` without a plan raises a structured error in planned mode.
+- CLI `act-build` gains `--plan-id`; planner commands manage it automatically.
+
+### MCP / Gym
+
+- Same plan service; one shared capability registry.
+- MCP tool `plan_build`/`build` must not bypass token validation.
+- Gym actions carry the current plan context where supported.
+
+### Legacy
+
+- Existing free benchmarks continue to run in free mode by default.
+- Existing direct `c.build` scripts only work in free mode.
+
+---
+
+## 9. Rollout plan
+
+### Phase 0 — mode metadata
+
+- Add `construction` benchmark/run fields.
+- Default all existing configs to `free`.
+- Snapshot mode into `run.scoring` and `evaluation.capability.variant`.
+- Operator UI badge.
+
+### Phase 1 — planned build gate
+
+- Implement plan service + tokens.
+- Require `plan_id` for all `/act/build` in planned mode.
+- Update Python planners to acquire tokens.
+- Add `PLAN_REQUIRED` tests.
+
+### Phase 2 — mutations and cleanup
+
+- Extend plan kinds to rotate/set-recipe/copy-settings.
+- Move cleanup restrictions into cleanup plans.
+- Add working-block protection.
+
+### Phase 3 — verifier and discipline
+
+- Post-plan audit.
+- effective/ineffective classification.
+- planning bypass/ineffective metrics.
+- Remove build credits from planned mode.
+
+### Phase 4 — service-generated layouts
+
+- For power/pipe/belt routes, manager accepts intent and generates entity
+  coordinates, so raw coordinates cannot be submitted at all.
+- Keep general blueprints as validated entity plans.
+
+### Phase 5 — leaderboard split
+
+- Add `free-build` and `planned-build` variants to benchmark definitions.
+- Separate ranking/leaderboard keys.
+- Document how free-mode results are interpreted.
+
+---
+
+## 10. Acceptance criteria
+
+1. In free mode, legacy direct build scripts still work and are scored under the
+   free-build variant.
+2. In planned mode, a direct build without `plan_id` returns `PLAN_REQUIRED`.
+3. All entity prototypes are covered; there is no power/pipe-only exception.
+4. A plan with changed targets returns `PLAN_TARGET_MISMATCH`.
+5. An audit change after planning returns `PLAN_REVISION_CHANGED`.
+6. Reusing a consumed token returns `PLAN_ALREADY_CONSUMED`.
+7. Cleanup of a working production entity is rejected in planned mode.
+8. Free and planned runs are never ranked together; `evaluation.capability.variant`
+   differs and the UI/leaderboard groups by variant.
+9. Post-plan verification records `effective`/`ineffective` and blocks repeated
+   ineffective plans.
+10. Existing audit and pipeline-audit tests remain green; new plan-gate tests cover
+    build, mutation, cleanup and free-mode compatibility.
+
+---
+
+## 11. Open questions
+
+- Should benchmark variant be a separate benchmark file or a `variant` dimension?
+  This spec assumes a `variant` dimension with explicit leaderboard keys; separate
+  files are also valid if the evaluator prefers immutable task identities.
+- Should free-mode cleanup keep the working-block guard as a safety default? The
+  default is no construction policy, but an evaluation configuration may opt in.
+- Should plan tokens survive manager restarts? The default is no; re-plan is safer
+  than executing a stale plan.
+- When service-generated layouts land, should arbitrary entity lists remain available
+  for blueprints? Blueprints are expected to remain validated plans because they are
+  user-supplied designs.
