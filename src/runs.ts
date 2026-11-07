@@ -34,6 +34,7 @@ import {
   renderStateMarkdown,
   type StateGate,
   type StateWriteInput,
+  stateLanguageMismatches,
 } from "./state-file.js";
 import {
   Benchmark,
@@ -853,6 +854,12 @@ export class RunManager {
     if (!run) throw new Error("No active run");
     if (!input || typeof input.current !== "string" || !input.current.trim())
       throw new Error("Missing current subtask");
+    const mismatched = stateLanguageMismatches(input, run.language);
+    if (mismatched.length) {
+      throw new Error(
+        `STATE_LANGUAGE_REQUIRED: ${run.language} output language requested; rewrite ${mismatched.join(", ")} in ${run.language}. Keep code, commands, paths and identifiers unchanged.`,
+      );
+    }
     const workspace = path.join(this.dir(run), "workspace");
     fs.mkdirSync(workspace, { recursive: true });
     const previous = this.stateFile(run);

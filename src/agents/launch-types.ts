@@ -71,6 +71,7 @@ const BASE_TASK_PROMPT =
   "STEP 0 (mandatory, before any gameplay action): call the state API to write STATE.md (Python: client.write_state(current=..., scores={...}, done_when=..., next=...); CLI: state-write --current ...), or write STATE.md in this workspace with this template:\n" +
   "# STATE\nUpdated: <ISO-8601 timestamp>\nObjective: <from TASK.md>\nScores: production 0, logistics 0, mining 0, research 0, defense 0, exploration 0\nCurrent: <subtask name> (score 0)\nDone when: <quantified completion condition>\nNext: <first action>\n\n" +
   "Refresh STATE.md at least every 5 minutes and whenever the subtask changes. The manager blocks mutating actions with STATE_UPDATE_REQUIRED once STATE.md is older than 10 minutes (or missing after the startup grace period); STATE.md writes reset that deadline. " +
+  "All natural-language STATE.md values, plan updates and decision rationales must use the configured output language; state-write rejects mismatched language with STATE_LANGUAGE_REQUIRED. " +
   "Before inventing a command, read the generated tool manifest (`factorio.py tools --json` or `client.tools()`): it lists every client method signature, parameter, CLI usage and manager endpoint. Do not read factorio.py source to discover the interface. " +
   "Read AGENTS.md, COOKBOOK.md, KNOWLEDGE.md, LAYOUT.md and TASK.md, then play Factorio through the Python library until the objective is complete. " +
   "Update STATE.md whenever the current subtask or its done-when condition changes, and after completing a subtask; the operator view and crash recovery rely on it. " +
@@ -92,8 +93,8 @@ const BASE_TASK_PROMPT =
   "observe-pipeline includes belt contents, pipe fluids and power network ids; use contained items/fluids plus statuses to locate bottlenecks, not just topology. " +
   "For resource veins, call act-mine --resource with one target and the default count=all; keep mining that vein until depleted instead of switching after each cycle. " +
   "Never mine near a building with a generic act-mine: player-owned buildings are protected unless --allow-buildings is explicit; use deconstruct-area for intentional dismantling. " +
-  "Run factory-audit after builds and when stalled: fix the highest-priority action, verify, re-audit; after 3 repeats on the same fingerprint, relayout/redesign instead of patching. " +
-  "If a build returns REFACTOR_REQUIRED, stop building: clean the audit debt (deconstruct/relayout/connect) and re-audit; big_reset_pending warning means prepare chests and reset instead of expanding. " +
+  "Run factory-audit after builds and when stalled: fix the highest-priority action, verify, re-audit; only after 3 repeats on the same fingerprint relayout/redesign the affected section instead of patching. Full-scope audits (default scope, radius >= 120) update the run's refactor debt; narrower local audits are advisory. " +
+  "If a build returns REFACTOR_REQUIRED, stop building: fix the highest-priority audit action (repair/rotate/connect the flagged tiles) and re-audit. Deconstruct only flagged or obsolete entities; use relayout-belts only when the same belt section still fails after 3 audits. big_reset_pending means stop expanding and clean the worst debt, never dismantle a working production block. " +
   "If the player is enclosed/no_path, call unstick: it tries short routes then mines low-value player-owned blockers; never teleport, and repair a gate/walkway afterward. " +
   "Check belt contents with belt-contents and pipe liquid with fluid-contents before diagnosing logistics. " +
   "Before/after belt deployment validate connectivity (plan validator + observe-connections): corners must face the next tile; crossings need underground pairs; no head-on/dead-end belts. " +
@@ -105,7 +106,7 @@ const BASE_TASK_PROMPT =
   "If a build returns BLUEPRINT_REQUIRED, capture the current validated cell with blueprint-capture before retrying; blueprint count is visible in the run UI. " +
   "Bulk deconstruction is nearest-first (deconstruct-area --max-distance/--start): finish the local cluster, never cross the map for one building. " +
   "Do not hard-code cross-map center lists in sweep scripts; re-observe the player, clear the nearest cluster, then pick the next. " +
-  "Cleanup earns +5/entity and +10/invalid-debt unit and ignores the manual-mining penalty; builds (including direct act-build) stay blocked until invalid debt reaches the clean target. " +
+  "Cleanup earns +5/entity and +10/invalid-debt unit and ignores the manual-mining penalty; builds (including direct act-build) stay blocked until invalid debt falls to the clean target (default 20). " +
   "Refactor scope defaults to belts+power+pipes+machines+containers (empty chests); rail is opt-in with --include-rail/--scope rail. Container cleanup removes empty chests only. " +
   "Evaluate blueprints with blueprint-evaluate: static density first, then output/tile, output/machine and output/kW with --output/--power-kw after building; keep Pareto improvements. " +
   "Crash debris is neutral: layout shows X and map-overview S; recover it with recover-debris so it does not block paths. " +
@@ -118,7 +119,7 @@ const BASE_TASK_PROMPT =
 export function languagePrompt(language?: string): string {
   if (!language) return "";
   const label = /^(?:chinese|中文|zh)/i.test(language) ? "Simplified Chinese (简体中文)" : language;
-  return `CRITICAL OUTPUT LANGUAGE: ${label}. Think in ${label}: write your internal reasoning/thinking content, every reasoning summary and every user-facing message in ${label}. Do not write English prose. Keep code, commands, file paths, identifiers and in-game proper names unchanged. `;
+  return `CRITICAL OUTPUT LANGUAGE: ${label}. Think in ${label}: write your internal reasoning/thinking content, every reasoning summary and every user-facing message in ${label}. Write every STATE.md field (Objective, Current, Done when, Next, Progress, Notes), every plan update and every decision/next-step rationale in ${label}. The manager rejects English natural-language STATE.md fields for a ${label} run. Do not write English prose. Keep code, commands, file paths, identifiers and in-game proper names unchanged. `;
 }
 
 /** Shared agent task prompt: language + discipline + resume/restart clause. */

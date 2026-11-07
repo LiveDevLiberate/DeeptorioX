@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evaluateStateGate, renderStateMarkdown } from "../dist/state-file.js";
+import { evaluateStateGate, renderStateMarkdown, stateLanguageMismatches } from "../dist/state-file.js";
 
 test("state gate warns at soft interval and blocks at hard interval", () => {
   const fresh = evaluateStateGate({ hasState: true, ageSeconds: 120, elapsedSeconds: 120 });
@@ -78,5 +78,47 @@ test("renderStateMarkdown accepts a raw markdown override", () => {
   assert.equal(
     renderStateMarkdown({ current: "x", markdown: "# custom\nCurrent: x" }),
     "# custom\nCurrent: x\n",
+  );
+});
+
+test("state language gate requires the configured language for natural-language fields", () => {
+  assert.deepEqual(
+    stateLanguageMismatches(
+      {
+        objective: "launch a rocket",
+        current: "build smelters",
+        done_when: "20 plates per minute",
+        next: "place furnace",
+      },
+      "Chinese",
+    ),
+    ["objective", "current", "done_when", "next"],
+  );
+  assert.deepEqual(
+    stateLanguageMismatches(
+      {
+        current: "搭建熔炉线",
+        done_when: "每分钟 20 个铁板",
+        next: "先铺煤带",
+      },
+      "Chinese",
+    ),
+    [],
+  );
+  assert.deepEqual(
+    stateLanguageMismatches({ current: "logistics-2" }, "Chinese"),
+    [],
+    "identifier-only values are allowed",
+  );
+  assert.deepEqual(
+    stateLanguageMismatches({ current: "搭建熔炉线", done_when: "每分钟 20 个铁板" }, "English"),
+    ["current", "done_when"],
+  );
+  assert.deepEqual(
+    stateLanguageMismatches(
+      { current: "build smelters", markdown: "# STATE\nCurrent: build smelters" },
+      "Chinese",
+    ),
+    ["current"],
   );
 });

@@ -97,6 +97,49 @@ export type StateWriteInput = {
   markdown?: string;
 };
 
+const CJK = /[\u3400-\u9fff]/;
+const LATIN_WORD = /[A-Za-z]{3,}/;
+
+function wantsLanguage(language: string | undefined, pattern: RegExp): boolean {
+  return Boolean(language && pattern.test(language));
+}
+
+function stateFieldMismatch(value: unknown, language: string | undefined): boolean {
+  if (typeof value !== "string") return false;
+  const text = value.trim();
+  if (!text) return false;
+  if (wantsLanguage(language, /chinese|中文|zh/i)) {
+    return LATIN_WORD.test(text) && /\s/.test(text) && !CJK.test(text);
+  }
+  if (wantsLanguage(language, /english|\ben\b/i)) return CJK.test(text);
+  return false;
+}
+
+/** Fields whose natural language should follow the run output language. */
+export function stateLanguageMismatches(input: StateWriteInput, language?: string): string[] {
+  const fields: Array<[string, unknown]> = [
+    ["objective", input.objective],
+    ["current", input.current],
+    ["done_when", input.done_when],
+    ["next", input.next],
+    ["timebox", input.timebox],
+    ["progress", input.progress],
+    ["notes", input.notes],
+  ];
+  const mismatched = fields.filter(([, value]) => stateFieldMismatch(value, language)).map(([name]) => name);
+  if (input.markdown) {
+    const parsed: Record<string, string> = {};
+    for (const line of input.markdown.split(/\r?\n/)) {
+      const match = /^(Objective|Current|Done when|Next):\s*(.*)$/i.exec(line.trim());
+      if (match) parsed[match[1].toLowerCase().replace(" ", "_")] = match[2];
+    }
+    for (const [name, value] of Object.entries(parsed)) {
+      if (stateFieldMismatch(value, language) && !mismatched.includes(name)) mismatched.push(name);
+    }
+  }
+  return mismatched;
+}
+
 export const STATE_SCORE_KEYS = [
   "production",
   "logistics",
