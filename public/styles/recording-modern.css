@@ -2186,3 +2186,23 @@ body.recording #codexOutput .goal-details-body {
 body.recording #codexOutput .message:not(.tool):not(.reasoning) {
   flex-wrap: wrap;
 }
+
+/* Transcript metadata and labels use regular weight throughout. */
+body.recording #codexOutput .commands-summary,
+body.recording #codexOutput .commands-summary-text,
+body.recording #codexOutput .tool-details summary,
+body.recording #codexOutput .tool-summary-text,
+body.recording #codexOutput .action-badge,
+body.recording #codexOutput .action-target,
+body.recording #codexOutput .action-outcome,
+body.recording #codexOutput .action-duration,
+body.recording #codexOutput .dedupe-badge,
+body.recording #codexOutput .loop-badge,
+body.recording #codexOutput .event-marker,
+body.recording #codexOutput .msg-time {
+  font-weight: 400;
+}
+
+body.recording #codexOutput .turn-separator {
+  font-weight: 400;
+}
