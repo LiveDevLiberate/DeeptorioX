@@ -1418,11 +1418,13 @@ function ensureCommandGroup() {
     details._kind = "commands";
     const summary = element("summary", "", "commands-summary");
     const summaryText = element("span", "", "commands-summary-text summary-text");
-    summary.append(summaryText);
+    const summaryTime = element("span", "", "msg-time");
+    summaryTime.hidden = true;
+    summary.append(summaryText, summaryTime);
     details.append(summary);
     setDetailsOpen(details, false);
     output.append(details);
-    commandGroup = { details, summary, summaryText, items: new Map(), loop: 0 };
+    commandGroup = { details, summary, summaryText, summaryTime, items: new Map(), loop: 0 };
   }
   return commandGroup;
 }
@@ -1437,6 +1439,10 @@ function refreshCommandGroup(group) {
   });
   const loopPrefix = group.loop ? `⚠ ${strings().loop} ×${group.loop} · ` : "";
   group.summaryText.textContent = `${loopPrefix}${stats.text}`;
+  const firstItem = [...group.items.values()].find((item) => eventTimestamp(item) !== null);
+  const stamp = firstItem ? timeLabel(firstItem) : null;
+  group.summaryTime.textContent = stamp || "";
+  group.summaryTime.hidden = !stamp;
   // Let the group icon reflect its dominant action category instead of every
   // command group showing the same blue laptop glyph.
   const counts = new Map();
