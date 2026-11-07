@@ -50,3 +50,27 @@ Python:
 ```bash
 factorio.py map-preview-exchange --string-file map.txt --size 2048
 ```
+
+## Launchers
+
+```bash
+python3 tools/preview_toolkit_cli.py --info          # paths, config, dependency status
+python3 tools/preview_toolkit_cli.py --config --json # vendored config.ini
+python3 tools/preview_toolkit_cli.py --preview-generator-mode <factorio> <map_string>
+python3 tools/preview_toolkit_cli.py --uploader-mode
+```
+
+The full controller/clipboard mode needs the optional dependencies in
+`tools/requirements-preview-toolkit.txt`; `--info` and `--config` are
+dependency-free. rclone binaries are intentionally absent; install rclone or
+place it under `vendor/factorio-preview-toolkit/third_party/rclone/`.
+
+`factorio.py blueprint-tools <args>` is a passthrough to the complete vendored
+`fbp` CLI, e.g.:
+
+```bash
+factorio.py blueprint-tools info FILE --counts
+factorio.py blueprint-tools flow FILE --json out.json
+factorio.py blueprint-tools render FILE --png out.png
+factorio.py blueprint-tools patch FILE patch.json -o out.txt
+```

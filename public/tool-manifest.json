@@ -127,6 +127,12 @@
       "usage": "Usage: factorio.py blueprint-save --blueprint-file <path> [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]"
     },
     {
+      "command": "blueprint-tools",
+      "description": "Passthrough to the full vendored fbp CLI.",
+      "help": "Usage: factorio.py blueprint-tools info FILE --counts        factorio.py blueprint-tools flow FILE --json out.json        factorio.py blueprint-tools render FILE --png out.png        factorio.py blueprint-tools patch FILE patch.json -o out.txt",
+      "usage": "Usage: factorio.py blueprint-tools info FILE --counts"
+    },
+    {
       "command": "build-defense-line",
       "description": "Place 2x2 turrets spaced along a line with a single wall row in front.",
       "help": "Usage: factorio.py build-defense-line --from x,y --to x,y [--turret name] [--wall name|--no-wall] [--spacing n] [--ammo-chest name] [--no-clear] Front side is +y for horizontal lines and +x for vertical lines; single wall layer, no gates/power.",
@@ -3316,7 +3322,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "885d687d383b97d46dd52234e5c6d7e00db09f8a87ab498d73be39e12ef0b0ad",
+  "client_sha256": "7a9b6b89deec291ec0443287a2a9a56f2cc353d0fcf12477344bd424060633fe",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3511,7 +3517,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "885d687d383b97d46dd52234e5c6d7e00db09f8a87ab498d73be39e12ef0b0ad",
+    "factorio.py": "7a9b6b89deec291ec0443287a2a9a56f2cc353d0fcf12477344bd424060633fe",
     "src/api/agent.ts": "f34752ae629f3f324a0f485072d52c79caa253bd4af44f4a54b5382916114e21",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",

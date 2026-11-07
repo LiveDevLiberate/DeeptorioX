@@ -98,6 +98,7 @@ Commands:
   blueprint-diff (--before-file <path>|--before <string>|--before-id <id>) (--after-file <path>|--after <string>|--after-id <id>)
   blueprint-gamedata [--dump-file <path>]
   map-preview-exchange (--string-file <path>|--string <exchange string>) [--size n] [--planets nauvis,vulcanus]
+  blueprint-tools <fbp args...>        Full vendored factorio-blueprint-tools CLI
   state-show
   state-write --current <text> [--done-when <text>] [--next <text>] [--scores k=v,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]
   observe-factory --center-x <n> --center-y <n> --radius <n>
@@ -186,6 +187,7 @@ COMMAND_USAGE = {
     "blueprint-diff": "blueprint-diff: Compare entity/recipe geometry, check, lint and lane-mix between two blueprints.\nUsage: factorio.py blueprint-diff (--before-file path|--before string|--before-id id) (--after-file path|--after string|--after-id id)\n",
     "blueprint-gamedata": "blueprint-gamedata: Regenerate blueprint recipe/footprint data from a local data-raw-dump.json.\nUsage: factorio.py blueprint-gamedata [--dump-file path]\nRun `factorio --dump-data` first; writes blueprint_analysis/data/gamedata.json.\n",
     "map-preview-exchange": "map-preview-exchange: Decode a >>>eN...<<< map exchange string and render planet previews.\nUsage: factorio.py map-preview-exchange (--string-file path|--string s) [--size n] [--planets nauvis,vulcanus]\nUses the vendored FactorioPreviewToolkit dummy-save/Lua pipeline; previews all planets by default.\n",
+    "blueprint-tools": "blueprint-tools: Passthrough to the full vendored fbp CLI.\nUsage: factorio.py blueprint-tools info FILE --counts\n       factorio.py blueprint-tools flow FILE --json out.json\n       factorio.py blueprint-tools render FILE --png out.png\n       factorio.py blueprint-tools patch FILE patch.json -o out.txt\n",
     "blueprint-evaluate": "blueprint-evaluate: Report structural and optional dynamic efficiency for a blueprint.\nUsage: factorio.py blueprint-evaluate (--blueprint-file path|--blueprint string|--id id) [--output item=rate] [--power-kw n] [--build-seconds n]\nStatic: footprint/entity/machine/belt/inserter density. Dynamic requires built-cell output rates, power and build time.\n",
     "blueprint-list": "blueprint-list: List blueprints recorded for a run (active run by default).\nUsage: factorio.py blueprint-list [--run-id <id>]\n",
     "blueprint-save": "blueprint-save: Persist a designed blueprint string for the active run without building it.\nUsage: factorio.py blueprint-save --blueprint-file <path> [--label <text>] [--description <text>] [--source saved|built] [--run-id <id>]\n   or: factorio.py blueprint-save --blueprint <string> [--label <text>]\n",
@@ -4249,6 +4251,13 @@ def write_response(*, ok: bool, cmd: str, started: float, data: Any = MISSING,
 
 
 def run(argv: list[str]) -> int:
+    if argv and argv[0] == "blueprint-tools":
+        import subprocess
+        wrapper = Path(__file__).resolve().parent / "tools" / "fbp_cli.py"
+        if not wrapper.exists():
+            sys.stderr.write(f"Missing vendored fbp CLI: {wrapper}\n")
+            return 1
+        return subprocess.run([sys.executable, str(wrapper), *argv[1:]], check=False).returncode
     started = time.monotonic()
     parsed = parse_args(argv)
     if not parsed.command:

@@ -28,4 +28,29 @@ test("both MIT toolkits are fully vendored with licenses and entrypoints", () =>
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /entities 477/);
   assert.match(result.stdout, /transport-belt/);
+
+  const passthrough = spawnSync(
+    process.env.PYTHON || "python3",
+    ["factorio.py", "blueprint-tools", "info", "public/blueprint-viewer/sample.txt"],
+    { encoding: "utf8" },
+  );
+  assert.equal(passthrough.status, 0, passthrough.stderr);
+  assert.match(passthrough.stdout, /entities 477/);
+
+  const toolkitInfo = spawnSync(process.env.PYTHON || "python3", ["tools/preview_toolkit_cli.py", "--info"], {
+    encoding: "utf8",
+  });
+  assert.equal(toolkitInfo.status, 0, toolkitInfo.stderr);
+  const info = JSON.parse(toolkitInfo.stdout);
+  assert.match(info.vendor, /factorio-preview-toolkit/);
+  assert.equal(info.config_exists, true);
+  assert.equal(info.rclone_binaries_vendored, false);
+
+  const config = spawnSync(
+    process.env.PYTHON || "python3",
+    ["tools/preview_toolkit_cli.py", "--config", "--json"],
+    { encoding: "utf8" },
+  );
+  assert.equal(config.status, 0, config.stderr);
+  assert.match(config.stdout, /map_preview_size/);
 });

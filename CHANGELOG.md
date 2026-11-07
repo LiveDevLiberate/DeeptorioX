@@ -93,6 +93,10 @@ this file.
 - **Geometry direction validation.** `geometry-check` rejects cardinal directions
   outside 0/4/8/12 in addition to footprint/rotation/overlap and native placement
   blockers.
+- **Full fbp CLI passthrough.** `factorio.py blueprint-tools ...` exposes every
+  vendored factorio-blueprint-tools command (info/decode/encode/render/find/
+  trace/check/lint/flow/diff/patch/crop/gamedata/icons/recipe). Toolkit launcher
+  metadata/config modes and dependency detection added.
 - **Map exchange strings + multi-planet previews.** Ports the
   FactorioPreviewToolkit dummy-save/control.lua decode pipeline, adds
   `/api/map-preview/exchange`, Space Age preview profiles, five-planet PNG
