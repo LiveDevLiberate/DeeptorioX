@@ -1176,11 +1176,20 @@ html[data-theme="light"] body.recording .metrics-table tr + tr > * {
 }
 body.recording .status-telemetry .status-data {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(150px, 220px) auto;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "metrics scores"
+    "production production";
+  align-items: start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 10px 24px;
   min-width: 0;
+}
+body.recording .status-metrics {
+  grid-area: metrics;
+}
+body.recording .status-scores {
+  grid-area: scores;
 }
 .status-production {
   min-width: 0;
@@ -1199,11 +1208,10 @@ body.recording .status-telemetry .status-data {
   letter-spacing: 0.02em;
 }
 .production-list {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  gap: 2px;
-  height: 118px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 2px 18px;
+  max-height: 96px;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
@@ -1250,17 +1258,20 @@ body.recording .status-scores .score-radar {
   body.recording .status-telemetry .status-data {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "metrics"
+      "scores"
+      "production";
     align-items: start;
     gap: 10px;
   }
   .status-production {
     padding-left: 0;
-    border-left: 0;
     border-top: 1px solid var(--rule);
     padding-top: 6px;
   }
   .production-list {
-    height: 88px;
+    max-height: 88px;
   }
   body.recording .status-scores {
     justify-content: flex-start;
