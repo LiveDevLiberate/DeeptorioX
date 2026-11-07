@@ -304,10 +304,13 @@ test("recording page renders summaries, loops, turns and unread updates", async 
       (node) =>
         node.className.includes("message") &&
         !node.className.includes("reasoning") &&
-        node.children[0]?.className === "message-body" &&
-        String(node.children[0].textContent).includes("Mining complete"),
+        node.children.some(
+          (child) =>
+            child.className === "message-body" && String(child.textContent).includes("Mining complete"),
+        ),
     );
-    assert.match(message.children[0].textContent, /Mining complete/);
+    const messageBody = message.children.find((child) => child.className === "message-body");
+    assert.match(messageBody.textContent, /Mining complete/);
 
     // Deduped reasoning: the second identical thought did not add a second block.
     assert.equal(output.children.filter((node) => node.className.includes("reasoning")).length, 2);
@@ -402,6 +405,12 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     const decisionMessages = output.children.filter((node) => node._kind === "message" && node._decision);
     assert.ok(decisionMessages.length >= 1, "goal message should count as a decision");
     assert.ok(decisionMessages.every((node) => node.hidden === false));
+    assert.ok(
+      decisionMessages[0].children.some(
+        (child) => child.classList?.contains("decision-icon") && !child.hidden,
+      ),
+      "goal message should show the decision icon",
+    );
     // A filter with no matching entries shows an explicit empty-state note.
     nodes.filterErrors.fire("click");
     const emptyNote = output.children.find((node) => node.className.includes("filter-empty"));
@@ -444,11 +453,13 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     jump.fire("click");
     assert.equal(output.scrollTop, output.scrollHeight);
     assert.equal(jump.hidden, true);
+    const runningMessage = output.children.find((node) =>
+      node.children.some(
+        (child) => child.className === "message-body" && String(child.textContent).includes("Furnaces"),
+      ),
+    );
     assert.match(
-      output.children.find(
-        (node) =>
-          node.children[0]?.className === "message-body" && node.children[0].textContent.includes("Furnaces"),
-      ).children[0].textContent,
+      runningMessage.children.find((child) => child.className === "message-body").textContent,
       /Furnaces are running/,
     );
     assert.ok(fetchCalls.filter((url) => url.includes("/log?")).length >= 2);

@@ -1574,11 +1574,14 @@ function renderMessage(item) {
   if (!entry) {
     const node = element("div", "", "message");
     const body = element("div", "", "message-body");
-    node.append(body);
+    const decisionIcon = icon("compass");
+    decisionIcon.classList.add("decision-icon");
+    decisionIcon.hidden = true;
+    node.append(decisionIcon, body);
     const label = timeLabel(item);
     if (label) node.append(element("span", label, "msg-time"));
     output.append(node);
-    entry = { node, body };
+    entry = { node, body, decisionIcon };
     entries.set(item.id, entry);
   }
   entry.node._kind = "message";
@@ -1587,6 +1590,7 @@ function renderMessage(item) {
   if (item.type === "error") lastErrorText = String(item.text || "agent error").slice(0, 80);
   entry.node.classList.toggle("error", item.type === "error");
   entry.node.classList.toggle("decision", entry.node._decision);
+  entry.decisionIcon.hidden = !entry.node._decision;
   entry.body.textContent = item.text || "";
 }
 function renderTool(item) {

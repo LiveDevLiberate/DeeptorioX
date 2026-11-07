@@ -2089,3 +2089,11 @@ body.recording #codexOutput .message:not(.tool):not(.reasoning) > .msg-time {
 body.recording #codexOutput .message.decision {
   border-left-color: #c0a8f0;
 }
+
+/* Goal messages carry the same compass used by the Decisions filter. */
+body.recording #codexOutput .message.decision .decision-icon {
+  flex: 0 0 auto;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: #c0a8f0;
+}
