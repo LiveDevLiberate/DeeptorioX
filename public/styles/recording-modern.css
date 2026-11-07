@@ -2392,3 +2392,19 @@ body.recording #codexOutput .reasoning.decision .reasoning-summary .icon {
     border-left: 1px solid var(--rule);
   }
 }
+
+/* Use one CJK-first family for transcript prose so Chinese and Latin glyphs
+   have matching weight, instead of Segoe Latin + YaHei fallback mixing. */
+body.recording #codexOutput .reasoning-summary,
+body.recording #codexOutput .commands-summary,
+body.recording #codexOutput .tool-details summary,
+body.recording #codexOutput .message,
+body.recording #codexOutput .message-body,
+body.recording #codexOutput .reasoning-summary-text,
+body.recording #codexOutput .commands-summary-text,
+body.recording #codexOutput .tool-summary-text,
+body.recording #codexOutput .reasoning-segment-text,
+body.recording #codexOutput .event-marker-text {
+  font-family:
+    "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Segoe UI", sans-serif;
+}
