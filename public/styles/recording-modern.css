@@ -1558,7 +1558,7 @@ body.recording .production-list {
 }
 @media (max-width: 900px) {
   body.recording .production-list {
-    grid-template-columns: repeat(3, 116px);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -1587,7 +1587,7 @@ body.recording .metrics-table {
 }
 @media (max-width: 900px) {
   body.recording .production-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 /* Very narrow windows keep the radar beside the readout table; the table cell
@@ -1976,6 +1976,7 @@ body.recording .production-rate {
 }
 body.recording .production-rate.changed {
   color: var(--ink);
+  font-style: italic;
   font-weight: 700;
 }
 body.recording .production-row.zero {
