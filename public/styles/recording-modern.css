@@ -360,8 +360,8 @@ body.recording .section-kicker {
 }
 body.recording .section-kicker::before {
   content: "";
-  width: 22px;
-  height: 2px;
+  width: 2px;
+  height: 1.15em;
   flex: 0 0 auto;
   background: var(--safety);
   opacity: 1;
@@ -1480,4 +1480,42 @@ body.recording .status-stat-stack .status-stat-fill {
   body.recording .status-stat {
     flex: 1 1 120px;
   }
+}
+
+/* Work-order heading: vertical kicker rule and activity/model on the title row. */
+body.recording .plan-heading-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+body.recording .plan-heading-row .section-kicker {
+  flex: 0 0 auto;
+  margin: 0;
+}
+body.recording .plan-heading-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px 14px;
+  min-width: 0;
+  margin-left: auto;
+}
+body.recording .plan-heading-meta .status-activity {
+  font-size: 11px;
+}
+body.recording .plan-heading-meta .status-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+body.recording .plan-heading-meta .status-model .icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
 }

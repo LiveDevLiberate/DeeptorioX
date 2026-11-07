@@ -7,10 +7,16 @@
     <header class="status-head" aria-label="Run status">
       <div class="run-masthead" aria-hidden="true"><span class="run-masthead-mark">Autorio</span><span id="runMastheadContext" class="run-masthead-context">factory log</span></div>
       <div class="status-line"><div class="status-tools" role="group" aria-label="Display options"><button id="statusToggle" class="status-toggle" type="button" aria-label="Toggle status details" aria-expanded="true"><span class="status-toggle-label">Stats</span></button><button id="mapInfoToggle" class="status-map-toggle" type="button" aria-label="Map settings" aria-expanded="false" aria-controls="mapInfoOverlay"><span class="icon icon-map" aria-hidden="true"></span><span class="status-map-label">Map</span></button><button id="recordingBlueprintsToggle" class="status-map-toggle" type="button" aria-label="Run blueprints" aria-expanded="false" aria-controls="blueprintOverlay"><span class="icon icon-book" aria-hidden="true"></span><span class="status-map-label">Blueprints</span></button><button id="toolCallsToggle" class="status-map-toggle" type="button" aria-label="Agent interface usage" aria-expanded="false" aria-controls="toolCallsOverlay"><span class="icon icon-server" aria-hidden="true"></span><span class="status-map-label">Tools</span></button><button id="themeToggle" class="status-theme-toggle" type="button" aria-label="Switch to light theme" aria-pressed="false"><span class="icon icon-sun" aria-hidden="true"></span><span class="status-theme-label">Light</span></button></div><span id="statusState" class="status-badge">…</span><span id="stateTimer" class="state-timer" hidden></span></div>
-      <div class="status-secondary"><span id="statusActivity" class="status-activity">—</span><span id="statusModel" class="status-model" hidden></span><span id="statusMeta" class="status-meta"></span></div>
+      <div class="status-secondary"><span id="statusMeta" class="status-meta"></span></div>
     </header>
     <section id="planPanel" class="status-plan ui-col-1-7" aria-label="Current plan">
-      <div id="planKicker" class="section-kicker">Work order</div>
+      <div class="plan-heading-row">
+        <div id="planKicker" class="section-kicker">Work order</div>
+        <div class="plan-heading-meta">
+          <span id="statusActivity" class="status-activity">—</span>
+          <span id="statusModel" class="status-model" hidden></span>
+        </div>
+      </div>
       <div id="statusCurrent" class="status-current" hidden></div>
       <div id="statusDone" class="status-done"></div>
     </section>
