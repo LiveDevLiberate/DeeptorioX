@@ -1205,6 +1205,22 @@ function renderScoreRadar(scores, activeKey) {
   }
   return svg;
 }
+function statusStat(iconName, label, value, progress, title) {
+  const cell = element("span", "", `status-stat status-stat-${iconName}`);
+  const head = element("span", "", "status-stat-head");
+  head.append(
+    icon(iconName),
+    element("span", label, "status-stat-label"),
+    element("span", value, "status-stat-value"),
+  );
+  const track = element("span", "", "status-stat-track");
+  const fill = element("span", "", "status-stat-fill");
+  fill.style.width = `${Math.max(0, Math.min(100, progress * 100)).toFixed(1)}%`;
+  track.append(fill);
+  cell.append(head, track);
+  if (title) cell.title = title;
+  return cell;
+}
 function renderStatus(run) {
   if (!statusState || !statusScores) return;
   currentRun = run;
@@ -1250,14 +1266,38 @@ function renderStatus(run) {
   const context = run.context_limit
     ? `${strings.contextLabel} ${Math.round((run.context_tokens || 0) / 1000)}k/${Math.round(run.context_limit / 1000)}k`
     : "";
+  const elapsedSeconds = Number(run.elapsed_seconds) || 0;
+  const maxSeconds = Number(run.max_seconds) || 1;
+  const contextLimit = Number(run.context_limit) || 0;
+  const contextTokens = Number(run.context_tokens) || 0;
+  const sessionResets = Number(run.session_resets) || 0;
+  const tokenQuota = Math.max(1_000_000, contextLimit * Math.max(1, sessionResets + 1));
   statusMeta.replaceChildren(
-    element(
-      "span",
-      `${strings.elapsedLabel} ${Math.round(run.elapsed_seconds || 0)}s / ${run.max_seconds || 0}s`,
-      "status-readout",
+    statusStat(
+      "clock",
+      strings.elapsedLabel,
+      `${Math.round(elapsedSeconds)}s / ${maxSeconds}s`,
+      elapsedSeconds / maxSeconds,
+      `${strings.elapsedLabel}: ${Math.round(elapsedSeconds)}s / ${maxSeconds}s`,
     ),
-    element("span", `${Number(tokens || 0).toLocaleString()} ${strings.tokensLabel}`, "status-readout"),
-    ...(context ? [element("span", context, "status-readout")] : []),
+    statusStat(
+      "stack",
+      strings.tokensLabel,
+      Number(tokens || 0).toLocaleString(),
+      Number(tokens || 0) / tokenQuota,
+      `${strings.tokensLabel}: ${Number(tokens || 0).toLocaleString()}`,
+    ),
+    ...(context
+      ? [
+          statusStat(
+            "brain",
+            strings.contextLabel,
+            `${Math.round(contextTokens / 1000)}k/${Math.round(contextLimit / 1000)}k`,
+            contextTokens / Math.max(1, contextLimit),
+            context,
+          ),
+        ]
+      : []),
   );
   const markdown = run.state_md || "";
   const current = (markdown.match(/^Current:\s*(.+)$/m) || [])[1] || "";
