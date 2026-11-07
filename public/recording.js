@@ -1118,6 +1118,15 @@ function pickLanguage(run) {
     ? "zh"
     : "en";
 }
+function formatElapsed(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  if (hours > 0) return `${hours}小时${minutes > 0 ? `${minutes}分` : ""}${secs > 0 ? `${secs}秒` : ""}`;
+  if (minutes > 0) return `${minutes}分${secs > 0 ? `${secs}秒` : ""}`;
+  return `${secs}秒`;
+}
 function formatStateRemaining(seconds) {
   const total = Math.max(0, Math.round(Number(seconds) || 0));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
@@ -1278,9 +1287,9 @@ function renderStatus(run) {
     statusStat(
       "clock",
       strings.elapsedLabel,
-      `${Math.round(elapsedSeconds)}s / ${maxSeconds}s`,
+      `${formatElapsed(elapsedSeconds)} / ${formatElapsed(maxSeconds)}`,
       elapsedSeconds / maxSeconds,
-      `${strings.elapsedLabel}: ${Math.round(elapsedSeconds)}s / ${maxSeconds}s`,
+      `${strings.elapsedLabel}: ${formatElapsed(elapsedSeconds)} / ${formatElapsed(maxSeconds)}`,
     ),
     statusStat(
       "stack",
