@@ -2276,3 +2276,13 @@ body.recording #codexOutput .event-marker.tech {
   border-left: 2px solid #7fd8e8;
   border-bottom: 1px solid var(--rule);
 }
+
+/* State/event markers use the same ruled row treatment as other entries. */
+body.recording #codexOutput .event-marker {
+  padding: 5px 8px;
+  border-left: 2px solid var(--steel);
+  border-bottom: 1px solid var(--rule);
+}
+body.recording #codexOutput .event-marker.tech {
+  border-left-color: #7fd8e8;
+}
