@@ -18,6 +18,7 @@ import { parseMapExchange } from "../preview-exchange.js";
 import { uploadMapPreview } from "../map-preview-upload.js";
 import { ensureBlueprintIcons, iconFile } from "../blueprint-icons.js";
 import { ensureBlueprintPreview } from "../blueprint-preview.js";
+import { ensureFactorioLocale } from "../factorio-locale.js";
 import { obsStatus } from "../obs.js";
 import type { ApiContext } from "./context.js";
 
@@ -272,6 +273,20 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
         });
       } catch (error) {
         return json(res, 400, { error: errorMessage(error) });
+      }
+    },
+  });
+
+  router.add({
+    method: "GET",
+    path: "/api/factorio-locale",
+    name: "/api/factorio-locale",
+    handler: async (request) => {
+      const { res } = request;
+      try {
+        return json(res, 200, await ensureFactorioLocale());
+      } catch (error) {
+        return json(res, 404, { error: errorMessage(error) });
       }
     },
   });

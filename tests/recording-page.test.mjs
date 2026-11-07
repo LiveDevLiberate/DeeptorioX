@@ -464,4 +464,7 @@ test("recording page exposes map and blueprint previews", () => {
   assert.match(js, /showBlueprintToast/);
   assert.match(js, /\/preview\.png/);
   assert.match(js, /研究完成/);
+  assert.match(js, /api\/factorio-locale/);
+  assert.match(js, /gameName\("technology"/);
+  assert.match(js, /gameName\("item"/);
 });

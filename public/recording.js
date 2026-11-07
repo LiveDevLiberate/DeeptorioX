@@ -1211,6 +1211,10 @@ function renderStatus(run) {
   if (!uiLang) {
     uiLang = pickLanguage(run);
     document.documentElement.lang = uiLang === "zh" ? "zh-CN" : "en";
+    if (gameLocale) {
+      relocalizeMarkers();
+      renderMetrics();
+    }
   }
   const strings = I18N[uiLang] || I18N.en;
   updateTranscriptTools(strings);
@@ -1259,7 +1263,7 @@ function renderStatus(run) {
   const current = (markdown.match(/^Current:\s*(.+)$/m) || [])[1] || "";
   const done = (markdown.match(/^Done when:\s*(.+)$/m) || [])[1] || "";
   const research = run.latest?.current_research
-    ? `research ${run.latest.current_research} ${Math.round((run.latest.research_progress || 0) * 100)}%`
+    ? `research ${gameName("technology", run.latest.current_research)} ${Math.round((run.latest.research_progress || 0) * 100)}%`
     : "";
   const planStale = run.state_updated_at
     ? Date.now() - Date.parse(run.state_updated_at) > 10 * 60 * 1000
@@ -1298,6 +1302,37 @@ function renderStatus(run) {
   const radar = renderScoreRadar(scores, activeSubtask);
   if (radar) statusScores.replaceChildren(radar);
   else statusScores.replaceChildren(element("span", "", "score-radar-fallback"));
+}
+let gameLocale = null;
+function localeLanguage() {
+  return uiLang === "zh" ? "zh-CN" : "en";
+}
+function gameName(kind, name) {
+  if (!gameLocale || !name) return name || "";
+  const table = gameLocale[localeLanguage()] || {};
+  const direct = table[kind] && table[kind][name];
+  if (direct) return direct;
+  if (kind === "item") {
+    const fluid = table.fluid && table.fluid[name];
+    if (fluid) return fluid;
+    const entity = table.entity && table.entity[name];
+    if (entity) return entity;
+  }
+  return name;
+}
+async function loadGameLocale() {
+  try {
+    const response = await fetch("/api/factorio-locale");
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data && typeof data === "object") {
+      gameLocale = data;
+      relocalizeMarkers();
+      renderMetrics();
+    }
+  } catch {
+    /* fall back to raw prototype ids */
+  }
 }
 function strings() {
   return I18N[uiLang || "en"] || I18N.en;
@@ -1653,20 +1688,29 @@ function trimTranscript() {
   }
   trimNote.textContent = `${trimmedCount} ${strings().trimmed}`;
 }
+function relocalizeMarkers() {
+  if (!output) return;
+  for (const node of output.children || []) {
+    if (node && node._markerRaw) node.textContent = localizeMarker(node._markerRaw);
+  }
+}
 function localizeMarker(text) {
   const labels = strings();
   const value = String(text || "").trim();
   let match = /^researched (.+)$/.exec(value);
-  if (match) return labels.markerResearched.replace("{name}", match[1]);
+  if (match) return labels.markerResearched.replace("{name}", gameName("technology", match[1]));
   match = /^rocket launched \((\d+)\)$/.exec(value);
   if (match) return labels.markerRocket.replace("{count}", match[1]);
   match = /^(.+) (\d+)\/min$/.exec(value);
-  if (match) return labels.markerProduction.replace("{name}", match[1]).replace("{rate}", match[2]);
+  if (match) {
+    return labels.markerProduction.replace("{name}", gameName("item", match[1])).replace("{rate}", match[2]);
+  }
   return value;
 }
 function renderEventMarker(text) {
   commandGroup = null;
   const node = element("div", localizeMarker(text), "event-marker");
+  node._markerRaw = text;
   node._kind = "marker";
   prependIcon(node, "flag");
   output.append(node);
@@ -1712,10 +1756,12 @@ function renderProduction() {
       .forEach((entry) => {
         if (productionRows.has(entry.name)) return;
         const row = element("div", "", "production-row");
-        const name = element("span", entry.name, "production-name");
+        const name = element("span", gameName("item", entry.name), "production-name");
         const rate = element("span", "", "production-rate");
         row.append(name, rate);
         row._productionRate = rate;
+        row._productionName = name;
+        row._productionKey = entry.name;
         productionRows.set(entry.name, row);
         productionItemOrder.push(entry.name);
         statusProductionList.append(row);
@@ -1725,10 +1771,12 @@ function renderProduction() {
     for (const entry of entries) {
       if (productionRows.has(entry.name)) continue;
       const row = element("div", "", "production-row");
-      const name = element("span", entry.name, "production-name");
+      const name = element("span", gameName("item", entry.name), "production-name");
       const rate = element("span", "", "production-rate");
       row.append(name, rate);
       row._productionRate = rate;
+      row._productionName = name;
+      row._productionKey = entry.name;
       productionRows.set(entry.name, row);
       productionItemOrder.push(entry.name);
       statusProductionList.append(row);
@@ -1737,6 +1785,7 @@ function renderProduction() {
   for (const name of productionItemOrder) {
     const row = productionRows.get(name);
     const value = Number(rates[name]) || 0;
+    row._productionName.textContent = gameName("item", row._productionKey);
     row._productionRate.textContent = `${Math.round(value)}${text.rateSuffix}`;
     row.classList.toggle("zero", value <= 0);
   }
@@ -1752,7 +1801,10 @@ function renderMetrics() {
     const research = telemetryResearchDetail(telemetrySamples);
     if (research) {
       const row = element("tr", "", "metric metric-research");
-      row.append(element("th", text.metrics.research, "metric-label"), metricValue("flask", research.name));
+      row.append(
+        element("th", text.metrics.research, "metric-label"),
+        metricValue("flask", gameName("technology", research.name)),
+      );
       const trendCell = element("td", "", "metric-trend");
       if (research.progress !== null) {
         const percent = Math.round(research.progress * 100);
@@ -2088,3 +2140,5 @@ if (id && toastBlueprintId) {
     }
   })();
 }
+
+void loadGameLocale();
