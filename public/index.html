@@ -42,8 +42,13 @@
             <textarea id="exchangeString" rows="3" spellcheck="false" placeholder=">>>eN...<<<"></textarea>
             <div class="map-config-head">
               <p class="muted">Decodes with the vendored FactorioPreviewToolkit and previews every planet. Preview only; it does not change the launch settings.</p>
-              <button id="previewExchange" type="button">Preview exchange</button>
+              <div class="exchange-actions">
+                <button id="exchangeFileButton" type="button">Load file</button>
+                <button id="exchangePaste" type="button">Paste clipboard</button>
+                <button id="previewExchange" type="button">Preview exchange</button>
+              </div>
             </div>
+            <input id="exchangeFile" type="file" accept=".txt" hidden>
             <p id="exchangeStatus" class="map-viewer-hint"></p>
           </div>
         </details>

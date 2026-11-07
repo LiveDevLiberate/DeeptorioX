@@ -96,3 +96,16 @@ test("run page exposes the agent blueprint catalogue and its toggle", () => {
   assert.match(recordingJs, /download=1/);
   assert.match(recordingJs, /blueprintDownload/);
 });
+
+test("launch page exposes exchange string file and clipboard providers", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "public", "index.html"), "utf8");
+  const js = fs.readFileSync(path.join(process.cwd(), "public", "runs.js"), "utf8");
+  assert.match(html, /id="exchangeString"/);
+  assert.match(html, /id="exchangeFile"/);
+  assert.match(html, /id="exchangeFileButton"/);
+  assert.match(html, /id="exchangePaste"/);
+  assert.match(html, /id="launchPreviewTabs"/);
+  assert.match(js, /exchangeFileButton/);
+  assert.match(js, /navigator\.clipboard/);
+  assert.match(js, /\/api\/map-preview\/exchange/);
+});

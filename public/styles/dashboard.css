@@ -490,3 +490,9 @@ html:not([data-theme="light"]) body.overlay #agentStatus {
   border-color: #6f9e4b;
   color: #d8f0c5;
 }
+
+.exchange-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}

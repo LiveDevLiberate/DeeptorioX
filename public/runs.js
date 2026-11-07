@@ -236,6 +236,23 @@ function showExchangePlanet(index) {
     button.classList.toggle("active", i === index);
   }
 }
+$("exchangeFileButton").onclick = () => $("exchangeFile").click();
+$("exchangeFile").onchange = async (event) => {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  $("exchangeString").value = await file.text();
+  $("previewExchange").click();
+};
+$("exchangePaste").onclick = async () => {
+  try {
+    if (!navigator.clipboard?.readText) throw new Error("clipboard API unavailable");
+    $("exchangeString").value = await navigator.clipboard.readText();
+    $("previewExchange").click();
+  } catch (error) {
+    $("exchangeStatus").textContent = `Clipboard: ${error.message}`;
+  }
+};
 $("previewExchange").onclick = async () => {
   const mapString = $("exchangeString").value.trim();
   if (!mapString) {
