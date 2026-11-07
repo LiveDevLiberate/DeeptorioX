@@ -25,3 +25,9 @@ test("preview uploaders support skip and local_sync", async () => {
     fs.rmSync(source, { force: true });
   }
 });
+
+test("toolkit viewer config accepts a dynamic preview query", () => {
+  const config = fs.readFileSync("public/toolkit-viewer/viewer_config.js", "utf8");
+  assert.match(config, /URLSearchParams/);
+  assert.match(config, /planetPreviewSources/);
+});

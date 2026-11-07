@@ -1,1 +1,1 @@
-const planetNames = ["nauvis"];
+const planetNames = ["nauvis", "vulcanus", "gleba", "fulgora", "aquilo"];

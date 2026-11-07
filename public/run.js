@@ -581,6 +581,50 @@ let seedPreviewUrl = null;
 $("seedPreviewExpand").onclick = () => {
   if (seedPreviewUrl) openPreview(seedPreviewUrl, "Seed map preview", "image");
 };
+function seedPreviewId() {
+  return seedPreviewUrl
+    ? seedPreviewUrl
+        .split("/")
+        .at(-1)
+        .replace(/\.png$/, "")
+    : "";
+}
+$("seedToolkitViewer").onclick = () => {
+  if (!seedPreviewUrl) return;
+  openPreview(
+    `/toolkit-viewer/index.html?image=${encodeURIComponent(seedPreviewUrl)}&planet=nauvis`,
+    "FactorioPreviewToolkit viewer",
+    "iframe",
+  );
+};
+$("seedUploadLocal").onclick = async () => {
+  const target = globalThis.prompt?.("Local sync folder", "");
+  if (!target) return;
+  try {
+    const result = await api("/api/map-previews/upload", {
+      id: seedPreviewId(),
+      method: "local_sync",
+      target,
+    });
+    $("seedUploadStatus").textContent = `uploaded → ${result.destination}`;
+  } catch (error) {
+    $("seedUploadStatus").textContent = error.message;
+  }
+};
+$("seedUploadRclone").onclick = async () => {
+  const remote = globalThis.prompt?.("rclone destination", "");
+  if (!remote) return;
+  try {
+    const result = await api("/api/map-previews/upload", {
+      id: seedPreviewId(),
+      method: "rclone",
+      remote,
+    });
+    $("seedUploadStatus").textContent = `rclone → ${result.destination}`;
+  } catch (error) {
+    $("seedUploadStatus").textContent = error.message;
+  }
+};
 $("seedPreviewGenerate").onclick = async () => {
   const button = $("seedPreviewGenerate");
   button.disabled = true;
@@ -592,6 +636,9 @@ $("seedPreviewGenerate").onclick = async () => {
     if (!seedMapViewer) seedMapViewer = globalThis.createMapViewer($("seedPreviewViewer"), result.url);
     else seedMapViewer.setSource(result.url);
     $("seedPreviewExpand").hidden = false;
+    $("seedToolkitViewer").hidden = false;
+    $("seedUploadLocal").hidden = false;
+    $("seedUploadRclone").hidden = false;
     $("seedPreviewStatus").textContent = `seed ${result.seed} · ${result.size}px`;
   } catch (error) {
     $("seedPreviewStatus").textContent = error.message;
@@ -604,6 +651,13 @@ if (id) {
   const previewParams = new URLSearchParams(location.search);
   if (previewParams.get("preview") === "seed") {
     $("seedPreviewGenerate").click();
+  } else if (previewParams.get("preview") === "toolkit") {
+    $("seedPreviewGenerate").click();
+    const toolkitTimer = setInterval(() => {
+      if (!seedPreviewUrl) return;
+      clearInterval(toolkitTimer);
+      $("seedToolkitViewer").click();
+    }, 250);
   } else if (previewParams.get("preview") === "blueprint") {
     const blueprintId = previewParams.get("blueprint");
     if (blueprintId) {
