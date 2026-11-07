@@ -1833,6 +1833,7 @@ function renderEventMarker(text, observedAt, baseStart = streamStart) {
   node._markerAt = observedAt;
   node._tech = /^researched\s+/i.test(String(text || "").trim());
   node._kind = "marker";
+  node.classList.toggle("tech", node._tech);
   node.append(markerText);
   prependIcon(node, "flag");
   const stamp = Date.parse(observedAt || "");

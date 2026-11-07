@@ -2252,3 +2252,27 @@ body.recording #codexOutput .goal-extra {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* One font stack for every transcript row and its first line. */
+body.recording #codexOutput .reasoning-summary,
+body.recording #codexOutput .commands-summary,
+body.recording #codexOutput .tool-details summary,
+body.recording #codexOutput .message,
+body.recording #codexOutput .message-body,
+body.recording #codexOutput .reasoning-summary-text,
+body.recording #codexOutput .commands-summary-text,
+body.recording #codexOutput .tool-summary-text,
+body.recording #codexOutput .reasoning-segment-text,
+body.recording #codexOutput .event-marker-text {
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+/* Technology completion markers have the same left rule as other rows. */
+body.recording #codexOutput .event-marker.tech {
+  padding: 5px 8px;
+  border-left: 2px solid #7fd8e8;
+  border-bottom: 1px solid var(--rule);
+}
