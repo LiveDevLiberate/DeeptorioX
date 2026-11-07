@@ -275,6 +275,7 @@ const terminal = new Set<RunState>(["completed", "failed", "stopped", "timed_out
 /** Codex-shaped transcript item written to agent.events.jsonl and rendered by the web UI. */
 type TranscriptItem = {
   id: string;
+  received_at?: string;
   type: "agent_message" | "reasoning" | "command_execution" | "event_marker";
   text?: string;
   command?: string;
@@ -286,6 +287,7 @@ type TranscriptItem = {
 /** One transcript line; the shared shape every agent backend emits for the UI. */
 type TranscriptEvent = {
   type: "thread.started" | "item.started" | "item.completed" | "error";
+  received_at?: string;
   thread_id?: string;
   message?: string;
   item?: TranscriptItem;
@@ -886,12 +888,17 @@ export class RunManager {
     return this.stateStatus();
   }
 
+  /** Stamp and append one event so the browser can show stable relative times. */
+  private appendAgentEvent(run: Run, event: TranscriptEvent) {
+    const receivedAt = new Date().toISOString();
+    event.received_at = receivedAt;
+    if (event.item) event.item.received_at = receivedAt;
+    fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), JSON.stringify(event) + "\n");
+  }
+
   /** Append a transcript marker (rendered by the recording window). */
   private emitTranscript(run: Run, item: TranscriptItem) {
-    fs.appendFileSync(
-      path.join(this.dir(run), "agent.events.jsonl"),
-      JSON.stringify({ type: "item.completed", item }) + "\n",
-    );
+    this.appendAgentEvent(run, { type: "item.completed", item });
   }
 
   /** Emit at most one marker per stale -> blocked -> fresh transition. */
@@ -1726,8 +1733,7 @@ export class RunManager {
     let eventBuffer = "",
       stderrTail = "";
     const decoder = new StringDecoder("utf8");
-    const emit = (event: TranscriptEvent) =>
-      fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), JSON.stringify(event) + "\n");
+    const emit = (event: TranscriptEvent) => this.appendAgentEvent(run, event);
     const plain = (text: string) => fs.appendFileSync(path.join(this.dir(run), "codex.log"), text + "\n");
     const limited = (message: string) => {
       if (run.state !== "running" || this.ending) return;
@@ -2019,8 +2025,7 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
       sequence = 0;
     const decoder = new StringDecoder("utf8");
     const usage: Record<string, number> = (resuming || restarting) && run.usage ? { ...run.usage } : {};
-    const emit = (event: TranscriptEvent) =>
-      fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), JSON.stringify(event) + "\n");
+    const emit = (event: TranscriptEvent) => this.appendAgentEvent(run, event);
     const plain = (text: string) => fs.appendFileSync(path.join(this.dir(run), "codex.log"), text + "\n");
     const limited = (message: string) => {
       if (run.state !== "running" || this.ending) return;
@@ -2300,17 +2305,20 @@ Re-read AGENTS.md and STATE.md, refresh STATE.md with state-write if stale, re-o
         const sessionId = sessionIdFromCodexOutput(outputTail);
         if (sessionId) run.session_id = sessionId;
       } else if (stream === "stdout") {
-        // Save exact JSONL bytes. The browser decodes partial UTF-8/JSON lines.
-        fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), chunk);
+        // Decode complete JSONL lines, stamp each event, then persist it. The
+        // browser still receives clean JSONL and can show relative timestamps.
         eventBuffer += eventDecoder.write(chunk);
         let newline: number;
         while ((newline = eventBuffer.indexOf("\n")) >= 0) {
           const line = eventBuffer.slice(0, newline);
           eventBuffer = eventBuffer.slice(newline + 1);
+          if (!line.trim()) continue;
           try {
-            for (const op of translateCodexEvent(JSON.parse(line), translator)) apply(op);
+            const event = JSON.parse(line) as TranscriptEvent;
+            this.appendAgentEvent(run, event);
+            for (const op of translateCodexEvent(event, translator)) apply(op);
           } catch {
-            /* Raw bytes remain available for diagnostics. */
+            fs.appendFileSync(path.join(this.dir(run), "agent.events.jsonl"), line + "\n");
           }
         }
       } else fs.appendFileSync(path.join(this.dir(run), "activity.log"), chunk);

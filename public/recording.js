@@ -1400,9 +1400,17 @@ output.addEventListener("scroll", () => {
   unread = 0;
   jumpButton.hidden = true;
 });
+function eventTimestamp(item) {
+  const stamp = Date.parse(item.received_at || "");
+  if (Number.isFinite(stamp)) return stamp;
+  const received = Number(item.receivedAt);
+  return Number.isFinite(received) && received > 0 ? received : null;
+}
 function timeLabel(item) {
-  if (!item.receivedAt || item.backfill || !streamStart) return null;
-  return formatRelativeMs(item.receivedAt - streamStart);
+  const stamp = eventTimestamp(item);
+  if (stamp === null || !streamStart) return null;
+  if (item.backfill && !item.received_at) return null;
+  return formatRelativeMs(stamp - streamStart);
 }
 function ensureCommandGroup() {
   if (!commandGroup) {
@@ -2049,15 +2057,17 @@ async function poll() {
       const text = decoder.decode(bytes, { stream: true });
       if (mode === "events") {
         const wasFirstBatch = firstBatch;
-        if (!streamStart) streamStart = Date.now();
         const generation = transcript.generation;
         const changed = transcript.push(text);
         if (transcript.generation !== generation) appendTurn(transcript.generation);
         for (const item of changed) {
           item.receivedAt = Date.now();
           item.backfill = wasFirstBatch;
+          const stamp = eventTimestamp(item);
+          if (stamp !== null && !streamStart) streamStart = stamp;
           render(item);
         }
+        if (!streamStart) streamStart = Date.now();
         if (changed.length) {
           if (follow) {
             output.scrollTop = output.scrollHeight;
