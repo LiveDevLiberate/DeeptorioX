@@ -1996,3 +1996,17 @@ body.recording #codexOutput .tool-details summary .icon,
 body.recording #codexOutput .event-marker .icon {
   color: #7fb8e6;
 }
+
+/* Reasoning rows are intentionally narrower than the transcript gutter. */
+body.recording #codexOutput details.reasoning,
+body.recording #codexOutput details.reasoning:not([open]) {
+  width: 60%;
+  max-width: 60%;
+}
+@media (max-width: 900px) {
+  body.recording #codexOutput details.reasoning,
+  body.recording #codexOutput details.reasoning:not([open]) {
+    width: 100%;
+    max-width: 100%;
+  }
+}
