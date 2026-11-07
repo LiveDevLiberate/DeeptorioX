@@ -3570,7 +3570,7 @@
   "schema_version": 1,
   "sources": {
     "factorio.py": "e44f2bda854a46d688d3e705ce8dac7cc9085affa0e6e02a212c4b6591836495",
-    "src/api/agent.ts": "88a00c6d4140a98682a92a1c5bb400962a2be16c2ff64fdb99d0089ec0556663",
+    "src/api/agent.ts": "dbda53546caf52ef72021dda9aa9feff2de1a1626dd38717eccaff31afc76748",
     "src/api/alerts.ts": "9323d77dc5cb326377fff01ff42967af9e93f3f49ceaad30cca401259a77a60d",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",

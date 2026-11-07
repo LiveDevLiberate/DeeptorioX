@@ -2300,3 +2300,44 @@ body.recording #codexOutput .message.decision .decision-icon {
   width: var(--icon-md);
   height: var(--icon-md);
 }
+
+/* Three equal status readouts, one row, at every viewport width. */
+body.recording .status-secondary .status-meta,
+body.recording .status-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  width: 100%;
+  max-width: 100%;
+  gap: 0 8px;
+  margin-left: 0;
+  text-align: left;
+}
+body.recording .status-stat {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+body.recording .status-stat-head {
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-width: 0;
+}
+body.recording .status-stat-label {
+  flex: 0 0 auto;
+}
+body.recording .status-stat-value {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Work-order heading sits tighter under the elapsed-time row. */
+body.recording .status-inner {
+  row-gap: 1.75px;
+}
+
+/* The header's inherited 24px bottom margin was the dominant work-order gap. */
+body.recording .status-head {
+  margin-bottom: 12px;
+}

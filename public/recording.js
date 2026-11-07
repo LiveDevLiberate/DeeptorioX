@@ -1288,7 +1288,7 @@ function renderStatus(run) {
     statusStat(
       "clock",
       strings.elapsedLabel,
-      `${formatElapsed(elapsedSeconds)} / ${formatElapsed(maxSeconds)}`,
+      formatElapsed(elapsedSeconds),
       elapsedSeconds / maxSeconds,
       `${strings.elapsedLabel}: ${formatElapsed(elapsedSeconds)} / ${formatElapsed(maxSeconds)}`,
     ),
@@ -1299,17 +1299,13 @@ function renderStatus(run) {
       Number(tokens || 0) / tokenQuota,
       `${strings.tokensLabel}: ${Number(tokens || 0).toLocaleString()}`,
     ),
-    ...(context
-      ? [
-          statusStat(
-            "brain",
-            strings.contextLabel,
-            `${Math.round(contextTokens / 1000)}k/${Math.round(contextLimit / 1000)}k`,
-            contextTokens / Math.max(1, contextLimit),
-            context,
-          ),
-        ]
-      : []),
+    statusStat(
+      "brain",
+      strings.contextLabel,
+      context ? `${Math.round(contextTokens / 1000)}k/${Math.round(contextLimit / 1000)}k` : "—",
+      contextLimit ? contextTokens / Math.max(1, contextLimit) : 0,
+      context || strings.contextLabel,
+    ),
   );
   const markdown = run.state_md || "";
   const current = (markdown.match(/^Current:\s*(.+)$/m) || [])[1] || "";
