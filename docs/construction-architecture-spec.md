@@ -869,21 +869,22 @@ Implemented in this branch:
 - post-plan verifier classification (`effective`, `neutral`, `ineffective`,
   `regressed`) and repeated-ineffective plan blocking;
 - manager-generated `power`, `pipe` and `belt` layout plans (straight/L power
-  trunks, coverage grids, straight pipe/belt runs) with canonical entities;
+  trunks, coverage grids, straight pipe/belt runs, and native-path waypoint
+  routes for lakes/cliffs) with canonical entities;
 - planned-mode working-block protection for cleanup targets (working production
-  machines are rejected before the plan is consumed);
-- manager-side blueprint material preflight against the player inventory;
+  machines and machines with stored items/fluids are rejected before the plan is
+  consumed);
+- manager-side blueprint material preflight against the player inventory,
+  including stored entity contents and modules;
+- server-side `/api/leaderboard` variant grouping and a dedicated leaderboard UI;
 - operator UI construction mode/variant labels and cross-variant comparison
   warnings;
 - tests for modes, token consume/mismatch/expiry-by-audit, blueprint expansion,
   chunked plans, cleanup plans, verifier behavior, layouts and API route behavior.
 
-Deferred to the next implementation phase:
+Remaining follow-ups:
 
-- pathfinding-aware service layouts around lakes/cliffs (current manager layouts
-  are straight or L and reject diagonal belt/pipe requests);
-- a dedicated leaderboard view with server-side variant grouping (the current
-  run/compare UI labels variants and warns on mixed comparisons);
-- exact blueprint item contents/modules preflight (manager preflight uses one
-  place item per expanded entity plus the client's detailed inventory check);
-- broader working-block classification beyond active production machine statuses.
+- move native pathfinding itself into the manager (the client supplies waypoint
+  routes today; the manager only lays canonical entities along them);
+- richer working-block classification for production chains and shared inputs;
+- cross-benchmark aggregation and calibration UI beyond variant groups.

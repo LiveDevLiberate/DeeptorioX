@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { planBeltLine, planPipeLine, planPowerLine, planPowerNetwork } from "../dist/construction-planners.js";
+import {
+  planBeltLine,
+  planPipeLine,
+  planPowerLine,
+  planPowerNetwork,
+} from "../dist/construction-planners.js";
 
 test("manager power line places wire-reach spaced poles and supports an L route", () => {
   const line = planPowerLine({
@@ -27,7 +32,10 @@ test("manager power line places wire-reach spaced poles and supports an L route"
 
 test("manager power network generates an aligned cover grid", () => {
   const entities = planPowerNetwork({
-    targets: [{ x: 0, y: 0, radius: 3 }, { x: 20, y: 20, radius: 3 }],
+    targets: [
+      { x: 0, y: 0, radius: 3 },
+      { x: 20, y: 20, radius: 3 },
+    ],
     pole: "substation",
   });
   assert.ok(entities.length >= 4);
@@ -41,10 +49,41 @@ test("manager power network generates an aligned cover grid", () => {
 test("manager belt/pipe lines generate one entity per tile and reject diagonals", () => {
   const belt = planBeltLine({ from: { x: 1, y: 2 }, to: { x: 1, y: 5 } });
   assert.equal(belt.length, 4);
-  assert.deepEqual(belt.map((entry) => entry.direction), [8, 8, 8, 8]);
+  assert.deepEqual(
+    belt.map((entry) => entry.direction),
+    [8, 8, 8, 8],
+  );
   const pipe = planPipeLine({ from: { x: 3, y: 3 }, to: { x: 6, y: 3 } });
   assert.equal(pipe.length, 4);
   assert.ok(pipe.every((entry) => entry.name === "pipe"));
   assert.throws(() => planBeltLine({ from: { x: 0, y: 0 }, to: { x: 2, y: 2 } }), /horizontal or vertical/);
   assert.throws(() => planPipeLine({ from: { x: 0, y: 0 }, to: { x: 2, y: 2 } }), /horizontal or vertical/);
+});
+
+test("path-aware plans follow native waypoints for belts, pipes and poles", async () => {
+  const { planBeltPath, planPipePath, planPowerPath } = await import("../dist/construction-planners.js");
+  const path = [
+    { x: 0, y: 0 },
+    { x: 2, y: 0 },
+    { x: 2, y: 2 },
+  ];
+  const belts = planBeltPath({ path });
+  assert.deepEqual(
+    belts.map((entry) => entry.direction),
+    [4, 4, 8, 8, 8],
+  );
+  assert.equal(planPipePath({ path }).length, 5);
+  const power = planPowerPath({ path, pole: "small-electric-pole", spacing: 2 });
+  assert.deepEqual(power[0].anchor, { x: 0, y: 0 });
+  assert.deepEqual(power.at(-1).anchor, { x: 2, y: 2 });
+  assert.throws(
+    () =>
+      planBeltPath({
+        path: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ],
+      }),
+    /axis-aligned/,
+  );
 });

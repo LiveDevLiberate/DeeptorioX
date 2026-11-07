@@ -66,8 +66,16 @@ import {
   type ConstructionTarget,
 } from "./construction.js";
 import { pointInRefactorCluster, type RefactorCluster } from "./refactor-audit.js";
-import { decodeBlueprintString, expandBlueprintPayload } from "./blueprints.js";
-import { planBeltLine, planPipeLine, planPowerLine, planPowerNetwork } from "./construction-planners.js";
+import { blueprintRequiredItems, decodeBlueprintString, expandBlueprintPayload } from "./blueprints.js";
+import {
+  planBeltLine,
+  planBeltPath,
+  planPipeLine,
+  planPipePath,
+  planPowerLine,
+  planPowerNetwork,
+  planPowerPath,
+} from "./construction-planners.js";
 import { normalizeMapGen } from "./map-config.js";
 import {
   listRunBlueprints,
@@ -1356,6 +1364,7 @@ export class RunManager {
     const anchor =
       Number.isFinite(anchorX) && Number.isFinite(anchorY) ? { x: anchorX, y: anchorY } : undefined;
     let decodedBlueprintHash: string | undefined;
+    let blueprintRequired: Record<string, number> | undefined;
     if (kind === "blueprint" && typeof record.blueprint === "string") {
       let decoded;
       try {
@@ -1416,10 +1425,29 @@ export class RunManager {
       }
       entities = canonical;
       decodedBlueprintHash = decoded.sha256;
+      blueprintRequired = blueprintRequiredItems(decoded.payload);
     }
     if (kind === "power" || kind === "pipe" || kind === "belt") {
       try {
-        if (kind === "power") {
+        if (Array.isArray(record.path)) {
+          if (kind === "power") {
+            entities = planPowerPath({
+              path: record.path,
+              pole: typeof record.pole === "string" ? record.pole : undefined,
+              spacing: record.spacing,
+            });
+          } else if (kind === "pipe") {
+            entities = planPipePath({
+              path: record.path,
+              name: typeof record.name === "string" ? record.name : undefined,
+            });
+          } else {
+            entities = planBeltPath({
+              path: record.path,
+              name: typeof record.name === "string" ? record.name : undefined,
+            });
+          }
+        } else if (kind === "power") {
           const from = integerLayoutPoint(record.from);
           const to = integerLayoutPoint(record.to);
           entities =
@@ -1580,8 +1608,10 @@ export class RunManager {
         { previous_plan_id: repeatedIneffective.plan_id },
       );
     }
-    const requiredItems: Record<string, number> = {};
-    for (const entity of entities) requiredItems[entity.name] = (requiredItems[entity.name] ?? 0) + 1;
+    const requiredItems: Record<string, number> = blueprintRequired ? { ...blueprintRequired } : {};
+    if (!blueprintRequired) {
+      for (const entity of entities) requiredItems[entity.name] = (requiredItems[entity.name] ?? 0) + 1;
+    }
     const ttlRaw = Number(process.env.AUTORIO_CONSTRUCTION_PLAN_TTL_SECONDS ?? 300);
     const ttl = Number.isFinite(ttlRaw) && ttlRaw > 0 ? Math.min(3600, Math.round(ttlRaw)) : 300;
     const now = Date.now();
@@ -2007,6 +2037,83 @@ export class RunManager {
       blueprints: count,
       message: blocked ? "No blueprint captured yet. Capture a validated layout before expanding." : "",
     };
+  }
+
+  /**
+   * Operator leaderboard grouped by benchmark construction variant. Free and
+   * planned runs never share a ranking group.
+   */
+  leaderboard() {
+    const groups = new Map<
+      string,
+      {
+        variant: string;
+        benchmark: string;
+        construction_mode: string;
+        blueprint_policy: string;
+        ranked: boolean;
+        runs: Array<{
+          id: string;
+          name: string;
+          state: RunState;
+          model: string | null;
+          elapsed_seconds: number;
+          score: number | null;
+          completed: boolean;
+          completion_seconds: number | null;
+          created_at: string;
+        }>;
+      }
+    >();
+    for (const run of this.runs.values()) {
+      if (run === this.active && !run.evaluation) continue;
+      const capability = run.evaluation?.capability;
+      const construction = run.construction;
+      const mode = capability?.construction_mode ?? construction?.mode ?? "free";
+      const variant =
+        capability?.variant ??
+        construction?.variant ??
+        `${run.benchmark.id}:${mode}:${run.scoring?.blueprint_policy ?? "none"}`;
+      const key = `${run.benchmark.id}:${variant}`;
+      const group = groups.get(key) ?? {
+        variant,
+        benchmark: run.benchmark.id,
+        construction_mode: mode,
+        blueprint_policy:
+          capability?.blueprint_policy ??
+          construction?.blueprints?.source ??
+          run.scoring?.blueprint_policy ??
+          "none",
+        ranked: run.benchmark.scoring.ranked,
+        runs: [],
+      };
+      groups.set(key, group);
+      group.runs.push({
+        id: run.id,
+        name: run.name || run.id,
+        state: run.state,
+        model: run.model ?? null,
+        elapsed_seconds: Math.round(run.elapsed_seconds),
+        score: capability ? capability.score : null,
+        completed: capability?.completed ?? false,
+        completion_seconds: capability?.completion_seconds ?? null,
+        created_at: run.created_at,
+      });
+    }
+    const sorted = [...groups.values()].map((group) => {
+      group.runs.sort(
+        (left, right) =>
+          Number(right.completed) - Number(left.completed) ||
+          (right.score ?? -1) - (left.score ?? -1) ||
+          left.elapsed_seconds - right.elapsed_seconds,
+      );
+      return group;
+    });
+    sorted.sort(
+      (left, right) =>
+        left.benchmark.localeCompare(right.benchmark) || left.variant.localeCompare(right.variant),
+    );
+    return { generated_at: new Date().toISOString(), groups: sorted };
   }
 
   private view(run: Run) {

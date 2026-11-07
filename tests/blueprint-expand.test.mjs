@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { expandBlueprintPayload } from "../dist/blueprints.js";
+import { blueprintRequiredItems, expandBlueprintPayload } from "../dist/blueprints.js";
 
 test("manager-side blueprint expansion converts centers to anchors and shifts to a target anchor", () => {
   const payload = {
@@ -57,4 +57,31 @@ test("manager-side blueprint expansion rejects books and unsupported underground
       }),
     /needs type 'input' or 'output'/,
   );
+});
+
+test("manager blueprint item bill includes stored inventory contents and modules", () => {
+  const required = blueprintRequiredItems({
+    blueprint: {
+      entities: [
+        {
+          name: "iron-chest",
+          position: { x: 1, y: 1 },
+          items: [{ id: 1, items: { "iron-plate": 10 } }],
+        },
+        {
+          name: "assembling-machine-1",
+          position: { x: 3, y: 3 },
+          items_in_inventory: [{ id: 1, items: [{ name: "copper-plate", count: 4 }] }],
+          modules: [{ name: "speed-module", count: 2 }],
+        },
+      ],
+    },
+  });
+  assert.deepEqual(required, {
+    "iron-chest": 1,
+    "iron-plate": 10,
+    "assembling-machine-1": 1,
+    "copper-plate": 4,
+    "speed-module": 2,
+  });
 });

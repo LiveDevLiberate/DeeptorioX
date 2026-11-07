@@ -1112,6 +1112,12 @@ test("evaluation v2 records capability from milestone first-seen time", async ()
     assert.ok(Array.isArray(evaluation.discipline.flags));
     assert.equal(view.scoring.par_seconds, 15);
     assert.ok(view.legacy_automation !== undefined || view.automation !== undefined);
+    const board = manager.leaderboard();
+    const group = board.groups.find((entry) => entry.benchmark === "smoke");
+    assert.ok(group);
+    assert.match(group.variant, /smoke:free:/);
+    assert.equal(group.construction_mode, "free");
+    assert.ok(group.runs.some((entry) => entry.id === run.id && entry.completed));
   } finally {
     await manager.shutdown();
   }
@@ -1435,6 +1441,16 @@ test("manager layout plans generate power, pipe and belt entities without agent 
     });
     assert.equal(belt.planned_entities.length, 3);
     assert.ok(belt.planned_entities.every((entry) => entry.direction === 8));
+    const pathBelt = manager.createConstructionPlan({
+      kind: "belt",
+      path: [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+        { x: 2, y: 2 },
+      ],
+    });
+    assert.equal(pathBelt.planned_entities.length, 5);
+    assert.deepEqual(pathBelt.planned_entities.map((entry) => entry.direction), [4, 4, 8, 8, 8]);
   } finally {
     await manager.stop();
   }

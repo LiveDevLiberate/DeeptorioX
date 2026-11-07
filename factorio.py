@@ -3120,6 +3120,7 @@ class FactorioClient:
         mirror: bool | None = None,
         from_xy: Any = None,
         to_xy: Any = None,
+        path: list[dict[str, Any]] | None = None,
         pole: str | None = None,
         spacing: int | None = None,
         name: str | None = None,
@@ -3165,6 +3166,8 @@ class FactorioClient:
             body["from"] = from_xy
         if to_xy is not None:
             body["to"] = to_xy
+        if path is not None:
+            body["path"] = path
         if pole is not None:
             body["pole"] = pole
         if spacing is not None:
@@ -3993,6 +3996,22 @@ class FactorioClient:
             layout_kind = "power" if canonical == "pole" else canonical
             if canonical == "pipe" and underground:
                 planned = None
+            elif route == "auto":
+                path_x, path_y = _planner_point(to_xy, "to")
+                path_points = _job_path_points(
+                    self.preview_path(float(path_x) + 0.5, float(path_y) + 0.5)
+                )
+                planned = (
+                    self._planned_layout(
+                        layout_kind,
+                        path=path_points,
+                        pole=name or POWER_POLE_BIG,
+                        spacing=spacing,
+                        name=name,
+                    )
+                    if path_points
+                    else None
+                )
             else:
                 planned = self._planned_layout(
                     layout_kind,

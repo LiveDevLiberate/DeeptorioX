@@ -2756,6 +2756,13 @@
           "required": false
         },
         {
+          "annotation": "list[dict[str, Any]] | None",
+          "default": "None",
+          "kind": "keyword_only",
+          "name": "path",
+          "required": false
+        },
+        {
           "annotation": "str | None",
           "default": "None",
           "kind": "keyword_only",
@@ -2777,7 +2784,7 @@
           "required": false
         }
       ],
-      "signature": "plan_construction(self, kind: 'str', *, entities: 'list[dict[str, Any]] | None' = None, targets: 'list[dict[str, Any]] | None' = None, blueprint_id: 'str | None' = None, blueprint_hash: 'str | None' = None, blueprint: 'str | None' = None, prototype_sizes: 'dict[str, Any] | None' = None, anchor: 'Any' = None, rotation: 'int | None' = None, mirror: 'bool | None' = None, from_xy: 'Any' = None, to_xy: 'Any' = None, pole: 'str | None' = None, spacing: 'int | None' = None, name: 'str | None' = None) -> 'dict[str, Any] | None'"
+      "signature": "plan_construction(self, kind: 'str', *, entities: 'list[dict[str, Any]] | None' = None, targets: 'list[dict[str, Any]] | None' = None, blueprint_id: 'str | None' = None, blueprint_hash: 'str | None' = None, blueprint: 'str | None' = None, prototype_sizes: 'dict[str, Any] | None' = None, anchor: 'Any' = None, rotation: 'int | None' = None, mirror: 'bool | None' = None, from_xy: 'Any' = None, to_xy: 'Any' = None, path: 'list[dict[str, Any]] | None' = None, pole: 'str | None' = None, spacing: 'int | None' = None, name: 'str | None' = None) -> 'dict[str, Any] | None'"
     },
     {
       "description": "Plan an orthogonal belt/pipe/wall/power route through free space.",
@@ -3509,7 +3516,7 @@
       "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "3c71543b2b49273857a6816ba0db94a629ca4b74dca3f3083c198962a3ce2253",
+  "client_sha256": "93cbf4a8fdd25a77969cb192f46779e45877262f2a927e9d7094ec81750ef3d8",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3716,15 +3723,15 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "3c71543b2b49273857a6816ba0db94a629ca4b74dca3f3083c198962a3ce2253",
+    "factorio.py": "93cbf4a8fdd25a77969cb192f46779e45877262f2a927e9d7094ec81750ef3d8",
     "src/api/agent.ts": "538cc87a01ef7029f6d05510cf3b24cc2ce83d5654e99aa76b9e77044cc395ef",
     "src/api/alerts.ts": "d491a17165f4d93f4153e8d465b4e345a72ef313225b57fd8942e6beb9b77e78",
     "src/api/area-edit.ts": "ac0571688c4e2649e1bdbcecf8f7a1f40adba663c7e3632ed8ec29f252b2ee3f",
     "src/api/construction.ts": "fffd140e8bc604844eef989d2a37c1d61c62c812659a3d2f03aa560fbb8fa952",
     "src/api/context.ts": "db1dc225b45611ed1c664306877ca9f7414b8ba258f1ebad980167061089acaf",
-    "src/api/jobs.ts": "5b7adb82a6390e07bca95e3badb1c222c3fd25cbb212d5feb62c6c8913b0856b",
+    "src/api/jobs.ts": "62880f7f46d929f714a3f50233c55733eeb8899a09b7d251af45f5c9edb8ee51",
     "src/api/manager.ts": "e6bcd846551415382491c67ce7c85ed2f47757fd7c2080b6e56c9a46a59b1642",
-    "src/api/runs.ts": "2f1e827c7921cb1fb20fce9f42f90e264284b852580255a6428d0d49401b7f28",
+    "src/api/runs.ts": "e1b449f618c14e2943055f848f656650983389f6a0b2e431d82b1304a22c5c3e",
     "src/api/saves.ts": "8b958dc012a81bbae03e0374769b566b0c5b6ab5c11a75084fb52b1401b4024c",
     "src/api/server.ts": "31cb22a15706fc375920c27fe7739a25d4b46723a27b3814c3ee92efb825d62a",
     "src/api/shared.ts": "18ab5d4edec83b31841cbb32b243351f7b7f54876eff1e79e167052c761d70ed",

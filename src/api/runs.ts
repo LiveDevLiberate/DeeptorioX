@@ -40,6 +40,16 @@ export function registerRunsRoutes(router: Router, ctx: ApiContext): void {
 
   router.add({
     method: "GET",
+    path: "/api/leaderboard",
+    name: "/api/leaderboard",
+    handler: (request) => {
+      const { res } = request;
+      return json(res, 200, runManager.leaderboard());
+    },
+  });
+
+  router.add({
+    method: "GET",
     path: "/api/benchmarks",
     name: "/api/benchmarks",
     handler: (request) => {

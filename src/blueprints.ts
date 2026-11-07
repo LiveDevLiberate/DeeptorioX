@@ -291,6 +291,58 @@ export function expandBlueprintPayload(
   return order.map((entry) => entry.entity);
 }
 
+function addItemMap(target: Record<string, number>, value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) addItemCounts(target, entry);
+    return;
+  }
+  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+  if (!record) return;
+  if (asString(record.name)) {
+    addItemCounts(target, record);
+    return;
+  }
+  for (const [name, rawCount] of Object.entries(record)) {
+    const count = asNumber(rawCount);
+    if (count !== undefined && count > 0) target[name] = (target[name] ?? 0) + count;
+  }
+}
+
+function addItemCounts(target: Record<string, number>, value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) addItemCounts(target, entry);
+    return;
+  }
+  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+  if (!record) return;
+  const name = asString(record.name);
+  const count = asNumber(record.count);
+  if (name && count !== undefined && count > 0) target[name] = (target[name] ?? 0) + count;
+}
+
+/** Approximate item bill for a decoded blueprint including stored entity contents/modules. */
+export function blueprintRequiredItems(payload: Record<string, unknown>): Record<string, number> {
+  const required: Record<string, number> = {};
+  for (const entity of blueprintEntities(payload)) {
+    const name = asString(entity.name);
+    if (name) required[name] = (required[name] ?? 0) + 1;
+    for (const field of ["items", "items_in_inventory"]) {
+      const contents = entity[field];
+      if (Array.isArray(contents)) {
+        for (const inventory of contents) {
+          const record =
+            inventory && typeof inventory === "object" ? (inventory as Record<string, unknown>) : undefined;
+          addItemMap(required, record?.items);
+        }
+      } else {
+        addItemMap(required, contents);
+      }
+    }
+    addItemCounts(required, entity.modules);
+  }
+  return required;
+}
+
 /**
  * Decode a Factorio blueprint wire string and produce the run-page summary.
  *

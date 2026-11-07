@@ -260,7 +260,27 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
             const working = (parsed.results ?? []).filter((result) => {
               const type = String(result.type ?? "");
               const status = String(result.status ?? "none");
-              return protectedTypes.has(type) && !inactive.has(status);
+              if (!protectedTypes.has(type)) return false;
+              if (!inactive.has(status)) return true;
+              const inventories = Array.isArray(result.inventories) ? result.inventories : [];
+              const hasItems = inventories.some((inventory) => {
+                const record =
+                  inventory && typeof inventory === "object"
+                    ? (inventory as Record<string, unknown>)
+                    : undefined;
+                return Array.isArray(record?.slots) && record.slots.length > 0;
+              });
+              const fluids = Array.isArray(result.fluid_boxes) ? result.fluid_boxes : [];
+              const hasFluid = fluids.some((box) => {
+                const record = box && typeof box === "object" ? (box as Record<string, unknown>) : undefined;
+                const fluid =
+                  record?.fluid && typeof record.fluid === "object"
+                    ? (record.fluid as Record<string, unknown>)
+                    : undefined;
+                return Number(fluid?.amount) > 0;
+              });
+              const contents = Array.isArray(result.fluid_contents) ? result.fluid_contents : [];
+              return hasItems || hasFluid || contents.length > 0;
             });
             if (working.length) {
               return json(res, 409, {
