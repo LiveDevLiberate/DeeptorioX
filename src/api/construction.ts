@@ -2,6 +2,7 @@ import { Router } from "../http/router.js";
 import { json, readJsonBody } from "../http/plumbing.js";
 import { ConstructionPlanError } from "../construction.js";
 import { agentFreeSpaceCommand } from "../command-builders.js";
+import { observeAreaCommand } from "../area-edit.js";
 import type { ApiContext } from "./context.js";
 
 /**
@@ -182,9 +183,32 @@ export function registerConstructionRoutes(router: Router, ctx: ApiContext): voi
         Math.sign(point.y - previousPoint.y) !== Math.sign(nextPoint.y - point.y)
       );
     });
+    let existingPoles: Array<{ x: number; y: number }> = [];
+    if (kind === "power") {
+      try {
+        const poleResponse = await rconCommand(
+          observeAreaCommand({
+            x: Math.round(midX),
+            y: Math.round(midY),
+            radius,
+            limit: 200,
+            playerOnly: false,
+            types: ["electric-pole", "substation"],
+          }),
+          8000,
+        );
+        const poleData = JSON.parse(poleResponse) as { entities?: Array<Record<string, unknown>> };
+        existingPoles = (poleData.entities ?? [])
+          .map((entity) => ({ x: Number(entity.x), y: Number(entity.y) }))
+          .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+      } catch {
+        // Reuse is an optimization; fall back to a fresh trunk.
+      }
+    }
     return runManager.createConstructionPlan({
       ...body,
       path: waypoints,
+      ...(existingPoles.length ? { existing_poles: existingPoles } : {}),
     });
   };
 

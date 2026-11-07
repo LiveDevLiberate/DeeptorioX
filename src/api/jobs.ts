@@ -5,6 +5,7 @@ import { asRecord, asString } from "../validation.js";
 import { ConstructionPlanError } from "../construction.js";
 import { agentObserveEntityCommand, agentPlayerCommand } from "../command-builders.js";
 import { observeAreaCommand } from "../area-edit.js";
+import { workingBlockTiles } from "../construction-protection.js";
 import { rconConfigured } from "./shared.js";
 import type { ApiContext } from "./context.js";
 
@@ -273,20 +274,12 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
                 const status = typeof entity.status === "string" ? entity.status : "none";
                 return protectedTypes.has(type) && !inactive.has(status);
               });
+              const chainTiles = workingBlockTiles(area.entities);
               const chainHit = targets.find((target) => {
                 const record = asRecord(target) ?? {};
                 const x = Number(record.x);
                 const y = Number(record.y);
-                return activeMachines.some((machine) => {
-                  const mx = Number(machine.x);
-                  const my = Number(machine.y);
-                  return (
-                    Number.isFinite(mx) &&
-                    Number.isFinite(my) &&
-                    Math.abs(mx - x) <= 4 &&
-                    Math.abs(my - y) <= 4
-                  );
-                });
+                return chainTiles.has(`${Math.floor(x)},${Math.floor(y)}`);
               });
               if (chainHit && activeMachines.length) {
                 return json(res, 409, {

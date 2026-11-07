@@ -1468,6 +1468,7 @@ export class RunManager {
               path: record.path,
               pole: typeof record.pole === "string" ? record.pole : undefined,
               spacing: record.spacing,
+              existing_poles: record.existing_poles,
             });
           } else if (kind === "pipe") {
             entities = planPipePath({

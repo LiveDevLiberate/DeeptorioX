@@ -886,8 +886,8 @@ Implemented in this branch:
 
 Final polish implemented:
 
-- production-chain working-block guard (active machines plus their local feeder
-  neighborhood);
+- production-chain working-block guard using a machine → inserter → feeder tile
+  graph (not just a radius);
 - target-aware verifier using the plan bbox cluster delta, with global debt as
   fallback;
 - audit-revision freeze for in-progress chunked plans;
@@ -895,14 +895,15 @@ Final polish implemented:
   calibration;
 - leaderboard filters by benchmark/variant/model;
 - run-page construction plan history and recording construction badge;
-- turn-penalized manager route (straight corridors preferred);
+- turn-penalized manager route (straight corridors preferred), with existing
+  power-pole reuse on route power plans;
 - generic plan material preflight (blueprint and layout plans);
 - manager-side blueprint rotation/mirror transforms (quarter-turn*2 convention:
   2=90°, 4=180°, 6=270°) for anchor/prototype-size expanded entities.
 
 Remaining follow-ups:
 
-- route optimization that reuses existing power/belt assets instead of only
-  penalizing turns;
-- production-chain classification beyond the local feeder neighborhood;
+- route/belt/pipe reuse of existing matching assets (current free-space routing
+  avoids existing entities; only power poles are actively reused);
+- production-chain classification across longer belt/inserter chains;
 - rotation/mirror validation against every multi-tile prototype footprint.

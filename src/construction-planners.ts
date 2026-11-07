@@ -230,8 +230,12 @@ export function planPowerPath(input: {
   path: unknown;
   pole?: string;
   spacing?: unknown;
+  existing_poles?: unknown;
 }): ConstructionEntity[] {
-  const path = integerPath(input.path);
+  const path = expandedPath(input.path);
+  const existingPoles = (Array.isArray(input.existing_poles) ? input.existing_poles : [])
+    .map((entry) => integerPoint(entry))
+    .filter((entry): entry is LayoutPoint => Boolean(entry));
   const pole =
     (input.pole ?? "big-electric-pole") in POLE_REACH ? (input.pole as PowerPoleName) : "big-electric-pole";
   const reach = POLE_REACH[pole];
@@ -248,7 +252,10 @@ export function planPowerPath(input: {
       const previous = path[index - 1];
       sinceLast += Math.abs(point.x - previous.x) + Math.abs(point.y - previous.y);
     }
-    if (index === 0 || index === path.length - 1 || sinceLast >= spacing) {
+    const covered = existingPoles.some(
+      (existing) => Math.abs(existing.x - point.x) + Math.abs(existing.y - point.y) <= 2,
+    );
+    if (index === 0 || index === path.length - 1 || (sinceLast >= spacing && !covered)) {
       entities.push({ name: pole, anchor: point });
       sinceLast = 0;
     }
