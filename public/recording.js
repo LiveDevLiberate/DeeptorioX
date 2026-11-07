@@ -191,7 +191,7 @@ const I18N = {
     filterGroupLabel: "Filter by category",
     planKicker: "Work order",
     telemetryKicker: "Readouts",
-    documentTitle: "Autorio factory log",
+    documentTitle: "DeeptorioX factory log",
     factoryLog: "factory log",
     modelLabel: "model",
     elapsedLabel: "elapsed",
@@ -365,7 +365,7 @@ const I18N = {
     filterGroupLabel: "按类别过滤",
     planKicker: "作业指令",
     telemetryKicker: "运行读数",
-    documentTitle: "Autorio 工厂日志",
+    documentTitle: "DeeptorioX 工厂日志",
     factoryLog: "工厂日志",
     modelLabel: "模型",
     elapsedLabel: "已用时",
@@ -1037,7 +1037,7 @@ document.addEventListener?.("keydown", (event) => {
   }
 });
 updateThemeToggleLabel();
-document.title = "Autorio factory log";
+document.title = "DeeptorioX factory log";
 function element(tag, text, className) {
   const node = document.createElement(tag);
   if (text) node.textContent = text;
@@ -1640,7 +1640,7 @@ function updateTranscriptTools(text) {
     .getElementById("filterGroup")
     ?.setAttribute("aria-label", text.filterGroupLabel || "Filter by category");
   updateSectionLabels(text);
-  document.title = text.documentTitle || "Autorio factory log";
+  document.title = text.documentTitle || "DeeptorioX factory log";
   updateStatusToggleLabel();
 }
 function nodeMatchesFilter(node) {
@@ -2095,10 +2095,10 @@ async function poll() {
       void pollTelemetry();
       offset = log.offset;
     }
-    document.title = "Autorio factory log";
+    document.title = "DeeptorioX factory log";
   } catch {
     showConnectionNotice();
-    document.title = "Autorio factory log";
+    document.title = "DeeptorioX factory log";
   } finally {
     setTimeout(poll, 250);
   }

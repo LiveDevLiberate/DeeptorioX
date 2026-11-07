@@ -391,7 +391,7 @@ async function refresh() {
   try {
     const run = await api(`/api/runs/${encodeURIComponent(id)}`);
     $("runContent").hidden = false;
-    document.title = `${run.name || run.id} · Autorio`;
+    document.title = `${run.name || run.id} · DeeptorioX`;
     renderProgress(run);
     renderRefactorAlert(run);
     renderStatePanel(run);
