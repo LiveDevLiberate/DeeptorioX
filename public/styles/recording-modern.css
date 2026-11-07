@@ -2361,3 +2361,15 @@ body.recording #codexOutput .reasoning.decision .reasoning-summary .icon {
     max-width: 100%;
   }
 }
+
+/* Narrow transcript toolbar: tighten the vertical bands around the filter row. */
+@media (max-width: 720px) {
+  body.recording .status-inner {
+    padding-bottom: 4px;
+  }
+  body.recording .transcript-pane > #transcriptTools {
+    padding-top: 3px;
+    padding-bottom: 3px;
+    gap: 4px;
+  }
+}

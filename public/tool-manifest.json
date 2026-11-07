@@ -465,8 +465,8 @@
     {
       "command": "state-write",
       "description": "Write/refresh STATE.md (resets the update deadline gate).",
-      "help": "Usage: factorio.py state-write --current <text> [--done-when <text>] [--next <text>] [--scores production=50,logistics=40,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>] Mutating actions are refused with STATE_UPDATE_REQUIRED once STATE.md is too old; call this to continue.",
-      "usage": "Usage: factorio.py state-write --current <text> [--done-when <text>] [--next <text>] [--scores production=50,logistics=40,...] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]"
+      "help": "Usage: factorio.py state-write --current <text> [--done-when <text>] [--next <text>] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>] Scores are not accepted: agent self-scoring is disabled. Mutating actions are refused with STATE_UPDATE_REQUIRED once STATE.md is too old; call this to continue.",
+      "usage": "Usage: factorio.py state-write --current <text> [--done-when <text>] [--next <text>] [--objective <text>] [--timebox <text>] [--progress <text>] [--notes <text>] [--markdown <text>]"
     },
     {
       "command": "tools",
@@ -3311,13 +3311,6 @@
           "required": true
         },
         {
-          "annotation": "dict[str, int] | None",
-          "default": "None",
-          "kind": "keyword_only",
-          "name": "scores",
-          "required": false
-        },
-        {
           "annotation": "str | None",
           "default": "None",
           "kind": "keyword_only",
@@ -3367,10 +3360,10 @@
           "required": false
         }
       ],
-      "signature": "write_state(self, current: 'str', *, scores: 'dict[str, int] | None' = None, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
+      "signature": "write_state(self, current: 'str', *, done_when: 'str | None' = None, next: 'str | None' = None, objective: 'str | None' = None, timebox: 'str | None' = None, progress: 'str | None' = None, notes: 'str | None' = None, markdown: 'str | None' = None) -> 'Any'"
     }
   ],
-  "client_sha256": "e44f2bda854a46d688d3e705ce8dac7cc9085affa0e6e02a212c4b6591836495",
+  "client_sha256": "8bda668490defea3be44735dd8d4aa8f16fd10c00910a7b9c0f962aef9393b69",
   "manager_endpoints": [
     {
       "method": "POST",
@@ -3569,7 +3562,7 @@
   ],
   "schema_version": 1,
   "sources": {
-    "factorio.py": "e44f2bda854a46d688d3e705ce8dac7cc9085affa0e6e02a212c4b6591836495",
+    "factorio.py": "8bda668490defea3be44735dd8d4aa8f16fd10c00910a7b9c0f962aef9393b69",
     "src/api/agent.ts": "dbda53546caf52ef72021dda9aa9feff2de1a1626dd38717eccaff31afc76748",
     "src/api/alerts.ts": "d491a17165f4d93f4153e8d465b4e345a72ef313225b57fd8942e6beb9b77e78",
     "src/api/area-edit.ts": "de06cf66bd49aa7917abfe1f9d892d35aabad622044a52dc0a3ca726fa61ae2d",
@@ -3580,7 +3573,7 @@
     "src/api/saves.ts": "8b958dc012a81bbae03e0374769b566b0c5b6ab5c11a75084fb52b1401b4024c",
     "src/api/server.ts": "31cb22a15706fc375920c27fe7739a25d4b46723a27b3814c3ee92efb825d62a",
     "src/api/shared.ts": "18ab5d4edec83b31841cbb32b243351f7b7f54876eff1e79e167052c761d70ed",
-    "src/api/state.ts": "55710ab2685e1ad6ac4e81ae9a9c589d01d4130dab3050af1c941449f0a60e96",
+    "src/api/state.ts": "483af0261a70f73535052d0a10f1046a274805c72ee32d5319ba2c54c85b263b",
     "src/api/telemetry.ts": "62b2b34ba5448a9e9a75122be59fb7ce58208285428faf4fbcda238bc61c51e0",
     "src/api/tools.ts": "c55721b4f55466cb5de29448fe91d32d5481da09b1dc44612a5f855554c42bb6"
   }
