@@ -1660,3 +1660,8 @@ body.recording #codexOutput .reasoning:not([open]) .reasoning-summary {
     white-space: normal;
   }
 }
+
+/* 20% larger radar axis labels. */
+body.recording .score-radar .radar-label {
+  font-size: 10.2px;
+}
