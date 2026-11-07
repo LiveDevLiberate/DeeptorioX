@@ -2531,6 +2531,8 @@ class FactorioClient:
         return {
             "counts": data.get("counts"),
             "window": data.get("window"),
+            "pipe_components": data.get("pipe_components", []),
+            "pipe_topology": data.get("pipe_topology"),
             "bottlenecks": data.get("bottlenecks", []),
             "bottleneck_actions": data.get("bottleneck_actions", []),
         }
