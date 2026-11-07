@@ -84,7 +84,7 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     "filterAll",
     "filterThinking",
     "filterActions",
-    "filterMessages",
+    "filterTech",
     "filterErrors",
     "filterDecisions",
     "codexOutput",
@@ -201,6 +201,10 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     {
       type: "item.completed",
       item: { id: "marker1", type: "event_marker", text: "Plan needs updating: STATE.md unchanged for 320s" },
+    },
+    {
+      type: "item.completed",
+      item: { id: "tech1", type: "event_marker", text: "researched automation" },
     },
     {
       type: "item.completed",
@@ -399,6 +403,13 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     const commandsAfterFilter = output.children.find((node) => node.className.includes("commands"));
     assert.equal(commandsAfterFilter.hidden, false, "action filter must keep command groups visible");
     assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, true);
+    nodes.filterTech.fire("click");
+    const techMarker = output.children.find((node) => node._tech);
+    assert.ok(techMarker, "tech filter should find the researched marker");
+    assert.equal(techMarker.hidden, false);
+    assert.equal(commandsAfterFilter.hidden, true);
+    assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, true);
+    nodes.filterAll.fire("click");
     // Messages filter has been removed; decisions is the remaining goal view.
     // Decisions filter keeps only goal messages, never reasoning content.
     nodes.filterDecisions.fire("click");

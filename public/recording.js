@@ -68,6 +68,7 @@ const FILTER_BUTTONS = {
   all: document.getElementById("filterAll"),
   thinking: document.getElementById("filterThinking"),
   actions: document.getElementById("filterActions"),
+  tech: document.getElementById("filterTech"),
   errors: document.getElementById("filterErrors"),
   decisions: document.getElementById("filterDecisions"),
 };
@@ -76,6 +77,7 @@ const FILTER_ICONS = {
   all: "stack",
   thinking: "brain",
   actions: "wrench",
+  tech: "flask",
   errors: "siren",
   decisions: "compass",
 };
@@ -250,6 +252,7 @@ const I18N = {
       all: "All",
       thinking: "Thinking",
       actions: "Actions",
+      tech: "Tech",
       errors: "Errors",
       decisions: "Decisions",
     },
@@ -422,6 +425,7 @@ const I18N = {
       all: "全部",
       thinking: "思考",
       actions: "动作",
+      tech: "科技",
       errors: "错误",
       decisions: "决策",
     },
@@ -1650,7 +1654,7 @@ function render(item) {
   if (item.type === "command_execution") renderCommand(item);
   else if (item.type === "reasoning") renderReasoning(item);
   else if (item.type === "agent_message" || item.type === "error") renderMessage(item);
-  else if (item.type === "event_marker") renderEventMarker(item.text || "");
+  else if (item.type === "event_marker") renderEventMarker(item.text || "", item.received_at);
   else renderTool(item);
 }
 function appendTurn(generation) {
@@ -1700,6 +1704,7 @@ function nodeMatchesFilter(node) {
   if (filterMode === "thinking")
     return kind === "reasoning" || (kind === "message" && Boolean(node._decision));
   if (filterMode === "actions") return kind === "commands";
+  if (filterMode === "tech") return kind === "marker" && Boolean(node._tech);
   if (filterMode === "errors")
     return Boolean(node._error) || (kind === "commands" && node.classList.contains("failed"));
   if (filterMode === "decisions") return kind === "message" && Boolean(node._decision);
@@ -1776,7 +1781,10 @@ function trimTranscript() {
 function relocalizeMarkers() {
   if (!output) return;
   for (const node of output.children || []) {
-    if (node && node._markerRaw) node.textContent = localizeMarker(node._markerRaw);
+    if (node && node._markerRaw) {
+      if (node._markerText) node._markerText.textContent = localizeMarker(node._markerRaw);
+      else node.textContent = localizeMarker(node._markerRaw);
+    }
   }
 }
 function localizeMarker(text) {
@@ -1792,12 +1800,21 @@ function localizeMarker(text) {
   }
   return value;
 }
-function renderEventMarker(text) {
+function renderEventMarker(text, observedAt) {
   commandGroup = null;
-  const node = element("div", localizeMarker(text), "event-marker");
+  const node = element("div", "", "event-marker");
+  const markerText = element("span", localizeMarker(text), "event-marker-text");
   node._markerRaw = text;
+  node._markerText = markerText;
+  node._markerAt = observedAt;
+  node._tech = /^researched\s+/i.test(String(text || "").trim());
   node._kind = "marker";
+  node.append(markerText);
   prependIcon(node, "flag");
+  const stamp = Date.parse(observedAt || "");
+  if (Number.isFinite(stamp) && streamStart) {
+    node.append(element("span", formatRelativeMs(stamp - streamStart), "msg-time"));
+  }
   output.append(node);
 }
 function metricValue(iconName, value) {
@@ -2011,7 +2028,8 @@ async function pollTelemetry() {
     telemetrySamples = telemetrySamples.concat(samples).slice(-120);
     const latest = telemetrySamples.at(-1);
     if (baseline && latest) {
-      for (const marker of telemetryMarkers(baseline, latest)) renderEventMarker(marker);
+      if (!streamStart && latest.observed_at) streamStart = Date.parse(latest.observed_at);
+      for (const marker of telemetryMarkers(baseline, latest)) renderEventMarker(marker, latest.observed_at);
     }
     lastMarkerSample = latest ?? lastMarkerSample;
     renderMetrics();

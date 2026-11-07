@@ -73,6 +73,7 @@ test("recording page keeps its semantic structure and information surfaces", () 
     "filterAll",
     "filterThinking",
     "filterActions",
+    "filterTech",
     "filterErrors",
     "filterDecisions",
     "transcriptSearch",
@@ -106,6 +107,7 @@ test("recording page keeps its semantic structure and information surfaces", () 
   assert.match(html, /class="icon icon-layers"/);
   assert.match(html, /class="icon icon-brain"/);
   assert.match(html, /class="icon icon-wrench"/);
+  assert.match(html, /class="icon icon-flask"/);
   assert.match(html, /class="icon icon-siren"/);
   assert.match(html, /class="icon icon-compass"/);
 });
