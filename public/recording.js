@@ -184,12 +184,12 @@ const I18N = {
     planPenalty: "plan",
     runStatusLabel: "Run status",
     planLabel: "Current plan",
-    telemetryLabel: "Live telemetry",
+    telemetryLabel: "Game state",
     searchLabel: "Filter transcript",
     filtersLabel: "Transcript filters",
     filterGroupLabel: "Filter by category",
     planKicker: "Work order",
-    telemetryKicker: "Readouts",
+    telemetryKicker: "Game state",
     documentTitle: "DeeptorioX factory log",
     factoryLog: "factory log",
     modelLabel: "model",
@@ -358,12 +358,12 @@ const I18N = {
     planPenalty: "计划",
     runStatusLabel: "运行状态",
     planLabel: "当前计划",
-    telemetryLabel: "实时遥测",
+    telemetryLabel: "游戏状态",
     searchLabel: "过滤记录",
     filtersLabel: "记录过滤",
     filterGroupLabel: "按类别过滤",
     planKicker: "作业指令",
-    telemetryKicker: "运行读数",
+    telemetryKicker: "游戏状态",
     documentTitle: "DeeptorioX 工厂日志",
     factoryLog: "工厂日志",
     modelLabel: "模型",
@@ -1819,6 +1819,12 @@ function renderProduction() {
     const row = productionRows.get(name);
     const value = Number(rates[name]) || 0;
     row._productionName.textContent = gameName("item", row._productionKey);
+    if (row._lastProductionRate !== undefined && row._lastProductionRate !== value) {
+      row._productionName.classList.add("changed");
+      clearTimeout(row._productionChangeTimer);
+      row._productionChangeTimer = setTimeout(() => row._productionName.classList.remove("changed"), 1200);
+    }
+    row._lastProductionRate = value;
     row._productionRate.textContent = `${Math.round(value)}${text.rateSuffix}`;
     row.classList.toggle("zero", value <= 0);
   }

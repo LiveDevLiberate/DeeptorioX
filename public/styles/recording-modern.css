@@ -1926,3 +1926,13 @@ body.recording #codexOutput .message:not(.tool) > .msg-time {
   white-space: nowrap;
   align-self: flex-start;
 }
+
+/* Item rows: readable white labels, blue flash when the rate changes. */
+body.recording .production-name {
+  color: var(--ink);
+  font-weight: 500;
+  transition: color 120ms ease;
+}
+body.recording .production-name.changed {
+  color: #6da8ff;
+}
