@@ -888,8 +888,8 @@ Final polish implemented:
 
 - production-chain working-block guard using a machine → inserter → feeder tile
   graph (not just a radius);
-- target-aware verifier using the plan bbox cluster delta, with global debt as
-  fallback;
+- target-aware verifier using issue coordinates sampled from audit actions
+  inside the plan bbox (cluster delta and global debt as fallbacks);
 - audit-revision freeze for in-progress chunked plans;
 - per-variant scoring par overrides (`scoring.variants`) and variant-aware
   calibration;

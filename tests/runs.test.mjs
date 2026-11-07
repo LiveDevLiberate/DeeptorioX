@@ -1529,3 +1529,46 @@ test("target-aware verifier uses the plan bbox cluster delta over global debt", 
     await manager.stop();
   }
 });
+
+test("target verifier uses audit issue samples before cluster count", async () => {
+  const { manager } = setup();
+  try {
+    const run = manager.start({ agent: "manual", benchmark: "smoke", construction_mode: "planned" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    manager.recordRefactorAudit({
+      invalid_count: 35,
+      factory_problems: 5,
+      connection_issues: 30,
+      fingerprint: "samples-before",
+      clusters: [{ x: 1, y: 1, radius: 3, count: 2, kinds: ["no_power"] }],
+      actions: [
+        {
+          kind: "no_power",
+          severity: "critical",
+          count: 1,
+          examples: [{ x: 1, y: 1 }],
+        },
+      ],
+    });
+    const entities = [{ name: "small-electric-pole", anchor: { x: 1, y: 1 } }];
+    const plan = manager.createConstructionPlan({ kind: "build", entities });
+    assert.equal(plan.target_issue_before, 1);
+    manager.requireConstructionPlan({
+      plan_id: plan.plan_id,
+      allowed_kinds: ["build"],
+      entities,
+    });
+    manager.recordRefactorAudit({
+      invalid_count: 35,
+      factory_problems: 5,
+      connection_issues: 30,
+      fingerprint: "samples-after",
+      clusters: [{ x: 1, y: 1, radius: 3, count: 2, kinds: ["no_power"] }],
+      actions: [{ kind: "no_power", severity: "critical", count: 2, examples: [{ x: 10, y: 10 }] }],
+    });
+    const verification = manager.verifyConstructionPlan(plan.plan_id, { status: "completed" });
+    assert.equal(verification?.result, "effective");
+  } finally {
+    await manager.stop();
+  }
+});

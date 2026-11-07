@@ -451,6 +451,7 @@ export function buildRefactorAudit(
       severity: action.severity === "critical" ? ("critical" as const) : ("warning" as const),
       count: number(action.count),
       action: typeof action.action === "string" ? action.action : "",
+      examples: Array.isArray(action.examples) ? action.examples : [],
     })),
   };
 }

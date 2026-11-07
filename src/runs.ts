@@ -199,7 +199,15 @@ type RefactorState = {
   /** Base repair credits were granted once for this debt episode. */
   base_credits_granted?: boolean;
   /** Top priority actions from the recorded audit, for 409 nudges and the UI. */
-  actions?: Array<{ kind?: string; severity?: string; count?: number; action?: string }>;
+  actions?: Array<{
+    kind?: string;
+    severity?: string;
+    count?: number;
+    action?: string;
+    examples?: Array<{ x?: number; y?: number }>;
+  }>;
+  /** Compact issue coordinates sampled from the audit, used by plan verification. */
+  action_samples?: Array<{ kind?: string; x?: number; y?: number }>;
 };
 
 /** Build target in world tile coordinates, used by the refactor build gate. */
@@ -462,6 +470,20 @@ function clusterCountInBBox(
     const nearestX = Math.max(bbox.left, Math.min(cx, bbox.right));
     const nearestY = Math.max(bbox.top, Math.min(cy, bbox.bottom));
     if (Math.hypot(cx - nearestX, cy - nearestY) <= radius) count += Number(cluster.count) || 1;
+  }
+  return count;
+}
+
+function issueSamplesInBBox(
+  samples: Array<{ x?: number; y?: number }> | undefined,
+  bbox: { left: number; top: number; right: number; bottom: number },
+): number {
+  let count = 0;
+  for (const sample of samples ?? []) {
+    const x = Number(sample.x);
+    const y = Number(sample.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    if (x >= bbox.left && x <= bbox.right && y >= bbox.top && y <= bbox.bottom) count += 1;
   }
   return count;
 }
@@ -1171,6 +1193,7 @@ export class RunManager {
     fingerprint: string;
     clusters?: RefactorCluster[];
     actions?: RefactorState["actions"];
+    action_samples?: RefactorState["action_samples"];
   }): RefactorState | undefined {
     const run = this.active;
     if (!run) return undefined;
@@ -1206,6 +1229,17 @@ export class RunManager {
       buildCredits = Math.min(buildCredits, creditsEarned);
       baseGranted = true;
     }
+    const actionSamples =
+      audit.action_samples ??
+      (audit.actions ?? []).flatMap((action) =>
+        (action.examples ?? [])
+          .map((example) => ({
+            kind: action.kind,
+            x: Number(example.x),
+            y: Number(example.y),
+          }))
+          .filter((sample) => Number.isFinite(sample.x) && Number.isFinite(sample.y)),
+      );
     const blackouts = run.power_blackouts ?? 0;
     const bigResetPending =
       above &&
@@ -1228,6 +1262,7 @@ export class RunManager {
       credits_earned: creditsEarned,
       base_credits_granted: baseGranted,
       actions: above ? (audit.actions ?? previous?.actions) : undefined,
+      action_samples: above ? (actionSamples.length ? actionSamples : previous?.action_samples) : undefined,
     };
     if (escalation !== (previous?.escalation_tier ?? "normal")) {
       this.event(
@@ -1670,6 +1705,7 @@ export class RunManager {
       refactor_revision: auditRevision,
       audit_invalid_before: run.refactor?.invalid_count ?? 0,
       target_cluster_before: clusterCountInBBox(run.refactor?.clusters, planBBox(entities, targets)),
+      target_issue_before: issueSamplesInBBox(run.refactor?.action_samples, planBBox(entities, targets)),
       targets_hash: planHash,
       required_items: requiredItems,
       bbox: planBBox(entities, targets),
@@ -1915,11 +1951,16 @@ export class RunManager {
     if (!run || !plan || plan.status !== "consumed" || plan.verification) return undefined;
     const before = plan.audit_invalid_before;
     const after = run.refactor?.invalid_count ?? before;
+    const issueBefore = plan.target_issue_before ?? 0;
+    const issueAfter = issueSamplesInBBox(run.refactor?.action_samples, plan.bbox);
+    const issueDelta = issueAfter - issueBefore;
     const targetBefore = plan.target_cluster_before ?? 0;
     const targetAfter = clusterCountInBBox(run.refactor?.clusters, plan.bbox);
     const targetDelta = targetAfter - targetBefore;
     let result: "effective" | "neutral" | "ineffective" | "regressed";
     if (job.status !== "completed") result = "ineffective";
+    else if (issueDelta < 0) result = "effective";
+    else if (issueDelta > 0) result = "regressed";
     else if (targetDelta < 0) result = "effective";
     else if (targetDelta > 0) result = "regressed";
     else if (after < before) result = "effective";

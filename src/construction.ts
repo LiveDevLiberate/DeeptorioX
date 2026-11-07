@@ -52,6 +52,7 @@ export type ConstructionPlan = {
   refactor_revision: number;
   audit_invalid_before: number;
   target_cluster_before?: number;
+  target_issue_before?: number;
   targets_hash: string;
   required_items?: Record<string, number>;
   bbox: { left: number; top: number; right: number; bottom: number };
@@ -278,6 +279,7 @@ export function constructionPlanPublic(plan: ConstructionPlan) {
     refactor_revision: plan.refactor_revision,
     audit_invalid_before: plan.audit_invalid_before,
     target_cluster_before: plan.target_cluster_before,
+    target_issue_before: plan.target_issue_before,
     required_items: plan.required_items,
     verification: plan.verification,
     targets_hash: plan.targets_hash,
