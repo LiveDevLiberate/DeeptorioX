@@ -708,7 +708,7 @@ export function registerAgentRoutes(router: Router, ctx: ApiContext): void {
         try {
           runManager.requireConstructionPlan({
             plan_id: body.plan_id,
-            allowed_kinds: ["build", "blueprint"],
+            allowed_kinds: ["build", "blueprint", "power", "pipe", "belt"],
             entities: trimmed,
           });
         } catch (error) {

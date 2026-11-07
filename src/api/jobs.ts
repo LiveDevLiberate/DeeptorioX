@@ -3,6 +3,7 @@ import { json, readJsonBody } from "../http/plumbing.js";
 import { actionPaths, splitJobPayload, type JobAction } from "../action-jobs.js";
 import { asRecord, asString } from "../validation.js";
 import { ConstructionPlanError } from "../construction.js";
+import { agentObserveEntityCommand, agentPlayerCommand } from "../command-builders.js";
 import { rconConfigured } from "./shared.js";
 import type { ApiContext } from "./context.js";
 
@@ -18,7 +19,7 @@ export function parseJobAction(value: unknown): JobAction | undefined {
 }
 
 export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
-  const { state, runManager, actionJobs, internalKey } = ctx;
+  const { state, runManager, actionJobs, internalKey, rconCommand } = ctx;
 
   /** Build targets from the per-entity job items produced by `splitJobPayload`. */
   const buildTargets = (items: unknown[]): Array<{ x: number; y: number }> => {
@@ -129,13 +130,67 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
           });
         }
       }
+      const preflightPlanId = asString(asRecord(body.payload)?.plan_id);
+      if (!internal && action === "build" && typeof preflightPlanId === "string") {
+        const plan = runManager.constructionPlan(preflightPlanId) as
+          (ReturnType<typeof runManager.constructionPlan> & { executed_entity_count?: number }) | undefined;
+        if (
+          plan?.kind === "blueprint" &&
+          plan.required_items &&
+          (plan.executed_entity_count ?? 0) === 0 &&
+          runManager.constructionStatus().mode === "planned"
+        ) {
+          try {
+            const response = await rconCommand(
+              agentPlayerCommand({ inventoryLimit: 200, equipmentLimit: 50 }),
+              8000,
+            );
+            const parsed = JSON.parse(response) as {
+              player?: { inventories?: Array<{ slots?: Array<{ name?: string; count?: number }> }> };
+            };
+            const available: Record<string, number> = {};
+            for (const inventory of parsed.player?.inventories ?? []) {
+              for (const slot of inventory.slots ?? []) {
+                if (typeof slot.name === "string" && Number(slot.count) > 0) {
+                  available[slot.name] = (available[slot.name] ?? 0) + Number(slot.count);
+                }
+              }
+            }
+            const missing = Object.entries(plan.required_items)
+              .map(([name, required]) => ({
+                name,
+                required,
+                available: available[name] ?? 0,
+                missing: required - (available[name] ?? 0),
+              }))
+              .filter((entry) => entry.missing > 0)
+              .sort((left, right) => left.name.localeCompare(right.name));
+            if (missing.length) {
+              return json(res, 409, {
+                error: "BLUEPRINT_MATERIAL_SHORTAGE",
+                message: "The blueprint plan needs items that are not in the player inventory.",
+                missing,
+                plan_id: preflightPlanId,
+              });
+            }
+          } catch (error) {
+            if (error instanceof SyntaxError) {
+              return json(res, 409, {
+                error: "BLUEPRINT_MATERIAL_SHORTAGE",
+                message: "Could not read the player inventory for blueprint preflight.",
+              });
+            }
+            // RCON/observation failure: do not block; the build result reports missing items.
+          }
+        }
+      }
       if (!internal) {
         const payloadRecord = asRecord(body.payload) ?? {};
         const planId = asString(payloadRecord.plan_id);
         const actionTargets = itemTargets(items);
         const allowedKinds =
           action === "build"
-            ? (["build", "blueprint"] as const)
+            ? (["build", "blueprint", "power", "pipe", "belt"] as const)
             : action === "rotate" || action === "set-recipe"
               ? (["mutation"] as const)
               : action === "mine" && hasBuildingTarget(actionTargets)
@@ -153,6 +208,82 @@ export function registerJobsRoutes(router: Router, ctx: ApiContext): void {
               return json(res, error.status, error.toJSON());
             }
             throw error;
+          }
+        }
+      }
+      if (!internal && action === "mine") {
+        const targets = itemTargets(items).filter((target) => asRecord(target)?.allow_buildings === true);
+        if (targets.length && runManager.constructionStatus().mode === "planned") {
+          const protectedTypes = new Set([
+            "assembling-machine",
+            "furnace",
+            "chemical-plant",
+            "oil-refinery",
+            "lab",
+            "mining-drill",
+            "boiler",
+            "generator",
+            "rocket-silo",
+            "pumpjack",
+            "centrifuge",
+            "recycler",
+          ]);
+          const inactive = new Set([
+            "no_power",
+            "no_fuel",
+            "no_ingredients",
+            "no_input_fluid",
+            "no_minable_resources",
+            "waiting_for_space_in_destination",
+            "disabled_by_script",
+            "marked_for_deconstruction",
+            "none",
+            "normal",
+            "idle",
+          ]);
+          try {
+            const response = await rconCommand(
+              agentObserveEntityCommand(
+                targets.slice(0, 50).map((target) => {
+                  const record = asRecord(target) ?? {};
+                  return {
+                    x: Number(record.x),
+                    y: Number(record.y),
+                    kind: "entity",
+                    ...(asString(record.name) ? { name: asString(record.name) } : {}),
+                  };
+                }),
+              ),
+              8000,
+            );
+            const parsed = JSON.parse(response) as { results?: Array<Record<string, unknown>> };
+            const working = (parsed.results ?? []).filter((result) => {
+              const type = String(result.type ?? "");
+              const status = String(result.status ?? "none");
+              return protectedTypes.has(type) && !inactive.has(status);
+            });
+            if (working.length) {
+              return json(res, 409, {
+                error: "REFACTOR_WORKING_BLOCK",
+                message:
+                  "Cleanup targets a working production machine. Let it run or mark it obsolete/deconstruct it explicitly; planned mode protects working blocks.",
+                working: working.map((result) => {
+                  const tile =
+                    result.occupied_tile && typeof result.occupied_tile === "object"
+                      ? (result.occupied_tile as Record<string, unknown>)
+                      : undefined;
+                  return {
+                    name: result.name,
+                    x: tile?.x ?? null,
+                    y: tile?.y ?? null,
+                    status: result.status,
+                  };
+                }),
+              });
+            }
+          } catch {
+            // Observation failure must not block cleanup; the action still runs
+            // through the normal scope and cleanup guards.
           }
         }
       }

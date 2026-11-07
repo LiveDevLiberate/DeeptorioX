@@ -868,13 +868,22 @@ Implemented in this branch:
   chunked blueprint plans;
 - post-plan verifier classification (`effective`, `neutral`, `ineffective`,
   `regressed`) and repeated-ineffective plan blocking;
+- manager-generated `power`, `pipe` and `belt` layout plans (straight/L power
+  trunks, coverage grids, straight pipe/belt runs) with canonical entities;
+- planned-mode working-block protection for cleanup targets (working production
+  machines are rejected before the plan is consumed);
+- manager-side blueprint material preflight against the player inventory;
+- operator UI construction mode/variant labels and cross-variant comparison
+  warnings;
 - tests for modes, token consume/mismatch/expiry-by-audit, blueprint expansion,
-  chunked plans, cleanup plans, verifier behavior and API route behavior.
+  chunked plans, cleanup plans, verifier behavior, layouts and API route behavior.
 
 Deferred to the next implementation phase:
 
-- service-generated power/pipe/belt layouts;
-- leaderboard UI grouping and cross-variant comparison controls;
-- working-block protection beyond the existing cleanup cluster guard;
-- automatic required-item preflight for manager-expanded blueprints (the
-  placement/material preflight still uses the client's inventory check).
+- pathfinding-aware service layouts around lakes/cliffs (current manager layouts
+  are straight or L and reject diagonal belt/pipe requests);
+- a dedicated leaderboard view with server-side variant grouping (the current
+  run/compare UI labels variants and warns on mixed comparisons);
+- exact blueprint item contents/modules preflight (manager preflight uses one
+  place item per expanded entity plus the client's detailed inventory check);
+- broader working-block classification beyond active production machine statuses.

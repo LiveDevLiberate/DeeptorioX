@@ -2713,6 +2713,31 @@ class ConstructionPlanClientTests(unittest.TestCase):
             {"targets": targets, "plan_id": "pln_copy"},
         )
 
+    def test_power_line_uses_manager_generated_layout_when_planned(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        client._construction_mode = "planned"
+        entities = [{"name": "big-electric-pole", "anchor": {"x": 0, "y": 0}}]
+        with patch.object(
+            client,
+            "plan_construction",
+            return_value={"plan_id": "pln_power", "planned_entities": entities},
+        ) as plan, patch.object(client, "_submit_planned", return_value={"ok": True}) as submit:
+            client.build_power_line({"x": 0, "y": 0}, {"x": 30, "y": 0})
+        plan.assert_called_once_with(
+            "power",
+            from_xy={"x": 0, "y": 0},
+            to_xy={"x": 30, "y": 0},
+            pole="big-electric-pole",
+            spacing=None,
+        )
+        submit.assert_called_once_with(
+            entities,
+            clear=True,
+            warnings=[],
+            plan_id="pln_power",
+            plan_kind="power",
+        )
+
     def test_blueprint_build_uses_blueprint_plan_kind(self):
         client = factorio.FactorioClient(poll_interval=0)
         client._construction_mode = "planned"

@@ -18,10 +18,24 @@ try {
   const scoringKeys = new Set(
     runs.map((run) => `${run.scoring?.version ?? 0}:${run.scoring?.par_seconds ?? 0}`),
   );
-  $("scoringNotice").textContent =
+  const variantKeys = new Set(
+    runs.map(
+      (run) =>
+        run.evaluation?.capability?.variant ||
+        run.construction?.variant ||
+        `${run.evaluation?.capability?.construction_mode || run.construction?.mode || "free"}:legacy`,
+    ),
+  );
+  $("scoringNotice").textContent = [
     scoringKeys.size > 1
       ? "Different scoring configuration (version/par) across the selected runs; capability scores are not directly comparable."
-      : "";
+      : "",
+    variantKeys.size > 1
+      ? "Different construction variants across the selected runs; free-build and planned-build capability scores are separate leaderboards."
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const header = document.createElement("tr");
   header.append(text("th", "Metric"));
   runs.forEach((run, index) => {
@@ -33,6 +47,11 @@ try {
   });
   const rows = [
     ["Agent", (r) => displayModel(r.model_label || r.model || r.agent)],
+    [
+      "Construction",
+      (r) => r.evaluation?.capability?.construction_mode || r.construction?.mode || "free (legacy)",
+    ],
+    ["Construction variant", (r) => r.evaluation?.capability?.variant || r.construction?.variant || "—"],
     ["Result", (r) => r.state],
     ["Failure kind", (r) => r.failure_kind || "—"],
     [

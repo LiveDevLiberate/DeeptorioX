@@ -270,8 +270,10 @@ function renderDiscipline(run) {
   }
   panel.hidden = false;
   const capability = run.evaluation?.capability;
+  const construction = capability?.construction_mode || run.construction?.mode;
+  const constructionVariant = capability?.variant || run.construction?.variant;
   $("disciplineSummary").textContent = capability
-    ? `capability ${capability.score}/${capability.max} · scoring v${capability.scoring_version} · par ${capability.par_seconds}s`
+    ? `capability ${capability.score}/${capability.max} · scoring v${capability.scoring_version} · par ${capability.par_seconds}s${construction ? ` · ${construction}${constructionVariant ? ` (${constructionVariant})` : ""}` : ""}`
     : "";
   const refactor = discipline.refactor || {};
   const stats = [
@@ -511,6 +513,7 @@ async function refresh() {
     $("recordingLink").hidden = false;
     const info = {
       Benchmark: run.benchmark.title,
+      Construction: `${run.construction?.mode || "free"}${run.construction?.variant ? ` · ${run.construction.variant}` : ""}`,
       Seed: run.benchmark.map_gen.seed,
       Model: displayModel(run.model_label || run.model || run.agent),
       ...(run.failure_kind ? { "Failure kind": run.failure_kind } : {}),

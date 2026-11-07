@@ -67,6 +67,7 @@ import {
 } from "./construction.js";
 import { pointInRefactorCluster, type RefactorCluster } from "./refactor-audit.js";
 import { decodeBlueprintString, expandBlueprintPayload } from "./blueprints.js";
+import { planBeltLine, planPipeLine, planPowerLine, planPowerNetwork } from "./construction-planners.js";
 import { normalizeMapGen } from "./map-config.js";
 import {
   listRunBlueprints,
@@ -432,6 +433,14 @@ export function digestThought(text: string): string {
   const cut = chosen.slice(0, DIGEST_MAX_CHARS);
   const lastSpace = cut.lastIndexOf(" ");
   return lastSpace > 0 ? cut.slice(0, lastSpace).trimEnd() : cut;
+}
+
+function integerLayoutPoint(value: unknown): { x: number; y: number } | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const x = Number(record.x);
+  const y = Number(record.y);
+  return Number.isFinite(x) && Number.isFinite(y) ? { x: Math.round(x), y: Math.round(y) } : undefined;
 }
 
 export class RunManager {
@@ -1295,7 +1304,16 @@ export class RunManager {
     const record =
       input && typeof input === "object" && !Array.isArray(input) ? (input as Record<string, unknown>) : {};
     const rawKind = typeof record.kind === "string" ? record.kind : "";
-    const kinds: ConstructionPlanKind[] = ["build", "mutation", "cleanup", "blueprint", "expansion"];
+    const kinds: ConstructionPlanKind[] = [
+      "build",
+      "mutation",
+      "cleanup",
+      "blueprint",
+      "expansion",
+      "power",
+      "pipe",
+      "belt",
+    ];
     if (!kinds.includes(rawKind as ConstructionPlanKind)) {
       throw new ConstructionPlanError(
         "PLAN_BAD_REQUEST",
@@ -1398,6 +1416,52 @@ export class RunManager {
       }
       entities = canonical;
       decodedBlueprintHash = decoded.sha256;
+    }
+    if (kind === "power" || kind === "pipe" || kind === "belt") {
+      try {
+        if (kind === "power") {
+          const from = integerLayoutPoint(record.from);
+          const to = integerLayoutPoint(record.to);
+          entities =
+            from && to
+              ? planPowerLine({
+                  from,
+                  to,
+                  pole: typeof record.pole === "string" ? record.pole : undefined,
+                  spacing: record.spacing,
+                })
+              : planPowerNetwork({
+                  targets: Array.isArray(record.targets) ? record.targets : rawTargets,
+                  pole: typeof record.pole === "string" ? record.pole : undefined,
+                  spacing: record.spacing,
+                });
+        } else if (kind === "pipe") {
+          const from = integerLayoutPoint(record.from);
+          const to = integerLayoutPoint(record.to);
+          if (!from || !to) throw new Error("pipe layout needs from/to");
+          entities = planPipeLine({
+            from,
+            to,
+            name: typeof record.name === "string" ? record.name : undefined,
+          });
+        } else {
+          const from = integerLayoutPoint(record.from);
+          const to = integerLayoutPoint(record.to);
+          if (!from || !to) throw new Error("belt layout needs from/to");
+          entities = planBeltLine({
+            from,
+            to,
+            name: typeof record.name === "string" ? record.name : undefined,
+          });
+        }
+      } catch (error) {
+        throw new ConstructionPlanError(
+          "PLAN_BAD_REQUEST",
+          error instanceof Error ? error.message : "layout generation failed",
+          {},
+          400,
+        );
+      }
     }
     if ((kind === "build" || kind === "blueprint" || kind === "expansion") && entities.length === 0) {
       throw new ConstructionPlanError("PLAN_BAD_REQUEST", `${kind} plan needs entities`, {}, 400);
@@ -1516,6 +1580,8 @@ export class RunManager {
         { previous_plan_id: repeatedIneffective.plan_id },
       );
     }
+    const requiredItems: Record<string, number> = {};
+    for (const entity of entities) requiredItems[entity.name] = (requiredItems[entity.name] ?? 0) + 1;
     const ttlRaw = Number(process.env.AUTORIO_CONSTRUCTION_PLAN_TTL_SECONDS ?? 300);
     const ttl = Number.isFinite(ttlRaw) && ttlRaw > 0 ? Math.min(3600, Math.round(ttlRaw)) : 300;
     const now = Date.now();
@@ -1538,6 +1604,7 @@ export class RunManager {
       refactor_revision: auditRevision,
       audit_invalid_before: run.refactor?.invalid_count ?? 0,
       targets_hash: planHash,
+      required_items: requiredItems,
       bbox: planBBox(entities, targets),
       entities,
       targets,
@@ -1659,8 +1726,9 @@ export class RunManager {
     const actionTargets = (Array.isArray(input.targets) ? input.targets : [])
       .map((entry) => normalizeConstructionTarget(entry))
       .filter((entry): entry is ConstructionTarget => Boolean(entry));
-    if (plan.kind === "blueprint") {
-      // Blueprints execute in chunks. Every chunk entity must belong to the
+    if (["blueprint", "power", "pipe", "belt"].includes(plan.kind)) {
+      // Multi-entity plans execute in chunks. Every chunk entity must belong to
+      // the manager-expanded plan; the token is consumed after the full set.
       // manager-expanded plan; the token is consumed only after the full set.
       if (!actionEntities.length) {
         this.rejectConstructionPlan(

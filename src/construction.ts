@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 
 export type ConstructionMode = "free" | "planned";
 export type BlueprintPolicySource = "none" | "agent" | "preloaded";
-export type ConstructionPlanKind = "build" | "mutation" | "cleanup" | "blueprint" | "expansion";
+export type ConstructionPlanKind =
+  "build" | "mutation" | "cleanup" | "blueprint" | "expansion" | "power" | "pipe" | "belt";
 export type ConstructionPlanScope = "local_repair" | "in_cluster" | "cleanup" | "expansion";
 
 export type ConstructionBlueprintPolicy = {
@@ -51,6 +52,7 @@ export type ConstructionPlan = {
   refactor_revision: number;
   audit_invalid_before: number;
   targets_hash: string;
+  required_items?: Record<string, number>;
   bbox: { left: number; top: number; right: number; bottom: number };
   entities: ConstructionEntity[];
   targets: ConstructionTarget[];
@@ -273,6 +275,7 @@ export function constructionPlanPublic(plan: ConstructionPlan) {
     audit_revision: plan.audit_revision,
     refactor_revision: plan.refactor_revision,
     audit_invalid_before: plan.audit_invalid_before,
+    required_items: plan.required_items,
     verification: plan.verification,
     targets_hash: plan.targets_hash,
     bbox: plan.bbox,
@@ -289,6 +292,11 @@ export function constructionPlanPublic(plan: ConstructionPlan) {
           blueprint_entities: plan.entities,
           executed_entity_count: plan.executed_entities?.length ?? 0,
         }
-      : {}),
+      : ["power", "pipe", "belt"].includes(plan.kind)
+        ? {
+            planned_entities: plan.entities,
+            executed_entity_count: plan.executed_entities?.length ?? 0,
+          }
+        : {}),
   };
 }

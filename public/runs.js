@@ -138,6 +138,12 @@ function buildMapGen() {
   return mapGen;
 }
 const checked = new Set();
+function constructionLabel(run) {
+  const mode = run.evaluation?.capability?.construction_mode || run.construction?.mode;
+  const variant = run.evaluation?.capability?.variant || run.construction?.variant;
+  if (!mode && !variant) return "free (legacy)";
+  return [mode || "free", variant ? `· ${variant}` : ""].filter(Boolean).join(" ");
+}
 function renderHistory() {
   $("runs").replaceChildren(
     ...runs.map((run) => {
@@ -162,6 +168,7 @@ function renderHistory() {
       row.append(name);
       for (const value of [
         run.benchmark.id,
+        constructionLabel(run),
         displayModel(run.model_label || run.model || run.agent),
         `${run.state}${run.failure_kind ? ` (${run.failure_kind})` : ""}`,
         duration(run.elapsed_seconds),

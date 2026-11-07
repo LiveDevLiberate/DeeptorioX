@@ -3118,6 +3118,11 @@ class FactorioClient:
         anchor: Any = None,
         rotation: int | None = None,
         mirror: bool | None = None,
+        from_xy: Any = None,
+        to_xy: Any = None,
+        pole: str | None = None,
+        spacing: int | None = None,
+        name: str | None = None,
     ) -> dict[str, Any] | None:
         """Request a single-use construction plan.
 
@@ -3156,6 +3161,16 @@ class FactorioClient:
             body["prototype_sizes"] = prototype_sizes
         if anchor is not None:
             body["anchor"] = anchor
+        if from_xy is not None:
+            body["from"] = from_xy
+        if to_xy is not None:
+            body["to"] = to_xy
+        if pole is not None:
+            body["pole"] = pole
+        if spacing is not None:
+            body["spacing"] = spacing
+        if name is not None:
+            body["name"] = name
         if rotation is not None:
             body["rotation"] = rotation
         if mirror is not None:
@@ -3186,6 +3201,16 @@ class FactorioClient:
             kind, entities=entities, targets=targets, blueprint_hash=blueprint_hash
         )
         return str(plan["plan_id"]) if plan else None
+
+    def _planned_layout(self, kind: str, **intent: Any) -> tuple[str, list[dict[str, Any]]] | None:
+        """Request a manager-generated layout and its canonical entity list."""
+        plan = self.plan_construction(kind, **intent)
+        if not plan:
+            return None
+        entities = plan.get("planned_entities") if isinstance(plan, dict) else None
+        if not isinstance(entities, list) or not entities:
+            raise RuntimeError("manager did not return planned layout entities")
+        return str(plan["plan_id"]), [dict(entry) for entry in entities if isinstance(entry, dict)]
 
     def build(self, entities: list[dict[str, Any]], *, clear: bool = True,
               plan_kind: str | None = None,
@@ -3964,6 +3989,28 @@ class FactorioClient:
             raise ValueError("kind must be pipe, belt, wall, pole, underground-pipe or underground-belt")
         if route not in ("auto", "straight"):
             raise ValueError("route must be auto or straight")
+        if canonical in ("pipe", "belt", "pole") and from_xy is not None and to_xy is not None:
+            layout_kind = "power" if canonical == "pole" else canonical
+            if canonical == "pipe" and underground:
+                planned = None
+            else:
+                planned = self._planned_layout(
+                    layout_kind,
+                    from_xy=from_xy,
+                    to_xy=to_xy,
+                    pole=name or POWER_POLE_BIG if canonical == "pole" else None,
+                    spacing=spacing,
+                    name=name,
+                )
+            if planned:
+                plan_id, entities = planned
+                return self._submit_planned(
+                    entities,
+                    clear=clear,
+                    warnings=[],
+                    plan_id=plan_id,
+                    plan_kind=layout_kind,
+                )
         if route == "auto":
             x, y = _planner_point(to_xy, "to")
             path = _job_path_points(self.preview_path(float(x) + 0.5, float(y) + 0.5))
@@ -4080,27 +4127,46 @@ class FactorioClient:
                          pole: str = POWER_POLE_BIG, spacing: int | None = None,
                          clear: bool = True) -> dict[str, Any]:
         """Plan (or accept) a straight horizontal/vertical pole trunk and build it."""
+        planned = None
         if plan is not None:
             entities, warnings = self._resolve_plan(plan)
         else:
-            entities = plan_power_line(from_xy, to_xy, pole=pole, spacing=spacing)
+            planned = self._planned_layout(
+                "power", from_xy=from_xy, to_xy=to_xy, pole=pole, spacing=spacing
+            )
+            if planned:
+                plan_id, entities = planned
+            else:
+                entities = plan_power_line(from_xy, to_xy, pole=pole, spacing=spacing)
             warnings = []
-        return self._submit_planned(entities, clear=clear, warnings=warnings)
+        submit: dict[str, Any] = {"clear": clear, "warnings": warnings}
+        if planned:
+            submit.update({"plan_id": planned[0], "plan_kind": "power"})
+        return self._submit_planned(entities, **submit)
 
     def build_power_network(self, targets_or_area: Any = None, *, plan: Any = None,
                             pole: str = POWER_POLE_DEFAULT, big_pole_every: int = 0,
                             clear: bool = True) -> dict[str, Any]:
         """Plan (or accept) a covering pole network and build it in chunks."""
+        planned = None
         if plan is not None:
             entities, warnings = self._resolve_plan(plan)
         else:
             if targets_or_area is None:
                 raise ValueError("build_power_network needs targets/area or a plan")
-            entities = plan_power_network(
-                targets_or_area, pole=pole, big_pole_every=big_pole_every
-            )
+            targets = targets_or_area if isinstance(targets_or_area, list) else [targets_or_area]
+            planned = self._planned_layout("power", targets=targets, pole=pole)
+            if planned:
+                plan_id, entities = planned
+            else:
+                entities = plan_power_network(
+                    targets_or_area, pole=pole, big_pole_every=big_pole_every
+                )
             warnings = []
-        return self._submit_planned(entities, clear=clear, warnings=warnings)
+        submit: dict[str, Any] = {"clear": clear, "warnings": warnings}
+        if planned:
+            submit.update({"plan_id": planned[0], "plan_kind": "power"})
+        return self._submit_planned(entities, **submit)
 
     def build_inserter_pairs(self, machines: Any = None, *, plan: Any = None,
                              direction: Any = "east", inserter: str = "inserter",

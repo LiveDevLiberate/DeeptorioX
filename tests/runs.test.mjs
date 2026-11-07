@@ -1395,3 +1395,47 @@ test("manager expands a blueprint plan and accepts chunked execution", async () 
     await manager.stop();
   }
 });
+
+test("manager layout plans generate power, pipe and belt entities without agent coordinates", async () => {
+  const { manager } = setup();
+  try {
+    const run = manager.start({ agent: "manual", benchmark: "smoke", construction_mode: "planned" });
+    await waitFor(() => manager.get(run.id).state === "running");
+    const power = manager.createConstructionPlan({
+      kind: "power",
+      from: { x: 0, y: 0 },
+      to: { x: 60, y: 0 },
+      pole: "big-electric-pole",
+    });
+    assert.equal(power.kind, "power");
+    assert.ok(power.planned_entities.length >= 3);
+    assert.equal(power.planned_entities[0].name, "big-electric-pole");
+    const chunk = power.planned_entities.slice(0, 2);
+    const first = manager.requireConstructionPlan({
+      plan_id: power.plan_id,
+      allowed_kinds: ["build", "power"],
+      entities: chunk,
+    });
+    assert.equal(first?.status, "issued");
+    const pipe = manager.createConstructionPlan({
+      kind: "pipe",
+      from: { x: 5, y: 5 },
+      to: { x: 8, y: 5 },
+    });
+    assert.deepEqual(pipe.planned_entities.map((entry) => entry.anchor), [
+      { x: 5, y: 5 },
+      { x: 6, y: 5 },
+      { x: 7, y: 5 },
+      { x: 8, y: 5 },
+    ]);
+    const belt = manager.createConstructionPlan({
+      kind: "belt",
+      from: { x: 2, y: 2 },
+      to: { x: 2, y: 4 },
+    });
+    assert.equal(belt.planned_entities.length, 3);
+    assert.ok(belt.planned_entities.every((entry) => entry.direction === 8));
+  } finally {
+    await manager.stop();
+  }
+});
