@@ -134,6 +134,14 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     {
       type: "item.completed",
       item: {
+        id: "r0",
+        type: "reasoning",
+        text: "The map has coal nearby and the belt is empty.",
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
         id: "r1",
         type: "reasoning",
         text: "There is coal nearby. Next step: mine coal and build two furnaces for the iron plates.",
@@ -274,8 +282,12 @@ test("recording page renders summaries, loops, turns and unread updates", async 
 
     // Turn divider, then a collapsed reasoning block, a command group and a message.
     assert.ok(classes.includes("turn-separator"), `missing turn separator in ${classes.join(" | ")}`);
-    const reasoning = output.children.find((node) => node.className.includes("reasoning"));
-    assert.ok(reasoning, "missing reasoning block");
+    const reasoning = output.children.find(
+      (node) =>
+        node.className.includes("reasoning") &&
+        String(node.children[0]?.textContent || "").includes("Next step: mine coal"),
+    );
+    assert.ok(reasoning, "missing decision reasoning block");
     assert.match(reasoning.children[0].textContent, /Next step: mine coal/);
     assert.equal(reasoning.open, false);
     const commands = output.children.find((node) => node.className.includes("commands"));
@@ -292,7 +304,7 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     assert.match(message.children[0].textContent, /Mining complete/);
 
     // Deduped reasoning: the second identical thought did not add a second block.
-    assert.equal(output.children.filter((node) => node.className.includes("reasoning")).length, 1);
+    assert.equal(output.children.filter((node) => node.className.includes("reasoning")).length, 2);
     const dedupe = reasoning.children[0].children.find((node) => node.className.includes("dedupe-badge"));
     assert.match(dedupe.textContent, /repeated ×2/);
 
@@ -359,7 +371,10 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     // Filter chips hide non-matching transcript entries and persist the choice.
     nodes.filterThinking.fire("click");
     assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, true);
-    assert.equal(output.children.find((node) => node.className.includes("reasoning")).hidden, false);
+    const thinkingNodes = output.children.filter((node) => node._kind === "reasoning");
+    assert.ok(thinkingNodes.filter((node) => !node._decision).every((node) => !node.hidden));
+    assert.ok(thinkingNodes.filter((node) => node._decision).every((node) => node.hidden));
+    assert.ok(thinkingNodes.some((node) => !node._decision && !node.hidden));
     assert.equal(storage.get("autorio.filter"), "thinking");
     nodes.filterAll.fire("click");
     assert.equal(output.children.find((node) => node.className.includes("commands")).hidden, false);

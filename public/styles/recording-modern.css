@@ -1981,3 +1981,18 @@ body.recording .production-rate.changed {
 body.recording .production-row.zero {
   opacity: 1;
 }
+
+/* Match each transcript row icon to its filter-chip category colour. */
+body.recording #codexOutput .reasoning-summary .icon {
+  color: #e0b072;
+}
+body.recording #codexOutput .reasoning.decision .reasoning-summary .icon {
+  color: #c0a8f0;
+}
+body.recording #codexOutput .commands-summary .icon {
+  color: #8fd6a8;
+}
+body.recording #codexOutput .tool-details summary .icon,
+body.recording #codexOutput .event-marker .icon {
+  color: #7fb8e6;
+}

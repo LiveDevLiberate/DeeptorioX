@@ -466,7 +466,10 @@ export class LoopDetector {
 
 /** True when a reasoning block contains a plan/decision keyword (filter mode). */
 export function isDecisionText(text) {
-  return DECISION_WORDS.test(normalizeReasoning(text));
+  // Every run now starts a reasoning entry with a `目标:` / `Goal:` line. That
+  // line is a label, not a decision, so exclude it before matching.
+  const withoutGoal = String(text ?? "").replace(/^\s*(?:目标|goal)\s*[:：].*$/gim, " ");
+  return DECISION_WORDS.test(normalizeReasoning(withoutGoal));
 }
 
 /** Normalize a numeric series into bar widths 0..100 (sparkline via div bars). */

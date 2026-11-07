@@ -1534,6 +1534,7 @@ function renderReasoning(item) {
   node.append(summary, body);
   node._kind = "reasoning";
   node._decision = isDecisionText(text);
+  node.classList.toggle("decision", node._decision);
   output.append(node);
   const entry = { node, badge, count: 1 };
   entries.set(item.id, entry);
@@ -1645,7 +1646,7 @@ function nodeMatchesFilter(node) {
     return false;
   if (filterMode === "all") return true;
   const kind = node._kind;
-  if (filterMode === "thinking") return kind === "reasoning";
+  if (filterMode === "thinking") return kind === "reasoning" && !node._decision;
   if (filterMode === "actions") return kind === "commands";
   if (filterMode === "messages") return kind === "message";
   if (filterMode === "errors")

@@ -324,6 +324,8 @@ test("decision detection, mini bars and telemetry helpers", async () => {
   assert.equal(model.isDecisionText("The belt moved then the items got stuck."), false);
   assert.equal(model.isDecisionText("Items should move east once the belt is full."), false);
   assert.equal(model.isDecisionText("下一步建造熔炉。"), true);
+  assert.equal(model.isDecisionText("目标：清理审计债务"), false);
+  assert.equal(model.isDecisionText("目标：清理审计债务\n下一步：挖煤"), true);
   assert.deepEqual(model.miniBars([0, 5, 10]), [10, 55, 100]);
   assert.deepEqual(model.miniBars([5, 5, 5]), [50, 50, 50]);
   assert.deepEqual(model.miniBars([]), []);
