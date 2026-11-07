@@ -137,6 +137,7 @@ const I18N = {
     failed: "failed",
     running: "running",
     ranCommands: "Ran {count} commands",
+    executedPrefix: "Ran",
     metrics: {
       production: "Production",
       research: "Research",
@@ -311,6 +312,7 @@ const I18N = {
     failed: "失败",
     running: "运行中",
     ranCommands: "执行了 {count} 个命令",
+    executedPrefix: "执行",
     metrics: {
       production: "产量",
       research: "研究",
@@ -1445,7 +1447,7 @@ function refreshCommandGroup(group) {
     ran: (count) => String(text.ranCommands || "Ran {count} commands").replace("{count}", String(count)),
   });
   const loopPrefix = group.loop ? `⚠ ${strings().loop} ×${group.loop} · ` : "";
-  group.summaryText.textContent = `${loopPrefix}${stats.text}`;
+  group.summaryText.textContent = `${loopPrefix}${strings().executedPrefix} ${stats.text}`;
   const firstItem = [...group.items.values()].find((item) => eventTimestamp(item) !== null);
   const stamp = firstItem ? timeLabel(firstItem) : null;
   group.summaryTime.textContent = stamp || "";
