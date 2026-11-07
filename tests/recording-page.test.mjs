@@ -141,7 +141,11 @@ test("recording page renders summaries, loops, turns and unread updates", async 
     },
     {
       type: "item.completed",
-      item: { id: "m0", type: "agent_message", text: "目标：清理审计债务" },
+      item: {
+        id: "m0",
+        type: "agent_message",
+        text: "目标：清理审计债务\n第一行具体内容\n第二行具体内容",
+      },
     },
     {
       type: "item.completed",
@@ -408,6 +412,19 @@ test("recording page renders summaries, loops, turns and unread updates", async 
         (child) => child.classList?.contains("decision-icon") && !child.hidden,
       ),
       "goal message should show the decision icon",
+    );
+    const goalBody = decisionMessages[0].children.find((child) =>
+      String(child.className).includes("message-body"),
+    );
+    assert.equal(goalBody.textContent, "目标：清理审计债务");
+    const goalDetails = decisionMessages[0].children.find((child) =>
+      child.className.includes("goal-details"),
+    );
+    assert.ok(goalDetails, "goal message should expose extra lines in a details row");
+    assert.equal(goalDetails.open, false);
+    assert.match(
+      goalDetails.children.find((child) => child.className.includes("goal-details-body")).textContent,
+      /第一行具体内容\n第二行具体内容/,
     );
     // A filter with no matching entries shows an explicit empty-state note.
     nodes.filterErrors.fire("click");

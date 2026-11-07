@@ -1581,17 +1581,38 @@ function renderMessage(item) {
     const label = timeLabel(item);
     if (label) node.append(element("span", label, "msg-time"));
     output.append(node);
-    entry = { node, body, decisionIcon };
+    entry = { node, body, decisionIcon, goalDetails: null, goalExtra: null };
     entries.set(item.id, entry);
   }
+  const source = String(item.text || "");
+  const goal = GOAL_MESSAGE.test(source);
+  const [firstLine, ...rest] = source.split(/\r?\n/);
+  const extra = rest.join("\n").trim();
   entry.node._kind = "message";
   entry.node._error = item.type === "error";
-  entry.node._decision = GOAL_MESSAGE.test(String(item.text || ""));
+  entry.node._decision = goal;
   if (item.type === "error") lastErrorText = String(item.text || "agent error").slice(0, 80);
   entry.node.classList.toggle("error", item.type === "error");
-  entry.node.classList.toggle("decision", entry.node._decision);
-  entry.decisionIcon.hidden = !entry.node._decision;
-  entry.body.textContent = item.text || "";
+  entry.node.classList.toggle("decision", goal);
+  entry.body.classList.toggle("goal-first-line", goal);
+  entry.body.textContent = goal ? firstLine.trim() : source;
+  entry.decisionIcon.hidden = !goal;
+  if (goal && extra) {
+    if (!entry.goalDetails) {
+      const details = element("details", "", "goal-details");
+      const summary = element("summary", "", "goal-details-summary");
+      summary.textContent = strings().raw || "详情";
+      const extraBody = element("pre", "", "goal-details-body");
+      details.append(summary, extraBody);
+      entry.node.append(details);
+      entry.goalDetails = details;
+      entry.goalExtra = extraBody;
+    }
+    entry.goalDetails.hidden = false;
+    entry.goalExtra.textContent = extra;
+  } else if (entry.goalDetails) {
+    entry.goalDetails.hidden = true;
+  }
 }
 function renderTool(item) {
   commandGroup = null;

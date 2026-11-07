@@ -2140,3 +2140,49 @@ body.recording #codexOutput .reasoning-summary,
 body.recording #codexOutput .reasoning-summary-text {
   font-weight: 400;
 }
+
+/* Collapsed thinking summaries stay on one line; expanded rows wrap. */
+body.recording #codexOutput .reasoning:not([open]) .reasoning-summary-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.recording #codexOutput .message.decision .message-body.goal-first-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Goal-message extra lines are hidden behind a details row. */
+body.recording #codexOutput .goal-details {
+  flex: 0 0 100%;
+  order: 99;
+  width: 100%;
+  margin-top: 2px;
+}
+body.recording #codexOutput .goal-details summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 10px;
+}
+body.recording #codexOutput .goal-details summary::-webkit-details-marker {
+  display: none;
+}
+body.recording #codexOutput .goal-details[open] summary {
+  margin-bottom: 2px;
+}
+body.recording #codexOutput .goal-details-body {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Allow the goal details row to wrap below the first message line. */
+body.recording #codexOutput .message:not(.tool):not(.reasoning) {
+  flex-wrap: wrap;
+}
