@@ -47,11 +47,12 @@ test("collapseRepeatedSentences annotates consecutive repeats", () => {
   );
 });
 
-test("formatRelativeMs renders +m:ss", () => {
-  assert.equal(formatRelativeMs(0), "+0:00");
-  assert.equal(formatRelativeMs(12_400), "+0:12");
-  assert.equal(formatRelativeMs(65_000), "+1:05");
-  assert.equal(formatRelativeMs(-50), "+0:00");
+test("formatRelativeMs renders +HH:MM:SS", () => {
+  assert.equal(formatRelativeMs(0), "+00:00:00");
+  assert.equal(formatRelativeMs(12_400), "+00:00:12");
+  assert.equal(formatRelativeMs(65_000), "+00:01:05");
+  assert.equal(formatRelativeMs(3_723_000), "+01:02:03");
+  assert.equal(formatRelativeMs(-50), "+00:00:00");
 });
 
 test("formatDurationText and summarizeCommand durations", async () => {

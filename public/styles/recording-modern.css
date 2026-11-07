@@ -2019,7 +2019,7 @@ body.recording #codexOutput .message > .msg-time,
 body.recording #codexOutput .tool-details summary .msg-time {
   order: -1;
   flex: 0 0 auto;
-  min-width: 34px;
+  min-width: 56px;
   margin-left: 0;
   margin-right: 8px;
   color: var(--muted);
@@ -2214,7 +2214,7 @@ body.recording #codexOutput .event-marker-text {
 body.recording #codexOutput .event-marker .msg-time {
   order: -1;
   flex: 0 0 auto;
-  min-width: 34px;
+  min-width: 56px;
   margin-left: 0;
   margin-right: 0;
 }

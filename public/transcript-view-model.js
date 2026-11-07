@@ -102,12 +102,13 @@ export function collapseRepeatedSentences(text) {
   return out.map((entry) => (entry.count > 1 ? `${entry.text} (×${entry.count})` : entry.text)).join("\n");
 }
 
-/** Format an elapsed millisecond value as `+m:ss` (used for event timestamps). */
+/** Format an elapsed millisecond value as `+HH:MM:SS` (event timestamps). */
 export function formatRelativeMs(ms) {
   const total = Math.max(0, Math.round(Number(ms) || 0) / 1000);
-  const minutes = Math.floor(total / 60);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
   const seconds = Math.floor(total % 60);
-  return `+${minutes}:${String(seconds).padStart(2, "0")}`;
+  return `+${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 /** Compact action duration: `450ms`, `1.4s`, `1m 05s`. */
