@@ -87,6 +87,11 @@ Commands:
   observe-container --target x,y
   belt-contents --target x,y
   belt-lanes [--center-x n --center-y n --radius n] [--limit n] [--target x,y ...]
+  live-status
+  live-chat [--after-seq n] [--limit n] [--kinds danmaku,super_chat]
+  live-replies [--after-seq n] [--limit n]
+  live-connect --room <id>
+  live-host --action start|stop
   fluid-contents --target x,y
   recover-debris [--center-x n --center-y n --radius n]
   observe-resources --window-x <n> --window-y <n> --radius <n>
@@ -243,6 +248,11 @@ COMMAND_USAGE = {
     "factory-audit": "factory-audit: Prioritized refactor audit of factory problems, belt links and suggested repairs.\nUsage: factorio.py factory-audit [--center-x n --center-y n --radius n] [--scope belts,power,pipes,machines,containers,rail] [--include-rail]\nDefault scope: belts,power,pipes,machines,containers; rail is opt-in with --include-rail or --scope rail. Run after builds and every few minutes; repair the highest-impact action, verify, then re-audit.\n",
     "belt-contents": "belt-contents: Show items currently on the belt/splitter/underground line at a tile.\nUsage: factorio.py belt-contents --target x,y\n",
     "belt-lanes": "belt-lanes: Inspect belt lanes with left/right mapping, content saturation, lane balance and lane-mix warnings.\nUsage: factorio.py belt-lanes [--center-x n --center-y n --radius n] [--limit n] [--target x,y ...]\nDefaults: player position, radius 32, limit 100. --target inspects explicit belt tiles instead of the window.\nEach belt reports lanes.left/right (items, item_count, saturation), lane_balance, lane_mix and side-load feeders.\n",
+    "live-status": "live-status: Show the Bilibili live danmaku bridge status (room, live state, buffers, interaction host).\nUsage: factorio.py live-status\n",
+    "live-chat": "live-chat: Read newly buffered Bilibili danmaku and super chats (read-only; nothing is sent back).\nUsage: factorio.py live-chat [--after-seq n] [--limit n] [--kinds danmaku,super_chat]\nReturns messages with seq/ts/uid/uname/text/kind; pass the previous next_seq as --after-seq.\n",
+    "live-replies": "live-replies: Read the persona interaction host's queued spoken replies.\nUsage: factorio.py live-replies [--after-seq n] [--limit n]\n",
+    "live-connect": "live-connect: Start the manager's read-only Bilibili live chat bridge for a room (short id is fine).\nUsage: factorio.py live-connect --room <id>\nNeeds Node 22+ (or NODE_OPTIONS=--experimental-websocket on Node 20).\n",
+    "live-host": "live-host: Start/stop the separate persona interaction host that answers danmaku when the voice is idle.\nUsage: factorio.py live-host --action start|stop\n",
     "fluid-contents": "fluid-contents: Show actual fluid amounts inside a pipe/fluid entity at a tile.\nUsage: factorio.py fluid-contents --target x,y\n",
     "observe-container": "observe-container: Show a chest/container inventory at a tile.\nUsage: factorio.py observe-container --target x,y\n",
     "container-transfer": "container-transfer: Move items between containers through the player inventory; omit --item to move all stacks.\nUsage: factorio.py container-transfer --from x,y --to x,y [--item name] [--count n|all]\n",
@@ -2486,6 +2496,28 @@ class FactorioClient:
         not build. ``kind`` is belt, pipe, wall or power; use build with the
         returned entities, or pass ``clear`` only for a future build job.
         """
+        mode = getattr(self, "_construction_mode", None) or os.environ.get("AUTORIO_CONSTRUCTION_MODE")
+        if mode == "planned" and str(kind).lower() in ("power", "pipe", "belt"):
+            body: dict[str, Any] = {
+                "kind": str(kind).lower(),
+                "from": from_xy,
+                "to": to_xy,
+            }
+            if radius is not None:
+                body["radius"] = radius
+            if spacing is not None:
+                body["spacing"] = spacing
+            response = self.request("POST", "/api/agent/plan/route", body)
+            data = data_value(response)
+            if isinstance(data, dict) and data.get("plan_id"):
+                entities = data.get("planned_entities")
+                return {
+                    "ok": True,
+                    "kind": str(kind).lower(),
+                    "plan_id": data["plan_id"],
+                    "planned_entities": entities,
+                    "warnings": [],
+                }
         start_x, start_y = _planner_point(from_xy, "from")
         end_x, end_y = _planner_point(to_xy, "to")
         center_x = (start_x + end_x) / 2
@@ -2681,6 +2713,42 @@ class FactorioClient:
         if targets:
             body["targets"] = targets
         return self.request("POST", "/api/agent/observe/belts", body)
+
+    def live_status(self) -> Any:
+        """Show the Bilibili live danmaku bridge status (read-only)."""
+        return self.request("GET", "/api/live/status")
+
+    def live_chat(self, *, after_seq: int = 0, limit: int = 20,
+                  kinds: list[str] | None = None) -> Any:
+        """Read newly buffered Bilibili danmaku / super chats (never sent back).
+
+        Pass the previous response's ``next_seq`` as ``after_seq`` to poll
+        incrementally. Read-only: the manager never posts messages to Bilibili.
+        """
+        query = f"?after_seq={int(after_seq)}&limit={int(limit)}"
+        if kinds:
+            query += "&kinds=" + quote(",".join(kinds), safe=",")
+        return self.request("GET", "/api/agent/live-chat" + query)
+
+    def live_replies(self, *, after_seq: int = 0, limit: int = 20) -> Any:
+        """Read the persona interaction host's queued spoken replies."""
+        return self.request(
+            "GET", f"/api/live/replies?after_seq={int(after_seq)}&limit={int(limit)}"
+        )
+
+    def live_connect(self, room_id: int | str) -> Any:
+        """Start the manager's read-only Bilibili live chat bridge for a room."""
+        return self.request("POST", "/api/live/connect", {"room_id": room_id})
+
+    def live_disconnect(self) -> Any:
+        """Stop the live chat bridge (and the interaction host)."""
+        return self.request("POST", "/api/live/disconnect", {})
+
+    def live_host(self, action: str = "start") -> Any:
+        """Start/stop the separate persona interaction host."""
+        if action not in ("start", "stop"):
+            raise ValueError("live_host action must be 'start' or 'stop'")
+        return self.request("POST", f"/api/live/host/{action}", {})
 
     def fluid_contents(self, x: float, y: float) -> dict[str, Any]:
         """Read the actual fluids currently inside a pipe/fluid entity."""
@@ -3997,21 +4065,18 @@ class FactorioClient:
             if canonical == "pipe" and underground:
                 planned = None
             elif route == "auto":
-                path_x, path_y = _planner_point(to_xy, "to")
-                path_points = _job_path_points(
-                    self.preview_path(float(path_x) + 0.5, float(path_y) + 0.5)
+                route_plan = self.plan_route(
+                    from_xy,
+                    to_xy,
+                    kind=layout_kind,
+                    spacing=spacing,
                 )
-                planned = (
-                    self._planned_layout(
-                        layout_kind,
-                        path=path_points,
-                        pole=name or POWER_POLE_BIG,
-                        spacing=spacing,
-                        name=name,
-                    )
-                    if path_points
-                    else None
-                )
+                planned = None
+                if route_plan and route_plan.get("plan_id"):
+                    entities = route_plan.get("planned_entities")
+                    if not isinstance(entities, list) or not entities:
+                        raise RuntimeError("manager route plan returned no entities")
+                    planned = (str(route_plan["plan_id"]), [dict(entry) for entry in entities])
             else:
                 planned = self._planned_layout(
                     layout_kind,
@@ -5233,6 +5298,28 @@ def run(argv: list[str]) -> int:
                 limit=parse_number(flag("limit"), 100) or 100,
             )
             return output(data_value(result), ok=True)
+        elif cmd == "live-status":
+            return output(data_value(FactorioClient(parsed.base).live_status()), ok=True)
+        elif cmd == "live-chat":
+            kinds_value = [part.strip() for part in (flag("kinds") or "").split(",") if part.strip()]
+            return output(data_value(FactorioClient(parsed.base).live_chat(
+                after_seq=int(parse_number(flag("after-seq"), 0) or 0),
+                limit=int(parse_number(flag("limit"), 20) or 20),
+                kinds=kinds_value or None,
+            )), ok=True)
+        elif cmd == "live-replies":
+            return output(data_value(FactorioClient(parsed.base).live_replies(
+                after_seq=int(parse_number(flag("after-seq"), 0) or 0),
+                limit=int(parse_number(flag("limit"), 20) or 20),
+            )), ok=True)
+        elif cmd == "live-connect":
+            room = flag("room")
+            if not room:
+                raise ValueError("Missing --room")
+            return output(data_value(FactorioClient(parsed.base).live_connect(room)), ok=True)
+        elif cmd == "live-host":
+            action = (flag("action") or "start").strip().lower()
+            return output(data_value(FactorioClient(parsed.base).live_host(action)), ok=True)
         elif cmd in ("belt-contents", "fluid-contents"):
             target = parse_targets([flag("target") or ""], False)[0] if flag("target") else None
             if not target:

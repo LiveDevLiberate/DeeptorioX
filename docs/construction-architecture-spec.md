@@ -857,6 +857,7 @@ Implemented in this branch:
 
 - benchmark/run construction mode snapshot and scoring variant metadata;
 - `GET /api/agent/construction`, `POST /api/agent/plan`,
+  `POST /api/agent/plan/route` (manager free-space BFS route),
   `GET /api/agent/plan/:id`, `POST /api/agent/plan/:id/cancel`;
 - single-use plan tokens with kind, target hash, bbox, audit revision and expiry;
 - planned-mode gates on build, blueprint, mutation and cleanup actions;
@@ -870,7 +871,8 @@ Implemented in this branch:
   `regressed`) and repeated-ineffective plan blocking;
 - manager-generated `power`, `pipe` and `belt` layout plans (straight/L power
   trunks, coverage grids, straight pipe/belt runs, and native-path waypoint
-  routes for lakes/cliffs) with canonical entities;
+  routes for lakes/cliffs via `/api/agent/plan/route` free-space BFS) with
+  canonical entities;
 - planned-mode working-block protection for cleanup targets (working production
   machines and machines with stored items/fluids are rejected before the plan is
   consumed);
@@ -884,7 +886,7 @@ Implemented in this branch:
 
 Remaining follow-ups:
 
-- move native pathfinding itself into the manager (the client supplies waypoint
-  routes today; the manager only lays canonical entities along them);
 - richer working-block classification for production chains and shared inputs;
-- cross-benchmark aggregation and calibration UI beyond variant groups.
+- cross-benchmark aggregation and calibration UI beyond variant groups;
+- route optimization (current manager BFS finds a shortest grid path but does
+  not yet weigh existing belts, power coverage or construction cost).

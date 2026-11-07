@@ -524,6 +524,48 @@ class BeltLaneObservationTests(unittest.TestCase):
         self.assertEqual(args[2]["limit"], 100)
 
 
+class LiveChatClientTests(unittest.TestCase):
+    def test_live_chat_payload_and_usage(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.live_chat(after_seq=7, limit=5, kinds=["danmaku"])
+        request.assert_called_once_with(
+            "GET", "/api/agent/live-chat?after_seq=7&limit=5&kinds=danmaku")
+        for command in ("live-status", "live-chat", "live-replies", "live-connect", "live-host"):
+            self.assertIn(command, factorio.COMMAND_USAGE)
+            self.assertIn(command, factorio.GLOBAL_USAGE)
+
+    def test_live_connection_and_host_control(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.live_connect(21452505)
+            client.live_disconnect()
+            client.live_host("stop")
+        self.assertEqual(
+            [call.args for call in request.call_args_list],
+            [
+                ("POST", "/api/live/connect", {"room_id": 21452505}),
+                ("POST", "/api/live/disconnect", {}),
+                ("POST", "/api/live/host/stop", {}),
+            ],
+        )
+        with self.assertRaises(ValueError):
+            client.live_host("bogus")
+
+    def test_live_replies_and_status(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        with patch.object(client, "request", return_value={"ok": True}) as request:
+            client.live_status()
+            client.live_replies(after_seq=2, limit=4)
+        self.assertEqual(
+            [call.args for call in request.call_args_list],
+            [
+                ("GET", "/api/live/status"),
+                ("GET", "/api/live/replies?after_seq=2&limit=4"),
+            ],
+        )
+
+
 class WaitPolicyTests(unittest.TestCase):
     def test_wait_until_is_capped_and_explains_switch_tasks(self):
         client = factorio.FactorioClient(poll_interval=0)
@@ -2711,6 +2753,22 @@ class ConstructionPlanClientTests(unittest.TestCase):
             "POST",
             "/api/agent/act/copy-settings",
             {"targets": targets, "plan_id": "pln_copy"},
+        )
+
+    def test_plan_route_uses_manager_endpoint_when_planned(self):
+        client = factorio.FactorioClient(poll_interval=0)
+        client._construction_mode = "planned"
+        plan = {
+            "ok": True,
+            "data": {"plan_id": "pln_route", "planned_entities": [{"name": "transport-belt", "anchor": {"x": 0, "y": 0}}]},
+        }
+        with patch.object(client, "request", return_value=plan) as request:
+            result = client.plan_route((0, 0), (4, 0))
+        self.assertEqual(result["plan_id"], "pln_route")
+        request.assert_called_once_with(
+            "POST",
+            "/api/agent/plan/route",
+            {"kind": "belt", "from": (0, 0), "to": (4, 0)},
         )
 
     def test_power_line_uses_manager_generated_layout_when_planned(self):

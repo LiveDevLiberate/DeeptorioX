@@ -64,7 +64,19 @@ function fakeContext() {
       return { ...plan, status: "invalidated" };
     },
   };
-  return { context: { runManager }, created, plan };
+  return {
+    context: {
+      runManager,
+      rconCommand: async () =>
+        JSON.stringify({
+          origin: { x: 0, y: 0 },
+          step: 1,
+          rows: [".....", ".....", ".....", ".....", "....."],
+        }),
+    },
+    created,
+    plan,
+  };
 }
 
 test("construction routes expose mode, issue plans and return structured errors", async () => {
@@ -102,4 +114,24 @@ test("construction routes expose mode, issue plans and return structured errors"
   const cancelled = await dispatch(router, fakeRequest("/api/agent/plan/pln_test/cancel", "POST", {}));
   assert.equal(cancelled.statusCode, 200);
   assert.equal(body(cancelled).data.status, "invalidated");
+});
+
+test("manager route endpoint BFSes free space and issues a layout plan", async () => {
+  const router = new Router();
+  const { context, created } = fakeContext();
+  registerConstructionRoutes(router, context);
+  const response = await dispatch(
+    router,
+    fakeRequest("/api/agent/plan/route", "POST", {
+      kind: "belt",
+      from: { x: 0, y: 0 },
+      to: { x: 4, y: 0 },
+    }),
+  );
+  assert.equal(response.statusCode, 201);
+  assert.equal(created.length, 1);
+  assert.equal(created[0].kind, "belt");
+  assert.ok(Array.isArray(created[0].path));
+  assert.deepEqual(created[0].path[0], { x: 0, y: 0 });
+  assert.deepEqual(created[0].path.at(-1), { x: 4, y: 0 });
 });
