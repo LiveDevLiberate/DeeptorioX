@@ -2084,7 +2084,7 @@ export class RunManager {
           construction?.blueprints?.source ??
           run.scoring?.blueprint_policy ??
           "none",
-        ranked: run.benchmark.scoring.ranked,
+        ranked: run.benchmark.scoring?.ranked ?? true,
         runs: [],
       };
       groups.set(key, group);
