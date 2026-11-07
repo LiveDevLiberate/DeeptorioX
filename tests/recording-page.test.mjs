@@ -456,4 +456,7 @@ test("recording page exposes map and blueprint previews", () => {
   assert.match(html, /id="statusProductionList"/);
   assert.match(js, /function renderProduction/);
   assert.match(js, /limit: 999/);
+  assert.match(js, /reasoningLabel/);
+  assert.match(js, /markerResearched/);
+  assert.match(js, /研究完成/);
 });

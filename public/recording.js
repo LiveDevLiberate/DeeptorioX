@@ -122,6 +122,10 @@ const I18N = {
     raw: "raw",
     rateSuffix: "/min",
     productionColumn: "Item output",
+    reasoningLabel: "Thinking",
+    markerResearched: "Researched: {name}",
+    markerProduction: "{name} {rate}/min",
+    markerRocket: "Rocket launched ({count})",
     noTelemetry: "no telemetry",
     researchLabel: "research",
     trimmed: "earlier entries trimmed",
@@ -291,6 +295,10 @@ const I18N = {
     raw: "原始",
     rateSuffix: "/分",
     productionColumn: "物品产量",
+    reasoningLabel: "思考",
+    markerResearched: "研究完成：{name}",
+    markerProduction: "{name} {rate}/分",
+    markerRocket: "火箭发射（{count}）",
     noTelemetry: "无遥测数据",
     researchLabel: "研究",
     trimmed: "更早记录已裁剪",
@@ -1430,7 +1438,7 @@ function renderReasoning(item) {
   const segments = splitReasoning(text);
   const node = element("details", "", "message reasoning");
   const summary = element("summary", "", "reasoning-summary");
-  summary.textContent = segments[0]?.summary || "…";
+  summary.textContent = `${strings().reasoningLabel} · ${segments[0]?.summary || "…"}`;
   prependIcon(summary, "brain");
   const badge = element("span", "", "dedupe-badge");
   badge.hidden = true;
@@ -1640,9 +1648,20 @@ function trimTranscript() {
   }
   trimNote.textContent = `${trimmedCount} ${strings().trimmed}`;
 }
+function localizeMarker(text) {
+  const labels = strings();
+  const value = String(text || "").trim();
+  let match = /^researched (.+)$/.exec(value);
+  if (match) return labels.markerResearched.replace("{name}", match[1]);
+  match = /^rocket launched \((\d+)\)$/.exec(value);
+  if (match) return labels.markerRocket.replace("{count}", match[1]);
+  match = /^(.+) (\d+)\/min$/.exec(value);
+  if (match) return labels.markerProduction.replace("{name}", match[1]).replace("{rate}", match[2]);
+  return value;
+}
 function renderEventMarker(text) {
   commandGroup = null;
-  const node = element("div", text, "event-marker");
+  const node = element("div", localizeMarker(text), "event-marker");
   node._kind = "marker";
   prependIcon(node, "flag");
   output.append(node);
