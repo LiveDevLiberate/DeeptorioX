@@ -1778,3 +1778,35 @@ body.recording .status-plan.ui-col-1-7 {
     overflow-wrap: anywhere;
   }
 }
+
+/* Vertically center inline icons in single-line transcript rows. */
+body.recording #codexOutput .reasoning-summary,
+body.recording #codexOutput .commands-summary,
+body.recording #codexOutput .tool-details summary,
+body.recording #codexOutput .event-marker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+body.recording #codexOutput .reasoning-summary .icon,
+body.recording #codexOutput .commands-summary .icon,
+body.recording #codexOutput .tool-details summary .icon,
+body.recording #codexOutput .event-marker .icon {
+  flex: 0 0 auto;
+  margin-right: 0;
+  vertical-align: middle;
+}
+body.recording #codexOutput .reasoning-summary .msg-time,
+body.recording #codexOutput .tool-details summary .msg-time {
+  margin-left: auto;
+}
+body.recording #codexOutput .action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+body.recording #codexOutput .action-badge .icon {
+  flex: 0 0 auto;
+  margin-right: 0;
+  vertical-align: middle;
+}
