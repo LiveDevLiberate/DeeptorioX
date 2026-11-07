@@ -1474,11 +1474,13 @@ export class RunManager {
             entities = planPipePath({
               path: record.path,
               name: typeof record.name === "string" ? record.name : undefined,
+              existing_assets: record.existing_assets,
             });
           } else {
             entities = planBeltPath({
               path: record.path,
               name: typeof record.name === "string" ? record.name : undefined,
+              existing_assets: record.existing_assets,
             });
           }
         } else if (kind === "power") {

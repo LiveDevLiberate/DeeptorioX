@@ -896,14 +896,14 @@ Final polish implemented:
 - leaderboard filters by benchmark/variant/model;
 - run-page construction plan history and recording construction badge;
 - turn-penalized manager route (straight corridors preferred), with existing
-  power-pole reuse on route power plans;
+  power-pole reuse and belt/pipe asset reuse along matching corridors;
 - generic plan material preflight (blueprint and layout plans);
 - manager-side blueprint rotation/mirror transforms (quarter-turn*2 convention:
   2=90°, 4=180°, 6=270°) for anchor/prototype-size expanded entities.
 
 Remaining follow-ups:
 
-- route/belt/pipe reuse of existing matching assets (current free-space routing
-  avoids existing entities; only power poles are actively reused);
 - production-chain classification across longer belt/inserter chains;
-- rotation/mirror validation against every multi-tile prototype footprint.
+- rotation/mirror validation against every multi-tile prototype footprint;
+- route reuse across belt tiers/underground pairs and existing pipe-to-ground
+  networks (current reuse matches direction for surface belts and any pipe).

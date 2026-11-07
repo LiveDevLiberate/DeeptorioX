@@ -72,8 +72,57 @@ export function registerConstructionRoutes(router: Router, ctx: ApiContext): voi
     const goal = toCell(toX, toY);
     const height = rows.length;
     const width = rows[0]?.length ?? 0;
-    const passable = (row: number, col: number) =>
-      row >= 0 && row < height && col >= 0 && col < width && rows[row]?.[col] === ".";
+    let existingAssets: Array<{ x: number; y: number; type?: string; direction?: number }> = [];
+    if (kind === "belt" || kind === "pipe") {
+      try {
+        const assetTypes =
+          kind === "belt" ? ["transport-belt", "underground-belt", "splitter"] : ["pipe", "pipe-to-ground"];
+        const assetResponse = await rconCommand(
+          observeAreaCommand({
+            x: Math.round(midX),
+            y: Math.round(midY),
+            radius,
+            limit: 400,
+            playerOnly: false,
+            types: assetTypes,
+          }),
+          8000,
+        );
+        const assetData = JSON.parse(assetResponse) as {
+          entities?: Array<Record<string, unknown>>;
+        };
+        existingAssets = (assetData.entities ?? [])
+          .map((entity) => ({
+            x: Number(entity.x),
+            y: Number(entity.y),
+            type: typeof entity.type === "string" ? entity.type : undefined,
+            direction: Number.isFinite(Number(entity.direction)) ? Number(entity.direction) : undefined,
+          }))
+          .filter((entity) => Number.isFinite(entity.x) && Number.isFinite(entity.y));
+      } catch {
+        // Reuse is an optimization; fall back to building the full corridor.
+      }
+    }
+    const existingByTile = new Map(
+      existingAssets.map((asset) => [`${Math.floor(asset.x)},${Math.floor(asset.y)}`, asset]),
+    );
+    const movementDirection = (dr: number, dc: number) => (dr === 1 ? 8 : dr === -1 ? 0 : dc === 1 ? 4 : 12);
+    const passable = (row: number, col: number, direction?: number) => {
+      if (row < 0 || row >= height || col < 0 || col >= width) return false;
+      if (rows[row]?.[col] === ".") return true;
+      const asset = existingByTile.get(`${ox + col * step},${oy + row * step}`);
+      if (!asset) return false;
+      if (kind === "pipe") return asset.type === "pipe" || asset.type === "pipe-to-ground";
+      if (kind === "belt") {
+        return (
+          (asset.type === "transport-belt" ||
+            asset.type === "underground-belt" ||
+            asset.type === "splitter") &&
+          (direction === undefined || asset.direction === direction)
+        );
+      }
+      return false;
+    };
     if (!passable(start.row, start.col) || !passable(goal.row, goal.col)) {
       throw new ConstructionPlanError(
         "PLAN_ROUTE_FAILED",
@@ -152,7 +201,7 @@ export function registerConstructionRoutes(router: Router, ctx: ApiContext): voi
         const [dr, dc] = directions[direction];
         const row = current.row + dr;
         const col = current.col + dc;
-        if (!passable(row, col)) continue;
+        if (!passable(row, col, movementDirection(dr, dc))) continue;
         const key = stateKey(row, col, direction);
         const cost = current.cost + 1 + (direction === current.direction ? 0 : turnPenalty);
         if (cost >= (best.get(key) ?? Infinity)) continue;
@@ -209,6 +258,7 @@ export function registerConstructionRoutes(router: Router, ctx: ApiContext): voi
       ...body,
       path: waypoints,
       ...(existingPoles.length ? { existing_poles: existingPoles } : {}),
+      ...(existingAssets.length ? { existing_assets: existingAssets } : {}),
     });
   };
 

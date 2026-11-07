@@ -204,25 +204,64 @@ function expandedPath(value: unknown): LayoutPoint[] {
   return points;
 }
 
+type ExistingAsset = { x: number; y: number; type?: string; direction?: number };
+
+function existingAssetTiles(value: unknown): Map<string, ExistingAsset> {
+  const map = new Map<string, ExistingAsset>();
+  for (const entry of Array.isArray(value) ? value : []) {
+    const point = integerPoint(entry);
+    if (!point) continue;
+    const record = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+    map.set(`${point.x},${point.y}`, {
+      ...point,
+      type: typeof record.type === "string" ? record.type : undefined,
+      direction: Number.isFinite(Number(record.direction)) ? Number(record.direction) : undefined,
+    });
+  }
+  return map;
+}
+
 /** Belt route: one belt per path tile, facing the next waypoint. */
-export function planBeltPath(input: { path: unknown; name?: string }): ConstructionEntity[] {
+export function planBeltPath(input: {
+  path: unknown;
+  name?: string;
+  existing_assets?: unknown;
+}): ConstructionEntity[] {
   const path = expandedPath(input.path);
+  const existing = existingAssetTiles(input.existing_assets);
   const name = typeof input.name === "string" && input.name.trim() ? input.name.trim() : "transport-belt";
-  return path.map((anchor, index) => {
+  return path.flatMap((anchor, index) => {
     const next = path[Math.min(index + 1, path.length - 1)];
     const previous = path[Math.max(0, index - 1)];
     const dx = index === path.length - 1 ? Math.sign(anchor.x - previous.x) : Math.sign(next.x - anchor.x);
     const dy = index === path.length - 1 ? Math.sign(anchor.y - previous.y) : Math.sign(next.y - anchor.y);
     const direction = dx > 0 ? 4 : dx < 0 ? 12 : dy > 0 ? 8 : 0;
-    return { name, anchor, direction };
+    const asset = existing.get(`${anchor.x},${anchor.y}`);
+    if (
+      asset &&
+      (asset.type === "transport-belt" || asset.type === "underground-belt" || asset.type === "splitter") &&
+      asset.direction === direction
+    ) {
+      return [];
+    }
+    return [{ name, anchor, direction }];
   });
 }
 
 /** Pipe route: one surface pipe per path tile. */
-export function planPipePath(input: { path: unknown; name?: string }): ConstructionEntity[] {
+export function planPipePath(input: {
+  path: unknown;
+  name?: string;
+  existing_assets?: unknown;
+}): ConstructionEntity[] {
   const path = expandedPath(input.path);
+  const existing = existingAssetTiles(input.existing_assets);
   const name = typeof input.name === "string" && input.name.trim() ? input.name.trim() : "pipe";
-  return path.map((anchor) => ({ name, anchor }));
+  return path.flatMap((anchor) => {
+    const asset = existing.get(`${anchor.x},${anchor.y}`);
+    if (asset && (asset.type === "pipe" || asset.type === "pipe-to-ground")) return [];
+    return [{ name, anchor }];
+  });
 }
 
 /** Pole route: wire-reach spacing along cumulative path distance. */

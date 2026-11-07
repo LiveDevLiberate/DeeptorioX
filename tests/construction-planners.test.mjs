@@ -87,3 +87,33 @@ test("path-aware plans follow native waypoints for belts, pipes and poles", asyn
     /axis-aligned/,
   );
 });
+
+test("route planners skip matching existing belt/pipe assets", async () => {
+  const { planBeltPath, planPipePath } = await import("../dist/construction-planners.js");
+  const path = [
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 2, y: 0 },
+  ];
+  const belts = planBeltPath({
+    path,
+    existing_assets: [{ x: 1, y: 0, type: "transport-belt", direction: 4 }],
+  });
+  assert.deepEqual(
+    belts.map((entry) => entry.anchor),
+    [{ x: 0, y: 0 }, { x: 2, y: 0 }],
+  );
+  const wrongDirection = planBeltPath({
+    path,
+    existing_assets: [{ x: 1, y: 0, type: "transport-belt", direction: 12 }],
+  });
+  assert.equal(wrongDirection.length, 3);
+  const pipes = planPipePath({
+    path,
+    existing_assets: [{ x: 1, y: 0, type: "pipe" }],
+  });
+  assert.deepEqual(
+    pipes.map((entry) => entry.anchor),
+    [{ x: 0, y: 0 }, { x: 2, y: 0 }],
+  );
+});
